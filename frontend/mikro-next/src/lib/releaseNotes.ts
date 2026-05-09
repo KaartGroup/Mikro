@@ -142,9 +142,15 @@ export function unseenReleases(
   });
 }
 
-/** Map a backend role to the audience bucket the modal uses. */
+/** Map a backend role to the audience bucket the modal uses.
+ * Any admin tier (super_admin, admin/org_admin, team_admin) gets
+ * the admin-only release notes; everyone else gets the user bucket.
+ */
 export function audienceForRole(
   role: string | null | undefined,
 ): WhatsNewAudience {
-  return role === "admin" ? "admin" : "user";
+  if (role === "admin" || role === "super_admin" || role === "team_admin") {
+    return "admin";
+  }
+  return "user";
 }

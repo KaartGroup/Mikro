@@ -16,8 +16,13 @@ export function usePaymentsVisible(): { paymentsVisible: boolean; loading: boole
         });
         if (res.ok) {
           const data = await res.json();
-          // Admins always see payments
-          if (data.role === "admin") {
+          // All admin tiers always see payments — server scopes data
+          // by role, but the UI block stays accessible.
+          if (
+            data.role === "admin" ||
+            data.role === "super_admin" ||
+            data.role === "team_admin"
+          ) {
             setPaymentsVisible(true);
           } else {
             setPaymentsVisible(data.micropayments_visible ?? false);

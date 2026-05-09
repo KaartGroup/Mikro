@@ -4,32 +4,23 @@ Pay-field visibility policy — single source of truth.
 Who can see a user's hourly_rate, payment_email, or running-balance
 fields (payable_total, paid_total, etc.) on any API response?
 
-Today's policy:
+Three-tier admin model (in effect 2026-05):
   - The target user themselves — always.
-  - Any caller with role == "admin" — always.
-  - Everyone else — never.
-
-When F3 lands (Super Admin vs Team Admin split), `can_view_pay_for` is
-the ONLY place the rule changes. New rule sketch:
-  - Target user themselves — always.
-  - role == "super_admin" — always.
-  - role == "team_admin" — only when target is in viewer's managed teams
-    AND they share an org_id.
-  - role == "admin" — keep working as-is during migration so nothing
-    breaks; retire once every admin has been re-classed.
+  - role == "super_admin" — always (cross-org reserved for future).
+  - role == "admin" (Org Admin) — always for users in the same org.
+  - role == "team_admin" — only when the target is a member of any
+    team this viewer leads. Cross-team peers still hidden.
   - role == "validator" / "user" — never.
 
-Endpoints: existing ones are already audited and gated correctly via
-`@requires_admin` / self-scoped queries (see F11 audit in
-`.claude/clock-tz-bulletproofing-plan.md` sibling doc for the audit
-log). This module exists so that *future* endpoints that return User
-data — new surfaces we haven't built yet — can't accidentally leak pay
-fields by grepping past the decorator. Call `redact_pay_fields(dict,
-viewer, target)` on any response dict that might include pay fields and
-the policy is enforced centrally.
+`can_view_pay_for` is the ONLY place the rule changes when roles or
+scoping evolve. Endpoints don't need updating — they call
+`redact_pay_fields(dict, viewer, target)` and the policy is enforced
+centrally.
 """
 
 from typing import Iterable
+
+from .team_scoping import team_admin_can_access_user
 
 
 # Any response field whose presence exposes pay/contact-for-pay data.
@@ -63,17 +54,35 @@ PAY_FIELDS: frozenset[str] = frozenset({
 def can_view_pay_for(viewer, target) -> bool:
     """True if `viewer` is authorized to see `target`'s pay fields.
 
-    `viewer` and `target` are `User` records (or anything with `id` and
-    `role` attributes). Either being None returns False — fail closed.
+    `viewer` and `target` are `User` records (or anything with `id`,
+    `role`, `org_id` attributes). Either being None returns False —
+    fail closed.
     """
     if viewer is None or target is None:
         return False
     # Self is always allowed — a contractor can see their own rate.
-    if getattr(viewer, "id", None) == getattr(target, "id", None):
+    viewer_id = getattr(viewer, "id", None)
+    target_id = getattr(target, "id", None)
+    if viewer_id is not None and viewer_id == target_id:
         return True
-    # Admin gate — today's stand-in for Super Admin until F3 lands.
-    if getattr(viewer, "role", None) == "admin":
-        return True
+    viewer_role = getattr(viewer, "role", None)
+    # Org Admin and Super Admin: full visibility within shared org_id.
+    if viewer_role in {"admin", "super_admin"}:
+        # Cross-org leakage rail: viewer must share org with target.
+        # Today every admin's org matches every target's org because
+        # the data model is single-tenant under the hood (see F4).
+        # When external orgs land, this still does the right thing.
+        viewer_org = getattr(viewer, "org_id", None)
+        target_org = getattr(target, "org_id", None)
+        if viewer_role == "super_admin":
+            # Super admin will eventually see across orgs; today the
+            # backend filters by g.user.org_id everywhere so this
+            # branch only matters if/when cross-org reads land.
+            return True
+        return viewer_org is not None and viewer_org == target_org
+    # Team Admin: visible if target is a member of any team viewer leads.
+    if viewer_role == "team_admin":
+        return team_admin_can_access_user(viewer, target_id)
     return False
 
 

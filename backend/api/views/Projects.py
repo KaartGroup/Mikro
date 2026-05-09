@@ -14,7 +14,11 @@ from flask.views import MethodView
 from flask import g, request, current_app
 from sqlalchemy import func, case, and_
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
+from ..auth import (
+    is_org_admin_or_above,
+    managed_team_ids_for,
+)
 from ..filters import resolve_filtered_user_ids, get_user_country_ids, is_visible_by_location
 from ..stats import count_tasks_split_aware, get_project_stats, get_project_stats_from_tasks, get_batch_project_stats, get_user_task_stats, get_user_payment_balances, get_batch_project_stats_fast
 from .MapRoulette import MapRouletteSync
@@ -676,7 +680,7 @@ class ProjectAPI(MethodView):
             "mr_status_breakdown": mr_status_counts,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_org_projects(self):
         # Check if user is authenticated
         if not g:
@@ -690,6 +694,31 @@ class ProjectAPI(MethodView):
         region_id = req_body.get("region_id")
         team_id = req_body.get("team_id")
         filtered_user_ids = resolve_filtered_user_ids(filters, g.user.org_id)
+
+        # team_admin: narrow to projects joined to managed teams via ProjectTeam
+        team_admin_project_ids = None
+        if g.user.role == "team_admin":
+            managed = managed_team_ids_for(g.user)
+            if not managed:
+                return {
+                    "org_active_projects": [],
+                    "org_inactive_projects": [],
+                    "message": "Projects found",
+                    "status": 200,
+                }
+            team_admin_project_ids = {
+                pt.project_id
+                for pt in ProjectTeam.query.filter(
+                    ProjectTeam.team_id.in_(managed)
+                ).all()
+            }
+            if not team_admin_project_ids:
+                return {
+                    "org_active_projects": [],
+                    "org_inactive_projects": [],
+                    "message": "Projects found",
+                    "status": 200,
+                }
 
         # If filters produced a user-id set, restrict to projects that have
         # at least one assigned user in that set via the ProjectUser table.
@@ -712,6 +741,15 @@ class ProjectAPI(MethodView):
         inactive_projects = Project.query.filter_by(
             org_id=g.user.org_id, status=False
         ).all()
+
+        # team_admin: narrow to projects joined to managed teams
+        if team_admin_project_ids is not None:
+            active_projects = [
+                p for p in active_projects if p.id in team_admin_project_ids
+            ]
+            inactive_projects = [
+                p for p in inactive_projects if p.id in team_admin_project_ids
+            ]
 
         # Batch-load location assignment counts for admin display
         all_project_ids = [p.id for p in active_projects + inactive_projects]
@@ -1194,7 +1232,7 @@ class ProjectAPI(MethodView):
             "avg_time_per_task": avg_time_per_task,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_admin_dash_stats(self):
         # Check if user is authenticated
         if not g:
@@ -1230,6 +1268,41 @@ class ProjectAPI(MethodView):
                 ]
             except (TypeError, ValueError):
                 visible_project_ids = None
+
+        # team_admin: narrow to projects joined to managed teams.
+        # Intersects with any country/region filter.
+        if g.user.role == "team_admin":
+            managed = managed_team_ids_for(g.user)
+            if not managed:
+                # zero-team team_admin: empty result
+                return {
+                    "month_contribution_change": 0,
+                    "total_contributions_for_month": 0,
+                    "weekly_contributions_array": [],
+                    "active_projects": 0,
+                    "inactive_projects": 0,
+                    "completed_projects": 0,
+                    "mapped_tasks": 0,
+                    "validated_tasks": 0,
+                    "invalidated_tasks": 0,
+                    "payable_total": 0,
+                    "requests_total": 0,
+                    "payouts_total": 0,
+                    "message": "Stats Fetched",
+                    "status": 200,
+                }
+            ta_project_ids = {
+                pt.project_id
+                for pt in ProjectTeam.query.filter(
+                    ProjectTeam.team_id.in_(managed)
+                ).all()
+            }
+            if visible_project_ids is not None:
+                visible_project_ids = [
+                    pid for pid in visible_project_ids if pid in ta_project_ids
+                ]
+            else:
+                visible_project_ids = list(ta_project_ids)
 
         # Weekly contributions (already SQL-based)
         end_date = datetime.now()

@@ -41,6 +41,9 @@ import {
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { Val } from "@/components/ui";
 import type { PayRequest, Payment } from "@/types";
+import { isOrgAdminOrAbove } from "@/types";
+import { useCurrentUserRole, useManagedTeams } from "@/hooks";
+import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -108,6 +111,15 @@ export default function AdminPaymentsPage() {
   const { mutate: fetchArchivedTransactions, loading: loadingArchived } = useFetchArchivedTransactions();
   const { mutate: purgeTransactions, loading: purging } = usePurgeTransactions();
   const toast = useToastActions();
+
+  // Role-aware UI (F3 Phase 3.4):
+  // - team_admin: list is server-scoped to managed-team users.
+  //   Pay actions remain available (server gates them).
+  // - admin/super_admin: full management; can purge.
+  const { role: viewerRole, loading: roleLoading } = useCurrentUserRole();
+  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const isTeamAdmin = viewerRole === "team_admin";
+  const canPurge = isOrgAdminOrAbove(viewerRole);
 
   // Fetch total potential payout (sum of all users' validated_tasks_amounts)
   const [totalPotentialPayout, setTotalPotentialPayout] = useState(0);
@@ -402,7 +414,7 @@ export default function AdminPaymentsPage() {
     setShowArchiveModal(true);
   };
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
@@ -413,6 +425,20 @@ export default function AdminPaymentsPage() {
         </div>
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  // team_admin with no managed teams → empty state.
+  if (
+    isTeamAdmin &&
+    !managedTeamsLoading &&
+    managedTeams.length === 0
+  ) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Payments</h1>
+        <TeamAdminEmptyState context="payment" />
       </div>
     );
   }
@@ -1042,21 +1068,23 @@ export default function AdminPaymentsPage() {
         isLoading={purging}
       />
 
-      {/* Dev Tools Section */}
-      <Card className="mt-8 border-dashed border-yellow-500">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="destructive"
-            onClick={() => setShowPurgeModal(true)}
-            isLoading={purging}
-          >
-            Purge All Transactions
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Dev Tools Section — Org Admin / Super Admin only. */}
+      {canPurge && (
+        <Card className="mt-8 border-dashed border-yellow-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={() => setShowPurgeModal(true)}
+              isLoading={purging}
+            >
+              Purge All Transactions
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -55,6 +55,7 @@ import type {
   TaskHistoryEntry,
   UserPaymentSummaryResponse,
 } from "@/types";
+import { roleLabel } from "@/types";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import {
   dateInputToLocalStartIsoUtc,
@@ -811,7 +812,12 @@ export default function UserProfilePage() {
     );
   }
 
-  const isValidator = user?.role === "validator" || user?.role === "admin";
+  // All admin tiers can validate (org/team_admin/super_admin) plus the validator role.
+  const isValidator =
+    user?.role === "validator" ||
+    user?.role === "admin" ||
+    user?.role === "super_admin" ||
+    user?.role === "team_admin";
   const displayedChangesets = changesets.slice((changesetPage - 1) * ROWS_PER_PAGE, changesetPage * ROWS_PER_PAGE);
   const displayedHistory = taskHistory.slice((taskPage - 1) * ROWS_PER_PAGE, taskPage * ROWS_PER_PAGE);
   const sortedHashtags = Object.entries(hashtagSummary).sort(
@@ -884,11 +890,13 @@ export default function UserProfilePage() {
                     {user.full_name || user.email || user.id}
                   </h1>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    user.role === "super_admin" ? "bg-pink-100 text-pink-800" :
                     user.role === "admin" ? "bg-purple-100 text-purple-800" :
+                    user.role === "team_admin" ? "bg-indigo-100 text-indigo-800" :
                     user.role === "validator" ? "bg-blue-100 text-blue-800" :
                     "bg-gray-100 text-gray-800"
                   }`}>
-                    {user.role}
+                    {roleLabel(user.role)}
                   </span>
                   {user.mapper_level > 0 && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -2664,9 +2672,10 @@ export default function UserProfilePage() {
               value={editRole}
               onChange={setEditRole}
               options={[
-                { value: "user", label: "User" },
-                { value: "validator", label: "Validator" },
-                { value: "admin", label: "Admin" },
+                { value: "user", label: roleLabel("user") },
+                { value: "validator", label: roleLabel("validator") },
+                { value: "team_admin", label: roleLabel("team_admin") },
+                { value: "admin", label: roleLabel("admin") },
               ]}
             />
             <Select

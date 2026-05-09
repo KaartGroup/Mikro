@@ -32,10 +32,14 @@ import {
   useUnassignUserChecklist,
   useFetchChecklistUsers,
   usePurgeChecklists,
+  useCurrentUserRole,
+  useManagedTeams,
 } from "@/hooks";
 import type { Checklist } from "@/types";
+import { isOrgAdminOrAbove } from "@/types";
 import { formatNumber, formatCurrency, displayRole } from "@/lib/utils";
 import { useUser } from "@auth0/nextjs-auth0/client";
+import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -86,6 +90,14 @@ export default function AdminChecklistsPage() {
   const { user: auth0User } = useUser();
   const toast = useToastActions();
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Role-aware UI (F3 Phase 3.4):
+  // - team_admin: list scoped server-side to managed-team checklists.
+  //   No create/delete/purge UI.
+  const { role: viewerRole, loading: roleLoading } = useCurrentUserRole();
+  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const isTeamAdmin = viewerRole === "team_admin";
+  const canCreateOrDelete = isOrgAdminOrAbove(viewerRole);
 
   const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -532,7 +544,7 @@ export default function AdminChecklistsPage() {
     );
   };
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -554,6 +566,20 @@ export default function AdminChecklistsPage() {
     );
   }
 
+  // team_admin with no managed teams → empty state.
+  if (
+    isTeamAdmin &&
+    !managedTeamsLoading &&
+    managedTeams.length === 0
+  ) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Checklists</h1>
+        <TeamAdminEmptyState context="checklist" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -564,7 +590,9 @@ export default function AdminChecklistsPage() {
             Manage checklists and track completion
           </p>
         </div>
-        <Button onClick={() => setShowAddModal(true)}>Create Checklist</Button>
+        {canCreateOrDelete && (
+          <Button onClick={() => setShowAddModal(true)}>Create Checklist</Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -805,15 +833,17 @@ export default function AdminChecklistsPage() {
         size="lg"
         footer={
           <>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setShowEditModal(false);
-                setShowDeleteModal(true);
-              }}
-            >
-              Delete
-            </Button>
+            {canCreateOrDelete && (
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setShowDeleteModal(true);
+                }}
+              >
+                Delete
+              </Button>
+            )}
             <Button variant="outline" onClick={() => {
               setShowEditModal(false);
               setSelectedChecklist(null);
@@ -1115,21 +1145,23 @@ export default function AdminChecklistsPage() {
         isLoading={purging}
       />
 
-      {/* Dev Tools Section */}
-      <Card className="mt-8 border-dashed border-yellow-500">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="destructive"
-            onClick={() => setShowPurgeModal(true)}
-            isLoading={purging}
-          >
-            Purge All Checklists
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Dev Tools Section — Org Admin / Super Admin only. */}
+      {canCreateOrDelete && (
+        <Card className="mt-8 border-dashed border-yellow-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={() => setShowPurgeModal(true)}
+              isLoading={purging}
+            >
+              Purge All Checklists
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

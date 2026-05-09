@@ -31,7 +31,9 @@ export default async function LandingPage() {
 
   const roles = session.user["mikro/roles"] as string[] | undefined;
   const role = roles?.[0] || "user";
-  if (role === "admin") {
+  // All three admin tiers land on /admin/dashboard. Per-page guards
+  // inside scope what each tier sees.
+  if (role === "admin" || role === "super_admin" || role === "team_admin") {
     redirect("/admin/dashboard");
   } else if (role === "validator") {
     redirect("/validator/dashboard");

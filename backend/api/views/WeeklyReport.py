@@ -12,7 +12,8 @@ from datetime import datetime
 from flask.views import MethodView
 from flask import g, request
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
+from ..auth import is_org_admin_or_above
 from ..database import db, WeeklyReport
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ class WeeklyReportAPI(MethodView):
             return self.delete_draft()
         return {"message": "Unknown path", "status": 404}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def save_draft(self):
         """Create or update a weekly report draft."""
         if not g.user:
@@ -74,6 +75,10 @@ class WeeklyReportAPI(MethodView):
                 if not report:
                     return {"message": "Draft not found", "status": 404}
 
+                # team_admin: can only update their own drafts
+                if not is_org_admin_or_above(g.user) and report.created_by != g.user.id:
+                    return {"message": "Not your draft", "status": 403}
+
                 report.title = title
                 report.report_date = report_date
                 report.start_date = start_date
@@ -111,18 +116,22 @@ class WeeklyReportAPI(MethodView):
             logger.error(f"Error saving weekly report draft: {e}")
             return {"message": "Failed to save draft", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_drafts(self):
-        """List all weekly report drafts for the org."""
+        """List all weekly report drafts for the org.
+
+        team_admin sees only their own drafts; Org Admin sees all org drafts.
+        """
         if not g.user:
             return {"message": "Missing user info", "status": 304}
 
         try:
-            drafts = (
-                WeeklyReport.query.filter_by(org_id=g.user.org_id)
-                .order_by(WeeklyReport.updated_at.desc())
-                .all()
-            )
+            drafts_query = WeeklyReport.query.filter_by(org_id=g.user.org_id)
+            if not is_org_admin_or_above(g.user):
+                drafts_query = drafts_query.filter(
+                    WeeklyReport.created_by == g.user.id
+                )
+            drafts = drafts_query.order_by(WeeklyReport.updated_at.desc()).all()
 
             return {
                 "drafts": [
@@ -146,7 +155,7 @@ class WeeklyReportAPI(MethodView):
             logger.error(f"Error fetching weekly report drafts: {e}")
             return {"message": "Failed to fetch drafts", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_draft(self):
         """Fetch a single weekly report draft by ID."""
         if not g.user:
@@ -165,6 +174,10 @@ class WeeklyReportAPI(MethodView):
 
             if not report:
                 return {"message": "Draft not found", "status": 404}
+
+            # team_admin: can only read their own drafts
+            if not is_org_admin_or_above(g.user) and report.created_by != g.user.id:
+                return {"message": "Not your draft", "status": 403}
 
             return {
                 "draft": {
@@ -185,7 +198,7 @@ class WeeklyReportAPI(MethodView):
             logger.error(f"Error fetching weekly report draft: {e}")
             return {"message": "Failed to fetch draft", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def delete_draft(self):
         """Delete a weekly report draft."""
         if not g.user:
@@ -204,6 +217,10 @@ class WeeklyReportAPI(MethodView):
 
             if not report:
                 return {"message": "Draft not found", "status": 404}
+
+            # team_admin: can only delete their own drafts
+            if not is_org_admin_or_above(g.user) and report.created_by != g.user.id:
+                return {"message": "Not your draft", "status": 403}
 
             db.session.delete(report)
             db.session.commit()

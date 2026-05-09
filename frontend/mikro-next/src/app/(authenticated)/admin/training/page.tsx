@@ -34,10 +34,14 @@ import {
   useModifyTraining,
   useDeleteTraining,
   usePurgeTrainings,
+  useCurrentUserRole,
+  useManagedTeams,
 } from "@/hooks";
 import type { Training, TrainingQuestion } from "@/types";
+import { isOrgAdminOrAbove } from "@/types";
 import { formatNumber } from "@/lib/utils";
 import { useUser } from "@auth0/nextjs-auth0/client";
+import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 
 interface TrainingFormData {
   title: string;
@@ -71,6 +75,14 @@ export default function AdminTrainingPage() {
   const { mutate: purgeTrainings, loading: purging } = usePurgeTrainings();
   const { user: auth0User } = useUser();
   const toast = useToastActions();
+
+  // Role-aware UI (F3 Phase 3.4):
+  // - team_admin: list scoped server-side to managed-team trainings.
+  //   No create/delete/purge UI.
+  const { role: viewerRole, loading: roleLoading } = useCurrentUserRole();
+  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const isTeamAdmin = viewerRole === "team_admin";
+  const canCreateOrDelete = isOrgAdminOrAbove(viewerRole);
 
   const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -477,16 +489,18 @@ export default function AdminTrainingPage() {
                     <Button size="sm" variant="outline" onClick={() => openEditModal(training)}>
                       Edit
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => {
-                        setSelectedTraining(training);
-                        setShowDeleteModal(true);
-                      }}
-                    >
-                      Delete
-                    </Button>
+                    {canCreateOrDelete && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          setSelectedTraining(training);
+                          setShowDeleteModal(true);
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -516,7 +530,7 @@ export default function AdminTrainingPage() {
     );
   };
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -525,6 +539,20 @@ export default function AdminTrainingPage() {
         </div>
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  // team_admin with no managed teams → empty state.
+  if (
+    isTeamAdmin &&
+    !managedTeamsLoading &&
+    managedTeams.length === 0
+  ) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Training</h1>
+        <TeamAdminEmptyState context="training" />
       </div>
     );
   }
@@ -539,7 +567,9 @@ export default function AdminTrainingPage() {
             Manage training modules and quizzes
           </p>
         </div>
-        <Button onClick={() => setShowAddModal(true)}>Add Training</Button>
+        {canCreateOrDelete && (
+          <Button onClick={() => setShowAddModal(true)}>Add Training</Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -946,21 +976,23 @@ export default function AdminTrainingPage() {
         isLoading={purging}
       />
 
-      {/* Dev Tools Section */}
-      <Card className="mt-8 border-dashed border-yellow-500">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="destructive"
-            onClick={() => setShowPurgeModal(true)}
-            isLoading={purging}
-          >
-            Purge All Trainings
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Dev Tools Section — Org Admin / Super Admin only. */}
+      {canCreateOrDelete && (
+        <Card className="mt-8 border-dashed border-yellow-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={() => setShowPurgeModal(true)}
+              isLoading={purging}
+            >
+              Purge All Trainings
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

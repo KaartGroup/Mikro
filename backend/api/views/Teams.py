@@ -8,7 +8,12 @@ Handles team management operations: CRUD and membership.
 from flask.views import MethodView
 from flask import g, request
 
-from ..utils import requires_admin, requires_auth
+from ..utils import requires_admin, requires_auth, requires_team_admin_or_above
+from ..auth import (
+    is_org_admin_or_above,
+    managed_team_ids_for,
+    team_admin_can_access_team,
+)
 from ..database import Team, TeamUser, User, ProjectTeam, ProjectUser, Project, TeamTraining, Training, TeamChecklist, Checklist, Task
 from ..filters import resolve_filtered_user_ids
 from ..stats import get_batch_user_task_stats, get_batch_user_payment_balances
@@ -56,14 +61,18 @@ class TeamAPI(MethodView):
             return self.fetch_user_teams()
         elif path == "fetch_user_team_profile":
             return self.fetch_user_team_profile()
+        elif path == "fetch_managed_teams":
+            return self.fetch_managed_teams()
         return {"message": "Unknown path", "status": 404}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_teams(self):
         """List all teams for the org with member counts.
 
         Supports optional filters in request body to narrow teams
         to only those containing at least one matching member.
+
+        For team_admin, narrows to only teams they manage.
         """
         if not g.user:
             return {"message": "Missing user info", "status": 304}
@@ -72,6 +81,11 @@ class TeamAPI(MethodView):
         filtered_user_ids = resolve_filtered_user_ids(filters, g.user.org_id)
 
         org_teams = Team.query.filter_by(org_id=g.user.org_id).all()
+
+        # team_admin sees only teams they manage
+        if g.user.role == "team_admin":
+            managed = set(managed_team_ids_for(g.user))
+            org_teams = [t for t in org_teams if t.id in managed]
 
         # If filters are active, restrict to teams with at least one matching member
         if filtered_user_ids is not None:
@@ -138,9 +152,13 @@ class TeamAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def update_team(self):
-        """Update team name, description, or lead."""
+        """Update team name, description, or lead.
+
+        team_admin can update teams they manage; only Org Admin / super_admin
+        can change the team's lead.
+        """
         if not g.user:
             return {"message": "Missing user info", "status": 304}
 
@@ -152,12 +170,18 @@ class TeamAPI(MethodView):
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
 
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
+
         updates = {}
         if "teamName" in request.json:
             updates["name"] = request.json["teamName"]
         if "teamDescription" in request.json:
             updates["description"] = request.json["teamDescription"]
         if "leadId" in request.json:
+            # Only Org Admin / super_admin can change the team lead.
+            if not is_org_admin_or_above(g.user):
+                return {"message": "Only Org Admin can change team lead", "status": 403}
             updates["lead_id"] = request.json["leadId"]
 
         if updates:
@@ -189,7 +213,7 @@ class TeamAPI(MethodView):
 
         return {"message": "Team deleted", "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_team_members(self):
         """Get all org users with their assignment status for a team."""
         if not g.user:
@@ -202,6 +226,9 @@ class TeamAPI(MethodView):
         team = Team.query.filter_by(id=team_id, org_id=g.user.org_id).first()
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
+
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
 
         # Get all assigned user IDs for this team
         assigned_ids = {
@@ -227,7 +254,7 @@ class TeamAPI(MethodView):
 
         return {"users": users, "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_team_member(self):
         """Add a user to a team (idempotent). Also assigns the user to all projects the team has."""
         if not g.user:
@@ -243,6 +270,9 @@ class TeamAPI(MethodView):
         team = Team.query.filter_by(id=team_id, org_id=g.user.org_id).first()
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
+
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
 
         # Check if already assigned
         existing = TeamUser.query.filter_by(
@@ -268,7 +298,7 @@ class TeamAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_team_member(self):
         """Remove a user from a team."""
         if not g.user:
@@ -281,6 +311,9 @@ class TeamAPI(MethodView):
         if not user_id:
             return {"message": "userId required", "status": 400}
 
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
+
         relation = TeamUser.query.filter_by(
             team_id=team_id, user_id=user_id
         ).first()
@@ -289,9 +322,12 @@ class TeamAPI(MethodView):
 
         return {"message": "User removed from team", "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_project_teams(self):
-        """Get all org teams with their assignment status for a project."""
+        """Get all org teams with their assignment status for a project.
+
+        For team_admin, narrows the team list to only their managed teams.
+        """
         if not g.user:
             return {"message": "Missing user info", "status": 304}
 
@@ -306,6 +342,11 @@ class TeamAPI(MethodView):
             return {"message": f"Project {project_id} not found", "status": 400}
 
         org_teams = Team.query.filter_by(org_id=g.user.org_id).all()
+
+        if g.user.role == "team_admin":
+            managed = set(managed_team_ids_for(g.user))
+            org_teams = [t for t in org_teams if t.id in managed]
+
         assigned_team_ids = {
             pt.team_id
             for pt in ProjectTeam.query.filter_by(project_id=project_id).all()
@@ -332,7 +373,7 @@ class TeamAPI(MethodView):
 
         return {"teams": teams, "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_team_to_project(self):
         """Assign a team to a project, bulk-creating ProjectUser rows."""
         if not g.user:
@@ -348,6 +389,9 @@ class TeamAPI(MethodView):
         team = Team.query.filter_by(id=team_id, org_id=g.user.org_id).first()
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
+
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
 
         project = Project.query.filter_by(
             id=project_id, org_id=g.user.org_id
@@ -383,7 +427,7 @@ class TeamAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_team_from_project(self):
         """Remove a team from a project, bulk-removing ProjectUser rows."""
         if not g.user:
@@ -395,6 +439,9 @@ class TeamAPI(MethodView):
             return {"message": "teamId required", "status": 400}
         if not project_id:
             return {"message": "projectId required", "status": 400}
+
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
 
         # Remove ProjectTeam row
         pt = ProjectTeam.query.filter_by(
@@ -420,7 +467,7 @@ class TeamAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_team_trainings(self):
         """Get all org trainings with their assignment status for a team."""
         if not g.user:
@@ -433,6 +480,9 @@ class TeamAPI(MethodView):
         team = Team.query.filter_by(id=team_id, org_id=g.user.org_id).first()
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
+
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
 
         assigned_ids = {
             tt.training_id
@@ -454,7 +504,7 @@ class TeamAPI(MethodView):
 
         return {"trainings": trainings, "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_training_to_team(self):
         """Assign a training to a team (idempotent)."""
         if not g.user:
@@ -471,6 +521,9 @@ class TeamAPI(MethodView):
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
 
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
+
         existing = TeamTraining.query.filter_by(
             team_id=team_id, training_id=training_id
         ).first()
@@ -479,7 +532,7 @@ class TeamAPI(MethodView):
 
         return {"message": "Training assigned to team", "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_training_from_team(self):
         """Remove a training from a team."""
         if not g.user:
@@ -492,6 +545,9 @@ class TeamAPI(MethodView):
         if not training_id:
             return {"message": "trainingId required", "status": 400}
 
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
+
         relation = TeamTraining.query.filter_by(
             team_id=team_id, training_id=training_id
         ).first()
@@ -500,7 +556,7 @@ class TeamAPI(MethodView):
 
         return {"message": "Training removed from team", "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_team_checklists(self):
         """Get all org checklists with their assignment status for a team."""
         if not g.user:
@@ -513,6 +569,9 @@ class TeamAPI(MethodView):
         team = Team.query.filter_by(id=team_id, org_id=g.user.org_id).first()
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
+
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
 
         assigned_ids = {
             tc.checklist_id
@@ -534,7 +593,7 @@ class TeamAPI(MethodView):
 
         return {"checklists": checklists, "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_checklist_to_team(self):
         """Assign a checklist to a team (idempotent)."""
         if not g.user:
@@ -551,6 +610,9 @@ class TeamAPI(MethodView):
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
 
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
+
         existing = TeamChecklist.query.filter_by(
             team_id=team_id, checklist_id=checklist_id
         ).first()
@@ -559,7 +621,7 @@ class TeamAPI(MethodView):
 
         return {"message": "Checklist assigned to team", "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_checklist_from_team(self):
         """Remove a checklist from a team."""
         if not g.user:
@@ -572,6 +634,9 @@ class TeamAPI(MethodView):
         if not checklist_id:
             return {"message": "checklistId required", "status": 400}
 
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
+
         relation = TeamChecklist.query.filter_by(
             team_id=team_id, checklist_id=checklist_id
         ).first()
@@ -580,7 +645,7 @@ class TeamAPI(MethodView):
 
         return {"message": "Checklist removed from team", "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_team_profile(self):
         """Fetch aggregated profile data for a team (admin only)."""
         if not g.user:
@@ -593,6 +658,9 @@ class TeamAPI(MethodView):
         team = Team.query.filter_by(id=team_id, org_id=g.user.org_id).first()
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
+
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+            return {"message": "Not in your managed teams", "status": 403}
 
         # Get lead name
         lead_name = None
@@ -758,6 +826,52 @@ class TeamAPI(MethodView):
                 "id": team.id,
                 "name": team.name,
                 "description": team.description,
+                "lead_name": lead_name,
+                "member_count": member_count,
+            })
+
+        return {"teams": teams, "status": 200}
+
+    @requires_team_admin_or_above
+    def fetch_managed_teams(self):
+        """Return teams the current user leads.
+
+        Used by the frontend to power team_admin scoped UIs (selector
+        dropdowns, empty-state detection, dashboard scoping).
+
+        - team_admin: returns teams where they are `Team.lead_id`.
+        - Org Admin / super_admin: returns ALL teams in their org
+          (so org-wide admin tools that reuse this endpoint just work).
+        Empty list is a valid response — the zero-team team_admin
+        empty state is handled on the client.
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+
+        if is_org_admin_or_above(g.user):
+            org_teams = Team.query.filter_by(org_id=g.user.org_id).all()
+        else:
+            managed_ids = managed_team_ids_for(g.user)
+            if not managed_ids:
+                return {"teams": [], "status": 200}
+            org_teams = Team.query.filter(Team.id.in_(managed_ids)).all()
+
+        teams = []
+        for team in org_teams:
+            member_count = TeamUser.query.filter_by(team_id=team.id).count()
+            lead_name = None
+            if team.lead_id:
+                lead_user = User.query.get(team.lead_id)
+                if lead_user:
+                    lead_name = (
+                        f"{lead_user.first_name or ''} {lead_user.last_name or ''}".strip()
+                        or lead_user.email
+                    )
+            teams.append({
+                "id": team.id,
+                "name": team.name,
+                "description": team.description,
+                "lead_id": team.lead_id,
                 "lead_name": lead_name,
                 "member_count": member_count,
             })

@@ -123,6 +123,43 @@ class LoginAPI(MethodView):
                     current_app.logger.warning(
                         f"[NAME-AUDIT] Failed audit for login_create {auth0_sub}: {audit_e}"
                     )
+
+                # Consume any pending team-targeted invite for this email.
+                # When a team_admin invited this user, we wrote a
+                # PendingInvite row; on first login auto-join them to
+                # the target team. Idempotent — only the first matching
+                # un-consumed row is consumed.
+                try:
+                    from datetime import datetime
+                    from ..database import PendingInvite, TeamUser
+                    invites = (
+                        PendingInvite.query.filter_by(
+                            email=email,
+                            org_id=org_id,
+                            consumed_at=None,
+                        )
+                        .order_by(PendingInvite.created_at.asc())
+                        .all()
+                    )
+                    for invite in invites:
+                        existing = TeamUser.query.filter_by(
+                            user_id=user.id, team_id=invite.target_team_id
+                        ).first()
+                        if not existing:
+                            TeamUser.create(
+                                user_id=user.id,
+                                team_id=invite.target_team_id,
+                            )
+                        invite.update(consumed_at=datetime.utcnow())
+                        current_app.logger.info(
+                            f"[INVITE-CONSUMED] user={user.id} "
+                            f"team_id={invite.target_team_id} "
+                            f"invited_by={invite.invited_by_user_id}"
+                        )
+                except Exception as invite_e:
+                    current_app.logger.warning(
+                        f"[INVITE-CONSUMED] Failed for {auth0_sub!r}: {invite_e}"
+                    )
             except Exception as e:
                 current_app.logger.error(f"Error creating user: {e}")
                 return jsonify({"message": "Failed to create user", "status": 500}), 500
@@ -132,8 +169,16 @@ class LoginAPI(MethodView):
             current_app.logger.info(f"Updating user {auth0_sub}")
             try:
                 # Only update role if token has a more privileged role than DB
-                # or if DB role is default "user"
-                role_priority = {"user": 0, "validator": 1, "admin": 2}
+                # or if DB role is default "user". Three-tier admin split:
+                # team_admin sits between validator and admin; super_admin
+                # tops the ladder for cross-org operations.
+                role_priority = {
+                    "user": 0,
+                    "validator": 1,
+                    "team_admin": 2,
+                    "admin": 3,
+                    "super_admin": 4,
+                }
                 token_priority = role_priority.get(role, 0)
                 db_priority = role_priority.get(user.role, 0)
                 new_role = role if token_priority > db_priority else user.role

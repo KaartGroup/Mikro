@@ -103,11 +103,19 @@ def requires_auth(f):
     return decorated_function
 
 
+_ORG_ADMIN_ROLES = {"admin", "super_admin"}
+_TEAM_ADMIN_OR_ABOVE_ROLES = {"admin", "super_admin", "team_admin"}
+
+
 def requires_admin(f):
     """
-    Decorator to require admin role.
+    Decorator to require Org Admin tier or above.
 
-    The user must be authenticated and have the 'admin' role.
+    Passes for `admin` (Org Admin) and `super_admin`. Does NOT pass for
+    `team_admin` — team_admin endpoints use `requires_team_admin_or_above`
+    and do their own scoping inside the handler.
+
+    The user must be authenticated and active.
     """
 
     @wraps(f)
@@ -122,7 +130,7 @@ def requires_admin(f):
                 "status": 401,
                 "reason": "deactivated",
             }), 401
-        if g.user.role != "admin":
+        if g.user.role not in _ORG_ADMIN_ROLES:
             _trace_decorator(
                 "requires_admin_reject",
                 reason="wrong_role",
@@ -143,11 +151,107 @@ def requires_admin(f):
     return decorated_function
 
 
+def requires_team_admin_or_above(f):
+    """
+    Decorator to require any admin tier.
+
+    Passes for `team_admin`, `admin`, and `super_admin`. The handler is
+    responsible for further scoping — a team_admin must only act on
+    teams/users they manage. Use `team_admin_can_access_team` and
+    `team_admin_can_access_user` from `auth/team_scoping.py` for that.
+    """
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not hasattr(g, "user") or not g.user:
+            _trace_decorator("requires_team_admin_or_above_reject", reason="no_g_user")
+            return jsonify({"message": "Unauthorized", "status": 401}), 401
+        if not getattr(g.user, "is_active", True):
+            _trace_decorator(
+                "requires_team_admin_or_above_reject", reason="user_inactive"
+            )
+            return jsonify({
+                "message": "Your account has been deactivated. Contact your admin.",
+                "status": 401,
+                "reason": "deactivated",
+            }), 401
+        if g.user.role not in _TEAM_ADMIN_OR_ABOVE_ROLES:
+            _trace_decorator(
+                "requires_team_admin_or_above_reject",
+                reason="wrong_role",
+                role=g.user.role,
+                user_id=g.user.id,
+            )
+            return (
+                jsonify(
+                    {
+                        "message": "Admin access required",
+                        "status": 403,
+                    }
+                ),
+                403,
+            )
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def requires_super_admin(f):
+    """
+    Decorator to require super_admin role.
+
+    Reserved for cross-org operations (org onboarding, billing, etc.).
+    No callsites yet — added now so the predicate seam exists.
+    """
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not hasattr(g, "user") or not g.user:
+            _trace_decorator("requires_super_admin_reject", reason="no_g_user")
+            return jsonify({"message": "Unauthorized", "status": 401}), 401
+        if not getattr(g.user, "is_active", True):
+            _trace_decorator("requires_super_admin_reject", reason="user_inactive")
+            return jsonify({
+                "message": "Your account has been deactivated. Contact your admin.",
+                "status": 401,
+                "reason": "deactivated",
+            }), 401
+        if g.user.role != "super_admin":
+            _trace_decorator(
+                "requires_super_admin_reject",
+                reason="wrong_role",
+                role=g.user.role,
+                user_id=g.user.id,
+            )
+            return (
+                jsonify(
+                    {
+                        "message": "Super admin access required",
+                        "status": 403,
+                    }
+                ),
+                403,
+            )
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+_VALIDATOR_OR_ABOVE_ROLES = {
+    "validator",
+    "team_admin",
+    "admin",
+    "super_admin",
+}
+
+
 def requires_validator(f):
     """
-    Decorator to require validator or admin role.
+    Decorator to require validator role or any admin tier.
 
-    The user must be authenticated and have either 'validator' or 'admin' role.
+    Passes for `validator`, `team_admin`, `admin`, and `super_admin`.
+    Admin tiers are strictly more privileged than `validator`, so any
+    endpoint a validator can reach an admin can reach too.
     """
 
     @wraps(f)
@@ -155,7 +259,7 @@ def requires_validator(f):
         if not hasattr(g, "user") or not g.user:
             _trace_decorator("requires_validator_reject", reason="no_g_user")
             return jsonify({"message": "Unauthorized", "status": 401}), 401
-        if g.user.role not in ["admin", "validator"]:
+        if g.user.role not in _VALIDATOR_OR_ABOVE_ROLES:
             _trace_decorator(
                 "requires_validator_reject",
                 reason="wrong_role",

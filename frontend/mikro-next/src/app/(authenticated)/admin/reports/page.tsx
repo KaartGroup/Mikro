@@ -34,7 +34,8 @@ import {
   useSummarizeChannel,
   useFetchAllSummaries,
 } from "@/hooks/useApi";
-import { useFilters } from "@/hooks";
+import { useFilters, useCurrentUserRole, useManagedTeams } from "@/hooks";
+import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import {
   dateInputToLocalStartIsoUtc,
   dateInputToLocalEndIsoUtc,
@@ -370,6 +371,13 @@ function formatDateTime(iso: string | null): string {
 export default function AdminReportsPage() {
   const router = useRouter();
 
+  // Role-aware UI (F3 Phase 3.4): team_admin's reports are server-
+  // scoped to managed-team members. Show empty state when they
+  // manage no teams.
+  const { role: viewerRole } = useCurrentUserRole();
+  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const isTeamAdmin = viewerRole === "team_admin";
+
   // ── State ────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState("editing");
   const [datePreset, setDatePreset] = useState<
@@ -615,6 +623,21 @@ export default function AdminReportsPage() {
     : [];
 
   // ── Render ───────────────────────────────────────────────
+
+  // team_admin with no managed teams → empty state.
+  if (
+    isTeamAdmin &&
+    !managedTeamsLoading &&
+    managedTeams.length === 0
+  ) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
+        <TeamAdminEmptyState context="reports" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* HEADER */}
@@ -622,7 +645,9 @@ export default function AdminReportsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
           <p className="text-muted-foreground">
-            Organization-wide analytics and insights
+            {isTeamAdmin
+              ? "Analytics scoped to your managed teams"
+              : "Organization-wide analytics and insights"}
           </p>
         </div>
         <div className="flex items-center gap-3">

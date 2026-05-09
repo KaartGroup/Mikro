@@ -2,12 +2,26 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, Skeleton, Badge, Button, useToastActions, Tooltip, Val } from "@/components/ui";
-import { useAdminDashboardStats, useOrgTransactions, useUsersList, useOrgProjects, usePurgeTaskStats, useAdminSyncAllTasks, useCheckSyncStatus, useAdminTimeHistory, useAdminActiveSessions } from "@/hooks";
+import {
+  useAdminDashboardStats,
+  useOrgTransactions,
+  useUsersList,
+  useOrgProjects,
+  usePurgeTaskStats,
+  useAdminSyncAllTasks,
+  useCheckSyncStatus,
+  useAdminTimeHistory,
+  useAdminActiveSessions,
+  useCurrentUserRole,
+  useManagedTeams,
+} from "@/hooks";
 import { TimeTrackingWidget } from "@/components/widgets/TimeTrackingWidget";
 import { AdminTimeManagement } from "@/components/widgets/AdminTimeManagement";
 import { DashboardStatCard } from "@/components/admin/DashboardStatCard";
 import { TeamScopeSelector } from "@/components/admin/TeamScopeSelector";
 import { RegionFilter } from "@/components/admin/RegionFilter";
+import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
+import { isOrgAdminOrAbove } from "@/types";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 
@@ -31,9 +45,17 @@ interface DashboardStatsProps {
   regionCountryId: number | null;
   /** Setter for the region scope. */
   onRegionCountryIdChange: (id: number | null) => void;
+  /**
+   * Viewer role — decides:
+   *  - whether team_admin gets the managed-only TeamScopeSelector
+   *  - whether dev tools (purge) are rendered.
+   */
+  viewerRole: string;
 }
 
-function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCountryIdChange }: DashboardStatsProps) {
+function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCountryIdChange, viewerRole }: DashboardStatsProps) {
+  const isTeamAdmin = viewerRole === "team_admin";
+  const canPurge = isOrgAdminOrAbove(viewerRole);
   const { data: stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useAdminDashboardStats();
   const { data: transactions, loading: transactionsLoading } = useOrgTransactions();
   const { data: users, loading: usersLoading } = useUsersList();
@@ -230,7 +252,11 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
           <RegionFilter value={regionCountryId} onChange={onRegionCountryIdChange} />
         </div>
         <div className="w-48">
-          <TeamScopeSelector value={teamId} onChange={onTeamIdChange} />
+          <TeamScopeSelector
+            value={teamId}
+            onChange={onTeamIdChange}
+            managedOnly={isTeamAdmin}
+          />
         </div>
         {syncing && syncProgress && (
           <span className="text-sm text-muted-foreground">{syncProgress}</span>
@@ -551,7 +577,10 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
         </Card>
       </div>
 
-      {/* DEV ONLY: Danger Zone */}
+      {/* DEV ONLY: Danger Zone — Org Admin / Super Admin only.
+          Hidden for team_admin since the purge endpoint is gated
+          server-side and the button would 403. */}
+      {canPurge && (
       <Card className="border-2 border-dashed border-yellow-400 bg-yellow-50/50 mt-8 relative">
         <div className="absolute top-2 right-2 z-10">
           <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">Dev Only</span>
@@ -622,6 +651,7 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
           */}
         </CardContent>
       </Card>
+      )}
     </>
   );
 }
@@ -634,6 +664,13 @@ const TEAM_SCOPE_STORAGE_KEY = "mikro.dashboard.teamScope";
 export default function AdminDashboard() {
   const { data: projects } = useOrgProjects();
   const [showStats, setShowStats] = useState(false);
+
+  // Role-aware behavior (F3 Phase 3.4):
+  // - team_admin: dashboard scope is auto-restricted via TeamScopeSelector
+  //   `managedOnly` mode and we show an info chip identifying the tier.
+  const { role: viewerRole } = useCurrentUserRole();
+  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const isTeamAdmin = viewerRole === "team_admin";
 
   // Team scope persists across reloads via localStorage. Hydration
   // happens AFTER first render so SSR doesn't try to read window.
@@ -650,6 +687,20 @@ export default function AdminDashboard() {
       // localStorage unavailable (private mode etc.) — silently ignore.
     }
   }, []);
+
+  // For team_admin: default-select the first managed team if no
+  // selection has been hydrated. Server returns aggregate-of-managed
+  // when teamId is null, but the UI is clearer with an explicit pick.
+  useEffect(() => {
+    if (
+      isTeamAdmin &&
+      teamId == null &&
+      !managedTeamsLoading &&
+      managedTeams.length === 1
+    ) {
+      setTeamId(managedTeams[0].id);
+    }
+  }, [isTeamAdmin, teamId, managedTeams, managedTeamsLoading]);
   const handleTeamIdChange = useCallback((next: number | null) => {
     setTeamId(next);
     try {
@@ -668,13 +719,34 @@ export default function AdminDashboard() {
     return () => cancelAnimationFrame(id);
   }, []);
 
+  // team_admin with no managed teams → empty state, skip the rest.
+  if (
+    isTeamAdmin &&
+    !managedTeamsLoading &&
+    managedTeams.length === 0
+  ) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+        <TeamAdminEmptyState />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-        <p className="text-muted-foreground">
-          Organization overview and management
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+          <p className="text-muted-foreground">
+            Organization overview and management
+          </p>
+        </div>
+        {isTeamAdmin && (
+          <Badge variant="warning" className="mt-1">
+            Team Admin — viewing your managed teams
+          </Badge>
+        )}
       </div>
 
       {/* Time Tracking — loads first */}
@@ -696,6 +768,7 @@ export default function AdminDashboard() {
           onTeamIdChange={handleTeamIdChange}
           regionCountryId={regionCountryId}
           onRegionCountryIdChange={setRegionCountryId}
+          viewerRole={viewerRole}
         />
       ) : (
         <div className="space-y-6">

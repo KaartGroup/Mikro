@@ -30,6 +30,8 @@ import {
   useUsersList,
   useOrgProjects,
 } from "@/hooks/useApi";
+import { useCurrentUserRole, useManagedTeams } from "@/hooks";
+import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import { formatNumber } from "@/lib/utils";
 import {
   localWeekStartIsoUtc,
@@ -315,6 +317,14 @@ export default function AdminTimePage() {
   const projects = projectsData?.org_active_projects || [];
   const sessions = sessionsData?.sessions || [];
   const allEntries: TimeEntry[] = historyData?.entries || [];
+
+  // Role-aware UI (F3 Phase 3.4): team_admin's view is server-scoped
+  // to managed-team users. The team filter dropdown is restricted
+  // to managed teams only — no "All teams" option that would
+  // misleadingly imply org-wide scope.
+  const { role: viewerRole, loading: roleLoading } = useCurrentUserRole();
+  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const isTeamAdmin = viewerRole === "team_admin";
 
   // Close export dropdown on click outside
   useEffect(() => {
@@ -705,7 +715,7 @@ export default function AdminTimePage() {
   };
 
   // Loading state
-  if (historyLoading && !historyData) {
+  if ((historyLoading && !historyData) || roleLoading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         <Skeleton className="h-8 w-48" />
@@ -715,6 +725,20 @@ export default function AdminTimePage() {
           ))}
         </div>
         <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  // team_admin with no managed teams → empty state.
+  if (
+    isTeamAdmin &&
+    !managedTeamsLoading &&
+    managedTeams.length === 0
+  ) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Time</h1>
+        <TeamAdminEmptyState context="time" />
       </div>
     );
   }
@@ -887,12 +911,19 @@ export default function AdminTimePage() {
             <div className="w-44">
               <StandaloneFilter
                 label="Team"
-                allLabel="All teams"
-                options={(filterOptions?.dimensions?.team ?? []).map((v) =>
-                  typeof v === "string"
-                    ? { value: v, label: v }
-                    : { value: String(v.id ?? v.name), label: v.name },
-                )}
+                allLabel={isTeamAdmin ? "All my teams" : "All teams"}
+                options={
+                  isTeamAdmin
+                    ? managedTeams.map((t) => ({
+                        value: String(t.id),
+                        label: t.name,
+                      }))
+                    : (filterOptions?.dimensions?.team ?? []).map((v) =>
+                        typeof v === "string"
+                          ? { value: v, label: v }
+                          : { value: String(v.id ?? v.name), label: v.name },
+                      )
+                }
                 value={filterTeamId}
                 onChange={setFilterTeamId}
               />

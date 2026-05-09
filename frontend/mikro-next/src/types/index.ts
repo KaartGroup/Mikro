@@ -3,12 +3,58 @@
  * Updated to match backend API response formats.
  */
 
+/**
+ * Role taxonomy. Matches the backend's `User.role` string column.
+ * - "super_admin" → Kaart-internal app-level admin (cross-org capable)
+ * - "admin"       → Org Admin (full read/write within their org_id)
+ * - "team_admin"  → Team-scoped admin; manages teams where they are lead
+ * - "validator"   → Can validate tasks
+ * - "user"        → Mapper (base role)
+ *
+ * UI labels MUST distinguish the admin tiers explicitly: "Super Admin",
+ * "Org Admin", "Team Admin". Never show a bare "Admin" label.
+ */
+export type UserRole =
+  | "super_admin"
+  | "admin"
+  | "team_admin"
+  | "validator"
+  | "user";
+
+/** True if the role is any admin tier (any of the three). */
+export function isAnyAdmin(role: string | undefined): boolean {
+  return role === "super_admin" || role === "admin" || role === "team_admin";
+}
+
+/** True if the role is Org Admin or Super Admin (NOT team_admin). */
+export function isOrgAdminOrAbove(role: string | undefined): boolean {
+  return role === "super_admin" || role === "admin";
+}
+
+/** Human-readable label for a role string. Always use this for UI display. */
+export function roleLabel(role: string | undefined): string {
+  switch (role) {
+    case "super_admin":
+      return "Super Admin";
+    case "admin":
+      return "Org Admin";
+    case "team_admin":
+      return "Team Admin";
+    case "validator":
+      return "Validator";
+    case "user":
+      return "Mapper";
+    default:
+      return role || "Unknown";
+  }
+}
+
 // User types
 export interface User {
   id: string; // Auth0 sub (string, not number)
   name: string;
   email: string;
-  role: "admin" | "validator" | "user";
+  role: UserRole;
   osm_username?: string;
   payment_email?: string;
   first_name?: string;

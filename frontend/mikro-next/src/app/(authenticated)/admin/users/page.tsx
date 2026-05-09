@@ -4,10 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, Button, Modal, useToastActions, Skeleton, TableSkeleton } from "@/components/ui";
 import { StandaloneFilter } from "@/components/admin/StandaloneFilter";
-import { useFetchFilterOptions, useFetchCountries } from "@/hooks";
+import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
+import { useFetchFilterOptions, useFetchCountries, useCurrentUserRole, useManagedTeams } from "@/hooks";
 import { formatNumber, formatCurrency, displayRole } from "@/lib/utils";
 import { Val } from "@/components/ui";
-import { User } from "@/types";
+import { User, isOrgAdminOrAbove, roleLabel } from "@/types";
 
 interface CsvUser {
   email: string;
@@ -62,6 +63,49 @@ export default function AdminUsersPage() {
   const { data: countriesData } = useFetchCountries();
   const countries = countriesData?.countries ?? [];
 
+  // Role-aware UI (F3 Phase 3.4).
+  // - team_admin: cannot promote, cannot mass-import/purge.
+  //   "Search org users by email" feeds invite + add-to-team flow.
+  // - super_admin: can promote any user including to super_admin.
+  // - admin (Org Admin): can promote up to admin (NOT super_admin).
+  const { role: viewerRole, loading: roleLoading } = useCurrentUserRole();
+  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const isTeamAdmin = viewerRole === "team_admin";
+  const canEditRole = isOrgAdminOrAbove(viewerRole); // org_admin / super_admin
+  const canImportOrPurge = isOrgAdminOrAbove(viewerRole);
+  const [orgUserSearchEmail, setOrgUserSearchEmail] = useState("");
+  const [orgUserSearchResults, setOrgUserSearchResults] = useState<User[]>([]);
+  const [orgUserSearching, setOrgUserSearching] = useState(false);
+
+  // Backend endpoint lands in Phase 2 — until then, 404 is expected.
+  // Wired here so the UI is ready and only needs the server.
+  const handleOrgUserSearch = async () => {
+    if (!orgUserSearchEmail.trim()) {
+      setOrgUserSearchResults([]);
+      return;
+    }
+    setOrgUserSearching(true);
+    try {
+      const res = await fetch("/backend/user/fetch_org_users_basic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: orgUserSearchEmail.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOrgUserSearchResults(Array.isArray(data?.users) ? data.users : []);
+      } else if (res.status === 404) {
+        toast.info("Org user search isn't deployed yet.");
+      } else {
+        toast.error("Failed to search org users");
+      }
+    } catch {
+      toast.error("Failed to search org users");
+    } finally {
+      setOrgUserSearching(false);
+    }
+  };
+
   const handleSort = (key: string) => {
     if (sortKey === key) {
       setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -87,7 +131,14 @@ export default function AdminUsersPage() {
           bVal = (b.osm_username || "").toLowerCase();
           break;
         case "role": {
-          const roleOrder: Record<string, number> = { admin: 3, validator: 2, user: 1 };
+          // Sort by role priority: super_admin > admin > team_admin > validator > user.
+          const roleOrder: Record<string, number> = {
+            super_admin: 5,
+            admin: 4,
+            team_admin: 3,
+            validator: 2,
+            user: 1,
+          };
           aVal = roleOrder[a.role || ""] ?? 0;
           bVal = roleOrder[b.role || ""] ?? 0;
           break;
@@ -418,7 +469,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || roleLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -427,6 +478,20 @@ export default function AdminUsersPage() {
         </div>
         <Skeleton className="h-10 w-full" />
         <TableSkeleton rows={10} />
+      </div>
+    );
+  }
+
+  // Team admin with zero managed teams → empty state, no table.
+  if (
+    isTeamAdmin &&
+    !managedTeamsLoading &&
+    managedTeams.length === 0
+  ) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-foreground">Users</h1>
+        <TeamAdminEmptyState context="user" />
       </div>
     );
   }
@@ -457,14 +522,18 @@ export default function AdminUsersPage() {
           >
             Edit
           </Button>
-          <Button
-            variant="destructive"
-            onClick={() => selectedUser && setShowDeleteModal(true)}
-            disabled={!selectedUser}
-          >
-            Delete
-          </Button>
-          <Button variant="outline" onClick={handleImportClick}>Import CSV</Button>
+          {canEditRole && (
+            <Button
+              variant="destructive"
+              onClick={() => selectedUser && setShowDeleteModal(true)}
+              disabled={!selectedUser}
+            >
+              Delete
+            </Button>
+          )}
+          {canImportOrPurge && (
+            <Button variant="outline" onClick={handleImportClick}>Import CSV</Button>
+          )}
         </div>
       </div>
 
@@ -654,14 +723,18 @@ export default function AdminUsersPage() {
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            user.role === "admin"
+                            user.role === "super_admin"
+                              ? "bg-pink-100 text-pink-800"
+                              : user.role === "admin"
                               ? "bg-purple-100 text-purple-800"
+                              : user.role === "team_admin"
+                              ? "bg-indigo-100 text-indigo-800"
                               : user.role === "validator"
                               ? "bg-blue-100 text-blue-800"
                               : "bg-green-100 text-green-800"
                           }`}
                         >
-                          {displayRole(user.role)}
+                          {roleLabel(user.role)}
                         </span>
                       </div>
                     </td>
@@ -727,6 +800,67 @@ export default function AdminUsersPage() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Team Admin: search the broader org by email to find candidates
+          to add to a managed team. Backend endpoint
+          fetch_org_users_basic returns name/role/osm only — no pay
+          fields, server-redacted. Falls back gracefully on 404 until
+          the endpoint ships in Phase 2. */}
+      {isTeamAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Search org users by email</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">
+              Find users across your organization by email to invite or add
+              to one of your managed teams.
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                placeholder="user@example.com"
+                className="h-10 rounded-lg border border-input bg-background px-3 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-ring"
+                value={orgUserSearchEmail}
+                onChange={(e) => setOrgUserSearchEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleOrgUserSearch();
+                }}
+              />
+              <Button
+                onClick={handleOrgUserSearch}
+                disabled={orgUserSearching || !orgUserSearchEmail.trim()}
+              >
+                {orgUserSearching ? "Searching…" : "Search"}
+              </Button>
+            </div>
+            {orgUserSearchResults.length > 0 && (
+              <div className="mt-4 border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Name</th>
+                      <th className="px-3 py-2 text-left font-medium">Email</th>
+                      <th className="px-3 py-2 text-left font-medium">Role</th>
+                      <th className="px-3 py-2 text-left font-medium">OSM</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {orgUserSearchResults.map((u) => (
+                      <tr key={u.id}>
+                        <td className="px-3 py-2">{u.name || "-"}</td>
+                        <td className="px-3 py-2">{u.email || "-"}</td>
+                        <td className="px-3 py-2">{roleLabel(u.role)}</td>
+                        <td className="px-3 py-2">{u.osm_username || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Add User Modal */}
@@ -819,15 +953,27 @@ export default function AdminUsersPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Role</label>
-              <select
-                className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-                value={editRole}
-                onChange={(e) => setEditRole(e.target.value)}
-              >
-                <option value="user">User</option>
-                <option value="validator">Validator</option>
-                <option value="admin">Admin</option>
-              </select>
+              {canEditRole ? (
+                <select
+                  className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value)}
+                >
+                  <option value="user">{roleLabel("user")}</option>
+                  <option value="validator">{roleLabel("validator")}</option>
+                  <option value="team_admin">{roleLabel("team_admin")}</option>
+                  <option value="admin">{roleLabel("admin")}</option>
+                  {viewerRole === "super_admin" && (
+                    <option value="super_admin">{roleLabel("super_admin")}</option>
+                  )}
+                </select>
+              ) : (
+                // team_admin viewers cannot promote — show read-only display.
+                <div className="w-full px-3 py-2 border border-input rounded-lg bg-muted text-sm text-muted-foreground">
+                  {roleLabel(editRole)}
+                  <span className="ml-2 text-xs italic">(read-only)</span>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Timezone</label>
@@ -990,13 +1136,17 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-2">{user.osm_username || "-"}</td>
                     <td className="px-4 py-2">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        user.role === "admin"
+                        user.role === "super_admin"
+                          ? "bg-pink-100 text-pink-800"
+                          : user.role === "admin"
                           ? "bg-purple-100 text-purple-800"
+                          : user.role === "team_admin"
+                          ? "bg-indigo-100 text-indigo-800"
                           : user.role === "validator"
                           ? "bg-blue-100 text-blue-800"
                           : "bg-green-100 text-green-800"
                       }`}>
-                        {displayRole(user.role)}
+                        {roleLabel(user.role)}
                       </span>
                     </td>
                   </tr>
@@ -1036,25 +1186,29 @@ export default function AdminUsersPage() {
         </div>
       </Modal>
 
-      {/* Dev Tools */}
-      <Card className="border-2 border-dashed border-yellow-500">
-        <CardHeader>
-          <CardTitle className="text-yellow-700">Dev Tools</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <Button
-              variant="destructive"
-              onClick={() => setShowPurgeModal(true)}
-            >
-              Purge All Users
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            Warning: This will delete all users except your own admin account.
-          </p>
-        </CardContent>
-      </Card>
+      {/* Dev Tools — Org Admin / Super Admin only. Team Admins lack
+          the broad-user-purge permission server-side anyway, but
+          hiding it here keeps the UI honest. */}
+      {canImportOrPurge && (
+        <Card className="border-2 border-dashed border-yellow-500">
+          <CardHeader>
+            <CardTitle className="text-yellow-700">Dev Tools</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              <Button
+                variant="destructive"
+                onClick={() => setShowPurgeModal(true)}
+              >
+                Purge All Users
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Warning: This will delete all users except your own admin account.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

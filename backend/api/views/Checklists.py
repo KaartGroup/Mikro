@@ -10,7 +10,7 @@ from datetime import datetime
 from flask.views import MethodView
 from flask import g, request
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
 from ..filters import get_user_country_ids, is_visible_by_location
 from ..database import (
     Checklist,
@@ -412,7 +412,7 @@ class ChecklistAPI(MethodView):
         # Return the final response
         return response
 
-    # @requires_admin
+    @requires_team_admin_or_above
     def fetch_admin_checklists(self):
         response = {}
 

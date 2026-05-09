@@ -791,6 +791,35 @@ class ChecklistCountry(CRUDMixin, SurrogatePK, db.Model):
     )
 
 
+class PendingInvite(CRUDMixin, SurrogatePK, db.Model):
+    """
+    A team-targeted Auth0 invitation that hasn't been accepted yet.
+
+    When a team_admin (or org admin) invites a user with a specific
+    target team, a row is written here. On the new user's first login
+    (Login.py user-create path), we look up by (email, org_id), create
+    the matching TeamUser association, and mark the row consumed.
+
+    Org Admin / super_admin invites without a target team don't write
+    here — only invitations carrying a team context need persistence.
+    """
+
+    __tablename__ = "pending_invites"
+
+    email = db.Column(db.String(255), nullable=False, index=True)
+    org_id = db.Column(db.String(255), nullable=False, index=True)
+    target_team_id = db.Column(
+        db.Integer,
+        db.ForeignKey("teams.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    invited_by_user_id = db.Column(db.String(255), nullable=True)
+    auth0_invitation_id = db.Column(db.String(255), nullable=True, index=True)
+    consumed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=func.now(), nullable=False)
+
+
 class TimeEntry(CRUDMixin, db.Model):
     """Time tracking entry for contractor clock in/out."""
 

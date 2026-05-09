@@ -12,7 +12,8 @@ from sqlalchemy import func
 from flask.views import MethodView
 from flask import g, request, current_app
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
+from ..auth import managed_team_ids_for
 from .MapRoulette import MapRouletteSync
 from ..database import (
     Project,
@@ -958,19 +959,38 @@ class TaskAPI(MethodView):
             "error": job.error,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_fetch_external_validations(self):
         """
         Fetch tasks validated by users outside the organization.
 
-        Returns tasks with unknown_validator=True.
+        Returns tasks with unknown_validator=True. For team_admin,
+        narrows to tasks in projects assigned to their managed teams.
         """
         if not g.user:
             return {"message": "User not found", "status": 304}
 
-        unknown_validator_tasks = Task.query.filter_by(
+        unknown_validator_query = Task.query.filter_by(
             org_id=g.user.org_id, unknown_validator=True
-        ).all()
+        )
+
+        if g.user.role == "team_admin":
+            managed = managed_team_ids_for(g.user)
+            if not managed:
+                return {"external_validations": [], "status": 200}
+            ta_project_ids = {
+                pt.project_id
+                for pt in ProjectTeam.query.filter(
+                    ProjectTeam.team_id.in_(managed)
+                ).all()
+            }
+            if not ta_project_ids:
+                return {"external_validations": [], "status": 200}
+            unknown_validator_query = unknown_validator_query.filter(
+                Task.project_id.in_(ta_project_ids)
+            )
+
+        unknown_validator_tasks = unknown_validator_query.all()
 
         external_validations = []
         for task in unknown_validator_tasks:

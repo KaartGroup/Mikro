@@ -21,11 +21,18 @@ try:
 except ImportError:
     _unidecode = None
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
 from ..utils.tz import org_month_bounds_utc, parse_filter_datetime
 from sqlalchemy import func
 from ..database import TimeEntry, User, Project, Task, TeamUser, CustomTopic, HourlyPayment, db
 from ..filters import resolve_filtered_user_ids
+from ..auth import (
+    is_org_admin_or_above,
+    managed_team_ids_for,
+    team_admin_can_access_team,
+    team_admin_can_access_user,
+    team_member_ids_for,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -255,6 +262,40 @@ class TimeTrackingAPI(MethodView):
     # _parse_date: thin wrapper around the shared parser so existing in-file
     # callers keep working. New code should use parse_filter_datetime directly.
     _parse_date = staticmethod(parse_filter_datetime)
+
+    @staticmethod
+    def _apply_team_admin_scope(query, viewer, team_id_in_request=None):
+        """Force a TimeEntry query to managed-team members for team_admin.
+
+        Returns the (possibly empty-result) query. Org Admin / super_admin
+        get the query untouched. If a team_admin sends a `teamId` outside
+        their managed set, we silently drop it back to the union of their
+        managed teams — same effect as if they never sent the param.
+        """
+        if viewer is None or getattr(viewer, "role", None) != "team_admin":
+            return query
+
+        managed = managed_team_ids_for(viewer)
+        if not managed:
+            # Zero-team team_admin → empty result
+            return query.filter(TimeEntry.user_id == None)  # noqa: E711
+
+        if team_id_in_request and team_id_in_request not in managed:
+            # Requested team is outside their managed set — refuse the team
+            # narrow and fall back to the union of managed teams.
+            team_id_in_request = None
+
+        if team_id_in_request:
+            member_ids = [
+                tu.user_id
+                for tu in TeamUser.query.filter_by(team_id=team_id_in_request).all()
+            ]
+        else:
+            member_ids = list(team_member_ids_for(managed))
+
+        if not member_ids:
+            return query.filter(TimeEntry.user_id == None)  # noqa: E711
+        return query.filter(TimeEntry.user_id.in_(member_ids))
 
     @staticmethod
     def _build_filtered_query(org_id, data, restrict_user_id=None):
@@ -644,7 +685,7 @@ class TimeTrackingAPI(MethodView):
             "pay_mode": pay_mode,
         }), 200
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_pending_adjustments(self):
         """Return every entry in the admin's org that has a pending
         adjustment request, regardless of date — these are admin
@@ -652,7 +693,7 @@ class TimeTrackingAPI(MethodView):
         date filter.
 
         Honors optional `teamId` so the dashboard team-scope dropdown
-        carries through.
+        carries through. team_admin is force-scoped to managed teams.
         """
         data = request.get_json(silent=True) or {}
         team_id = data.get("teamId")
@@ -672,6 +713,9 @@ class TimeTrackingAPI(MethodView):
                 query = query.filter(TimeEntry.user_id.in_(member_ids))
             else:
                 query = query.filter(TimeEntry.user_id == None)  # noqa: E711
+
+        # team_admin: force-narrow to managed teams
+        query = self._apply_team_admin_scope(query, g.user, team_id)
 
         entries = query.order_by(TimeEntry.clock_in.desc()).limit(100).all()
 
@@ -848,12 +892,13 @@ class TimeTrackingAPI(MethodView):
 
     # ─── Admin Endpoints ──────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_active_sessions(self):
         """Get all active sessions for the admin's org.
 
         Accepts optional `teamId` in the request body to scope to members
         of that team — used by the dashboard's team-scope dropdown (F22).
+        For team_admin, forces scope to their managed teams.
         """
         data = request.get_json(silent=True) or {}
         team_id = data.get("teamId")
@@ -873,6 +918,9 @@ class TimeTrackingAPI(MethodView):
                 # Team has no members — return empty rather than the whole org.
                 query = query.filter(TimeEntry.user_id == None)  # noqa: E711
 
+        # team_admin: force-narrow to managed teams
+        query = self._apply_team_admin_scope(query, g.user, team_id)
+
         entries = query.order_by(TimeEntry.clock_in.asc()).all()
 
         return jsonify({
@@ -880,7 +928,7 @@ class TimeTrackingAPI(MethodView):
             "sessions": [self._format_entry(e) for e in entries],
         }), 200
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_history(self):
         """Get time entry history for the admin's org with optional filters."""
         data = request.get_json() or {}
@@ -888,6 +936,10 @@ class TimeTrackingAPI(MethodView):
         offset = data.get("offset", 0)
 
         query = self._build_filtered_query(g.user.org_id, data)
+
+        # team_admin: force-narrow to managed teams (overrides whatever
+        # teamId/userId filter the request specified)
+        query = self._apply_team_admin_scope(query, g.user, data.get("teamId"))
 
         total = query.count()
         entries = query.limit(limit).offset(offset).all()
@@ -898,7 +950,7 @@ class TimeTrackingAPI(MethodView):
             "total": total,
         }), 200
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_force_clock_out(self):
         """Force clock out a user's session."""
         data = request.get_json() or {}
@@ -919,6 +971,14 @@ class TimeTrackingAPI(MethodView):
                 "message": "Active session not found",
                 "status": 404,
             }), 404
+
+        # team_admin: target user must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, entry.user_id):
+                return jsonify({
+                    "message": "Not in your managed teams",
+                    "status": 403,
+                }), 403
 
         logger.warning(
             f"[CLOCK] FORCE clock_out — admin={g.user.id} ({g.user.osm_username or g.user.email}) "
@@ -949,7 +1009,7 @@ class TimeTrackingAPI(MethodView):
             "session": self._format_entry(entry),
         }), 200
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_void_entry(self):
         """Void a time entry."""
         data = request.get_json() or {}
@@ -970,6 +1030,14 @@ class TimeTrackingAPI(MethodView):
                 "message": "Entry not found",
                 "status": 404,
             }), 404
+
+        # team_admin: target user must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, entry.user_id):
+                return jsonify({
+                    "message": "Not in your managed teams",
+                    "status": 403,
+                }), 403
 
         if entry.status == "voided":
             return jsonify({
@@ -992,7 +1060,7 @@ class TimeTrackingAPI(MethodView):
             "entry": self._format_entry(entry),
         }), 200
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_edit_entry(self):
         """Edit a time entry's times or category."""
         data = request.get_json() or {}
@@ -1013,6 +1081,14 @@ class TimeTrackingAPI(MethodView):
                 "message": "Entry not found",
                 "status": 404,
             }), 404
+
+        # team_admin: target user must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, entry.user_id):
+                return jsonify({
+                    "message": "Not in your managed teams",
+                    "status": 403,
+                }), 403
 
         # Parse optional fields
         if "clockIn" in data:
@@ -1075,7 +1151,7 @@ class TimeTrackingAPI(MethodView):
             "entry": self._format_entry(entry),
         }), 200
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_add_entry(self):
         """Manually create a time entry for a user."""
         data = request.get_json() or {}
@@ -1105,6 +1181,14 @@ class TimeTrackingAPI(MethodView):
                 "message": "User not found in your organization",
                 "status": 404,
             }), 404
+
+        # team_admin: target user must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, user_id):
+                return jsonify({
+                    "message": "Not in your managed teams",
+                    "status": 403,
+                }), 403
 
         # Parse times
         try:
@@ -1223,7 +1307,7 @@ class TimeTrackingAPI(MethodView):
             "entry": self._format_entry(entry),
         }), 200
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_export(self):
         """Export time entries as CSV, JSON, or PDF with the same filters as history."""
         data = request.get_json() or {}
@@ -1241,6 +1325,10 @@ class TimeTrackingAPI(MethodView):
 
         # Build filtered query (no limit/offset for export — get all matching)
         query = self._build_filtered_query(g.user.org_id, data)
+
+        # team_admin: force-narrow to managed teams
+        query = self._apply_team_admin_scope(query, g.user, data.get("teamId"))
+
         entries = query.all()
 
         today_str = datetime.utcnow().strftime("%Y-%m-%d")
@@ -1510,7 +1598,7 @@ class TimeTrackingAPI(MethodView):
 
     # ─── Hourly Contractor Payments ──────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_hourly_summary(self):
         """Get monthly hours and payment status for all hourly contractors."""
         data = request.get_json(silent=True) or {}
@@ -1522,6 +1610,14 @@ class TimeTrackingAPI(MethodView):
             User.org_id == org_id,
             User.hourly_rate.isnot(None),
         ).all()
+
+        # team_admin: narrow to managed-team contractors only
+        if g.user.role == "team_admin":
+            managed = managed_team_ids_for(g.user)
+            if not managed:
+                return jsonify({"status": 200, "year": year, "contractors": []})
+            member_ids = team_member_ids_for(managed)
+            contractors = [c for c in contractors if c.id in member_ids]
 
         if not contractors:
             return jsonify({"status": 200, "year": year, "contractors": []})
@@ -1652,7 +1748,7 @@ class TimeTrackingAPI(MethodView):
             "message": f"Hourly rate {action} for {user.full_name}",
         })
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_mark_hourly_paid(self):
         """Mark or unmark an hourly contractor's month as paid."""
         data = request.get_json(silent=True) or {}
@@ -1668,6 +1764,11 @@ class TimeTrackingAPI(MethodView):
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
             return jsonify({"message": "User not found", "status": 404}), 404
+
+        # team_admin: target user must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, user_id):
+                return jsonify({"message": "Not in your managed teams", "status": 403}), 403
 
         org_id = g.user.org_id
 

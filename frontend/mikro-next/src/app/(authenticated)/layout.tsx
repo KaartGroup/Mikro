@@ -90,8 +90,10 @@ export default async function AuthenticatedLayout({
     redirect("/auth/logout");
   }
 
-  // Admins always see payments
-  if (role === "admin") {
+  // All admin tiers always see Payments. Per-page server scoping
+  // decides what each tier actually sees — for team_admin the data
+  // narrows to managed-team users; nav stays visible.
+  if (role === "admin" || role === "super_admin" || role === "team_admin") {
     paymentsVisible = true;
   }
 
@@ -103,7 +105,10 @@ export default async function AuthenticatedLayout({
       <AprilFools />
       <WhatsNewModal userId={userId} role={role} />
       <Header displayName={displayName} />
-      <Sidebar role={role as "user" | "validator" | "admin"} paymentsVisible={paymentsVisible} />
+      <Sidebar
+        role={role as "user" | "validator" | "team_admin" | "admin" | "super_admin"}
+        paymentsVisible={paymentsVisible}
+      />
       <main
         className="main-content"
         style={{

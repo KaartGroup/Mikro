@@ -47,10 +47,14 @@ import {
   useFetchCountries,
   useAssignProjectLocations,
   useUsersList,
+  useCurrentUserRole,
+  useManagedTeams,
 } from "@/hooks";
+import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import Link from "next/link";
 import { formatNumber, formatCurrency, getProjectExternalUrl } from "@/lib/utils";
 import { Val } from "@/components/ui";
+import { isOrgAdminOrAbove } from "@/types";
 import type { Project, ProjectTeamItem, TeamsResponse } from "@/types";
 
 interface ProjectUserItem {
@@ -113,6 +117,15 @@ export default function AdminProjectsPage() {
   const { data: allUsersData, loading: loadingAllUsers } = useUsersList();
   const [syncingProjectId, setSyncingProjectId] = useState<number | null>(null);
   const toast = useToastActions();
+
+  // Role-aware UI (F3 Phase 3.4):
+  // - team_admin: list is server-scoped to managed teams' projects.
+  //   No create/delete/purge buttons.
+  // - admin/super_admin: full management.
+  const { role: viewerRole, loading: roleLoading } = useCurrentUserRole();
+  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const isTeamAdmin = viewerRole === "team_admin";
+  const canCreateOrDelete = isOrgAdminOrAbove(viewerRole);
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -745,9 +758,11 @@ export default function AdminProjectsPage() {
                 <Button size="sm" variant="outline" onClick={() => openEditModal(project)}>
                   Edit
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => openDeleteModal(project)}>
-                  Delete
-                </Button>
+                {canCreateOrDelete && (
+                  <Button size="sm" variant="destructive" onClick={() => openDeleteModal(project)}>
+                    Delete
+                  </Button>
+                )}
               </div>
             </TableCell>
           </TableRow>
@@ -792,7 +807,7 @@ export default function AdminProjectsPage() {
     </>);
   };
 
-  if (loading && !projects) {
+  if ((loading && !projects) || roleLoading) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -801,6 +816,20 @@ export default function AdminProjectsPage() {
         </div>
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  // team_admin with no managed teams → empty state.
+  if (
+    isTeamAdmin &&
+    !managedTeamsLoading &&
+    managedTeams.length === 0
+  ) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
+        <TeamAdminEmptyState context="project" />
       </div>
     );
   }
@@ -815,7 +844,9 @@ export default function AdminProjectsPage() {
             Manage TM4 projects and payment rates
           </p>
         </div>
-        <Button onClick={() => setShowAddModal(true)}>Add Project</Button>
+        {canCreateOrDelete && (
+          <Button onClick={() => setShowAddModal(true)}>Add Project</Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -1599,21 +1630,23 @@ export default function AdminProjectsPage() {
         isLoading={purging}
       />
 
-      {/* Dev Tools Section */}
-      <Card className="mt-8 border-dashed border-yellow-500">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="destructive"
-            onClick={() => setShowPurgeModal(true)}
-            isLoading={purging}
-          >
-            Purge All Projects
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Dev Tools Section — Org Admin / Super Admin only. */}
+      {canCreateOrDelete && (
+        <Card className="mt-8 border-dashed border-yellow-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={() => setShowPurgeModal(true)}
+              isLoading={purging}
+            >
+              Purge All Projects
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -23,6 +23,7 @@ import {
 } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
 import { FilterBar } from "@/components/filters";
+import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import { formatNumber, displayRole } from "@/lib/utils";
 import { Val } from "@/components/ui";
 import {
@@ -42,7 +43,10 @@ import {
   useUsersList,
   useFilters,
   useFetchFilterOptions,
+  useCurrentUserRole,
+  useManagedTeams,
 } from "@/hooks";
+import { isOrgAdminOrAbove } from "@/types";
 import type { Team, TeamMemberItem, TeamTrainingItem, TeamChecklistItem } from "@/types";
 
 export default function AdminTeamsPage() {
@@ -57,6 +61,14 @@ export default function AdminTeamsPage() {
   const toast = useToastActions();
   const { activeFilters, setActiveFilters, filtersBody } = useFilters();
   const { data: filterOptions, loading: filterOptionsLoading } = useFetchFilterOptions();
+
+  // Role-aware UI (F3 Phase 3.4):
+  // - team_admin: can manage their managed teams; cannot create/delete teams.
+  // - admin/super_admin: full management.
+  const { role: viewerRole, loading: roleLoading } = useCurrentUserRole();
+  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const isTeamAdmin = viewerRole === "team_admin";
+  const canCreateOrDeleteTeams = isOrgAdminOrAbove(viewerRole);
 
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -296,7 +308,7 @@ export default function AdminTeamsPage() {
     c.name?.toLowerCase().includes(checklistsSearch.toLowerCase())
   );
 
-  if (loading && !teamsData) {
+  if ((loading && !teamsData) || roleLoading) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -305,6 +317,20 @@ export default function AdminTeamsPage() {
         </div>
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  // team_admin with no managed teams → empty state, no create UI.
+  if (
+    isTeamAdmin &&
+    !managedTeamsLoading &&
+    managedTeams.length === 0
+  ) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Teams</h1>
+        <TeamAdminEmptyState context="team" />
       </div>
     );
   }
@@ -319,7 +345,9 @@ export default function AdminTeamsPage() {
             Manage teams and member assignments
           </p>
         </div>
-        <Button onClick={openCreateModal}>Create Team</Button>
+        {canCreateOrDeleteTeams && (
+          <Button onClick={openCreateModal}>Create Team</Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -475,13 +503,15 @@ export default function AdminTeamsPage() {
                             >
                               Checklists
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => setDeleteTarget(team)}
-                            >
-                              Delete
-                            </Button>
+                            {canCreateOrDeleteTeams && (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setDeleteTarget(team)}
+                              >
+                                Delete
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

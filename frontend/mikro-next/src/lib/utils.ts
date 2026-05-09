@@ -11,10 +11,17 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Display-friendly role label. Maps "user" → "mapper" for context accuracy.
+ * Display-friendly role label. Always uses `roleLabel` from types so
+ * UI never shows a bare "Admin" — admin tiers must be explicit
+ * ("Org Admin", "Team Admin", "Super Admin") per F3 decision 6.
+ *
+ * Kept as a thin wrapper for backward compatibility with the many
+ * existing call sites that import `displayRole`.
  */
+import { roleLabel } from "@/types";
+
 export function displayRole(role: string): string {
-  return role === "user" ? "mapper" : role;
+  return roleLabel(role);
 }
 
 /**

@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Val } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
 import { usePaymentsVisible } from "@/hooks";
+import { roleLabel } from "@/types";
 import { PayRateCard } from "@/components/user/PayRateCard";
 import { MonthlyPaySummaryCard } from "@/components/user/MonthlyPaySummaryCard";
 
@@ -577,7 +578,7 @@ export default function AccountPage() {
                 backgroundColor: "rgba(255, 107, 53, 0.1)",
                 color: "#ff6b35"
               }}>
-                {profile?.role || "user"}
+                {roleLabel(profile?.role)}
               </span>
             </div>
           </div>

@@ -56,8 +56,10 @@ export default async function AdminLayout({
     redirect("/auth/login");
   }
 
-  // Only admin can access admin routes
-  if (role !== "admin") {
+  // Any admin tier can access /admin/*. Per-page guards inside each
+  // page decide what each tier sees. team_admin gets a scoped subset.
+  const adminTiers = new Set(["admin", "super_admin", "team_admin"]);
+  if (!adminTiers.has(role)) {
     redirect("/unauthorized");
   }
 

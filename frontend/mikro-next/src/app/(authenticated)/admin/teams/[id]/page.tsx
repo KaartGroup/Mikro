@@ -55,6 +55,12 @@ export default function AdminTeamProfilePage() {
   }
 
   if (profileError && !profile) {
+    // Backend returns 403 when a team_admin tries to view a team they
+    // don't lead. Surface a friendlier read-only message in that case.
+    const isForbidden =
+      profileError.includes("403") ||
+      profileError.toLowerCase().includes("forbidden") ||
+      profileError.toLowerCase().includes("not authorized");
     return (
       <div className="space-y-4">
         <Link
@@ -64,8 +70,17 @@ export default function AdminTeamProfilePage() {
           {"\u2190"} Back to Teams
         </Link>
         <Card>
-          <CardContent className="p-8 text-center text-red-500">
-            Failed to load team profile: {profileError}
+          <CardContent className="p-8 text-center">
+            {isForbidden ? (
+              <p className="text-muted-foreground">
+                You don&apos;t manage this team. Contact your Org Admin if you
+                think you should.
+              </p>
+            ) : (
+              <p className="text-red-500">
+                Failed to load team profile: {profileError}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -8,7 +8,8 @@ Handles training module management operations.
 from flask.views import MethodView
 from flask import g, request
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
+from ..auth import managed_team_ids_for
 from ..filters import get_user_country_ids, is_visible_by_location
 from ..database import (
     Training,
@@ -16,6 +17,7 @@ from ..database import (
     TrainingCountry,
     TrainingQuestion,
     TrainingQuestionAnswer,
+    TeamTraining,
     User,
 )
 
@@ -118,22 +120,53 @@ class TrainingAPI(MethodView):
             }
             return response, 500
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_org_trainings(self):
         # Check if user is authenticated
         if not g:
             return {"message": "User Not Found", "status": 304}
         # Get all projects for the organization
         org_id = g.user.org_id
-        mapping_trainings = Training.query.filter_by(
+
+        # team_admin: narrow to trainings assigned to managed teams
+        ta_training_ids = None
+        if g.user.role == "team_admin":
+            managed = managed_team_ids_for(g.user)
+            if not managed:
+                return {
+                    "org_mapping_trainings": [],
+                    "org_validation_trainings": [],
+                    "org_project_trainings": [],
+                    "status": 200,
+                }
+            ta_training_ids = {
+                tt.training_id
+                for tt in TeamTraining.query.filter(
+                    TeamTraining.team_id.in_(managed)
+                ).all()
+            }
+            if not ta_training_ids:
+                return {
+                    "org_mapping_trainings": [],
+                    "org_validation_trainings": [],
+                    "org_project_trainings": [],
+                    "status": 200,
+                }
+
+        def _filter_ta(rows):
+            if ta_training_ids is None:
+                return rows
+            return [t for t in rows if t.id in ta_training_ids]
+
+        mapping_trainings = _filter_ta(Training.query.filter_by(
             org_id=org_id, training_type="Mapping"
-        ).all()
-        validation_trainings = Training.query.filter_by(
+        ).all())
+        validation_trainings = _filter_ta(Training.query.filter_by(
             org_id=org_id, training_type="Validation"
-        ).all()
-        project_trainings = Training.query.filter_by(
+        ).all())
+        project_trainings = _filter_ta(Training.query.filter_by(
             org_id=org_id, training_type="Project"
-        ).all()
+        ).all())
         # Batch-load location counts for admin display
         all_training_ids = [t.id for t in mapping_trainings + validation_trainings + project_trainings]
         _tc_rows = TrainingCountry.query.filter(

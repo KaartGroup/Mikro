@@ -17,11 +17,53 @@ from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
 from ..utils.tz import parse_filter_datetime
+from ..auth import managed_team_ids_for, team_member_ids_for
 from ..database import db, Task, Project, User, TimeEntry, TeamUser, SyncJob, ElementAnalysisCache
 from ..filters import resolve_filtered_user_ids, resolve_filtered_osm_usernames
 from ..stats import get_batch_project_stats
+
+
+def _team_admin_osm_usernames(viewer):
+    """Return the OSM-usernames of users on `viewer`'s managed teams.
+
+    Used by Reports endpoints to constrain task queries (which join on
+    `mapped_by` / `validated_by` against OSM usernames) to managed-team
+    members for a team_admin viewer. Returns:
+      - None if viewer is not team_admin (no scoping)
+      - [] if viewer has zero managed teams or zero managed members
+        with OSM usernames (caller should treat as empty result)
+      - list[str] of allowed OSM usernames otherwise
+    """
+    if viewer is None or getattr(viewer, "role", None) != "team_admin":
+        return None
+    managed = managed_team_ids_for(viewer)
+    if not managed:
+        return []
+    member_ids = team_member_ids_for(managed)
+    if not member_ids:
+        return []
+    rows = (
+        User.query
+        .with_entities(User.osm_username)
+        .filter(User.id.in_(member_ids))
+        .all()
+    )
+    return [r.osm_username for r in rows if r.osm_username]
+
+
+def _intersect_or_assign(existing, new):
+    """Helper: combine an existing osm_usernames filter with a new one.
+
+    If `existing` is None, the result is `new`.
+    If both are lists, returns the intersection.
+    """
+    if existing is None:
+        return new
+    if new is None:
+        return existing
+    return [u for u in existing if u in set(new)]
 
 
 class ReportsAPI(MethodView):
@@ -46,7 +88,7 @@ class ReportsAPI(MethodView):
             return self.fetch_mapillary_stats()
         return {"message": "Unknown path", "status": 404}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_editing_stats(self, source=None):
         """Fetch editing statistics: summary, tasks over time, projects, top contributors.
 
@@ -99,6 +141,17 @@ class ReportsAPI(MethodView):
                 .all()
             )
             osm_usernames = [u.osm_username for u in member_users if u.osm_username]
+
+        # team_admin: force-intersect with managed-team members.
+        # Use a sentinel that won't match any real OSM username so the
+        # `if osm_usernames:` checks below still apply the filter and
+        # the query yields zero rows (rather than skipping the filter
+        # and leaking the whole org).
+        ta_osm = _team_admin_osm_usernames(g.user)
+        if ta_osm is not None:
+            osm_usernames = _intersect_or_assign(osm_usernames, ta_osm)
+            if not osm_usernames:
+                osm_usernames = ["__team_admin_no_match__"]
 
         # --- Summary ---
         mapped_query = Task.query.filter(
@@ -569,7 +622,7 @@ class ReportsAPI(MethodView):
             "comparison": comparison,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_timekeeping_stats(self):
         """Fetch timekeeping statistics: summary, hours by category, weekly activity, user breakdown."""
         if not g.user:
@@ -613,6 +666,24 @@ class ReportsAPI(MethodView):
                 tu.user_id for tu in TeamUser.query.filter_by(team_id=team_id).all()
             ]
             base_filter.append(TimeEntry.user_id.in_(member_ids))
+
+        # team_admin: force-narrow to managed-team members regardless
+        # of any teamId/userId filter the request provided.
+        if g.user.role == "team_admin":
+            managed = managed_team_ids_for(g.user)
+            if not managed:
+                base_filter.append(TimeEntry.user_id == "__no_match__")
+                member_ids = []
+            else:
+                ta_member_ids = list(team_member_ids_for(managed))
+                if member_ids is not None:
+                    member_ids = [u for u in member_ids if u in set(ta_member_ids)]
+                else:
+                    member_ids = ta_member_ids
+                if not member_ids:
+                    base_filter.append(TimeEntry.user_id == "__no_match__")
+                else:
+                    base_filter.append(TimeEntry.user_id.in_(member_ids))
 
         # --- Summary ---
         summary_result = (
@@ -877,7 +948,7 @@ class ReportsAPI(MethodView):
             "comparison": comparison,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_changeset_heatmap(self):
         """Fetch aggregated changeset centroids for the org heatmap."""
         if not g.user:
@@ -919,6 +990,21 @@ class ReportsAPI(MethodView):
                 active_mappers_q = active_mappers_q.filter(
                     Task.mapped_by.in_(filtered_usernames)
                 )
+
+        # team_admin: force-narrow to managed-team members' OSM usernames
+        ta_osm = _team_admin_osm_usernames(g.user)
+        if ta_osm is not None:
+            if not ta_osm:
+                return {
+                    "status": 200,
+                    "heatmapPoints": [],
+                    "summary": {
+                        "totalChangesets": 0,
+                        "totalChanges": 0,
+                        "usersWithData": 0,
+                    },
+                }
+            active_mappers_q = active_mappers_q.filter(Task.mapped_by.in_(ta_osm))
 
         osm_usernames = [row[0] for row in active_mappers_q.all()]
 
@@ -1142,7 +1228,7 @@ class ReportsAPI(MethodView):
             "error": job.error,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_mapillary_stats(self):
         """Fetch Mapillary imagery upload statistics."""
         if not g.user:
@@ -1188,6 +1274,18 @@ class ReportsAPI(MethodView):
                 users_query = users_query.filter(User.id.in_(team_user_ids))
             else:
                 users_query = users_query.filter(False)
+
+        # team_admin: force-narrow to managed-team members
+        if g.user.role == "team_admin":
+            managed = managed_team_ids_for(g.user)
+            if not managed:
+                users_query = users_query.filter(False)
+            else:
+                ta_member_ids = list(team_member_ids_for(managed))
+                if ta_member_ids:
+                    users_query = users_query.filter(User.id.in_(ta_member_ids))
+                else:
+                    users_query = users_query.filter(False)
 
         mapillary_users = users_query.all()
 

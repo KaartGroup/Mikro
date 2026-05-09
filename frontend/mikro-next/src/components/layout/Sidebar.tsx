@@ -7,7 +7,7 @@ import { SidebarClock } from "./SidebarClock";
 import { Tooltip } from "@/components/ui";
 
 interface SidebarProps {
-  role: "user" | "validator" | "admin";
+  role: "user" | "validator" | "team_admin" | "admin" | "super_admin";
   paymentsVisible?: boolean;
 }
 
@@ -53,6 +53,21 @@ const adminNavItems: NavItem[] = [
   { label: "Punks List", href: "/admin/punks", icon: "shield" },
   { label: "Friends List", href: "/admin/friends", icon: "users" },
   { label: "Transcribe", href: "/admin/transcribe", icon: "mic", tooltip: "New — Experimental Feature" },
+];
+
+// Team Admin sees a scoped subset: their teams' surface area only.
+// Excludes org-wide admin pages (Regions, Friends, Punks, Transcribe)
+// because team_admin endpoints there are gated to Org Admin / above.
+const teamAdminNavItems: NavItem[] = [
+  { label: "Dashboard", href: "/admin/dashboard", icon: "home" },
+  { label: "Projects", href: "/admin/projects", icon: "folder" },
+  { label: "Time", href: "/admin/time", icon: "clock" },
+  { label: "Training", href: "/admin/training", icon: "book" },
+  { label: "Checklists", href: "/admin/checklists", icon: "list" },
+  { label: "Users", href: "/admin/users", icon: "users" },
+  { label: "Teams", href: "/admin/teams", icon: "team" },
+  { label: "Payments", href: "/admin/payments", icon: "dollar" },
+  { label: "Reports", href: "/admin/reports", icon: "chart" },
 ];
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -140,15 +155,22 @@ export function Sidebar({ role, paymentsVisible = true }: SidebarProps) {
   const pathname = usePathname();
   const { user: clientUser } = useUser();
 
-  const allNavItems =
-    role === "admin"
-      ? adminNavItems
-      : role === "validator"
-        ? validatorNavItems
-        : userNavItems;
+  const isAnyAdmin =
+    role === "admin" || role === "super_admin" || role === "team_admin";
 
-  // Hide Payments link for non-admin users when payments not visible
-  const navItems = role === "admin"
+  const allNavItems =
+    role === "team_admin"
+      ? teamAdminNavItems
+      : role === "admin" || role === "super_admin"
+        ? adminNavItems
+        : role === "validator"
+          ? validatorNavItems
+          : userNavItems;
+
+  // Hide Payments link for non-admin users when payments not visible.
+  // All admin tiers always see Payments (each tier's data is scoped
+  // server-side).
+  const navItems = isAnyAdmin
     ? allNavItems
     : paymentsVisible
       ? allNavItems

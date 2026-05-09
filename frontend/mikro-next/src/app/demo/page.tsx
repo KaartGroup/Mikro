@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Card, CardContent, Button } from "@/components/ui";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { Val } from "@/components/ui";
+import { roleLabel } from "@/types";
 
 const FAKE_USERS = [
   { id: "1", name: "Motoko Kusanagi", osm_username: "puppet_master", role: "admin", micropayments_visible: true, country_name: "Japan", region_name: "Asia", timezone: "Asia/Tokyo", assigned_projects: 12, total_tasks_mapped: 842, total_tasks_validated: 156, total_tasks_invalidated: 3, awaiting_payment: 0, total_payout: 4250.00, is_tracked_only: false },
@@ -152,7 +153,7 @@ export default function UsersDemo() {
                           <td className="px-2 py-1.5">
                             <div className="flex items-center gap-1.5">
                               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${user.role === "admin" ? "bg-purple-100 text-purple-800" : user.role === "validator" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}`}>
-                                {user.role === "admin" ? "admin" : user.role === "validator" ? "validator" : "mapper"}
+                                {roleLabel(user.role)}
                               </span>
                               {user.is_tracked_only && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">tracked</span>}
                             </div>

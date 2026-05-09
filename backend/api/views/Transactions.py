@@ -8,7 +8,13 @@ Handles payment and transaction operations.
 from flask.views import MethodView
 from flask import g, request
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
+from ..auth import (
+    is_org_admin_or_above,
+    managed_team_ids_for,
+    team_admin_can_access_user,
+    team_member_ids_for,
+)
 from ..database import db, User, PayRequests, Payments, UserTasks, Task, Project
 from ..stats import get_user_payment_balances
 
@@ -43,18 +49,41 @@ class TransactionAPI(MethodView):
             "message": "Only /project/{fetch_users,fetch_user_projects} is permitted with GET",  # noqa: E501
         }, 405
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_org_transactions(self):
         # Check if user is logged in
         if not g.user:
             return {"message": "User not found", "status": 304}
+
+        # team_admin: narrow to pay rows for users on managed teams only.
+        # Empty managed → empty result.
+        managed_user_ids = None
+        if g.user.role == "team_admin":
+            managed = managed_team_ids_for(g.user)
+            if not managed:
+                return {
+                    "message": "Payments and requests found",
+                    "requests": [],
+                    "payments": [],
+                    "status": 200,
+                }
+            managed_user_ids = team_member_ids_for(managed)
+            if not managed_user_ids:
+                return {
+                    "message": "Payments and requests found",
+                    "requests": [],
+                    "payments": [],
+                    "status": 200,
+                }
+
         # Get all payment requests and payments for the user's organization
-        org_payment_requests = PayRequests.query.filter_by(
-            org_id=g.user.org_id
-        ).all()
-        org_payments_made = Payments.query.filter_by(
-            org_id=g.user.org_id
-        ).all()
+        req_query = PayRequests.query.filter_by(org_id=g.user.org_id)
+        pay_query = Payments.query.filter_by(org_id=g.user.org_id)
+        if managed_user_ids is not None:
+            req_query = req_query.filter(PayRequests.user_id.in_(managed_user_ids))
+            pay_query = pay_query.filter(Payments.user_id.in_(managed_user_ids))
+        org_payment_requests = req_query.all()
+        org_payments_made = pay_query.all()
         # Create a list of dictionaries containing payment request information
         requests = [
             {
@@ -142,7 +171,7 @@ class TransactionAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def create_transaction(self):
         # Check if user is authenticated
         if not g.user:
@@ -160,6 +189,11 @@ class TransactionAPI(MethodView):
         ).first()
         if not target_user:
             return {"message": "User %s not found" % (user_id), "status": 400}
+
+        # team_admin: target user must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, user_id):
+                return {"message": "Not in your managed teams", "status": 403}
         # Create username from first_name and last_name
         user_name = "%s %s" % (
             target_user.first_name.title(),
@@ -224,7 +258,7 @@ class TransactionAPI(MethodView):
                 "status": 200,
             }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def process_payment_request(self):
         if not g.user:
             return {"message": "User not found", "status": 304}
@@ -245,6 +279,12 @@ class TransactionAPI(MethodView):
             return {"message": f"Invalid request_amount: {request_amount}", "status": 400}
         if request_amount <= 0:
             return {"message": f"request_amount must be greater than 0, got: {request_amount}", "status": 400}
+
+        # team_admin: target user must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, user_id):
+                return {"message": "Not in your managed teams", "status": 403}
+
         # task_ids = str(task_ids).split()
         target_user = User.query.filter_by(
             org_id=g.user.org_id, id=user_id
@@ -375,7 +415,7 @@ class TransactionAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_payment_request_details(self):
         """
         Fetch detailed breakdown of tasks for a payment request.
@@ -397,6 +437,11 @@ class TransactionAPI(MethodView):
 
         if not pay_request:
             return {"message": f"Payment request {request_id} not found", "status": 404}
+
+        # team_admin: requesting user must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, pay_request.user_id):
+                return {"message": "Not in your managed teams", "status": 403}
 
         task_ids = pay_request.task_ids or []
         if not task_ids:

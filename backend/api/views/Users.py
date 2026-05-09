@@ -13,8 +13,15 @@ from flask.views import MethodView
 from flask import g, request, current_app
 from sqlalchemy import func
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
 from ..utils.tz import parse_filter_datetime
+from ..auth import (
+    is_org_admin_or_above,
+    managed_team_ids_for,
+    team_admin_can_access_user,
+    team_member_ids_for,
+    redact_pay_fields,
+)
 from ..database import (
     User,
     UserNameAudit,
@@ -183,6 +190,8 @@ class UserAPI(MethodView):
             return self.do_fetch_users()
         elif path == "fetch_project_users":
             return self.fetch_project_users()
+        elif path == "fetch_org_users_basic":
+            return self.fetch_org_users_basic()
         elif path == "remove_users":
             return self.do_remove_users()
         elif path == "deactivate_user":
@@ -574,7 +583,7 @@ class UserAPI(MethodView):
         response["status"] = 200
         return response
 
-    @requires_admin
+    @requires_team_admin_or_above
     def do_fetch_users(self):
         # Initialize an empty dictionary for returning the response
         return_obj = {}
@@ -595,6 +604,22 @@ class UserAPI(MethodView):
         users_query = User.query.filter_by(org_id=g.user.org_id)
         if filtered_ids is not None:
             users_query = users_query.filter(User.id.in_(filtered_ids))
+
+        # team_admin: narrow to managed-team members only.
+        # Empty managed → return empty list (zero-team team_admin empty state).
+        if g.user.role == "team_admin":
+            managed = managed_team_ids_for(g.user)
+            if not managed:
+                return_obj["users"] = []
+                return_obj["status"] = 200
+                return return_obj
+            member_ids = team_member_ids_for(managed)
+            if not member_ids:
+                return_obj["users"] = []
+                return_obj["status"] = 200
+                return return_obj
+            users_query = users_query.filter(User.id.in_(member_ids))
+
         users_in_org = users_query.all()
 
         # Build country/region lookup caches
@@ -621,36 +646,37 @@ class UserAPI(MethodView):
             )
 
             _ustats = batch_stats.get(user.id, {})
+            user_dict = {
+                "id": user.id,
+                "name": full_name,
+                "first_name": user.first_name or "",
+                "last_name": user.last_name or "",
+                "email": user.email or "",
+                "osm_username": user.osm_username or "",
+                "role": user.role,
+                "joined": user.create_time,
+                "total_payout": user.paid_total,
+                "awaiting_payment": user.requested_total,
+                "validated_tasks_amounts": batch_pay.get(user.id, {}).get("mapping_payable_total", 0)
+                + batch_pay.get(user.id, {}).get("validation_payable_total", 0),
+                "total_tasks_mapped": _ustats.get("total_tasks_mapped", 0),
+                "total_tasks_validated": _ustats.get("total_tasks_validated", 0),
+                "total_tasks_invalidated": _ustats.get("total_tasks_invalidated", 0),
+                "requesting_payment": user.requesting_payment,
+                "assigned_projects": assigned_projects_count,
+                "country_name": country_name,
+                "region_name": region_name,
+                "timezone": user.timezone,
+                "is_tracked_only": user.is_tracked_only or False,
+                "mapillary_username": user.mapillary_username,
+                "micropayments_visible": user.micropayments_visible or False,
+                "hourly_rate": user.hourly_rate,
+                "is_active": bool(getattr(user, "is_active", True)),
+            }
+            # Per-user pay redaction (handles team_admin / cross-team members)
+            user_dict = redact_pay_fields(user_dict, g.user, user)
             # Append the user information to the org_users list
-            org_users.append(
-                {
-                    "id": user.id,
-                    "name": full_name,
-                    "first_name": user.first_name or "",
-                    "last_name": user.last_name or "",
-                    "email": user.email or "",
-                    "osm_username": user.osm_username or "",
-                    "role": user.role,
-                    "joined": user.create_time,
-                    "total_payout": user.paid_total,
-                    "awaiting_payment": user.requested_total,
-                    "validated_tasks_amounts": batch_pay.get(user.id, {}).get("mapping_payable_total", 0)
-                    + batch_pay.get(user.id, {}).get("validation_payable_total", 0),
-                    "total_tasks_mapped": _ustats.get("total_tasks_mapped", 0),
-                    "total_tasks_validated": _ustats.get("total_tasks_validated", 0),
-                    "total_tasks_invalidated": _ustats.get("total_tasks_invalidated", 0),
-                    "requesting_payment": user.requesting_payment,
-                    "assigned_projects": assigned_projects_count,
-                    "country_name": country_name,
-                    "region_name": region_name,
-                    "timezone": user.timezone,
-                    "is_tracked_only": user.is_tracked_only or False,
-                    "mapillary_username": user.mapillary_username,
-                    "micropayments_visible": user.micropayments_visible or False,
-                    "hourly_rate": user.hourly_rate,
-                    "is_active": bool(getattr(user, "is_active", True)),
-                }
-            )
+            org_users.append(user_dict)
         # Add the list of users to the return_obj dictionary
         return_obj["users"] = org_users
         return_obj["status"] = 200
@@ -728,6 +754,33 @@ class UserAPI(MethodView):
         # Return the final response
         return return_obj
 
+    @requires_team_admin_or_above
+    def fetch_org_users_basic(self):
+        """Return a minimal list of users in the current org.
+
+        Used as the search-by-email picker data source for the
+        "add member to my team" workflow (per Goose decision #3).
+        Returns only basic identity fields — NO pay fields. Includes
+        ALL users in `g.user.org_id` regardless of team membership so
+        team_admins can find candidates to add to their managed teams.
+        """
+        if not g.user:
+            return {"message": "User not found", "status": 304}
+
+        users = User.query.filter_by(org_id=g.user.org_id).all()
+        out = []
+        for u in users:
+            name = _format_user_name(u)
+            out.append({
+                "id": u.id,
+                "name": name,
+                "email": u.email or "",
+                "osm_username": u.osm_username or "",
+                "role": u.role,
+            })
+
+        return {"users": out, "status": 200}
+
     # UPDATE USER DETAILS FROM ACCOUNT PAGE
     def update_user_details(self):
         # initialize an empty dictionary to store the response
@@ -801,10 +854,65 @@ class UserAPI(MethodView):
         Handles both new users and existing users (e.g. from Viewer).
         Auth0 sends ONE branded email — the Organization Invitation template
         with branding controlled by AUTH0_APP_CLIENT_ID.
+
+        team_admin viewers MUST supply `targetTeamId` and that team must
+        be one they manage. Org Admin / super_admin may supply
+        targetTeamId optionally; if present, the invitee will be auto-
+        added to that team on first login (consumed via PendingInvite).
         """
+        from ..auth import (
+            is_org_admin_or_above,
+            team_admin_can_access_team,
+        )
+        from ..database import PendingInvite, Team
+
         email = request.json.get("email")
         if not email:
             return {"message": "Email is required", "status": 400}
+
+        target_team_id = request.json.get("targetTeamId")
+        if target_team_id is not None:
+            try:
+                target_team_id = int(target_team_id)
+            except (TypeError, ValueError):
+                return {"message": "targetTeamId must be an integer", "status": 400}
+
+        # Team_admin requires a managed-team target; org_admin can
+        # invite without one.
+        if g.user and g.user.role == "team_admin":
+            if target_team_id is None:
+                return {
+                    "message": "Team Admin must specify targetTeamId",
+                    "status": 400,
+                }
+            if not team_admin_can_access_team(g.user, target_team_id):
+                return {
+                    "message": "Not in your managed teams",
+                    "status": 403,
+                }
+
+        # If a target team is given, validate it exists in the viewer's
+        # org. Cross-org targeting is rejected for everyone (including
+        # super_admin until cross-org invite flow ships).
+        if target_team_id is not None:
+            target_team = Team.query.filter_by(
+                id=target_team_id, org_id=g.user.org_id
+            ).first()
+            if not target_team:
+                return {
+                    "message": f"Team {target_team_id} not found",
+                    "status": 404,
+                }
+            # is_org_admin_or_above passes for admin and super_admin;
+            # team_admin already filtered above.
+            if not (
+                is_org_admin_or_above(g.user)
+                or team_admin_can_access_team(g.user, target_team_id)
+            ):
+                return {
+                    "message": "Not authorized to target this team",
+                    "status": 403,
+                }
 
         domain = current_app.config.get("AUTH0_DOMAIN")
         client_id = current_app.config.get("AUTH0_M2M_CLIENT_ID")
@@ -875,6 +983,24 @@ class UserAPI(MethodView):
             )
 
             if invite_resp.ok:
+                # Persist a PendingInvite row so first-login can auto-
+                # join the new user to the target team. Skip when no
+                # target team was specified (org-admin invite without
+                # team context behaves as before).
+                if target_team_id is not None:
+                    try:
+                        invitation_id = invite_resp.json().get("id")
+                        PendingInvite.create(
+                            email=email,
+                            org_id=g.user.org_id,
+                            target_team_id=target_team_id,
+                            invited_by_user_id=g.user.id,
+                            auth0_invitation_id=invitation_id,
+                        )
+                    except Exception as persist_e:
+                        current_app.logger.warning(
+                            f"PendingInvite write failed for {email!r}: {persist_e}"
+                        )
                 return {
                     "message": f"Invitation sent to {email}.",
                     "status": 200,
@@ -1394,7 +1520,7 @@ class UserAPI(MethodView):
             })
         return result
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_user_profile_by_id(self):
         """Fetch comprehensive profile data for a specific user."""
         data = request.get_json() or {}
@@ -1406,6 +1532,11 @@ class UserAPI(MethodView):
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
             return {"message": "User not found in your organization", "status": 404}
+
+        # team_admin: must be on a managed team (or self)
+        if not is_org_admin_or_above(g.user):
+            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
+                return {"message": "Not in your managed teams", "status": 403}
 
         # Build per-project breakdown using SQL aggregation (not N+1 loops)
         projects_data = []
@@ -1621,7 +1752,7 @@ class UserAPI(MethodView):
             "new_last_name": row.new_last_name,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_update_user_profile(self):
         """Admin update of a user's country/timezone from profile page."""
         data = request.get_json() or {}
@@ -1632,6 +1763,11 @@ class UserAPI(MethodView):
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
             return {"message": "User not found in your organization", "status": 404}
+
+        # team_admin: must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, user_id):
+                return {"message": "Not in your managed teams", "status": 403}
 
         updates = {}
 
@@ -1674,7 +1810,7 @@ class UserAPI(MethodView):
 
         return {"status": 200, "message": "User profile updated"}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_user_stats_by_date(self):
         """Fetch date-filtered time tracking stats for a user."""
         data = request.get_json() or {}
@@ -1688,6 +1824,11 @@ class UserAPI(MethodView):
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
             return {"message": "User not found in your organization", "status": 404}
+
+        # team_admin: must be on a managed team (or self)
+        if not is_org_admin_or_above(g.user):
+            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
+                return {"message": "Not in your managed teams", "status": 403}
 
         # Accept ISO UTC instants (preferred — frontend aligns them to the
         # viewer-admin's local midnights) or legacy date-only strings.
@@ -1828,7 +1969,7 @@ class UserAPI(MethodView):
             },
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_user_payment_summary(self):
         """Read-only payment summary for the admin user-profile Payment tab.
 
@@ -1846,6 +1987,11 @@ class UserAPI(MethodView):
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
             return {"message": "User not found in your organization", "status": 404}
+
+        # team_admin: must be on a managed team (or self)
+        if not is_org_admin_or_above(g.user):
+            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
+                return {"message": "Not in your managed teams", "status": 403}
 
         # Lifetime paid + recent payments
         all_payments = (
@@ -2051,7 +2197,7 @@ class UserAPI(MethodView):
             },
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_user_changesets(self):
         """Fetch OSM changesets for a user within a date range."""
         import xml.etree.ElementTree as ET
@@ -2068,6 +2214,11 @@ class UserAPI(MethodView):
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
             return {"message": "User not found in your organization", "status": 404}
+
+        # team_admin: must be on a managed team (or self)
+        if not is_org_admin_or_above(g.user):
+            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
+                return {"message": "Not in your managed teams", "status": 403}
 
         osm_username = user.osm_username
         if not osm_username:
@@ -2257,7 +2408,7 @@ class UserAPI(MethodView):
             "heatmapPoints": heatmap_points,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_user_activity_chart(self):
         """Aggregate daily activity data for charting."""
         data = request.get_json() or {}
@@ -2271,6 +2422,11 @@ class UserAPI(MethodView):
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
             return {"message": "User not found", "status": 404}
+
+        # team_admin: must be on a managed team (or self)
+        if not is_org_admin_or_above(g.user):
+            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
+                return {"message": "Not in your managed teams", "status": 403}
 
         # Parse dates
         try:
@@ -2344,7 +2500,7 @@ class UserAPI(MethodView):
 
         return {"status": 200, "activity": activity}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_user_task_history(self):
         """Fetch task-level history for a user in date range."""
         data = request.get_json() or {}
@@ -2358,6 +2514,11 @@ class UserAPI(MethodView):
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
             return {"message": "User not found", "status": 404}
+
+        # team_admin: must be on a managed team (or self)
+        if not is_org_admin_or_above(g.user):
+            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
+                return {"message": "Not in your managed teams", "status": 403}
 
         # Parse dates
         try:
