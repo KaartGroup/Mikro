@@ -963,8 +963,9 @@ export default function AdminUsersPage() {
                   <option value="validator">{roleLabel("validator")}</option>
                   <option value="team_admin">{roleLabel("team_admin")}</option>
                   <option value="admin">{roleLabel("admin")}</option>
-                  {/* TEMP: org admins can grant super_admin until bootstrap done. Re-gate to super_admin only afterward. */}
-                  <option value="super_admin">{roleLabel("super_admin")}</option>
+                  {viewerRole === "super_admin" && (
+                    <option value="super_admin">{roleLabel("super_admin")}</option>
+                  )}
                 </select>
               ) : (
                 // team_admin viewers cannot promote — show read-only display.

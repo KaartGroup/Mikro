@@ -1229,6 +1229,11 @@ class UserAPI(MethodView):
         # Handle role update
         new_role = request.json.get("role")
         if new_role:
+            if new_role == "super_admin" and g.user.role != "super_admin":
+                return {
+                    "message": "Only a super_admin can grant the super_admin role",
+                    "status": 403,
+                }
             updates["role"] = new_role
 
         # Handle name updates

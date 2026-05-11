@@ -2680,8 +2680,9 @@ export default function UserProfilePage() {
                   { value: "validator", label: roleLabel("validator") },
                   { value: "team_admin", label: roleLabel("team_admin") },
                   { value: "admin", label: roleLabel("admin") },
-                  // TEMP: org admins can grant super_admin until bootstrap done. Re-gate to super_admin only afterward.
-                  { value: "super_admin", label: roleLabel("super_admin") },
+                  ...(viewerRole === "super_admin"
+                    ? [{ value: "super_admin", label: roleLabel("super_admin") }]
+                    : []),
                 ]}
               />
             ) : (
