@@ -326,7 +326,10 @@ class ValidatorTaskAction(CRUDMixin, db.Model):
     paid = db.Column(db.Boolean, default=False)
 
     # Relationships
-    validator = db.relationship("User", backref="validation_actions")
+    # passive_deletes lets the DB's ON DELETE CASCADE remove these rows
+    # when a User is hard-deleted, instead of SQLAlchemy trying to NULL
+    # user_id first (which fails — column is NOT NULL).
+    validator = db.relationship("User", backref=db.backref("validation_actions", passive_deletes=True))
     task = db.relationship("Task", backref="validation_actions")
     project = db.relationship("Project", backref="validation_actions")
 
@@ -885,7 +888,9 @@ class TimeEntry(CRUDMixin, db.Model):
     user_notes = db.Column(db.Text, nullable=True)
 
     # Relationships
-    user = db.relationship("User", backref="time_entries")
+    # passive_deletes — let the DB's ON DELETE CASCADE clean these up
+    # when a User is hard-deleted, instead of ORM trying to NULL user_id.
+    user = db.relationship("User", backref=db.backref("time_entries", passive_deletes=True))
     project = db.relationship("Project", backref="time_entries")
 
     __table_args__ = (
@@ -932,7 +937,8 @@ class HourlyPayment(CRUDMixin, db.Model):
     paid_by = db.Column(db.String(255), nullable=True)
     notes = db.Column(db.Text, nullable=True)
 
-    user = db.relationship("User", backref="hourly_payments")
+    # passive_deletes — DB cascade handles removal on User hard-delete.
+    user = db.relationship("User", backref=db.backref("hourly_payments", passive_deletes=True))
 
     __table_args__ = (
         db.UniqueConstraint("user_id", "year", "month", name="uq_hourly_payment_user_month"),
