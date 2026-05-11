@@ -55,7 +55,8 @@ import type {
   TaskHistoryEntry,
   UserPaymentSummaryResponse,
 } from "@/types";
-import { roleLabel } from "@/types";
+import { roleLabel, isOrgAdminOrAbove } from "@/types";
+import { useCurrentUserRole } from "@/hooks";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import {
   dateInputToLocalStartIsoUtc,
@@ -170,6 +171,8 @@ export default function UserProfilePage() {
   const { mutate: deactivateUser, loading: deactivating } = useDeactivateUser();
   const { mutate: reactivateUser, loading: reactivating } = useReactivateUser();
   const toast = useToastActions();
+  const { role: viewerRole } = useCurrentUserRole();
+  const canEditRole = isOrgAdminOrAbove(viewerRole);
 
   const [user, setUser] = useState<UserProfileData | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
@@ -2667,17 +2670,30 @@ export default function UserProfilePage() {
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Role"
-              value={editRole}
-              onChange={setEditRole}
-              options={[
-                { value: "user", label: roleLabel("user") },
-                { value: "validator", label: roleLabel("validator") },
-                { value: "team_admin", label: roleLabel("team_admin") },
-                { value: "admin", label: roleLabel("admin") },
-              ]}
-            />
+            {canEditRole ? (
+              <Select
+                label="Role"
+                value={editRole}
+                onChange={setEditRole}
+                options={[
+                  { value: "user", label: roleLabel("user") },
+                  { value: "validator", label: roleLabel("validator") },
+                  { value: "team_admin", label: roleLabel("team_admin") },
+                  { value: "admin", label: roleLabel("admin") },
+                  ...(viewerRole === "super_admin"
+                    ? [{ value: "super_admin", label: roleLabel("super_admin") }]
+                    : []),
+                ]}
+              />
+            ) : (
+              <div>
+                <label className="block text-sm font-medium mb-1">Role</label>
+                <div className="w-full px-3 py-2 border border-input rounded-lg bg-muted text-sm text-muted-foreground">
+                  {roleLabel(editRole)}
+                  <span className="ml-2 text-xs italic">(read-only)</span>
+                </div>
+              </div>
+            )}
             <Select
               label="Timezone"
               value={editTimezone2}
