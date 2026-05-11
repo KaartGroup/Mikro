@@ -164,28 +164,17 @@ class LoginAPI(MethodView):
                 current_app.logger.error(f"Error creating user: {e}")
                 return jsonify({"message": "Failed to create user", "status": 500}), 500
         else:
-            # Update user info from Auth0 on each login
-            # Don't overwrite role from token if user already has a higher role in DB
+            # Update user info from Auth0 on each login.
+            # Role is NOT touched here — the admin UI is canonical for role
+            # changes. Auto-bumping from the token claim caused demotions
+            # to silently revert because Auth0 metadata kept the old role
+            # and the priority logic would keep re-promoting on every login.
+            # If you need to change a user's role via Auth0, also change it
+            # via /admin/users.
             current_app.logger.info(f"Updating user {auth0_sub}")
             try:
-                # Only update role if token has a more privileged role than DB
-                # or if DB role is default "user". Three-tier admin split:
-                # team_admin sits between validator and admin; super_admin
-                # tops the ladder for cross-org operations.
-                role_priority = {
-                    "user": 0,
-                    "validator": 1,
-                    "team_admin": 2,
-                    "admin": 3,
-                    "super_admin": 4,
-                }
-                token_priority = role_priority.get(role, 0)
-                db_priority = role_priority.get(user.role, 0)
-                new_role = role if token_priority > db_priority else user.role
-
                 updates = {
                     "email": email,
-                    "role": new_role,
                 }
 
                 # Only set first/last name from Auth0 if the user doesn't
