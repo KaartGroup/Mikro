@@ -9,8 +9,7 @@ Mikro is an OSM (OpenStreetMap) micropayments platform by Kaart. It tracks user 
 ## Tech Stack
 
 - **Backend**: Python 3, Flask, SQLAlchemy, PostgreSQL with PostGIS
-- **Frontend (Legacy)**: React 18, styled-components, MUI, Bootstrap, React Router 6 (`frontend/Mikro/`)
-- **Frontend (New)**: Next.js 16, React 19, Tailwind CSS 4, Auth0 (`frontend/mikro-next/`)
+- **Frontend**: Next.js 16, React 19, Tailwind CSS 4, Auth0 (`frontend/mikro-next/`)
 - **Authentication**: Auth0 (migrated from Kaart SSO)
 
 ## Development Commands
@@ -23,18 +22,11 @@ pip3 install -r requirements.txt  # Install dependencies
 flask run -p 5004 --reload        # Run dev server on port 5004
 ```
 
-### Frontend (New - mikro-next)
+### Frontend
 ```bash
 cd frontend/mikro-next
 npm install
 npm run dev                       # Run on port 3000
-```
-
-### Frontend (Legacy)
-```bash
-cd frontend/Mikro
-npm install                       # or yarn install
-DANGEROUSLY_DISABLE_HOST_CHECK=true yarn start  # Run on port 3000
 ```
 
 For local dev, use `dev.localhost:3000` in browser to avoid CORS issues. Open Chrome in CORS-disabled mode:
@@ -72,16 +64,11 @@ npm test
 - `api/static_variables.py` - Environment config (Postgres connection, etc.)
 - `mikro.env` - Environment variables
 
-### Frontend Structure (`frontend/Mikro/src/`)
-- `App.js` - React Router configuration with role-based routes
-- `components/` - Page components organized by role:
-  - Admin pages: `AdminDash/`, `AdminProjectsPage/`, `AdminUsersPage/`, `AdminPaymentsPage/`, `AdminTasksPage/`, `AdminTrainingPage/`, `AdminChecklistsPage/`
-  - Validator pages: `ValidatorDashboard/`, `ValdatorChecklistsPage/`
-  - User pages: `UserDashboard/`, `UserProjectPage/`, `UserPaymentsPage/`, `UserTrainingPage/`, `UserChecklistsPage/`
-- `common/` - Shared context providers:
-  - `AuthContext/` - Authentication state and JWT refresh
-  - `DataContext/` - Application data management
-  - `InteractionContext/` - UI interaction state
+### Frontend Structure (`frontend/mikro-next/src/`)
+- `app/` - Next.js app routes and page components
+- `components/` - shared UI and feature components
+- `lib/` - Auth0 and API helpers
+- `types/` - shared TypeScript types
 
 ### User Roles
 Three roles with different access levels: `admin`, `validator`, `user`
