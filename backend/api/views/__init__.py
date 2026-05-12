@@ -11,6 +11,7 @@ from .OSMAuth import OSMAuthAPI
 from .TimeTracking import TimeTrackingAPI
 from .Teams import TeamAPI
 from .reports import ReportsAPI
+from .Payments import PaymentsAPI
 from .Regions import RegionAPI
 from .Webhook import WebhookAPI
 from .Punks import PunkAPI
@@ -31,6 +32,7 @@ __all__ = {
     "OSMAuthAPI",
     "TimeTrackingAPI",
     "TeamAPI",
+    "PaymentsAPI",
     "ReportsAPI",
     "RegionAPI",
     "WebhookAPI",
