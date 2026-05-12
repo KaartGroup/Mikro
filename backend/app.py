@@ -121,6 +121,7 @@ def _register_views(app):
         OSMAuthAPI,
         TimeTrackingAPI,
         TeamAPI,
+        PaymentsAPI,
         ReportsAPI,
         RegionAPI,
         WebhookAPI,
@@ -168,6 +169,12 @@ def _register_views(app):
 
     # Team management
     app.add_url_rule("/api/team/<path>", view_func=TeamAPI.as_view("team"))
+
+    # Payments v1 (end-of-month payroll workspace, Trello DWAbQFlL)
+    app.add_url_rule(
+        "/api/payments/<path:path>",
+        view_func=PaymentsAPI.as_view("payments"),
+    )
 
     # Reports
     app.add_url_rule("/api/reports/<path>", view_func=ReportsAPI.as_view("reports"))

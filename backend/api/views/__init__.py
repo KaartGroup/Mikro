@@ -10,6 +10,7 @@ from .Checklists import ChecklistAPI
 from .OSMAuth import OSMAuthAPI
 from .TimeTracking import TimeTrackingAPI
 from .Teams import TeamAPI
+from .Payments import PaymentsAPI
 from .Reports import ReportsAPI
 from .Regions import RegionAPI
 from .Webhook import WebhookAPI
@@ -31,6 +32,7 @@ __all__ = {
     "OSMAuthAPI",
     "TimeTrackingAPI",
     "TeamAPI",
+    "PaymentsAPI",
     "ReportsAPI",
     "RegionAPI",
     "WebhookAPI",

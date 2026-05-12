@@ -104,11 +104,14 @@ class PaymentAdjustment(CRUDMixin, SurrogatePK, db.Model):
 
 Cycle is identified by `(cycle_start, cycle_end)` rather than a `payroll_cycles` FK — keeps the data model lean and matches the "compute on the fly from a date range" decision.
 
-### 3.2 New column on `users`
+### 3.2 New columns on `users` (overtime placeholders, per Logan's 2026-05-12 ask)
 
 ```python
-payment_status = db.Column(db.String(50), nullable=True, default=None, index=True)
+overtime_rate            = db.Column(db.Numeric(10, 2), nullable=True)
+overtime_threshold_hours = db.Column(db.Integer, nullable=True, default=40)
 ```
+
+Both nullable so existing rows aren't disturbed; threshold defaults to 40 (US standard) when set. UI for editing them comes later; we just need the schema in place now.
 
 Per-user × cycle status doesn't fit on `users` (would need a separate table). Going with a separate table:
 
@@ -199,22 +202,21 @@ Sidebar nav: add "Payments v2" under the existing admin nav (temporary label unt
 
 ---
 
-## 6. Decisions deferred to Logan / Aaron
+## 6. Decisions
 
-Per the meeting notes, these are open before we cut implementation:
+**Resolved with Logan 2026-05-12:**
 
-1. **Row inclusion rule** — should the table show:
-   - (a) every active hourly contractor (even zero-hour rows), OR
-   - (b) only contractors with non-zero hours OR pending adjustments in the period?
-   Current proposal: (b), with a "show zero-hour rows" toggle.
+1. **Row inclusion rule** — ✅ default to **non-zero hours only**, with a "Show all" toggle to include zero-hour rows. Toggle defaults off.
 
-2. **Status semantics** — is **Held** distinct from **Pending** in any way Aaron acts on, or are we modeling more states than needed?
+5. **Overtime field** — ✅ add **right now, across the board** so we don't have to migrate again later. Adding `overtime_rate` (Numeric) **and** `overtime_threshold_hours` (Integer, default 40) to the `users` table in the same migration as the payment tables. UI for editing them lands later; the columns exist now.
 
-3. **Approve = what, exactly** — flag-only state change (v1 plan) vs notification trigger to Aaron (depends on comms platform).
+**Still open (proceeding on documented assumptions; revise if Logan/Aaron disagrees):**
 
-4. **CSV column set for export** — what columns does Aaron's current Chrono-Cards-to-Payoneer worksheet contain? Match that to minimize friction during cutover.
+2. **Status semantics — assumption:** Held is distinct from Pending. Pending = default no-op state. Held = admin actively flagged with a reason (e.g. "waiting on receipt", "pay-period mismatch"). Approved = ready for Aaron to disburse. Paid = Aaron has sent the money. State machine: `Pending → Approved → Paid` (forward path) with `Pending|Approved → Held → Pending` (off-ramp + recovery).
 
-5. **Overtime field** — placeholder column on `users` per the meeting notes. Add nullable `overtime_rate` and `overtime_threshold_hours`, leave UI hidden behind a feature flag? Or skip until needed?
+3. **Approve trigger — assumption:** **flag-only** in v1. No external action (no email, no Payoneer call). Aaron still disburses manually from the approved-rows CSV. The comms-platform notification piece is a follow-on once Sean has email set up.
+
+4. **CSV column set — assumption:** contributor name, OSM username, payment email, hours, hourly rate, calculated wage, adjustments total, total payable. Aaron to confirm the exact column set + ordering matches his current Chrono Cards → Payoneer worksheet during the dry-run pass before end-of-month cutover.
 
 ---
 
