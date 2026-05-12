@@ -4,6 +4,8 @@ Mikro API Application
 
 Flask application using the application factory pattern.
 This module creates and configures the Flask application.
+
+Deploy marker: 2026-05-12
 """
 
 import os
