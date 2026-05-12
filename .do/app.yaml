@@ -5,7 +5,7 @@ services:
   # Backend - Flask API
   - name: mikro-backend
     github:
-      repo: CEFgoose/Mikro
+      repo: KaartGroup/Mikro
       branch: master
       deploy_on_push: true
     source_dir: backend
@@ -68,7 +68,7 @@ services:
   # Frontend - Next.js
   - name: mikro-frontend
     github:
-      repo: CEFgoose/Mikro
+      repo: KaartGroup/Mikro
       branch: master
       deploy_on_push: true
     source_dir: frontend/mikro-next
@@ -122,7 +122,7 @@ workers:
   # well clear of the OOM line even on hour-plus recordings.
   - name: mikro-worker
     github:
-      repo: CEFgoose/Mikro
+      repo: KaartGroup/Mikro
       branch: master
       deploy_on_push: true
     source_dir: backend
