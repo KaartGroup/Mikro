@@ -1,7 +1,7 @@
 """Payments page v1 — overtime cols on users + payment_adjustments + payment_cycle_status.
 
 Revision ID: d8e9f0a1b2c3
-Revises: 9768b4bdbd62
+Revises: ea65a712a628
 Create Date: 2026-05-12
 
 Additive only. Backs the Mona-Kea-end-of-month payments cutover (Trello
@@ -28,7 +28,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "d8e9f0a1b2c3"
-down_revision = "9768b4bdbd62"
+down_revision = "ea65a712a628"
 branch_labels = None
 depends_on = None
 
