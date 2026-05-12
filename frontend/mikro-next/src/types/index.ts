@@ -1376,6 +1376,105 @@ export interface CountriesResponse {
   status: number;
 }
 
+// ─── Payments v1 (admin payroll workspace) ──────────────────────────
+
+export type PaymentCycleStatus =
+  | "pending"
+  | "approved"
+  | "held"
+  | "paid";
+
+export interface PaymentCycleRow {
+  user_id: string;
+  name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  payment_email: string | null;
+  osm_username: string | null;
+  hours: number;
+  seconds: number;
+  hourly_rate: number | null;
+  calculated_wage: number | null;
+  adjustments_total: number;
+  adjustments_count: number;
+  total_payable: number;
+  status: PaymentCycleStatus;
+  status_note: string | null;
+  status_actor_id: string | null;
+  status_updated_at: string | null;
+}
+
+export interface PaymentCycleResponse {
+  rows: PaymentCycleRow[];
+  cycle_start: string;
+  cycle_end: string;
+  include_zero_hours: boolean;
+  status: number;
+}
+
+export interface PaymentCycleKpis {
+  total_payable: number;
+  approved_total: number;
+  adjustments_total: number;
+  pending_count: number;
+  approved_count: number;
+  held_count: number;
+  paid_count: number;
+}
+
+export interface PaymentCycleKpisResponse {
+  kpis: PaymentCycleKpis;
+  cycle_start: string;
+  cycle_end: string;
+  status: number;
+}
+
+export interface PaymentAdjustment {
+  id: number;
+  user_id: string;
+  cycle_start: string;
+  cycle_end: string;
+  amount: number;
+  type: "reimbursement" | "correction" | "other";
+  note: string | null;
+  source: "admin_entry" | "approved_request";
+  request_id: number | null;
+  added_by: string;
+  added_by_name: string | null;
+  created_at: string | null;
+}
+
+export interface PaymentContributorSession {
+  id: number;
+  clock_in: string | null;
+  clock_out: string | null;
+  duration_seconds: number;
+  category: string;
+  project_id: number | null;
+  task_name: string | null;
+  user_notes: string | null;
+}
+
+export interface PaymentContributorDetailResponse {
+  contributor: PaymentCycleRow;
+  sessions: PaymentContributorSession[];
+  adjustments: PaymentAdjustment[];
+  cycle_start: string;
+  cycle_end: string;
+  status: number;
+}
+
+export interface PaymentStatusRow {
+  user_id: string;
+  cycle_start: string;
+  cycle_end: string;
+  status: PaymentCycleStatus;
+  note: string | null;
+  actor_id: string | null;
+  updated_at: string | null;
+}
+
 // Hourly contractor payment tracking
 export interface HourlyMonthData {
   totalSeconds: number;

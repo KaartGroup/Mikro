@@ -48,6 +48,7 @@ const adminNavItems: NavItem[] = [
   { label: "Users", href: "/admin/users", icon: "users" },
   { label: "Teams", href: "/admin/teams", icon: "team" },
   { label: "Payments", href: "/admin/payments", icon: "dollar" },
+  { label: "Payments v2", href: "/admin/payments-v2", icon: "dollar", tooltip: "New — Payroll workspace" },
   { label: "Reports", href: "/admin/reports", icon: "chart" },
   { label: "Regions", href: "/admin/regions", icon: "globe" },
   { label: "Punks List", href: "/admin/punks", icon: "shield" },
@@ -67,6 +68,7 @@ const teamAdminNavItems: NavItem[] = [
   { label: "Users", href: "/admin/users", icon: "users" },
   { label: "Teams", href: "/admin/teams", icon: "team" },
   { label: "Payments", href: "/admin/payments", icon: "dollar" },
+  { label: "Payments v2", href: "/admin/payments-v2", icon: "dollar", tooltip: "New — Payroll workspace" },
   { label: "Reports", href: "/admin/reports", icon: "chart" },
 ];
 
