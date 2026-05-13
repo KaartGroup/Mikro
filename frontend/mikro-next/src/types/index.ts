@@ -813,8 +813,22 @@ export interface EditingStatsResponse {
     validated: number;
     invalidated: number;
   }>;
+  tasks_over_time_daily: Array<{
+    day: string;
+    mapped: number;
+    validated: number;
+    invalidated: number;
+  }>;
   mr_status_over_time?: Array<{
     week: string;
+    fixed: number;
+    already_fixed: number;
+    false_positive: number;
+    skipped: number;
+    cant_complete: number;
+  }> | null;
+  mr_status_over_time_daily?: Array<{
+    day: string;
     fixed: number;
     already_fixed: number;
     false_positive: number;
@@ -854,6 +868,12 @@ export interface EditingStatsResponse {
       total_validated: number;
       total_invalidated: number;
     };
+    tasks_over_time_daily: Array<{
+      day: string;
+      mapped: number;
+      validated: number;
+      invalidated: number;
+    }>;
   } | null;
 }
 
@@ -962,8 +982,17 @@ export interface TimekeepingStatsResponse {
     changes_per_changeset: number;
     changes_per_hour: number;
   }>;
+  daily_activity: Array<{
+    day: string;
+    hours: number;
+    changesets: number;
+    changes: number;
+    changes_per_changeset: number;
+    changes_per_hour: number;
+  }>;
   weekly_category_hours: Array<Record<string, string | number>>;
   weekly_category_names: string[];
+  daily_category_hours: Array<Record<string, string | number>>;
   user_breakdown: Array<{
     user_id: string;
     user_name: string;
@@ -983,6 +1012,14 @@ export interface TimekeepingStatsResponse {
       active_users: number;
       avg_hours_per_user: number;
     };
+    daily_activity: Array<{
+      day: string;
+      hours: number;
+      changesets: number;
+      changes: number;
+      changes_per_changeset: number;
+      changes_per_hour: number;
+    }>;
   } | null;
 }
 

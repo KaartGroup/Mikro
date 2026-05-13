@@ -79,8 +79,13 @@ def get_editing_stats(org_id, source, start_date, end_date, osm_usernames, cmp_s
         "snapshot_timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": _get_summary(org_id, source, start_date, end_date, osm_usernames),
         "tasks_over_time": _get_tasks_over_time(org_id, source, start_date, end_date, osm_usernames),
+        "tasks_over_time_daily": _get_tasks_over_time_daily(org_id, source, start_date, end_date, osm_usernames),
         "mr_status_over_time": (
             _get_mr_status_over_time(org_id, start_date, end_date, osm_usernames)
+            if source == "mr" else None
+        ),
+        "mr_status_over_time_daily": (
+            _get_mr_status_over_time_daily(org_id, start_date, end_date, osm_usernames)
             if source == "mr" else None
         ),
         "projects": _get_projects_list(org_id, source),
@@ -198,6 +203,69 @@ def _get_mr_status_over_time(org_id, start_date, end_date, osm_usernames):
             weeks_mr[key][status_key] = row.count
 
     return sorted(weeks_mr.values(), key=lambda x: x["week"])
+
+
+def _get_tasks_over_time_daily(org_id, source, start_date, end_date, osm_usernames):
+    def _daily(date_col, user_col, flag_col):
+        q = (
+            db.session.query(
+                func.date_trunc("day", date_col).label("day"),
+                func.count().label("count"),
+            )
+            .filter(
+                Task.org_id == org_id, Task.source == source,
+                flag_col == True, date_col >= start_date, date_col < end_date,
+            )
+        )
+        if osm_usernames:
+            q = q.filter(user_col.in_(osm_usernames))
+        return q.group_by("day").all()
+
+    days = {}
+    for row in _daily(Task.date_mapped, Task.mapped_by, Task.mapped):
+        key = row.day.strftime("%Y-%m-%d")
+        days.setdefault(key, {"day": key, "mapped": 0, "validated": 0, "invalidated": 0})
+        days[key]["mapped"] = row.count
+    for row in _daily(Task.date_validated, Task.validated_by, Task.validated):
+        key = row.day.strftime("%Y-%m-%d")
+        days.setdefault(key, {"day": key, "mapped": 0, "validated": 0, "invalidated": 0})
+        days[key]["validated"] = row.count
+    for row in _daily(Task.date_validated, Task.validated_by, Task.invalidated):
+        key = row.day.strftime("%Y-%m-%d")
+        days.setdefault(key, {"day": key, "mapped": 0, "validated": 0, "invalidated": 0})
+        days[key]["invalidated"] = row.count
+
+    return sorted(days.values(), key=lambda x: x["day"])
+
+
+def _get_mr_status_over_time_daily(org_id, start_date, end_date, osm_usernames):
+    q = (
+        db.session.query(
+            func.date_trunc("day", Task.date_mapped).label("day"),
+            Task.mr_status,
+            func.count().label("count"),
+        )
+        .filter(
+            Task.org_id == org_id, Task.source == "mr",
+            Task.mapped == True, Task.mr_status != None,
+            Task.date_mapped >= start_date, Task.date_mapped < end_date,
+        )
+    )
+    if osm_usernames:
+        q = q.filter(Task.mapped_by.in_(osm_usernames))
+
+    days_mr = {}
+    for row in q.group_by("day", Task.mr_status).all():
+        key = row.day.strftime("%Y-%m-%d")
+        days_mr.setdefault(
+            key,
+            {"day": key, "fixed": 0, "already_fixed": 0, "false_positive": 0, "skipped": 0, "cant_complete": 0},
+        )
+        status_key = _MR_STATUS_KEYS.get(row.mr_status)
+        if status_key:
+            days_mr[key][status_key] = row.count
+
+    return sorted(days_mr.values(), key=lambda x: x["day"])
 
 
 def _get_time_per_project(org_id):
@@ -372,5 +440,6 @@ def _get_comparison(org_id, source, cmp_start, cmp_end, osm_usernames):
             "total_mapped": _count(Task.mapped, Task.date_mapped, Task.mapped_by),
             "total_validated": _count(Task.validated, Task.date_validated, Task.validated_by),
             "total_invalidated": _count(Task.invalidated, Task.date_validated, Task.validated_by),
-        }
+        },
+        "tasks_over_time_daily": _get_tasks_over_time_daily(org_id, source, cmp_start, cmp_end, osm_usernames),
     }

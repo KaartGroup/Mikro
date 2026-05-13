@@ -53,15 +53,15 @@ class ReportsAPI(MethodView):
     def fetch_changeset_heatmap(self):
         return fetch_changeset_heatmap()
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_element_analysis(self):
         return fetch_element_analysis()
 
-    @requires_admin
+    @requires_team_admin_or_above
     def queue_element_analysis(self):
         return queue_element_analysis()
 
-    @requires_admin
+    @requires_team_admin_or_above
     def check_element_analysis_status(self):
         return check_element_analysis_status()
 
