@@ -55,9 +55,10 @@ const adminNavItems: NavItem[] = [
   { label: "Transcribe", href: "/admin/transcribe", icon: "mic", tooltip: "New — Experimental Feature" },
 ];
 
-// Team Admin sees a scoped subset: their teams' surface area only.
-// Excludes org-wide admin pages (Regions, Friends, Punks, Transcribe)
-// because team_admin endpoints there are gated to Org Admin / above.
+// Team Admin sees the same surface area as Org Admin, with the
+// per-page data siloed to teams they manage (server-enforced). Only
+// the Regions admin page stays Org-Admin-only (region/country CRUD is
+// org structure, not team-scoped).
 const teamAdminNavItems: NavItem[] = [
   { label: "Dashboard", href: "/admin/dashboard", icon: "home" },
   { label: "Projects", href: "/admin/projects", icon: "folder" },
@@ -68,6 +69,9 @@ const teamAdminNavItems: NavItem[] = [
   { label: "Teams", href: "/admin/teams", icon: "team" },
   { label: "Payments", href: "/admin/payments", icon: "dollar" },
   { label: "Reports", href: "/admin/reports", icon: "chart" },
+  { label: "Punks List", href: "/admin/punks", icon: "shield" },
+  { label: "Friends List", href: "/admin/friends", icon: "users" },
+  { label: "Transcribe", href: "/admin/transcribe", icon: "mic", tooltip: "New — Experimental Feature" },
 ];
 
 const iconMap: Record<string, React.ReactNode> = {

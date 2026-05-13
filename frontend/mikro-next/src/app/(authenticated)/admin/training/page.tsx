@@ -38,7 +38,7 @@ import {
   useManagedTeams,
 } from "@/hooks";
 import type { Training, TrainingQuestion } from "@/types";
-import { isOrgAdminOrAbove } from "@/types";
+import { isOrgAdminOrAbove, isAnyAdmin } from "@/types";
 import { formatNumber } from "@/lib/utils";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
@@ -83,6 +83,9 @@ export default function AdminTrainingPage() {
   const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
   const canCreateOrDelete = isOrgAdminOrAbove(viewerRole);
+  // team_admin can now create + edit trainings (scoped to managed teams
+  // on the backend). Delete + purge stay org_admin only.
+  const canCreateOrEdit = isAnyAdmin(viewerRole);
 
   const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -567,7 +570,7 @@ export default function AdminTrainingPage() {
             Manage training modules and quizzes
           </p>
         </div>
-        {canCreateOrDelete && (
+        {canCreateOrEdit && (
           <Button onClick={() => setShowAddModal(true)}>Add Training</Button>
         )}
       </div>

@@ -36,7 +36,7 @@ import {
   useManagedTeams,
 } from "@/hooks";
 import type { Checklist } from "@/types";
-import { isOrgAdminOrAbove } from "@/types";
+import { isOrgAdminOrAbove, isAnyAdmin } from "@/types";
 import { formatNumber, formatCurrency, displayRole } from "@/lib/utils";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
@@ -98,6 +98,9 @@ export default function AdminChecklistsPage() {
   const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
   const canCreateOrDelete = isOrgAdminOrAbove(viewerRole);
+  // team_admin can now create + edit checklists (scoped to managed teams
+  // on the backend). Delete + purge stay org_admin only.
+  const canCreateOrEdit = isAnyAdmin(viewerRole);
 
   const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -590,7 +593,7 @@ export default function AdminChecklistsPage() {
             Manage checklists and track completion
           </p>
         </div>
-        {canCreateOrDelete && (
+        {canCreateOrEdit && (
           <Button onClick={() => setShowAddModal(true)}>Create Checklist</Button>
         )}
       </div>
