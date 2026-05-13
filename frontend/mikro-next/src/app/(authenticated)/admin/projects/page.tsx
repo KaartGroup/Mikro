@@ -54,7 +54,7 @@ import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import Link from "next/link";
 import { formatNumber, formatCurrency, getProjectExternalUrl } from "@/lib/utils";
 import { Val } from "@/components/ui";
-import { isOrgAdminOrAbove } from "@/types";
+import { isOrgAdminOrAbove, isAnyAdmin } from "@/types";
 import type { Project, ProjectTeamItem, TeamsResponse } from "@/types";
 
 interface ProjectUserItem {
@@ -126,6 +126,9 @@ export default function AdminProjectsPage() {
   const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
   const canCreateOrDelete = isOrgAdminOrAbove(viewerRole);
+  // team_admin can now create AND edit projects (delete + dev-tools purge
+  // are still org_admin only).
+  const canCreateOrEdit = isAnyAdmin(viewerRole);
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -844,7 +847,7 @@ export default function AdminProjectsPage() {
             Manage TM4 projects and payment rates
           </p>
         </div>
-        {canCreateOrDelete && (
+        {canCreateOrEdit && (
           <Button onClick={() => setShowAddModal(true)}>Add Project</Button>
         )}
       </div>
