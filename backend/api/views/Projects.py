@@ -210,9 +210,14 @@ class ProjectAPI(MethodView):
             "message": "Only /project/{fetch_users,fetch_user_projects} is permitted with GET",  # noqa: E501
         }, 405
 
-    @requires_admin
+    @requires_team_admin_or_above
     def create_project(self):
-        """Create a new TM4 or MapRoulette project."""
+        """Create a new TM4 or MapRoulette project.
+
+        Open to all admin tiers (super_admin / admin / team_admin) — a
+        team_admin needs to be able to spin up projects for their teams
+        without bouncing off an Org Admin every time.
+        """
         if not g.user:
             return {"message": "Missing user info", "status": 304}
 
@@ -402,8 +407,15 @@ class ProjectAPI(MethodView):
 
         return {"message": "Project created — metadata loading in background", "project_id": challenge_id, "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def update_project(self):
+        """Update a project's payment rates, visibility, status, etc.
+
+        Open to all admin tiers — team_admin owners need to be able to
+        adjust their own projects' rates and settings. Cross-org safety
+        is enforced below via the ``org_id=g.user.org_id`` filter on
+        the target project lookup.
+        """
         response = {}
         # Check if user is authenticated
         if not hasattr(g, "user") or not g.user:
