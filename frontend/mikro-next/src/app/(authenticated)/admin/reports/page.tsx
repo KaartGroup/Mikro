@@ -9,6 +9,9 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  Val,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui";
 import {
   useFetchEditingStats,
@@ -41,6 +44,8 @@ import { CommunityTab } from "./_components/CommunityTab";
 import { TimekeepingTab } from "./_components/TimekeepingTab";
 import { ImageryTab } from "./_components/ImageryTab";
 import { MapRouletteTab } from "./_components/MapRouletteTab";
+import { formatNumber } from "@/lib/utils";
+import TrendOverview from "./_components/TrendOverview";
 
 export default function AdminReportsPage() {
   const router = useRouter();
@@ -215,6 +220,10 @@ export default function AdminReportsPage() {
     fetchData();
   }, [fetchData]);
 
+    useEffect(() => {
+    console.log("timekeeping data", timekeepingData);
+  }, [timekeepingData]);
+
   // ── Element analysis refresh (triggered from EditingTab modal) ──
   const handleStartAnalysis = useCallback(async () => {
     setShowRefreshModal(false);
@@ -278,6 +287,16 @@ export default function AdminReportsPage() {
     customStart,
     customEnd,
   ]);
+
+    const overallProgress = editingData
+    ? (() => {
+        const totalTasks = editingData.projects.reduce((s, p) => s + p.total_tasks, 0);
+        const totalMapped = editingData.projects.reduce((s, p) => s + p.tasks_mapped, 0);
+        const totalValidated = editingData.projects.reduce((s, p) => s + p.tasks_validated, 0);
+        const pct = totalTasks > 0 ? Math.round((totalMapped / totalTasks) * 100) : 0;
+        return { totalTasks, totalMapped, totalValidated, pct };
+      })()
+    : null;
 
   // ── team_admin with no managed teams → empty state ───────────
   if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
@@ -467,6 +486,148 @@ export default function AdminReportsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* KPI Summary */}
+      <div className="flex flex-row">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Total Hours</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              <Val>{formatNumber(timekeepingData?.summary.total_hours ?? 0)}</Val>h
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Total Changesets</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              <Val>{formatNumber(timekeepingData?.summary.total_changesets ?? 0)}</Val>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Total Changes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              <Val>{formatNumber(timekeepingData?.summary.total_changes ?? 0)}</Val>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Average Changes / Changeset</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              <Val>{formatNumber((timekeepingData?.summary.total_changes ?? 0) / (timekeepingData?.summary.total_changesets ?? 1))}</Val>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Average Changes / Hours</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              <Val>{formatNumber((timekeepingData?.summary.total_changes ?? 0) / (timekeepingData?.summary.total_hours ?? 1))}</Val>
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Total Tasks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              <Val>{formatNumber(overallProgress?.totalTasks ?? 0)}</Val>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Tasks Completed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              <Val>{formatNumber(overallProgress?.totalMapped ?? 0)}</Val>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">% complete</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              <Val>{formatNumber(overallProgress?.pct ?? 0)}</Val>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <TrendOverview
+          title="Total Changes"
+          data={(timekeepingData?.weekly_activity ?? []).map((d) => ({
+            date: d.week,
+            value: d.changes,
+          }))}
+          color="#f97316"
+          loading={timekeepingLoading}
+          compareEnabled={compareEnabled}
+          compareTotal={timekeepingData?.comparison?.summary.total_changes ?? null}
+        />
+        <TrendOverview
+          title="Total Changesets"
+          data={(timekeepingData?.weekly_activity ?? []).map((d) => ({
+            date: d.week,
+            value: d.changesets,
+          }))}
+          color="#3b82f6"
+          loading={timekeepingLoading}
+          compareEnabled={compareEnabled}
+          compareTotal={timekeepingData?.comparison?.summary.total_changesets ?? null}
+        />
+        <TrendOverview
+          title="Tasks Completed"
+          data={(editingData?.tasks_over_time ?? []).map((d) => ({
+            date: d.week,
+            value: d.mapped,
+          }))}
+          color="#10b981"
+          loading={editingLoading}
+          compareEnabled={compareEnabled}
+          compareTotal={editingData?.comparison?.summary.total_mapped ?? null}
+        />
+        <TrendOverview
+          title="Validation Rate"
+          data={(editingData?.tasks_over_time ?? []).map((d) => ({
+            date: d.week,
+            value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0,
+          }))}
+          color="#8b5cf6"
+          unit="%"
+          loading={editingLoading}
+          compareEnabled={compareEnabled}
+          compareTotal={
+            editingData?.comparison?.summary &&
+            editingData.comparison.summary.total_mapped > 0
+              ? Math.round(
+                  (editingData.comparison.summary.total_validated /
+                    editingData.comparison.summary.total_mapped) *
+                    100
+                )
+              : null
+          }
+        />
+      </div>
 
       {/* TABS */}
       <Tabs defaultValue="editing" value={activeTab} onValueChange={setActiveTab}>

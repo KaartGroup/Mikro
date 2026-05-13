@@ -10,7 +10,7 @@ from .Checklists import ChecklistAPI
 from .OSMAuth import OSMAuthAPI
 from .TimeTracking import TimeTrackingAPI
 from .Teams import TeamAPI
-from .Reports import ReportsAPI
+from .reports import ReportsAPI
 from .Regions import RegionAPI
 from .Webhook import WebhookAPI
 from .Punks import PunkAPI
