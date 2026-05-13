@@ -976,7 +976,7 @@ class ElementAnalysisCache(CRUDMixin, db.Model):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     org_id = Column(String(255), nullable=True, index=True)
-    week = Column(db.Date, nullable=False)
+    day = Column(db.Date, nullable=False)
     category = Column(String(50), nullable=False)
     added = Column(Integer, nullable=False, default=0)
     modified = Column(Integer, nullable=False, default=0)
@@ -984,7 +984,7 @@ class ElementAnalysisCache(CRUDMixin, db.Model):
     updated_at = Column(DateTime, default=func.now())
 
     def __repr__(self):
-        return f"<ElementAnalysisCache org={self.org_id} week={self.week} cat={self.category}>"
+        return f"<ElementAnalysisCache org={self.org_id} day={self.day} cat={self.category}>"
 
 
 class Punk(ModelWithSoftDeleteAndCRUD, SurrogatePK):

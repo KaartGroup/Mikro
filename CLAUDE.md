@@ -41,6 +41,13 @@ pip3 install -r requirements.txt
 flask run -p 5004 --reload
 ```
 
+In a separate terminal, start the worker (handles background jobs like element analysis, transcription, task syncs):
+```bash
+cd backend
+source venv/bin/activate
+python -m api.worker
+```
+
 ### Frontend
 ```bash
 cd frontend/mikro-next
