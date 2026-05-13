@@ -14,9 +14,10 @@ from flask import g, request, current_app
 
 from datetime import timedelta
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
 from ..utils.tz import parse_filter_datetime
-from ..database import db, CommunityEntry
+from ..auth import is_org_admin_or_above, team_admin_visible_user_ids
+from ..database import db, CommunityEntry, User
 
 logger = logging.getLogger(__name__)
 
@@ -168,9 +169,14 @@ class CommunityDataAPI(MethodView):
             logger.error(f"Error syncing community data from sheet: {e}")
             return {"message": "Failed to sync from sheet", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_entries(self):
-        """Fetch community entries with optional filters."""
+        """Fetch community entries with optional filters.
+
+        team_admin sees only entries whose ``submitted_by`` email
+        matches a user on one of their managed teams (or themselves).
+        Org Admin / super_admin see everything in the org.
+        """
         if not g.user:
             return {"message": "Missing user info", "status": 304}
 
@@ -181,6 +187,22 @@ class CommunityDataAPI(MethodView):
 
         try:
             query = CommunityEntry.query.filter_by(org_id=g.user.org_id)
+
+            if not is_org_admin_or_above(g.user):
+                scope_user_ids = team_admin_visible_user_ids(g.user)
+                scope_emails = set()
+                if scope_user_ids:
+                    scope_emails = {
+                        u.email
+                        for u in User.query.filter(
+                            User.id.in_(list(scope_user_ids))
+                        ).all()
+                        if u.email
+                    }
+                # No-match-possible sentinel keeps the query valid + empty
+                # for callers with no scope (zero-team team_admin).
+                allowed = list(scope_emails) or [""]
+                query = query.filter(CommunityEntry.submitted_by.in_(allowed))
 
             if start_date_str:
                 start_date, _ = parse_filter_datetime(start_date_str)
@@ -252,9 +274,13 @@ class CommunityDataAPI(MethodView):
             logger.error(f"Error fetching community entries: {e}")
             return {"message": "Failed to fetch entries", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def update_entry(self):
-        """Update a community entry's edited_data and/or entry_type."""
+        """Update a community entry's edited_data and/or entry_type.
+
+        team_admin can update only entries submitted by a user on one
+        of their managed teams (or themselves).
+        """
         if not g.user:
             return {"message": "Missing user info", "status": 304}
 
@@ -274,6 +300,20 @@ class CommunityDataAPI(MethodView):
             if not entry:
                 return {"message": "Entry not found", "status": 404}
 
+            if not is_org_admin_or_above(g.user):
+                scope_user_ids = team_admin_visible_user_ids(g.user)
+                scope_emails = set()
+                if scope_user_ids:
+                    scope_emails = {
+                        u.email
+                        for u in User.query.filter(
+                            User.id.in_(list(scope_user_ids))
+                        ).all()
+                        if u.email
+                    }
+                if entry.submitted_by not in scope_emails:
+                    return {"message": "Entry not in your scope", "status": 403}
+
             if edited_data_dict is not None:
                 entry.edited_data = json.dumps(edited_data_dict)
                 entry.is_edited = True
@@ -289,7 +329,7 @@ class CommunityDataAPI(MethodView):
             logger.error(f"Error updating community entry: {e}")
             return {"message": "Failed to update entry", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_sheet_config(self):
         """Return current Google Sheet configuration and sync status."""
         if not g.user:

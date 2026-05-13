@@ -17,7 +17,8 @@ from flask import current_app, g, request
 from flask.views import MethodView
 
 from ..database import db, MonitoredChannel, ChannelPost
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
+from ..auth import is_org_admin_or_above, team_admin_visible_user_ids
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +149,7 @@ class ChannelMonitorAPI(MethodView):
             return self.fetch_all_summaries()
         return {"message": "Unknown path", "status": 404}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_channels(self):
         """Fetch all monitored channels for the org."""
         if not g.user:
@@ -158,6 +159,10 @@ class ChannelMonitorAPI(MethodView):
             channels = MonitoredChannel.query.filter_by(
                 org_id=g.user.org_id
             ).all()
+
+            if not is_org_admin_or_above(g.user):
+                scope = team_admin_visible_user_ids(g.user)
+                channels = [c for c in channels if c.created_by in scope]
 
             result = []
             for ch in channels:
@@ -185,7 +190,7 @@ class ChannelMonitorAPI(MethodView):
             logger.error(f"Error fetching channels: {e}")
             return {"message": "Failed to fetch channels", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def add_channel(self):
         """Add a new monitored channel."""
         if not g.user:
@@ -221,7 +226,7 @@ class ChannelMonitorAPI(MethodView):
             logger.error(f"Error adding channel: {e}")
             return {"message": "Failed to add channel", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def update_channel(self):
         """Update an existing monitored channel."""
         if not g.user:
@@ -241,6 +246,11 @@ class ChannelMonitorAPI(MethodView):
             if not channel:
                 return {"message": "Channel not found", "status": 404}
 
+            if not is_org_admin_or_above(g.user):
+                scope = team_admin_visible_user_ids(g.user)
+                if channel.created_by not in scope:
+                    return {"message": "Channel not in your scope", "status": 403}
+
             if "name" in data:
                 channel.name = data["name"]
             if "url" in data:
@@ -258,7 +268,7 @@ class ChannelMonitorAPI(MethodView):
             logger.error(f"Error updating channel: {e}")
             return {"message": "Failed to update channel", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def remove_channel(self):
         """Remove a monitored channel and its posts."""
         if not g.user:
@@ -278,6 +288,11 @@ class ChannelMonitorAPI(MethodView):
             if not channel:
                 return {"message": "Channel not found", "status": 404}
 
+            if not is_org_admin_or_above(g.user):
+                scope = team_admin_visible_user_ids(g.user)
+                if channel.created_by not in scope:
+                    return {"message": "Channel not in your scope", "status": 403}
+
             # Delete associated posts first
             ChannelPost.query.filter_by(channel_id=channel.id).delete()
             db.session.delete(channel)
@@ -289,7 +304,7 @@ class ChannelMonitorAPI(MethodView):
             logger.error(f"Error removing channel: {e}")
             return {"message": "Failed to remove channel", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_channel_content(self):
         """Fetch new posts from a channel's RSS/Atom feed."""
         if not g.user:
@@ -308,6 +323,11 @@ class ChannelMonitorAPI(MethodView):
 
             if not channel:
                 return {"message": "Channel not found", "status": 404}
+
+            if not is_org_admin_or_above(g.user):
+                scope = team_admin_visible_user_ids(g.user)
+                if channel.created_by not in scope:
+                    return {"message": "Channel not in your scope", "status": 403}
 
             posts = _fetch_rss_posts(channel.url)
             fetched = len(posts)
@@ -358,7 +378,7 @@ class ChannelMonitorAPI(MethodView):
             logger.error(f"Error fetching channel content: {e}")
             return {"message": "Failed to fetch channel content", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def summarize_channel(self):
         """Generate an AI summary of recent channel posts."""
         if not g.user:
@@ -377,6 +397,11 @@ class ChannelMonitorAPI(MethodView):
 
             if not channel:
                 return {"message": "Channel not found", "status": 404}
+
+            if not is_org_admin_or_above(g.user):
+                scope = team_admin_visible_user_ids(g.user)
+                if channel.created_by not in scope:
+                    return {"message": "Channel not in your scope", "status": 403}
 
             recent_posts = (
                 ChannelPost.query.filter_by(channel_id=channel.id)
@@ -423,7 +448,7 @@ class ChannelMonitorAPI(MethodView):
             logger.error(f"Error summarizing channel: {e}")
             return {"message": "Failed to summarize channel", "status": 500}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_all_summaries(self):
         """Fetch cached summaries for all active channels."""
         if not g.user:
@@ -433,6 +458,10 @@ class ChannelMonitorAPI(MethodView):
             channels = MonitoredChannel.query.filter_by(
                 org_id=g.user.org_id, active=True
             ).all()
+
+            if not is_org_admin_or_above(g.user):
+                scope = team_admin_visible_user_ids(g.user)
+                channels = [c for c in channels if c.created_by in scope]
 
             summaries = []
             for ch in channels:

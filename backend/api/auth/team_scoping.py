@@ -45,6 +45,32 @@ def managed_team_ids_for(viewer) -> list[int]:
     return [t.id for t in rows]
 
 
+def team_admin_visible_user_ids(viewer) -> set[str]:
+    """User IDs whose data a team_admin should see on team-silo pages.
+
+    Returns ``team members across managed teams ∪ {viewer.id}``. Used by
+    the Friends/Punks/ChannelMonitor/Transcription/CommunityData reads
+    that should show team_admin only entries owned by them or by users
+    on the teams they manage.
+
+    Org Admin / super_admin should bypass this — they see everything in
+    their org. The standard pattern is::
+
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            rows = [r for r in rows if r.added_by in scope]
+
+    Empty set for any caller that isn't ``team_admin`` (defensive — the
+    helper is only meaningful for that role).
+    """
+    if viewer is None or getattr(viewer, "id", None) is None:
+        return set()
+    if getattr(viewer, "role", None) != "team_admin":
+        return set()
+    members = team_member_ids_for(managed_team_ids_for(viewer))
+    return members | {viewer.id}
+
+
 def team_member_ids_for(team_ids: Iterable[int]) -> set[str]:
     """Return the set of user IDs who are members of any of these teams."""
     ids = list(team_ids)

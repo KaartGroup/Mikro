@@ -11,7 +11,8 @@ from flask.views import MethodView
 from flask import g, request, current_app
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
+from ..auth import is_org_admin_or_above, team_admin_visible_user_ids
 from ..database import db, Punk, PunkChangeset
 import json
 import requests as http_requests
@@ -63,7 +64,7 @@ class PunkAPI(MethodView):
 
     # ─── List all punks ──────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_punks(self):
         """Return all punks for the org with cached stats."""
         org_id = g.user.org_id
@@ -72,6 +73,10 @@ class PunkAPI(MethodView):
             .order_by(Punk.created_at.desc())
             .all()
         )
+
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            punks = [p for p in punks if p.added_by in scope]
 
         result = []
         for p in punks:
@@ -102,7 +107,7 @@ class PunkAPI(MethodView):
 
     # ─── Create punk ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def create_punk(self):
         """Add a new punk to the watchlist."""
         data = request.json or {}
@@ -145,7 +150,7 @@ class PunkAPI(MethodView):
 
     # ─── Update punk ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def update_punk(self):
         """Update notes and/or tags for a punk."""
         data = request.json or {}
@@ -156,6 +161,11 @@ class PunkAPI(MethodView):
         punk = Punk.query.get(punk_id)
         if not punk:
             return {"message": "Punk not found", "status": 404}
+
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if punk.added_by not in scope:
+                return {"message": "Punk not in your scope", "status": 403}
 
         updates = {}
         if "notes" in data:
@@ -170,7 +180,7 @@ class PunkAPI(MethodView):
 
     # ─── Delete punk ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def delete_punk(self):
         """Hard delete a punk and its cached changesets."""
         data = request.json or {}
@@ -182,6 +192,11 @@ class PunkAPI(MethodView):
         if not punk:
             return {"message": "Punk not found", "status": 404}
 
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if punk.added_by not in scope:
+                return {"message": "Punk not in your scope", "status": 403}
+
         # Delete cached changesets first
         PunkChangeset.query.filter_by(punk_id=punk_id).delete()
         db.session.delete(punk)
@@ -191,7 +206,7 @@ class PunkAPI(MethodView):
 
     # ─── Punk detail ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_punk_detail(self):
         """Return punk info, cached changesets, heatmap points, and summary."""
         data = request.json or {}
@@ -202,6 +217,11 @@ class PunkAPI(MethodView):
         punk = Punk.query.get(punk_id)
         if not punk:
             return {"message": "Punk not found", "status": 404}
+
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if punk.added_by not in scope:
+                return {"message": "Punk not in your scope", "status": 403}
 
         changesets = (
             PunkChangeset.query.filter_by(punk_id=punk_id)
@@ -318,7 +338,7 @@ class PunkAPI(MethodView):
 
     # ─── Refresh punk activity ───────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def refresh_punk_activity(self):
         """Fetch latest changeset data from OSM API and update cache."""
         data = request.json or {}
@@ -330,6 +350,11 @@ class PunkAPI(MethodView):
         if not punk:
             return {"message": "Punk not found", "status": 404}
 
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if punk.added_by not in scope:
+                return {"message": "Punk not in your scope", "status": 403}
+
         try:
             self._refresh_punk(punk)
         except Exception as e:
@@ -340,7 +365,7 @@ class PunkAPI(MethodView):
 
     # ─── Toggle discussion flag ───────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def toggle_discussion_flag(self):
         """Toggle a discussion link as flagged/unflagged."""
         data = request.json or {}
@@ -352,6 +377,11 @@ class PunkAPI(MethodView):
         punk = Punk.query.get(punk_id)
         if not punk:
             return {"message": "Punk not found", "status": 404}
+
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if punk.added_by not in scope:
+                return {"message": "Punk not in your scope", "status": 403}
 
         flagged = set()
         if punk.flagged_discussions:

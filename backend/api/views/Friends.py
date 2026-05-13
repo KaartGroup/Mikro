@@ -11,7 +11,8 @@ from flask.views import MethodView
 from flask import g, request, current_app
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
+from ..auth import is_org_admin_or_above, team_admin_visible_user_ids
 from ..database import db, Friend, FriendChangeset
 import json
 import requests as http_requests
@@ -59,15 +60,23 @@ class FriendAPI(MethodView):
 
     # ─── List all friends ──────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_friends(self):
-        """Return all friends for the org with cached stats."""
+        """Return all friends for the org with cached stats.
+
+        team_admin sees only friends added by themselves or by users on
+        teams they manage.
+        """
         org_id = g.user.org_id
         friends = (
             Friend.query.filter_by(org_id=org_id)
             .order_by(Friend.created_at.desc())
             .all()
         )
+
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            friends = [f for f in friends if f.added_by in scope]
 
         result = []
         for p in friends:
@@ -98,7 +107,7 @@ class FriendAPI(MethodView):
 
     # ─── Create friend ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def create_friend(self):
         """Add a new friend to the watchlist."""
         data = request.json or {}
@@ -141,7 +150,7 @@ class FriendAPI(MethodView):
 
     # ─── Update friend ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def update_friend(self):
         """Update notes and/or tags for a friend."""
         data = request.json or {}
@@ -152,6 +161,11 @@ class FriendAPI(MethodView):
         friend = Friend.query.get(friend_id)
         if not friend:
             return {"message": "Friend not found", "status": 404}
+
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if friend.added_by not in scope:
+                return {"message": "Friend not in your scope", "status": 403}
 
         updates = {}
         if "notes" in data:
@@ -166,7 +180,7 @@ class FriendAPI(MethodView):
 
     # ─── Delete friend ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def delete_friend(self):
         """Hard delete a friend and its cached changesets."""
         data = request.json or {}
@@ -178,6 +192,11 @@ class FriendAPI(MethodView):
         if not friend:
             return {"message": "Friend not found", "status": 404}
 
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if friend.added_by not in scope:
+                return {"message": "Friend not in your scope", "status": 403}
+
         # Delete cached changesets first
         FriendChangeset.query.filter_by(friend_id=friend_id).delete()
         db.session.delete(friend)
@@ -187,7 +206,7 @@ class FriendAPI(MethodView):
 
     # ─── Friend detail ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_friend_detail(self):
         """Return friend info, cached changesets, heatmap points, and summary."""
         data = request.json or {}
@@ -198,6 +217,11 @@ class FriendAPI(MethodView):
         friend = Friend.query.get(friend_id)
         if not friend:
             return {"message": "Friend not found", "status": 404}
+
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if friend.added_by not in scope:
+                return {"message": "Friend not in your scope", "status": 403}
 
         changesets = (
             FriendChangeset.query.filter_by(friend_id=friend_id)
@@ -303,7 +327,7 @@ class FriendAPI(MethodView):
 
     # ─── Refresh friend activity ───────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def refresh_friend_activity(self):
         """Fetch latest changeset data from OSM API and update cache."""
         data = request.json or {}
@@ -315,6 +339,11 @@ class FriendAPI(MethodView):
         if not friend:
             return {"message": "Friend not found", "status": 404}
 
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if friend.added_by not in scope:
+                return {"message": "Friend not in your scope", "status": 403}
+
         try:
             self._refresh_friend(friend)
         except Exception as e:
@@ -325,7 +354,7 @@ class FriendAPI(MethodView):
 
     # ─── Toggle discussion flag ───────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def toggle_discussion_flag(self):
         """Toggle a discussion link as flagged/unflagged."""
         data = request.json or {}
@@ -337,6 +366,11 @@ class FriendAPI(MethodView):
         friend = Friend.query.get(friend_id)
         if not friend:
             return {"message": "Friend not found", "status": 404}
+
+        if not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if friend.added_by not in scope:
+                return {"message": "Friend not in your scope", "status": 403}
 
         flagged = set()
         if friend.flagged_discussions:

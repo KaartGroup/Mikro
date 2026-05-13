@@ -23,7 +23,8 @@ from botocore.exceptions import ClientError
 from flask.views import MethodView
 from flask import request, current_app, g
 
-from ..utils import requires_admin
+from ..utils import requires_admin, requires_team_admin_or_above
+from ..auth import is_org_admin_or_above, team_admin_visible_user_ids
 
 
 def _get_s3_client():
@@ -171,7 +172,7 @@ class TranscriptionAPI(MethodView):
             return self.list_tags()
         return {"message": "Unknown path", "status": 404}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def upload_init(self):
         """
         Start a multipart upload direct to DO Spaces.
@@ -249,7 +250,7 @@ class TranscriptionAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def upload_complete(self):
         """Finalise the multipart upload and queue a transcription job."""
         from ..database import db, TranscriptionJob
@@ -309,7 +310,7 @@ class TranscriptionAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def upload_abort(self):
         """Abort an in-flight multipart upload so Spaces doesn't retain partial data."""
         body = request.get_json(silent=True) or {}
@@ -333,7 +334,7 @@ class TranscriptionAPI(MethodView):
 
         return {"status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def cancel(self):
         """
         Mark a queued/transcribing job as cancelled so the frontend can move
@@ -355,6 +356,10 @@ class TranscriptionAPI(MethodView):
         job = TranscriptionJob.query.get(job_id)
         if not job:
             return {"message": "Job not found", "status": 404}
+        if job.user_id != g.user.id and not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if job.user_id not in scope:
+                return {"message": "Job not in your scope", "status": 403}
 
         if job.status in ("done", "error"):
             return {"message": f"Job already {job.status}", "jobStatus": job.status, "status": 200}
@@ -368,7 +373,7 @@ class TranscriptionAPI(MethodView):
 
         return {"jobId": job_id, "jobStatus": "error", "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def status(self):
         """Check transcription job status."""
         from ..database import TranscriptionJob
@@ -380,6 +385,10 @@ class TranscriptionAPI(MethodView):
         job = TranscriptionJob.query.get(job_id)
         if not job:
             return {"message": "Job not found", "status": 404}
+        if job.user_id != g.user.id and not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if job.user_id not in scope:
+                return {"message": "Job not in your scope", "status": 403}
 
         return {
             "jobId": job_id,
@@ -391,7 +400,7 @@ class TranscriptionAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def result(self):
         """Get transcription result."""
         from ..database import TranscriptionJob
@@ -403,6 +412,10 @@ class TranscriptionAPI(MethodView):
         job = TranscriptionJob.query.get(job_id)
         if not job:
             return {"message": "Job not found", "status": 404}
+        if job.user_id != g.user.id and not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if job.user_id not in scope:
+                return {"message": "Job not in your scope", "status": 403}
 
         if job.status == "error":
             return {
@@ -444,7 +457,7 @@ class TranscriptionAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def recent(self):
         """Get recent transcription jobs for the current user."""
         from ..database import TranscriptionJob
@@ -602,7 +615,7 @@ class TranscriptionAPI(MethodView):
     # quick analysis (summary, action items, participants, decisions,
     # or a custom prompt). Nothing persists — stateless one-shot.
     # ─────────────────────────────────────────────────────────────────
-    @requires_admin
+    @requires_team_admin_or_above
     def ai_action(self):
         from ..database import TranscriptionJob
 
@@ -617,6 +630,10 @@ class TranscriptionAPI(MethodView):
         job = TranscriptionJob.query.get(job_id)
         if not job:
             return {"message": "Job not found", "status": 404}
+        if job.user_id != g.user.id and not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if job.user_id not in scope:
+                return {"message": "Job not in your scope", "status": 403}
         if job.user_id != g.user.id:
             return {"message": "Forbidden", "status": 403}
         if not job.text:
@@ -705,7 +722,7 @@ class TranscriptionAPI(MethodView):
     # delete one or many, list distinct tags.
     # All scoped by user_id so users see only their own.
     # ─────────────────────────────────────────────────────────────────
-    @requires_admin
+    @requires_team_admin_or_above
     def list_jobs(self):
         """
         Paginated list of the current user's transcription jobs.
@@ -783,7 +800,7 @@ class TranscriptionAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def list_tags(self):
         """Distinct list of tags this user has used across their jobs."""
         from ..database import TranscriptionJob
@@ -805,7 +822,7 @@ class TranscriptionAPI(MethodView):
 
         return {"tags": sorted(all_tags, key=str.lower), "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def update_job(self):
         """
         Rename (title) and/or retag (tags) a job.
@@ -821,6 +838,10 @@ class TranscriptionAPI(MethodView):
         job = TranscriptionJob.query.get(job_id)
         if not job:
             return {"message": "Job not found", "status": 404}
+        if job.user_id != g.user.id and not is_org_admin_or_above(g.user):
+            scope = team_admin_visible_user_ids(g.user)
+            if job.user_id not in scope:
+                return {"message": "Job not in your scope", "status": 403}
         if job.user_id != g.user.id:
             return {"message": "Forbidden", "status": 403}
 
@@ -870,7 +891,7 @@ class TranscriptionAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def delete_jobs(self):
         """
         Hard-delete one or more jobs + their Spaces audio (best-effort).
