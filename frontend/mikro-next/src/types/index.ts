@@ -868,6 +868,12 @@ export interface EditingStatsResponse {
       total_validated: number;
       total_invalidated: number;
     };
+    tasks_over_time: Array<{
+      week: string;
+      mapped: number;
+      validated: number;
+      invalidated: number;
+    }>;
     tasks_over_time_daily: Array<{
       day: string;
       mapped: number;
@@ -1012,6 +1018,14 @@ export interface TimekeepingStatsResponse {
       active_users: number;
       avg_hours_per_user: number;
     };
+    weekly_activity: Array<{
+      week: string;
+      hours: number;
+      changesets: number;
+      changes: number;
+      changes_per_changeset: number;
+      changes_per_hour: number;
+    }>;
     daily_activity: Array<{
       day: string;
       hours: number;

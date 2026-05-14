@@ -21,10 +21,9 @@ import type { TimekeepingStatsResponse } from "@/types";
 interface TeamActivityCardProps {
   data: TimekeepingStatsResponse;
   granularity: "weekly" | "daily";
-  setGranularity: (g: "weekly" | "daily") => void;
 }
 
-export function TeamActivityCard({ data, granularity, setGranularity }: TeamActivityCardProps) {
+export function TeamActivityCard({ data, granularity }: TeamActivityCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const activityData = granularity === "daily" ? data.daily_activity : data.weekly_activity;
   const dataKey = granularity === "daily" ? "day" : "week";
@@ -32,25 +31,7 @@ export function TeamActivityCard({ data, granularity, setGranularity }: TeamActi
   return (
     <Card data-chart-export="Team Activity">
       <CardHeader className="pb-0 flex flex-row items-center justify-between">
-        <div className="flex items-center gap-2">
-          <CardTitle className="text-base">
-            {granularity === "daily" ? "Daily" : "Weekly"} Team Activity
-          </CardTitle>
-          <div className="flex rounded-md border border-border overflow-hidden text-xs">
-            <button
-              className={`px-2 py-0.5 transition-colors ${granularity === "weekly" ? "bg-kaart-orange text-white" : "bg-background text-muted-foreground hover:bg-muted"}`}
-              onClick={() => setGranularity("weekly")}
-            >
-              Weekly
-            </button>
-            <button
-              className={`px-2 py-0.5 transition-colors ${granularity === "daily" ? "bg-kaart-orange text-white" : "bg-background text-muted-foreground hover:bg-muted"}`}
-              onClick={() => setGranularity("daily")}
-            >
-              Daily
-            </button>
-          </div>
-        </div>
+        <CardTitle className="text-base">Team Activity</CardTitle>
         <ChartExportButton containerRef={containerRef} filename="timekeeping-activity" />
       </CardHeader>
       <CardContent>

@@ -76,7 +76,7 @@ export default function AdminReportsPage() {
   const [compareStart, setCompareStart] = useState(() => prevWeekRange().start);
   const [compareEnd, setCompareEnd] = useState(() => prevWeekRange().end);
   const [snapshotTime, setSnapshotTime] = useState<string | null>(null);
-  const [timekeepingGranularity, setTimekeepingGranularity] = useState<"weekly" | "daily">("daily");
+  const [timekeepingGranularity, setTimekeepingGranularity] = useState<"weekly" | "daily">("weekly");
 
   // ── Tab data state ───────────────────────────────────────────
   const [editingData, setEditingData] = useState<EditingStatsResponse | null>(null);
@@ -301,6 +301,22 @@ export default function AdminReportsPage() {
               />
             </div>
 
+            {/* Granularity toggle */}
+            <div className="flex rounded-md border border-border overflow-hidden text-sm">
+              <button
+                onClick={() => setTimekeepingGranularity("weekly")}
+                className={`px-3 py-1.5 transition-colors ${timekeepingGranularity === "weekly" ? "bg-kaart-orange text-white" : "bg-background text-muted-foreground hover:bg-muted"}`}
+              >
+                Weekly
+              </button>
+              <button
+                onClick={() => setTimekeepingGranularity("daily")}
+                className={`px-3 py-1.5 transition-colors ${timekeepingGranularity === "daily" ? "bg-kaart-orange text-white" : "bg-background text-muted-foreground hover:bg-muted"}`}
+              >
+                Daily
+              </button>
+            </div>
+
             {/* Compare toggle */}
             <div className="flex items-center gap-2 flex-wrap">
               <button
@@ -384,7 +400,7 @@ export default function AdminReportsPage() {
           { label: "Tasks Completed", value: formatNumber(overallProgress?.totalMapped ?? 0) },
           { label: "% Complete", value: formatNumber(overallProgress?.pct ?? 0), suffix: "%" },
         ].map(({ label, value, suffix }) => (
-          <Card key={label} className="flex-1">
+          <Card key={label} className="flex-1" data-chart-export={label}>
             <CardContent className="px-4 py-3">
               <p className="text-xs text-muted-foreground mb-1">{label}</p>
               <p className="text-xl font-bold leading-none">
@@ -398,41 +414,39 @@ export default function AdminReportsPage() {
       {/* ── Trends (left) + Daily Charts (right) ── */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-row gap-4">
-          <TrendOverview
-            title="Total Changes"
-            data={(timekeepingData?.daily_activity ?? []).map((d) => ({ date: d.day, value: d.changes }))}
-            compareData={(timekeepingData?.comparison?.daily_activity ?? []).map((d) => ({ date: d.day, value: d.changes }))}
-            color="#f97316"
-            loading={timekeepingLoading}
-          />
-          <TrendOverview
-            title="Total Changesets"
-            data={(timekeepingData?.daily_activity ?? []).map((d) => ({ date: d.day, value: d.changesets }))}
-            compareData={(timekeepingData?.comparison?.daily_activity ?? []).map((d) => ({ date: d.day, value: d.changesets }))}
-            color="#3b82f6"
-            loading={timekeepingLoading}
-          />
-          <TrendOverview
-            title="Tasks Completed"
-            data={(editingData?.tasks_over_time_daily ?? []).map((d) => ({ date: d.day, value: d.mapped }))}
-            compareData={(editingData?.comparison?.tasks_over_time_daily ?? []).map((d) => ({ date: d.day, value: d.mapped }))}
-            color="#10b981"
-            loading={editingLoading}
-          />
-          <TrendOverview
-            title="Validation Rate"
-            data={(editingData?.tasks_over_time_daily ?? []).map((d) => ({
-              date: d.day,
-              value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0,
-            }))}
-            compareData={(editingData?.comparison?.tasks_over_time_daily ?? []).map((d) => ({
-              date: d.day,
-              value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0,
-            }))}
-            color="#8b5cf6"
-            unit="%"
-            loading={editingLoading}
-          />
+          {(() => {
+            const isWeekly = timekeepingGranularity === "weekly";
+            const tkData = isWeekly
+              ? (timekeepingData?.weekly_activity ?? []).map((d) => ({ date: d.week, changes: d.changes, changesets: d.changesets }))
+              : (timekeepingData?.daily_activity ?? []).map((d) => ({ date: d.day, changes: d.changes, changesets: d.changesets }));
+            const tkCmp = isWeekly
+              ? (timekeepingData?.comparison?.weekly_activity ?? []).map((d) => ({ date: d.week, changes: d.changes, changesets: d.changesets }))
+              : (timekeepingData?.comparison?.daily_activity ?? []).map((d) => ({ date: d.day, changes: d.changes, changesets: d.changesets }));
+            const edData = isWeekly
+              ? (editingData?.tasks_over_time ?? []).map((d) => ({ date: d.week, mapped: d.mapped, validated: d.validated }))
+              : (editingData?.tasks_over_time_daily ?? []).map((d) => ({ date: d.day, mapped: d.mapped, validated: d.validated }));
+            const edCmp = isWeekly
+              ? (editingData?.comparison?.tasks_over_time ?? []).map((d) => ({ date: d.week, mapped: d.mapped, validated: d.validated }))
+              : (editingData?.comparison?.tasks_over_time_daily ?? []).map((d) => ({ date: d.day, mapped: d.mapped, validated: d.validated }));
+            return (<>
+              <TrendOverview title="Total Changes"
+                data={tkData.map((d) => ({ date: d.date, value: d.changes }))}
+                compareData={tkCmp.map((d) => ({ date: d.date, value: d.changes }))}
+                color="#f97316" loading={timekeepingLoading} />
+              <TrendOverview title="Total Changesets"
+                data={tkData.map((d) => ({ date: d.date, value: d.changesets }))}
+                compareData={tkCmp.map((d) => ({ date: d.date, value: d.changesets }))}
+                color="#3b82f6" loading={timekeepingLoading} />
+              <TrendOverview title="Tasks Completed"
+                data={edData.map((d) => ({ date: d.date, value: d.mapped }))}
+                compareData={edCmp.map((d) => ({ date: d.date, value: d.mapped }))}
+                color="#10b981" loading={editingLoading} />
+              <TrendOverview title="Validation Rate"
+                data={edData.map((d) => ({ date: d.date, value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0 }))}
+                compareData={edCmp.map((d) => ({ date: d.date, value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0 }))}
+                color="#8b5cf6" unit="%" loading={editingLoading} />
+            </>);
+          })()}
         </div>
 
         <div className="flex flex-row gap-4 justify-between">
@@ -441,7 +455,6 @@ export default function AdminReportsPage() {
               <TeamActivityCard
                 data={timekeepingData}
                 granularity={timekeepingGranularity}
-                setGranularity={setTimekeepingGranularity}
               />
               <TaskHoursByCategoryCard
                 data={timekeepingData}
@@ -480,6 +493,7 @@ export default function AdminReportsPage() {
             showRefreshModal={showRefreshModal}
             setShowRefreshModal={setShowRefreshModal}
             onStartAnalysis={handleStartAnalysis}
+            granularity={timekeepingGranularity}
           />
         </div>
       ) : null}

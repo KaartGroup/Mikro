@@ -343,4 +343,5 @@ def _get_comparison(org_id, cmp_start, cmp_end, member_ids):
             "avg_hours_per_user": round(cmp_hours / cmp_active, 1) if cmp_active else 0,
         },
         "daily_activity": _get_daily_activity(org_id, cmp_start, cmp_end, member_ids),
+        "weekly_activity": _get_weekly_activity(org_id, cmp_start, cmp_end, member_ids),
     }

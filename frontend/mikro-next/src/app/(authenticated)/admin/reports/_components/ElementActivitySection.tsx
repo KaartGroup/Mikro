@@ -13,6 +13,7 @@ interface ElementActivitySectionProps {
   showRefreshModal: boolean;
   setShowRefreshModal: (v: boolean) => void;
   onStartAnalysis: () => void;
+  granularity: "weekly" | "daily";
 }
 
 export function ElementActivitySection({
@@ -24,6 +25,7 @@ export function ElementActivitySection({
   showRefreshModal,
   setShowRefreshModal,
   onStartAnalysis,
+  granularity,
 }: ElementActivitySectionProps) {
 
   return (
@@ -69,7 +71,7 @@ export function ElementActivitySection({
           <span className="text-sm text-muted-foreground">Loading cached data...</span>
         </div>
       ) : (
-        <ElementActivityChart categories={elementCategories} />
+        <ElementActivityChart categories={elementCategories} granularity={granularity} />
       )}
 
       {showRefreshModal && (

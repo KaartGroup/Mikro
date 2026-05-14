@@ -441,5 +441,6 @@ def _get_comparison(org_id, source, cmp_start, cmp_end, osm_usernames):
             "total_validated": _count(Task.validated, Task.date_validated, Task.validated_by),
             "total_invalidated": _count(Task.invalidated, Task.date_validated, Task.validated_by),
         },
+        "tasks_over_time": _get_tasks_over_time(org_id, source, cmp_start, cmp_end, osm_usernames),
         "tasks_over_time_daily": _get_tasks_over_time_daily(org_id, source, cmp_start, cmp_end, osm_usernames),
     }
