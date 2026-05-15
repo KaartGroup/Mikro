@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -28,17 +28,14 @@ import type {
   EditingStatsResponse,
   TimekeepingStatsResponse,
   ElementAnalysisCategory,
-  MapillaryStatsResponse,
 } from "@/types";
 import { formatNumber } from "@/lib/utils";
 import TrendOverview from "./_components/TrendOverview";
 import { LoadingSpinner } from "./_components/LoadingSpinner";
-import { ProjectProgressDonut } from "./_components/ProjectProgressDonut";
 import { ChangesetHeatmapCard } from "./_components/ChangesetHeatmapCard";
 import { ElementActivitySection } from "./_components/ElementActivitySection";
 import { TeamActivityCard } from "./_components/TeamActivityCard";
 import { TaskHoursByCategoryCard } from "./_components/TaskHoursByCategoryCard";
-import { CommunityOutreachCard } from "./_components/CommunityOutreachCard";
 import { ExportDropdown } from "./_components/ExportDropdown";
 
 function localDateStr(d: Date): string {
@@ -70,17 +67,13 @@ export default function AdminReportsPage() {
   const [compareEnabled, setCompareEnabled] = useState(true);
   const [compareStart, setCompareStart] = useState(() => twoMonthsAgoRange().start);
   const [compareEnd, setCompareEnd] = useState(() => twoMonthsAgoRange().end);
-  const [snapshotTime, setSnapshotTime] = useState<string | null>(null);
   const [timekeepingGranularity, setTimekeepingGranularity] = useState<"weekly" | "daily">("weekly");
 
   // ── Tab data state ───────────────────────────────────────────
   const [editingData, setEditingData] = useState<EditingStatsResponse | null>(null);
   const [timekeepingData, setTimekeepingData] = useState<TimekeepingStatsResponse | null>(null);
-  const [mrData, setMrData] = useState<EditingStatsResponse | null>(null);
-  const [mapillaryData, setMapillaryData] = useState<MapillaryStatsResponse | null>(null);
-  const [mapillaryLoading, setMapillaryLoading] = useState(false);
 
-  // ── Heatmap state (editing tab) ──────────────────────────────
+  // ── Heatmap state ────────────────────────────────────────────
   const [heatmapPoints, setHeatmapPoints] = useState<[number, number, number][]>([]);
   const [heatmapLoading, setHeatmapLoading] = useState(false);
   const [heatmapSummary, setHeatmapSummary] = useState<{
@@ -89,7 +82,7 @@ export default function AdminReportsPage() {
     usersWithData: number;
   } | null>(null);
 
-  // ── Element analysis state (editing tab) ────────────────────
+  // ── Element analysis state ───────────────────────────────────
   const [elementCategories, setElementCategories] = useState<ElementAnalysisCategory[]>([]);
   const [elementLastUpdated, setElementLastUpdated] = useState<string | null>(null);
   const [elementLoading, setElementLoading] = useState(false);
@@ -107,7 +100,7 @@ export default function AdminReportsPage() {
 
   // ── Hooks ────────────────────────────────────────────────────
   const { mutate: fetchEditing, loading: editingLoading, error: editingError } = useFetchEditingStats();
-  const { mutate: fetchMr, loading: mrLoading, error: mrError } = useFetchMrStats();
+  const { mutate: fetchMr } = useFetchMrStats();
   const { mutate: fetchTimekeeping, loading: timekeepingLoading } = useFetchTimekeepingStats();
   const { activeFilters, setActiveFilters, filtersBody } = useFilters();
   const { data: filterOptions, loading: filterOptionsLoading } = useFetchFilterOptions();
@@ -120,11 +113,9 @@ export default function AdminReportsPage() {
   // ── Data fetching ────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!customStart || !customEnd) return;
-    const startDate = customStart;
-    const endDate = customEnd;
 
-    const startIso = dateInputToLocalStartIsoUtc(startDate);
-    const endIso = dateInputToLocalEndIsoUtc(endDate);
+    const startIso = dateInputToLocalStartIsoUtc(customStart);
+    const endIso = dateInputToLocalEndIsoUtc(customEnd);
 
     const params: Record<string, unknown> = {
       startDate: startIso,
@@ -139,24 +130,15 @@ export default function AdminReportsPage() {
 
     setHeatmapLoading(true);
     setElementLoading(true);
-    setMapillaryLoading(true);
 
     await Promise.allSettled([
       fetchEditing(params).then((res) => {
-        if (res?.status === 200) {
-          setEditingData(res);
-          setSnapshotTime(res.snapshot_timestamp);
-        }
+        if (res?.status === 200) setEditingData(res);
       }),
       fetchTimekeeping(params).then((res) => {
-        if (res?.status === 200) {
-          setTimekeepingData(res);
-          setSnapshotTime(res.snapshot_timestamp);
-        }
+        if (res?.status === 200) setTimekeepingData(res);
       }),
-      fetchMr(params).then((res) => {
-        if (res?.status === 200) setMrData(res);
-      }),
+      fetchMr(params),
       fetchHeatmap(params).then((res) => {
         if (res?.status === 200) {
           setHeatmapPoints(res.heatmapPoints || []);
@@ -165,11 +147,8 @@ export default function AdminReportsPage() {
       }).finally(() => setHeatmapLoading(false)),
       fetchElementAnalysis({ startDate: startIso, endDate: endIso }).then((res) => {
         if (res?.status === 200) {
-          console.log("Fetched element analysis:", res);
           setElementCategories(res.categories || []);
           setElementLastUpdated(res.lastUpdated);
-        } else {
-          console.error("Failed to fetch element analysis:", res);
         }
       }).finally(() => setElementLoading(false)),
       fetchMapillaryStats({
@@ -177,9 +156,7 @@ export default function AdminReportsPage() {
         endDate: endIso,
         ...(filtersBody?.team ? { teamId: filtersBody.team[0] } : {}),
         ...(filtersBody?.user ? { userId: filtersBody.user[0] } : {}),
-      }).then((res) => {
-        if (res?.status === 200) setMapillaryData(res);
-      }).finally(() => setMapillaryLoading(false)),
+      }),
     ]);
   }, [
     customStart,
@@ -200,7 +177,7 @@ export default function AdminReportsPage() {
     fetchData();
   }, [fetchData]);
 
-  // ── Element analysis refresh (triggered from EditingTab modal) ──
+  // ── Element analysis refresh ─────────────────────────────────
   const handleStartAnalysis = useCallback(async () => {
     setShowRefreshModal(false);
     setElementRefreshing(true);
@@ -254,15 +231,32 @@ export default function AdminReportsPage() {
     customEnd,
   ]);
 
-    const overallProgress = editingData
-    ? (() => {
-        const totalTasks = editingData.projects.reduce((s, p) => s + p.total_tasks, 0);
-        const totalMapped = editingData.projects.reduce((s, p) => s + p.tasks_mapped, 0);
-        const totalValidated = editingData.projects.reduce((s, p) => s + p.tasks_validated, 0);
-        const pct = totalTasks > 0 ? Math.round((totalMapped / totalTasks) * 100) : 0;
-        return { totalTasks, totalMapped, totalValidated, pct };
-      })()
-    : null;
+  // ── Derived data ─────────────────────────────────────────────
+  const overallProgress = useMemo(() => {
+    if (!editingData) return null;
+    const totalTasks = editingData.projects.reduce((s, p) => s + p.total_tasks, 0);
+    const totalMapped = editingData.projects.reduce((s, p) => s + p.tasks_mapped, 0);
+    const totalValidated = editingData.projects.reduce((s, p) => s + p.tasks_validated, 0);
+    const pct = totalTasks > 0 ? Math.round((totalMapped / totalTasks) * 100) : 0;
+    return { totalTasks, totalMapped, totalValidated, pct };
+  }, [editingData]);
+
+  const trendSeries = useMemo(() => {
+    const isWeekly = timekeepingGranularity === "weekly";
+    const tkData = isWeekly
+      ? (timekeepingData?.weekly_activity ?? []).map((d) => ({ date: d.week, changes: d.changes, changesets: d.changesets }))
+      : (timekeepingData?.daily_activity ?? []).map((d) => ({ date: d.day, changes: d.changes, changesets: d.changesets }));
+    const tkCmp = isWeekly
+      ? (timekeepingData?.comparison?.weekly_activity ?? []).map((d) => ({ date: d.week, changes: d.changes, changesets: d.changesets }))
+      : (timekeepingData?.comparison?.daily_activity ?? []).map((d) => ({ date: d.day, changes: d.changes, changesets: d.changesets }));
+    const edData = isWeekly
+      ? (editingData?.tasks_over_time ?? []).map((d) => ({ date: d.week, mapped: d.mapped, validated: d.validated }))
+      : (editingData?.tasks_over_time_daily ?? []).map((d) => ({ date: d.day, mapped: d.mapped, validated: d.validated }));
+    const edCmp = isWeekly
+      ? (editingData?.comparison?.tasks_over_time ?? []).map((d) => ({ date: d.week, mapped: d.mapped, validated: d.validated }))
+      : (editingData?.comparison?.tasks_over_time_daily ?? []).map((d) => ({ date: d.day, mapped: d.mapped, validated: d.validated }));
+    return { tkData, tkCmp, edData, edCmp };
+  }, [timekeepingData, editingData, timekeepingGranularity]);
 
   // ── team_admin with no managed teams → empty state ───────────
   if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
@@ -273,6 +267,10 @@ export default function AdminReportsPage() {
       </div>
     );
   }
+
+  const totalChangesets = timekeepingData?.summary.total_changesets ?? 0;
+  const totalHours = timekeepingData?.summary.total_hours ?? 0;
+  const totalChanges = timekeepingData?.summary.total_changes ?? 0;
 
   return (
     <div className="space-y-6">
@@ -380,115 +378,110 @@ export default function AdminReportsPage() {
       {/* Report content captured for PDF export */}
       <div ref={reportContentRef}>
 
-      {/* KPI Summary */}
-      <div className="flex flex-row gap-2">
-        {[
-          { label: "Total Hours", value: formatNumber(timekeepingData?.summary.total_hours ?? 0) },
-          { label: "Total Changesets", value: formatNumber(timekeepingData?.summary.total_changesets ?? 0) },
-          { label: "Total Changes", value: formatNumber(timekeepingData?.summary.total_changes ?? 0) },
-          { label: "Avg Changes / Changeset", value: formatNumber((timekeepingData?.summary.total_changes ?? 0) / (timekeepingData?.summary.total_changesets ?? 1)) },
-          { label: "Avg Changes / Hour", value: formatNumber((timekeepingData?.summary.total_changes ?? 0) / (timekeepingData?.summary.total_hours ?? 1)) },
-          { label: "Total Tasks", value: formatNumber(overallProgress?.totalTasks ?? 0) },
-          { label: "Tasks Completed", value: formatNumber(overallProgress?.totalMapped ?? 0) },
-          { label: "% Complete", value: formatNumber(overallProgress?.pct ?? 0), suffix: "%" },
-        ].map(({ label, value, suffix }) => (
-          <Card key={label} className="flex-1">
-            <CardContent className="px-4 py-3">
-              <p className="text-xs text-muted-foreground mb-1">{label}</p>
-              <p className="text-xl font-bold leading-none">
-                <Val>{value}</Val>{suffix}
-              </p>
+        {/* KPI Summary */}
+        <div className="flex flex-row gap-2">
+          {[
+            { label: "Total Hours", value: formatNumber(totalHours) },
+            { label: "Total Changesets", value: formatNumber(totalChangesets) },
+            { label: "Total Changes", value: formatNumber(totalChanges) },
+            { label: "Avg Changes / Changeset", value: totalChangesets > 0 ? formatNumber(totalChanges / totalChangesets) : "—" },
+            { label: "Avg Changes / Hour", value: totalHours > 0 ? formatNumber(totalChanges / totalHours) : "—" },
+            { label: "Total Tasks", value: formatNumber(overallProgress?.totalTasks ?? 0) },
+            { label: "Tasks Completed", value: formatNumber(overallProgress?.totalMapped ?? 0) },
+            { label: "% Complete", value: formatNumber(overallProgress?.pct ?? 0), suffix: "%" },
+          ].map(({ label, value, suffix }) => (
+            <Card key={label} className="flex-1">
+              <CardContent className="px-4 py-3">
+                <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                <p className="text-xl font-bold leading-none">
+                  <Val>{value}</Val>{suffix}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* ── Trends + Activity ── */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-row gap-4">
+            <TrendOverview
+              title="Total Changes"
+              data={trendSeries.tkData.map((d) => ({ date: d.date, value: d.changes }))}
+              compareData={trendSeries.tkCmp.map((d) => ({ date: d.date, value: d.changes }))}
+              color="#f97316"
+              loading={timekeepingLoading}
+            />
+            <TrendOverview
+              title="Total Changesets"
+              data={trendSeries.tkData.map((d) => ({ date: d.date, value: d.changesets }))}
+              compareData={trendSeries.tkCmp.map((d) => ({ date: d.date, value: d.changesets }))}
+              color="#3b82f6"
+              loading={timekeepingLoading}
+            />
+            <TrendOverview
+              title="Tasks Completed"
+              data={trendSeries.edData.map((d) => ({ date: d.date, value: d.mapped }))}
+              compareData={trendSeries.edCmp.map((d) => ({ date: d.date, value: d.mapped }))}
+              color="#10b981"
+              loading={editingLoading}
+            />
+            <TrendOverview
+              title="Validation Rate"
+              data={trendSeries.edData.map((d) => ({ date: d.date, value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0 }))}
+              compareData={trendSeries.edCmp.map((d) => ({ date: d.date, value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0 }))}
+              color="#8b5cf6"
+              unit="%"
+              loading={editingLoading}
+            />
+          </div>
+
+          <div className="flex flex-row gap-4 justify-between">
+            {timekeepingData ? (
+              <>
+                <TeamActivityCard
+                  data={timekeepingData}
+                  granularity={timekeepingGranularity}
+                />
+                <TaskHoursByCategoryCard
+                  data={timekeepingData}
+                  granularity={timekeepingGranularity}
+                />
+                <ChangesetHeatmapCard
+                  heatmapPoints={heatmapPoints}
+                  heatmapLoading={heatmapLoading}
+                  heatmapSummary={heatmapSummary}
+                />
+              </>
+            ) : timekeepingLoading ? (
+              <LoadingSpinner />
+            ) : null}
+          </div>
+        </div>
+
+        {/* ── Editing Section ── */}
+        {editingLoading && !editingData ? (
+          <LoadingSpinner />
+        ) : editingError ? (
+          <Card>
+            <CardContent className="p-8 text-center text-red-500">
+              Failed to load editing stats: {editingError}
             </CardContent>
           </Card>
-        ))}
-      </div>
-
-      {/* ── Trends (left) + Daily Charts (right) ── */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-row gap-4">
-          {(() => {
-            const isWeekly = timekeepingGranularity === "weekly";
-            const tkData = isWeekly
-              ? (timekeepingData?.weekly_activity ?? []).map((d) => ({ date: d.week, changes: d.changes, changesets: d.changesets }))
-              : (timekeepingData?.daily_activity ?? []).map((d) => ({ date: d.day, changes: d.changes, changesets: d.changesets }));
-            const tkCmp = isWeekly
-              ? (timekeepingData?.comparison?.weekly_activity ?? []).map((d) => ({ date: d.week, changes: d.changes, changesets: d.changesets }))
-              : (timekeepingData?.comparison?.daily_activity ?? []).map((d) => ({ date: d.day, changes: d.changes, changesets: d.changesets }));
-            const edData = isWeekly
-              ? (editingData?.tasks_over_time ?? []).map((d) => ({ date: d.week, mapped: d.mapped, validated: d.validated }))
-              : (editingData?.tasks_over_time_daily ?? []).map((d) => ({ date: d.day, mapped: d.mapped, validated: d.validated }));
-            const edCmp = isWeekly
-              ? (editingData?.comparison?.tasks_over_time ?? []).map((d) => ({ date: d.week, mapped: d.mapped, validated: d.validated }))
-              : (editingData?.comparison?.tasks_over_time_daily ?? []).map((d) => ({ date: d.day, mapped: d.mapped, validated: d.validated }));
-            return (<>
-              <TrendOverview title="Total Changes"
-                data={tkData.map((d) => ({ date: d.date, value: d.changes }))}
-                compareData={tkCmp.map((d) => ({ date: d.date, value: d.changes }))}
-                color="#f97316" loading={timekeepingLoading} />
-              <TrendOverview title="Total Changesets"
-                data={tkData.map((d) => ({ date: d.date, value: d.changesets }))}
-                compareData={tkCmp.map((d) => ({ date: d.date, value: d.changesets }))}
-                color="#3b82f6" loading={timekeepingLoading} />
-              <TrendOverview title="Tasks Completed"
-                data={edData.map((d) => ({ date: d.date, value: d.mapped }))}
-                compareData={edCmp.map((d) => ({ date: d.date, value: d.mapped }))}
-                color="#10b981" loading={editingLoading} />
-              <TrendOverview title="Validation Rate"
-                data={edData.map((d) => ({ date: d.date, value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0 }))}
-                compareData={edCmp.map((d) => ({ date: d.date, value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0 }))}
-                color="#8b5cf6" unit="%" loading={editingLoading} />
-            </>);
-          })()}
-        </div>
-
-        <div className="flex flex-row gap-4 justify-between">
-          {timekeepingData ? (
-            <>
-              <TeamActivityCard
-                data={timekeepingData}
-                granularity={timekeepingGranularity}
-              />
-              <TaskHoursByCategoryCard
-                data={timekeepingData}
-                granularity={timekeepingGranularity}
-              />
-                        <ChangesetHeatmapCard
-            heatmapPoints={heatmapPoints}
-            heatmapLoading={heatmapLoading}
-            heatmapSummary={heatmapSummary}
-          />
-            </>
-          ) : timekeepingLoading ? (
-            <LoadingSpinner />
-          ) : null}
-        </div>
-      </div>
-
-      {/* ── Editing Section ── */}
-      {editingLoading && !editingData ? (
-        <LoadingSpinner />
-      ) : editingError ? (
-        <Card>
-          <CardContent className="p-8 text-center text-red-500">
-            Failed to load editing stats: {editingError}
-          </CardContent>
-        </Card>
-      ) : editingData ? (
-        <div className="space-y-6">
-
-          <ElementActivitySection
-            elementCategories={elementCategories}
-            elementLastUpdated={elementLastUpdated}
-            elementLoading={elementLoading}
-            elementRefreshing={elementRefreshing}
-            elementProgress={elementProgress}
-            showRefreshModal={showRefreshModal}
-            setShowRefreshModal={setShowRefreshModal}
-            onStartAnalysis={handleStartAnalysis}
-            granularity={timekeepingGranularity}
-          />
-        </div>
-      ) : null}
+        ) : editingData ? (
+          <div className="space-y-6">
+            <ElementActivitySection
+              elementCategories={elementCategories}
+              elementLastUpdated={elementLastUpdated}
+              elementLoading={elementLoading}
+              elementRefreshing={elementRefreshing}
+              elementProgress={elementProgress}
+              showRefreshModal={showRefreshModal}
+              setShowRefreshModal={setShowRefreshModal}
+              onStartAnalysis={handleStartAnalysis}
+              granularity={timekeepingGranularity}
+            />
+          </div>
+        ) : null}
 
       </div>{/* end reportContentRef */}
     </div>
