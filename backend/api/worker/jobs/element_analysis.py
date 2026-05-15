@@ -55,11 +55,11 @@ def _classify_element(element):
 
 
 def _get_week_start(dt):
-    """Get the Monday of the week for a given date."""
+    """Get the Sunday of the week for a given date."""
     if isinstance(dt, datetime):
         dt = dt.date()
-    days_since_monday = dt.weekday()
-    return dt - timedelta(days=days_since_monday)
+    days_since_sunday = (dt.weekday() + 1) % 7
+    return dt - timedelta(days=days_since_sunday)
 
 
 def run_element_analysis_job(app, job):

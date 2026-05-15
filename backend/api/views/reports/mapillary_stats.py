@@ -205,7 +205,7 @@ def _process_mapillary_results(user_results):
             cap_at = img.get("captured_at")
             if cap_at and isinstance(cap_at, (int, float)):
                 img_date = datetime.utcfromtimestamp(cap_at / 1000)
-                week_key = (img_date - timedelta(days=img_date.weekday())).date()
+                week_key = (img_date - timedelta(days=(img_date.weekday() + 1) % 7)).date()
                 weekly_buckets[week_key] = weekly_buckets.get(week_key, 0) + 1
 
     all_trips.sort(key=lambda t: t["date"], reverse=True)

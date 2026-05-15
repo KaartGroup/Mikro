@@ -13,7 +13,7 @@ interface ElementActivityChartProps {
 
 function weekStart(day: string): string {
   const d = new Date(day + "T00:00:00");
-  const diff = d.getDay() === 0 ? -6 : 1 - d.getDay();
+  const diff = -d.getDay(); // roll back to Sunday (getDay() === 0 stays put)
   d.setDate(d.getDate() + diff);
   return d.toISOString().slice(0, 10);
 }
