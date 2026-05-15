@@ -36,6 +36,7 @@ import { ChangesetHeatmapCard } from "./_components/ChangesetHeatmapCard";
 import { ElementActivitySection } from "./_components/ElementActivitySection";
 import { TeamActivityCard } from "./_components/TeamActivityCard";
 import { TaskHoursByCategoryCard } from "./_components/TaskHoursByCategoryCard";
+import { CommunityOutreachCard } from "./_components/CommunityOutreachCard";
 import { ExportDropdown } from "./_components/ExportDropdown";
 
 function localDateStr(d: Date): string {
@@ -379,6 +380,7 @@ export default function AdminReportsPage() {
       <div ref={reportContentRef}>
 
         {/* KPI Summary */}
+        <div className="flex flex-col gap-4">
         <div className="flex flex-row gap-2">
           {[
             { label: "Total Hours", value: formatNumber(totalHours) },
@@ -402,7 +404,6 @@ export default function AdminReportsPage() {
         </div>
 
         {/* ── Trends + Activity ── */}
-        <div className="flex flex-col gap-4">
           <div className="flex flex-row gap-4">
             <TrendOverview
               title="Total Changes"
@@ -446,16 +447,13 @@ export default function AdminReportsPage() {
                   data={timekeepingData}
                   granularity={timekeepingGranularity}
                 />
-                <ChangesetHeatmapCard
-                  heatmapPoints={heatmapPoints}
-                  heatmapLoading={heatmapLoading}
-                  heatmapSummary={heatmapSummary}
-                />
+                <CommunityOutreachCard />
               </>
             ) : timekeepingLoading ? (
               <LoadingSpinner />
             ) : null}
           </div>
+
         </div>
 
         {/* ── Editing Section ── */}
@@ -484,6 +482,11 @@ export default function AdminReportsPage() {
         ) : null}
 
       </div>{/* end reportContentRef */}
+                      <ChangesetHeatmapCard
+                  heatmapPoints={heatmapPoints}
+                  heatmapLoading={heatmapLoading}
+                  heatmapSummary={heatmapSummary}
+                />
     </div>
   );
 }
