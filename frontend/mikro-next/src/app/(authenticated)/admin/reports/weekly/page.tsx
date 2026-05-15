@@ -173,7 +173,7 @@ function MiniActivityChart({
   data,
 }: {
   title: string;
-  data: { week: string; deleted: number; added: number; modified: number }[];
+  data: { day: string; deleted: number; added: number; modified: number }[];
 }) {
   return (
     <Card>
@@ -185,7 +185,7 @@ function MiniActivityChart({
           <ResponsiveContainer>
             <BarChart data={data} barSize={12}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="week" tick={{ fontSize: 9 }} />
+              <XAxis dataKey="day" tick={{ fontSize: 9 }} />
               <YAxis tick={{ fontSize: 9 }} width={35} />
               <Tooltip contentStyle={{ fontSize: 11 }} />
               <Legend wrapperStyle={{ fontSize: 9 }} iconSize={8} />
