@@ -347,9 +347,6 @@ export default function AdminReportsPage() {
             <div className="ml-auto flex items-center gap-2">
               <ExportDropdown
                 contentRef={reportContentRef}
-                timekeepingData={timekeepingData}
-                editingData={editingData}
-                elementCategories={elementCategories}
                 dateRange={`${customStart} to ${customEnd}`}
               />
               <FilterBar
@@ -395,7 +392,7 @@ export default function AdminReportsPage() {
           { label: "Tasks Completed", value: formatNumber(overallProgress?.totalMapped ?? 0) },
           { label: "% Complete", value: formatNumber(overallProgress?.pct ?? 0), suffix: "%" },
         ].map(({ label, value, suffix }) => (
-          <Card key={label} className="flex-1" data-chart-export={label}>
+          <Card key={label} className="flex-1">
             <CardContent className="px-4 py-3">
               <p className="text-xs text-muted-foreground mb-1">{label}</p>
               <p className="text-xl font-bold leading-none">

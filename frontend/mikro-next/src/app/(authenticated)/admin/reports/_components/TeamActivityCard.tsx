@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import {
   ComposedChart,
   Line,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -68,7 +67,14 @@ export function TeamActivityCard({ data, granularity }: TeamActivityCardProps) {
                   formatter={chartTooltipFmt}
                 />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
-                <Bar yAxisId="left" dataKey="hours" name="Hours" fill={COLORS.hours} />
+                <Line
+                  yAxisId="left"
+                  dataKey="hours"
+                  name="Hours"
+                  stroke={COLORS.hours}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
                 <Line
                   yAxisId="right"
                   dataKey="changes_per_hour"

@@ -134,8 +134,8 @@ export async function exportChartsAsDocx(
   const captured = await Promise.all(
     charts.map(async (el) => {
       const rect = el.getBoundingClientRect();
-      const targetW = 620;
-      const targetH = rect.width > 0 ? Math.round((rect.height / rect.width) * targetW) : 340;
+      const targetW = 310;
+      const targetH = rect.width > 0 ? Math.round((rect.height / rect.width) * targetW) : 170;
       const png = await toPng(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
       const bytes = new Uint8Array(await (await fetch(png)).arrayBuffer());
       return { name: el.dataset.chartExport ?? "Chart", bytes, targetW, targetH };
@@ -181,7 +181,7 @@ export async function exportChartsAsZip(container: HTMLElement): Promise<void> {
   await Promise.all(
     charts.map(async (el) => {
       const name = (el.dataset.chartExport ?? "chart").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-      const png = await toPng(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+      const png = await toPng(el, { pixelRatio: 1, backgroundColor: "#ffffff" });
       const base64 = png.replace(/^data:image\/png;base64,/, "");
       folder.file(`${name}.png`, base64, { base64: true });
     }),
