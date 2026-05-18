@@ -436,7 +436,7 @@ export default function AdminReportsPage() {
             />
           </div>
 
-          <div className="flex flex-row gap-4 justify-between">
+          <div className="grid grid-cols-3 gap-4">
             {timekeepingData ? (
               <>
                 <TeamActivityCard
@@ -450,7 +450,7 @@ export default function AdminReportsPage() {
                 <CommunityOutreachCard />
               </>
             ) : timekeepingLoading ? (
-              <LoadingSpinner />
+              <div className="col-span-3"><LoadingSpinner /></div>
             ) : null}
           </div>
 

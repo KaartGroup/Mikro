@@ -21,20 +21,16 @@ export function CommunityOutreachCard() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <Card className="border-2 border-dashed border-yellow-400 relative">
+    <Card className="w-full border-2 border-dashed border-yellow-400 relative">
       <div className="absolute top-2 right-2 z-10">
         <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">
           Sample Data
         </span>
       </div>
-      <CardHeader className="pb-0 flex flex-row items-center justify-between">
+      <CardHeader className="px-3 pt-3 pb-0 flex flex-row items-center justify-between">
         <CardTitle className="text-base">Community Outreach Trends</CardTitle>
-        <ChartExportButton
-          containerRef={containerRef}
-          filename="timekeeping-community-outreach"
-        />
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 pb-3 pt-2">
         <div ref={containerRef} style={{ width: "100%", height: 280 }}>
           <ResponsiveContainer>
             <ComposedChart data={MOCK_COMMUNITY_OUTREACH}>

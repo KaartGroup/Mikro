@@ -50,7 +50,7 @@ class BaseConfig:
             # DigitalOcean uses postgresql:// which SQLAlchemy supports
             return database_url
         # Fall back to individual vars
-        if all([self.DB_USERNAME, self.DB_PASSWORD, self.DB_NAME]):
+        if self.DB_USERNAME and self.DB_NAME:
             return (
                 f"postgresql://{self.DB_USERNAME}:{self.DB_PASSWORD}"
                 f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"

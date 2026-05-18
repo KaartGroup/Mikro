@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import {
   ComposedChart,
@@ -13,7 +12,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { COLORS } from "@/lib/chartColors";
-import { ChartExportButton } from "@/components/admin/ChartExportButton";
 import { chartNumberFmt, chartTooltipFmt } from "./reportUtils";
 import type { TimekeepingStatsResponse } from "@/types";
 
@@ -23,19 +21,17 @@ interface TeamActivityCardProps {
 }
 
 export function TeamActivityCard({ data, granularity }: TeamActivityCardProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const activityData = granularity === "daily" ? data.daily_activity : data.weekly_activity;
   const dataKey = granularity === "daily" ? "day" : "week";
 
   return (
-    <Card data-chart-export="Team Activity">
-      <CardHeader className="pb-0 flex flex-row items-center justify-between">
+    <Card className="w-full">
+      <CardHeader className="px-3 pt-3 pb-0">
         <CardTitle className="text-base">Team Activity</CardTitle>
-        <ChartExportButton containerRef={containerRef} filename="timekeeping-activity" />
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 pb-3 pt-2">
         {activityData.length > 0 ? (
-          <div ref={containerRef} style={{ width: "100%", minWidth: 400, height: 280 }}>
+          <div style={{ width: "100%", height: 280 }}>
             <ResponsiveContainer>
               <ComposedChart data={activityData}>
                 <CartesianGrid strokeDasharray="3 3" />

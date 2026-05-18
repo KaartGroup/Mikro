@@ -13,7 +13,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { WEEKLY_TASK_COLORS } from "@/lib/chartColors";
-import { ChartExportButton } from "@/components/admin/ChartExportButton";
 import { chartNumberFmt, chartTooltipFmt } from "./reportUtils";
 import type { TimekeepingStatsResponse } from "@/types";
 
@@ -28,16 +27,15 @@ export function TaskHoursByCategoryCard({ data, granularity }: TaskHoursByCatego
   const dataKey = granularity === "daily" ? "day" : "week";
 
   return (
-    <Card data-chart-export="Task Hours by Category">
-      <CardHeader className="pb-0 flex flex-row items-center justify-between">
+    <Card className="w-full" data-chart-export="Task Hours by Category">
+      <CardHeader className="px-3 pt-3 pb-0 flex flex-row items-center justify-between">
         <CardTitle className="text-base">
           {granularity === "daily" ? "Daily" : "Weekly"} Task Hours by Category
         </CardTitle>
-        <ChartExportButton containerRef={containerRef} filename="timekeeping-hours-by-category" />
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 pb-3 pt-2">
         {catData?.length > 0 ? (
-          <div ref={containerRef} style={{ width: "100%", minWidth: 400, height: 280 }}>
+          <div ref={containerRef} style={{ width: "100%", height: 280 }}>
             <ResponsiveContainer>
               <BarChart
                 data={catData.map((row) => ({
