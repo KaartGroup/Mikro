@@ -175,13 +175,17 @@ def _get_weekly_activity(org_id, start_date, end_date, member_ids):
         .order_by("week")
         .all()
     )
+    end_date_str = end_date.strftime("%Y-%m-%d")
     result = []
     for row in rows:
+        week_str = row.week.strftime("%Y-%m-%d")
+        if week_str >= end_date_str:
+            continue
         hours = round((row.seconds or 0) / 3600, 1)
         changesets = row.changesets or 0
         changes = row.changes or 0
         result.append({
-            "week": row.week.strftime("%Y-%m-%d"),
+            "week": week_str,
             "hours": hours,
             "changesets": changesets,
             "changes": changes,
@@ -306,10 +310,13 @@ def _get_weekly_category_hours(org_id, start_date, end_date, member_ids):
         .all()
     )
 
+    end_date_str = end_date.strftime("%Y-%m-%d")
     weekly_cat_map = {}
     all_cats = set()
     for row in rows:
         week_key = row.week.strftime("%Y-%m-%d")
+        if week_key >= end_date_str:
+            continue
         cat = row.category or "other"
         all_cats.add(cat)
         weekly_cat_map.setdefault(week_key, {"week": week_key})
