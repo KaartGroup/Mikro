@@ -28,7 +28,9 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "d8e9f0a1b2c3"
-down_revision = "ea65a712a628"
+# Re-rooted onto master's element-analysis chain after the 2026-05-19 rebase.
+# Was: down_revision = "ea65a712a628" (would have produced two alembic heads).
+down_revision = "2966333a6cfa"
 branch_labels = None
 depends_on = None
 
