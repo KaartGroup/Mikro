@@ -162,6 +162,12 @@ class User(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     overtime_threshold_hours = db.Column(
         db.Integer, nullable=True, default=None
     )
+    # Compensation model (added 2026-05-18). NULL = legacy/unspecified →
+    # resolver treats as per_task (core) + optional hourly_rate overlay.
+    # Explicit values: per_task | hourly | salaried | project_based | hybrid
+    compensation_model = db.Column(db.String(20), nullable=True, default=None)
+    # Salaried base; prorated to the cycle by the payments computation.
+    monthly_salary = db.Column(db.Numeric(10, 2), nullable=True, default=None)
 
     def __repr__(self):
         return f"<User {self.email}>"
@@ -1100,6 +1106,30 @@ class ChangesetAdiff(CRUDMixin, db.Model):
 
     def __repr__(self):
         return f"<ChangesetAdiff org={self.org_id} cs={self.changeset_id}>"
+
+
+class PayrollConfig(CRUDMixin, db.Model):
+    """Per-org payroll cadence config (one row per org_id).
+
+    Drives the payments-page cycle picker's default + preset periods.
+    Custom date ranges remain allowed regardless. Fail-open: absence of a
+    row means monthly / anchor day 1.
+    """
+
+    __tablename__ = "payroll_config"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    org_id = Column(String(255), nullable=False, unique=True, index=True)
+    # "monthly" | "semi_monthly" | "bi_weekly"
+    cadence = Column(String(20), nullable=False, default="monthly")
+    anchor_day = Column(Integer, nullable=True)   # monthly day-of-month (1–28)
+    anchor_date = Column(db.Date, nullable=True)  # bi_weekly period origin
+    timezone = Column(String(50), nullable=True)
+    updated_by = Column(String(255), nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<PayrollConfig org={self.org_id} cadence={self.cadence}>"
 
 
 class Punk(ModelWithSoftDeleteAndCRUD, SurrogatePK):

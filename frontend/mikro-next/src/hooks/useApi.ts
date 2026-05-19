@@ -1200,6 +1200,30 @@ export function useFetchPaymentContributor() {
   return useApiMutation<PaymentContributorDetailResponse>("/payments/contributor");
 }
 
+export function useFetchProjectDispensation() {
+  return useApiMutation<import("@/types").ProjectDispensationResponse>(
+    "/payments/project-dispensation",
+  );
+}
+
+export function useFetchPaymentForecast() {
+  return useApiMutation<import("@/types").PayrollForecastResponse>(
+    "/payments/forecast",
+  );
+}
+
+export function useFetchPayrollConfig() {
+  return useApiMutation<import("@/types").PayrollConfigResponse>(
+    "/payments/config/fetch",
+  );
+}
+
+export function useSavePayrollConfig() {
+  return useApiMutation<import("@/types").PayrollConfigResponse>(
+    "/payments/config",
+  );
+}
+
 export function useCreatePaymentAdjustment() {
   return useApiMutation<{ adjustment: PaymentAdjustment; status: number }>(
     "/payments/adjustment/create",
@@ -1228,14 +1252,22 @@ export function useExportPaymentCycle() {
   const [error, setError] = useState<string | null>(null);
 
   const download = useCallback(
-    async (cycleStart: string, cycleEnd: string) => {
+    async (
+      cycleStart: string,
+      cycleEnd: string,
+      filters?: Record<string, string[]>,
+    ) => {
       setLoading(true);
       setError(null);
       try {
         const response = await fetch("/backend/payments/cycle/export", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cycle_start: cycleStart, cycle_end: cycleEnd }),
+          body: JSON.stringify({
+            cycle_start: cycleStart,
+            cycle_end: cycleEnd,
+            ...(filters && Object.keys(filters).length > 0 ? { filters } : {}),
+          }),
         });
         if (!response.ok) {
           const msg = `Export failed (${response.status})`;
