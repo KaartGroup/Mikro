@@ -5,45 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { AprilFools } from "@/components/layout/AprilFools";
 import { WhatsNewModal } from "@/components/layout/WhatsNewModal";
 import { AuthGuard } from "@/components/AuthGuard";
-
-const BACKEND_URL = process.env.FLASK_BACKEND_URL || "http://localhost:5004";
-
-interface UserInfo {
-  name?: string;
-  email?: string;
-}
-
-interface SyncResult {
-  role: string;
-  paymentsVisible: boolean;
-  displayName: string;
-}
-
-async function syncUserWithBackend(accessToken: string, userInfo?: UserInfo): Promise<SyncResult> {
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/login`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(userInfo || {}),
-    });
-    if (response.ok) {
-      const data = await response.json();
-      return {
-        role: data.role || "user",
-        paymentsVisible: data.micropayments_visible ?? false,
-        displayName: data.name || "",
-      };
-    }
-    console.error("Failed to sync user with backend:", response.status);
-    return { role: "user", paymentsVisible: false, displayName: "" };
-  } catch (error) {
-    console.error("Error syncing user with backend:", error);
-    return { role: "user", paymentsVisible: false, displayName: "" };
-  }
-}
+import { syncUserWithBackend } from "@/lib/syncUser";
 
 export default async function AuthenticatedLayout({
   children,

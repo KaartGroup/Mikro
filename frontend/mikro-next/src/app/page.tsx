@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth0 } from "@/lib/auth0";
+import { syncUserWithBackend } from "@/lib/syncUser";
 import { LandingClient } from "./LandingClient";
 
 /**
@@ -14,7 +15,28 @@ import { LandingClient } from "./LandingClient";
  *   - No session           -> render the LandingClient (carousel + Login / Sign Up)
  *   - Session, no org      -> /no-org
  *   - Session + org + role -> appropriate role dashboard
+ *
+ * Role source: the backend DB (POST /api/login) — the SAME authoritative
+ * source the authenticated layout/sidebar use. The Auth0 ID-token claim
+ * `mikro/roles` is only a fallback: it is empty for accounts whose
+ * app_metadata was never synced, which previously misrouted admins to
+ * /user/dashboard while their sidebar correctly showed admin nav.
  */
+function dashboardForRoles(...roles: Array<string | undefined>): string {
+  const present = new Set(roles.filter(Boolean) as string[]);
+  if (
+    present.has("admin") ||
+    present.has("super_admin") ||
+    present.has("team_admin")
+  ) {
+    return "/admin/dashboard";
+  }
+  if (present.has("validator")) {
+    return "/validator/dashboard";
+  }
+  return "/user/dashboard";
+}
+
 export default async function LandingPage() {
   const session = await auth0.getSession();
 
@@ -29,15 +51,28 @@ export default async function LandingPage() {
     redirect("/no-org");
   }
 
-  const roles = session.user["mikro/roles"] as string[] | undefined;
-  const role = roles?.[0] || "user";
-  // All three admin tiers land on /admin/dashboard. Per-page guards
-  // inside scope what each tier sees.
-  if (role === "admin" || role === "super_admin" || role === "team_admin") {
-    redirect("/admin/dashboard");
-  } else if (role === "validator") {
-    redirect("/validator/dashboard");
-  } else {
-    redirect("/user/dashboard");
+  // Authoritative role from the backend — the same call the authenticated
+  // layout makes. Wrapped so a thrown getAccessToken (stale token) falls
+  // back to the token claim; redirect() is called AFTER the try so its
+  // control-flow throw is never swallowed here.
+  let dbRole: string | undefined;
+  try {
+    const tokenResponse = await auth0.getAccessToken();
+    if (tokenResponse?.token) {
+      const sync = await syncUserWithBackend(tokenResponse.token, {
+        name: session.user?.name,
+        email: session.user?.email,
+      });
+      dbRole = sync.role;
+    }
+  } catch {
+    // Token/backend unavailable — fall back to the token claim below.
   }
+
+  const claimRole = (session.user["mikro/roles"] as string[] | undefined)?.[0];
+
+  // Route by whichever source grants the most access, so neither an empty
+  // token claim nor a transient backend hiccup can misroute a privileged
+  // user. Worst case equals the previous behavior.
+  redirect(dashboardForRoles(dbRole, claimRole));
 }

@@ -75,7 +75,10 @@ export default function OnboardingPage() {
         }),
       });
       if (response.ok) {
-        router.push("/user/dashboard");
+        // Route via "/" so the role-aware landing redirect picks the
+        // correct dashboard. Hardcoding /user/dashboard here previously
+        // dropped newly onboarded admins on the user dashboard.
+        router.push("/");
       } else {
         toast.error("Failed to save your information. Please try again.");
       }
