@@ -31,7 +31,7 @@ def fetch_element_analysis():
         team_ids = [
             tu.team_id
             for tu in TeamUser.query.filter_by(user_id=g.user.id).all()
-        ]
+        ] or None  # None signals org-wide query when user has no team
 
     return get_element_analysis(g.user.org_id, team_ids, start_date, end_date)
 
@@ -87,13 +87,15 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
     """Queries ChangesetAdiff for the given teams and date range, processes each stored adiff XML,
     and returns per-day added/modified/deleted counts grouped into categories. No Flask context required."""
     
-    rows = ChangesetAdiff.query.filter(
+    query = ChangesetAdiff.query.filter(
         ChangesetAdiff.org_id == org_id,
-        ChangesetAdiff.team_id.in_(team_ids),
         ChangesetAdiff.created_at >= start_date,
         ChangesetAdiff.created_at <= end_date,
         ChangesetAdiff.adiff_xml.isnot(None),
-    ).order_by(ChangesetAdiff.created_at).all()
+    )
+    if team_ids:
+        query = query.filter(ChangesetAdiff.team_id.in_(team_ids))
+    rows = query.order_by(ChangesetAdiff.created_at).all()
 
     # day -> key -> {(old_val, new_val): count}
     day_key_stats = defaultdict(lambda: {key: {} for key in TRACKED_KEYS})
