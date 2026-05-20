@@ -16,6 +16,8 @@ import type {
   TimeTrackingHistoryResponse,
   TimeTrackingActiveSessionsResponse,
   TimeHistoryFilterParams,
+  SubcategoryListResponse,
+  SubcategoryMutationResponse,
   UserProfileResponse,
   UserStatsDateResponse,
   UserPaymentSummaryResponse,
@@ -755,6 +757,54 @@ export function useCustomTopics() {
     status: number;
     topics: Array<{ id: number; name: string; createdBy: string }>;
   }>("/timetracking/fetch_custom_topics");
+}
+
+// ── Time-tracking subcategory catalog (tier-2) ─────────────────
+// All consumers should go through these hooks rather than
+// hand-rolling fetches against the subcategory endpoints —
+// keeps the visibility / permission model consistent (the
+// backend is the SSOT but the endpoint paths live in exactly
+// one place here).
+
+/**
+ * Fetch tier-2 subcategories VISIBLE to the calling user (the union
+ * of global + their org + teams they're a member of). Used by the
+ * clock-in dropdowns; pass `activity` to narrow.
+ */
+export function useFetchSubcategories() {
+  return useApiMutation<SubcategoryListResponse>(
+    "/timetracking/subcategories_list",
+  );
+}
+
+/**
+ * Admin management view — returns the subcategories the caller can
+ * MANAGE (subset varies by role: super_admin sees all, admin sees
+ * their org, team_admin sees only their led teams' subs). Used by
+ * the Time Categories admin page.
+ */
+export function useAdminFetchSubcategories() {
+  return useApiMutation<SubcategoryListResponse>(
+    "/timetracking/subcategories_admin_list",
+  );
+}
+
+export function useCreateSubcategory() {
+  return useApiMutation<SubcategoryMutationResponse>(
+    "/timetracking/subcategories_create",
+  );
+}
+
+export function useUpdateSubcategory() {
+  return useApiMutation<SubcategoryMutationResponse>(
+    "/timetracking/subcategories_update",
+  );
+}
+
+export function useDeleteSubcategory() {
+  return useApiMutation<SubcategoryMutationResponse>(
+    "/timetracking/subcategories_delete",
+  );
 }
 
 // Admin/User: export time entries as CSV/XLSX file download

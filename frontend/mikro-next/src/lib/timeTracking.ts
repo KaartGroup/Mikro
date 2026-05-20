@@ -18,12 +18,62 @@ export const TOPIC_OPTIONS = [
   { value: "other", label: "Other" },
 ] as const;
 
-/** Topics that require a project to be selected before clocking in */
-export const PROJECT_REQUIRED_TOPICS = ["editing", "validating", "qc_review"];
+/**
+ * Activities that require a project when NO subcategory is configured
+ * for that activity yet. After the two-tier rework, the canonical
+ * source of "do I need a project?" is each subcategory's
+ * `requiresProject` flag (see `requiresProjectFor` below). This list
+ * is the fallback for two cases:
+ *
+ *   1. Fresh-DB / un-seeded org: the activity has zero subs available
+ *      to the user, so clock-in has no sub picker and we fall back to
+ *      the activity-level requirement.
+ *   2. Subcategory not yet picked: while the user is still mid-form,
+ *      the project picker reflects the activity-level default.
+ *
+ * Keep this short — anything more nuanced lives on subcategory rows.
+ */
+const PROJECT_REQUIRED_FALLBACK_ACTIVITIES = new Set([
+  "editing",
+  "validating",
+  "qc_review",
+]);
 
-export function topicRequiresProject(topic: string): boolean {
-  return PROJECT_REQUIRED_TOPICS.includes(topic);
+/**
+ * SSOT for the "do I need a project?" decision.
+ *
+ * Selected subcategory wins (its `requiresProject` flag is canonical).
+ * Otherwise we fall back to the per-activity default above so behavior
+ * doesn't regress for orgs whose subs haven't been seeded yet.
+ */
+export function requiresProjectFor(
+  activity: string | null | undefined,
+  subcategory?: { requiresProject?: boolean } | null,
+): boolean {
+  if (subcategory) return !!subcategory.requiresProject;
+  if (!activity) return false;
+  return PROJECT_REQUIRED_FALLBACK_ACTIVITIES.has(activity);
 }
+
+/**
+ * Client-side slug derivation. Mirrors the SQL in the d5a0b1c2e3f4
+ * seed migration (`REGEXP_REPLACE([^a-zA-Z0-9]+, '_')`) and the
+ * Python `_slugify` in TimeTracking.py so a sub created via the
+ * admin UI ends up with the same slug shape as a seeded one.
+ */
+export function slugifyName(name: string): string {
+  return (name || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toLowerCase();
+}
+
+/** Displayed in tables/filters when a row has no subcategory (legacy). */
+export const UNSPECIFIED_SUBCATEGORY_LABEL = "Unspecified";
+
+/** Cell value shown in subcategory columns when a row has no sub. */
+export const EMPTY_SUBCATEGORY_CELL = "—";
 
 /**
  * Category SSOT — mirrors `VALID_CATEGORIES` and `CATEGORY_DISPLAY_MAP`

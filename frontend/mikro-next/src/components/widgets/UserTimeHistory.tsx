@@ -118,6 +118,7 @@ export function UserTimeHistory() {
                     <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Date</th>
                     <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Project</th>
                     <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Category</th>
+                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Subcategory</th>
                     <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Duration</th>
                     <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Status</th>
                     <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Notes</th>
@@ -137,6 +138,9 @@ export function UserTimeHistory() {
                       <td className="py-2 px-2">{entry.projectName}</td>
                       <td className="py-2 px-2">
                         <Badge variant="secondary">{entry.category}</Badge>
+                      </td>
+                      <td className="py-2 px-2 text-muted-foreground">
+                        {entry.subcategoryName || "—"}
                       </td>
                       <td className="py-2 px-2">
                         <span className="font-mono">{formatDurationHM(entry.durationSeconds)}</span>
@@ -200,6 +204,7 @@ export function UserTimeHistory() {
                 <tr className="border-b border-border">
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground">Project</th>
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground">Category</th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Subcategory</th>
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground">Clock In</th>
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground">Clock Out</th>
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground">Duration</th>
@@ -219,6 +224,9 @@ export function UserTimeHistory() {
                     <td className="py-3 px-3">{entry.projectName}</td>
                     <td className="py-3 px-3">
                       <Badge variant="secondary">{entry.category}</Badge>
+                    </td>
+                    <td className="py-3 px-3 text-muted-foreground">
+                      {entry.subcategoryName || "—"}
                     </td>
                     <td className="py-3 px-3 text-muted-foreground">
                       {entry.clockIn ? formatDateTime(entry.clockIn) : "—"}

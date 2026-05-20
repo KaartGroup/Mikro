@@ -383,6 +383,53 @@ export interface ValidatorDashboardStats {
 }
 
 // Time Tracking types
+
+/**
+ * Visibility scope for a tier-2 activity subcategory.
+ * - `global`: org_id IS NULL, team_id IS NULL — every user, every org.
+ * - `org`:    org_id set, team_id IS NULL — every user in that org.
+ * - `team`:   org_id + team_id set — members of that team + admins above.
+ */
+export type SubcategoryScope = "global" | "org" | "team";
+
+/**
+ * A row from the `activity_subcategories` table — the configurable
+ * tier-2 catalog under each hardcoded tier-1 activity. Behavior flags
+ * (`requiresProject`, `allowEventFields`) drive the clock-in form
+ * without code changes.
+ */
+export interface Subcategory {
+  id: number;
+  /** Parent activity slug. */
+  activity: string;
+  /** Display label rendered in dropdowns + snapshotted onto entries. */
+  name: string;
+  /** Stable internal slug (snake_case). */
+  slug: string;
+  scope: SubcategoryScope;
+  orgId: string | null;
+  teamId: number | null;
+  isActive: boolean;
+  sortOrder: number;
+  requiresProject: boolean;
+  allowEventFields: boolean;
+  createdBy: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface SubcategoryListResponse {
+  status: number;
+  subcategories: Subcategory[];
+  message?: string;
+}
+
+export interface SubcategoryMutationResponse {
+  status: number;
+  subcategory?: Subcategory;
+  message?: string;
+}
+
 export interface TimeEntry {
   id: number;
   userId: string;
@@ -392,7 +439,18 @@ export interface TimeEntry {
   projectId: number | null;
   projectName: string;
   projectShortName?: string;
+  /** Display label of the tier-1 activity (e.g. "Editing"). */
   category: string;
+  /** Raw activity slug (preferred over `category` for filters). */
+  activity?: string;
+  /** Selected tier-2 subcategory row id; null for legacy entries. */
+  subcategoryId?: number | null;
+  /** Snapshot of the subcategory's display label at write time. */
+  subcategoryName?: string | null;
+  /** Event-attendance counts. Populated only when the chosen sub has
+   *  allowEventFields=true. */
+  retainedParticipants?: number | null;
+  newParticipants?: number | null;
   taskName?: string | null;
   taskRefType?: string | null;  // "project" | "training" | "checklist" | null
   taskRefId?: number | null;
@@ -432,7 +490,10 @@ export interface TimeHistoryFilterParams {
   endDate?: string;
   userId?: string;
   teamId?: number;
+  /** Activity slug. JSON key stays "category" for backend compat. */
   category?: string;
+  /** Snapshot subcategory name filter (matches entry.subcategoryName). */
+  subcategoryName?: string;
   filters?: Record<string, string[]>;
   limit?: number;
   offset?: number;

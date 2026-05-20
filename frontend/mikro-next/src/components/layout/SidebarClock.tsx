@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useActiveTimeSession, useClockIn, useClockOut, useUserProjects, useFetchMyTimeHistory, useUpdateMyNotes, useDiscardActiveSession } from "@/hooks";
+import { useActiveTimeSession, useClockIn, useClockOut, useUserProjects, useFetchMyTimeHistory, useUpdateMyNotes, useDiscardActiveSession, useFetchSubcategories } from "@/hooks";
 import {
   TOPIC_OPTIONS,
-  topicRequiresProject,
+  requiresProjectFor,
   localDayStartIsoUtc,
   localDayEndIsoUtc,
   localWeekStartIsoUtc,
   formatDurationHM,
   formatLiveDuration,
 } from "@/lib/timeTracking";
+import type { Subcategory } from "@/types";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import { sortProjectsRecentPinned } from "@/lib/sortProjects";
 import { ConfirmDialog } from "@/components/ui/Modal";
@@ -51,6 +52,16 @@ export function SidebarClock() {
   const [selectedProject, setSelectedProject] = useState("");
   const [projectSearch, setProjectSearch] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+  // Tier-2 subcategory state. `subOptions` is the list visible to this
+  // user for the chosen activity; `selectedSub` is the picked row.
+  // Event-attendance inputs only appear when the picked sub has
+  // allow_event_fields=true (per spec, Community -> Events). The
+  // sidebar omits the event inputs by design (space-constrained UI);
+  // they're available on TimeTrackingWidget and the admin add-entry
+  // modal where there's room.
+  const [selectedSub, setSelectedSub] = useState<Subcategory | null>(null);
+  const [subOptions, setSubOptions] = useState<Subcategory[]>([]);
+  const { mutate: fetchSubcategories } = useFetchSubcategories();
   const [pendingUserNotes, setPendingUserNotes] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [activeSessionUserNotes, setActiveSessionUserNotes] = useState<string | null>(null);
@@ -84,7 +95,7 @@ export function SidebarClock() {
       })
     : projectList;
 
-  const needsProject = topicRequiresProject(selectedTopic);
+  const needsProject = requiresProjectFor(selectedTopic, selectedSub);
 
   // Restore active session on mount / refetch
   useEffect(() => {
@@ -159,6 +170,7 @@ export function SidebarClock() {
         project_id: selectedProject ? parseInt(selectedProject) : null,
         category: selectedTopic,
         task_name: selectedTopic === "project_creation" && projectDescription ? projectDescription : null,
+        subcategoryId: selectedSub?.id ?? null,
         userNotes: pendingUserNotes,
       });
       setIsClockedIn(true);
@@ -169,6 +181,8 @@ export function SidebarClock() {
       setSelectedProject("");
       setProjectSearch("");
       setProjectDescription("");
+      setSelectedSub(null);
+      setSubOptions([]);
       setActiveSessionUserNotes(pendingUserNotes);
       setPendingUserNotes(null);
       window.dispatchEvent(new Event("clock-state-changed"));
@@ -176,7 +190,7 @@ export function SidebarClock() {
     } catch {
       // Silently handle — dashboard/time page will show full errors
     }
-  }, [selectedTopic, selectedProject, needsProject, projectDescription, clockIn, pendingUserNotes, refetch]);
+  }, [selectedTopic, selectedSub, selectedProject, needsProject, projectDescription, clockIn, pendingUserNotes, refetch]);
 
   const handleSaveActiveNotes = useCallback(
     async (value: string | null) => {
@@ -223,15 +237,46 @@ export function SidebarClock() {
     }
   }, [clockOut]);
 
-  // Clear project/description when switching topics
+  // Topic-change effect: reset sub picker + fetch the subs visible to
+  // this user for the new activity. Also clear project/description as
+  // before (uses the activity-level fallback since selectedSub starts
+  // null on topic change).
   useEffect(() => {
-    if (selectedTopic && !topicRequiresProject(selectedTopic)) {
+    setSelectedSub(null);
+    if (!selectedTopic) {
+      setSubOptions([]);
+      setSelectedProject("");
+      setProjectSearch("");
+      setProjectDescription("");
+      return;
+    }
+    if (!requiresProjectFor(selectedTopic, null)) {
       setSelectedProject("");
       setProjectSearch("");
     }
     if (selectedTopic !== "project_creation") {
       setProjectDescription("");
     }
+    let cancelled = false;
+    fetchSubcategories({ activity: selectedTopic })
+      .then((res) => {
+        if (cancelled) return;
+        const list = res?.subcategories ?? [];
+        setSubOptions(list);
+        // Auto-pick when there's exactly one option, so the user
+        // doesn't have to click a single-item dropdown.
+        if (list.length === 1) setSelectedSub(list[0]);
+      })
+      .catch(() => {
+        if (!cancelled) setSubOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // fetchSubcategories is non-stable (mutation hook returns a new
+    // function each render); intentionally excluded to avoid refire
+    // on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTopic]);
 
   if (sessionLoading) {
@@ -384,8 +429,13 @@ export function SidebarClock() {
     );
   }
 
-  // Not clocked in — topic first, then conditional project
-  const canClockIn = selectedTopic && (!needsProject || selectedProject) && !clockingIn;
+  // Not clocked in — topic first, then sub (if any available), then conditional project.
+  // If subOptions has entries we require one to be picked before clock-in is allowed.
+  const needsSub = subOptions.length > 0;
+  const canClockIn = !!selectedTopic
+    && (!needsSub || !!selectedSub)
+    && (!needsProject || !!selectedProject)
+    && !clockingIn;
 
   return (
     <div style={{ padding: "10px 12px", borderTop: "1px solid var(--border)" }}>
@@ -402,6 +452,24 @@ export function SidebarClock() {
             </option>
           ))}
         </select>
+        {subOptions.length > 0 && (
+          <select
+            style={selectStyle}
+            value={selectedSub?.id ?? ""}
+            onChange={(e) => {
+              const id = e.target.value ? parseInt(e.target.value, 10) : null;
+              setSelectedSub(id == null ? null : subOptions.find((s) => s.id === id) ?? null);
+            }}
+            aria-label="Subcategory"
+          >
+            <option value="">Subcategory...</option>
+            {subOptions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        )}
         {needsProject && (
           <>
             <input

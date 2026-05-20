@@ -962,7 +962,31 @@ class TimeEntry(CRUDMixin, db.Model):
         index=True,
     )
     org_id = db.Column(db.String(255), nullable=True, index=True)
-    category = db.Column(db.String(50), nullable=False)  # mapping|validation|review|training|other
+    # Tier 1 of the time-tracking taxonomy. The set of activity slugs is a
+    # hardcoded app-side enum (pan-org primitives) — see ACTIVITY_SLUGS in
+    # api/views/TimeTracking.py and TOPIC_OPTIONS in lib/timeTracking.ts.
+    # (Renamed from `category` in migration c4f8a9b0d1e2; old `category`
+    # values map 1:1 to the new activity slugs without backfill.)
+    activity = db.Column(db.String(50), nullable=False)
+    # Tier 2 (configurable, optional): the chosen ActivitySubcategory row.
+    # NULL on legacy entries (pre-rework) and on any activity that has no
+    # subs configured for the user's scope. Displayed as "—" in tables
+    # and aggregated under "Unspecified" in reports.
+    subcategory_id = db.Column(
+        db.Integer,
+        db.ForeignKey("activity_subcategories.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    # Snapshot of subcategory.name at write time. Reports/tables read
+    # this column directly (no join) so soft-deletes and renames of the
+    # underlying subcategory row never fragment historical aggregations.
+    subcategory_name = db.Column(db.String(100), nullable=True)
+    # Event-attendance counts. Populated only when the chosen subcategory
+    # has allow_event_fields=true (e.g. Community -> Events). NULL
+    # otherwise — the UI hides the inputs and the backend rejects values
+    # for subcategories that don't allow them.
+    retained_participants = db.Column(db.Integer, nullable=True)
+    new_participants = db.Column(db.Integer, nullable=True)
     task_name = db.Column(db.String(255), nullable=True)       # display name of the selected task
     task_ref_type = db.Column(db.String(50), nullable=True)     # "project", "training", "checklist", or null
     task_ref_id = db.Column(db.Integer, nullable=True)          # FK to the referenced entity, or null
@@ -987,10 +1011,17 @@ class TimeEntry(CRUDMixin, db.Model):
     # when a User is hard-deleted, instead of ORM trying to NULL user_id.
     user = db.relationship("User", backref=db.backref("time_entries", passive_deletes=True))
     project = db.relationship("Project", backref="time_entries")
+    subcategory = db.relationship("ActivitySubcategory")
 
     __table_args__ = (
         db.Index("ix_time_entries_user_status", "user_id", "status"),
         db.Index("ix_time_entries_org_status", "org_id", "status"),
+        # Aggregation index for the timekeeping report's
+        # GROUP BY (activity, subcategory_name).
+        db.Index(
+            "ix_time_entries_org_activity_sub",
+            "org_id", "activity", "subcategory_name",
+        ),
     )
 
     def __repr__(self):
@@ -998,7 +1029,14 @@ class TimeEntry(CRUDMixin, db.Model):
 
 
 class CustomTopic(CRUDMixin, db.Model):
-    """User-created custom topic for time tracking 'Other' category."""
+    """User-created custom topic for time tracking 'Other' category.
+
+    DEPRECATED: superseded by ActivitySubcategory rows with
+    ``activity='other'``. The d5a0b1c2e3f4 seed migration copies these
+    rows into activity_subcategories. The table is kept temporarily so
+    rollback stays trivial; a follow-up migration drops it once we're
+    satisfied with backfill quality on prod.
+    """
     __tablename__ = "custom_topics"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -1013,6 +1051,93 @@ class CustomTopic(CRUDMixin, db.Model):
 
     def __repr__(self):
         return f"<CustomTopic {self.id}: {self.name}>"
+
+
+class ActivitySubcategory(CRUDMixin, db.Model):
+    """Configurable tier-2 subcategory for time tracking.
+
+    Parent ``activity`` is a hardcoded app-side enum (see
+    ``ACTIVITY_SLUGS`` in api/views/TimeTracking.py). Subcategories live
+    here in three visibility scopes via ``(org_id, team_id)``:
+
+    - ``org_id IS NULL AND team_id IS NULL`` -> **global**: visible to
+      every user in every org.
+    - ``org_id`` set, ``team_id IS NULL`` -> **org**: visible to every
+      user in that org.
+    - ``org_id`` set, ``team_id`` set -> **team**: visible only to
+      members of that team + admins above team_admin in the same org.
+
+    Specificity rule on label collisions: team > org > global.
+
+    Soft-delete only (``is_active=false``). The FK from
+    ``time_entries.subcategory_id`` is ``ON DELETE SET NULL`` so even a
+    hard delete is non-destructive to history; the snapshot in
+    ``time_entries.subcategory_name`` preserves the label.
+
+    Two per-row behavior flags drive UI without code changes:
+
+    - ``requires_project``: when true, the clock-in form must have a
+      project picked before submit is allowed.
+    - ``allow_event_fields``: when true, the form exposes the
+      ``# Retained Participants`` / ``# New Participants`` inputs (e.g.
+      Community -> Events).
+    """
+    __tablename__ = "activity_subcategories"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    activity = db.Column(db.String(50), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    slug = db.Column(db.String(100), nullable=False)
+    org_id = db.Column(db.String(255), nullable=True)
+    team_id = db.Column(
+        db.Integer,
+        db.ForeignKey("teams.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    is_active = db.Column(
+        db.Boolean, nullable=False, default=True, server_default=db.true()
+    )
+    sort_order = db.Column(
+        db.Integer, nullable=False, default=0, server_default="0"
+    )
+    requires_project = db.Column(
+        db.Boolean, nullable=False, default=False, server_default=db.false()
+    )
+    allow_event_fields = db.Column(
+        db.Boolean, nullable=False, default=False, server_default=db.false()
+    )
+    created_by = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=func.now())
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+    )
+
+    team = db.relationship("Team")
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "team_id IS NULL OR org_id IS NOT NULL",
+            name="ck_activity_subcategories_team_requires_org",
+        ),
+        db.UniqueConstraint(
+            "activity", "slug", "org_id", "team_id",
+            name="uq_activity_subcategories_scope",
+        ),
+        db.Index("ix_activity_subcategories_dropdown", "activity", "is_active"),
+        db.Index("ix_activity_subcategories_org", "org_id"),
+        db.Index("ix_activity_subcategories_team", "team_id"),
+    )
+
+    def __repr__(self):
+        scope = (
+            f"team={self.team_id}" if self.team_id is not None
+            else f"org={self.org_id}" if self.org_id is not None
+            else "global"
+        )
+        return f"<ActivitySubcategory {self.activity}/{self.slug} {scope}>"
 
 
 class HourlyPayment(CRUDMixin, db.Model):

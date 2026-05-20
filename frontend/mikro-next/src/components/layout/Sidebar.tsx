@@ -43,6 +43,7 @@ const adminNavItems: NavItem[] = [
   { label: "Projects", href: "/admin/projects", icon: "folder" },
   // { label: "Tasks", href: "/admin/tasks", icon: "tasks" }, // Disabled until scope is clarified with project owner
   { label: "Time", href: "/admin/time", icon: "clock" },
+  { label: "Time Categories", href: "/admin/time-categories", icon: "list", tooltip: "Configure tier-2 subcategories under each activity" },
   { label: "Training", href: "/admin/training", icon: "book" },
   { label: "Checklists", href: "/admin/checklists", icon: "list" },
   { label: "Users", href: "/admin/users", icon: "users" },
@@ -65,6 +66,7 @@ const teamAdminNavItems: NavItem[] = [
   { label: "Dashboard", href: "/admin/dashboard", icon: "home" },
   { label: "Projects", href: "/admin/projects", icon: "folder" },
   { label: "Time", href: "/admin/time", icon: "clock" },
+  { label: "Time Categories", href: "/admin/time-categories", icon: "list", tooltip: "Manage your teams' time subcategories" },
   { label: "Training", href: "/admin/training", icon: "book" },
   { label: "Checklists", href: "/admin/checklists", icon: "list" },
   { label: "Users", href: "/admin/users", icon: "users" },

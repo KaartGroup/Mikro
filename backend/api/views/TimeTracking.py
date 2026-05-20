@@ -23,8 +23,11 @@ except ImportError:
 
 from ..utils import requires_admin, requires_team_admin_or_above
 from ..utils.tz import org_month_bounds_utc, parse_filter_datetime
-from sqlalchemy import func
-from ..database import TimeEntry, User, Project, Task, TeamUser, CustomTopic, HourlyPayment, db
+from sqlalchemy import func, or_
+from ..database import (
+    TimeEntry, User, Project, Task, Team, TeamUser, TeamLead,
+    CustomTopic, ActivitySubcategory, HourlyPayment, db,
+)
 from ..filters import resolve_filtered_user_ids
 from ..auth import (
     is_org_admin_or_above,
@@ -62,16 +65,23 @@ def _ascii_safe(s):
         .decode("ascii")
     )
 
-VALID_CATEGORIES = {
+# Tier-1 activity slugs (the renamed `category` enum). Stored in
+# `time_entries.activity`. Mirrors the SSOT on the frontend at
+# `lib/timeTracking.ts` — keep these two lists in sync; any new
+# activity needs to be added in BOTH places (and seeded with a
+# default set of subcategories via the Time Categories admin page
+# or a follow-up migration).
+ACTIVITY_SLUGS = {
     "editing", "validating", "training", "checklist",
     "qc_review", "meeting", "documentation", "imagery_capture",
     "project_creation", "community", "other",
-    # Legacy values — still accepted for backward compat
+    # Legacy values still accepted for backward compat (clock-in payloads
+    # from older clients). Normalized to canonical slugs on display.
     "mapping", "validation", "review",
 }
 
-# Map stored category values to display labels
-CATEGORY_DISPLAY_MAP = {
+# Map stored activity slug -> display label. User-facing UI strings.
+ACTIVITY_DISPLAY_MAP = {
     "editing": "Editing",
     "validating": "Validating",
     "training": "Training",
@@ -83,11 +93,204 @@ CATEGORY_DISPLAY_MAP = {
     "project_creation": "Project Creation",
     "community": "Community",
     "other": "Other",
-    # Legacy mappings
+    # Legacy mappings -> canonical labels
     "mapping": "Editing",
     "validation": "Validating",
     "review": "QC / Review",
 }
+
+
+# ─── Subcategory helpers (SSOT for visibility / management) ─────────
+#
+# These live at module level so the Time Categories admin endpoints,
+# the clock-in/edit write paths, and any future read sites (reports,
+# CSV export) all go through the same gate. Do not duplicate the
+# visibility or permission logic inline anywhere.
+
+
+def _visible_subcategories_query(user, activity=None):
+    """SQLAlchemy query returning `ActivitySubcategory` rows visible to `user`.
+
+    Visibility rules (a sub is visible iff any of these match):
+      - global (org_id IS NULL AND team_id IS NULL), OR
+      - org-scoped to the user's own org, with no team, OR
+      - team-scoped where the user is a member of the team, OR
+      - org-scoped/team-scoped within the user's org AND the user is
+        org_admin or above (admins can see every sub in their org).
+
+    Only `is_active = TRUE` rows are returned. Sorted by sort_order,
+    then name. If `activity` is given, narrows to that activity.
+    """
+    user_org_id = getattr(user, "org_id", None)
+    is_admin = is_org_admin_or_above(user)
+
+    # Team IDs the user is a MEMBER of (TeamUser rows). team_admin
+    # often has membership in the teams they lead, but not always; we
+    # only show personal subs for teams the user actually belongs to.
+    member_team_ids = [
+        tu.team_id
+        for tu in TeamUser.query.filter_by(user_id=user.id).all()
+    ]
+
+    visibility_clauses = [
+        # Global subs — every user sees these.
+        (ActivitySubcategory.org_id.is_(None)) &
+        (ActivitySubcategory.team_id.is_(None)),
+    ]
+    if user_org_id:
+        # Org-scoped, no team — anyone in that org.
+        visibility_clauses.append(
+            (ActivitySubcategory.org_id == user_org_id) &
+            (ActivitySubcategory.team_id.is_(None))
+        )
+        # Team-scoped — user must be a member of that team.
+        if member_team_ids:
+            visibility_clauses.append(
+                (ActivitySubcategory.org_id == user_org_id) &
+                (ActivitySubcategory.team_id.in_(member_team_ids))
+            )
+        # Admins see EVERY sub in their org (including team subs they
+        # aren't members of) — they're managing the catalog.
+        if is_admin:
+            visibility_clauses.append(
+                ActivitySubcategory.org_id == user_org_id
+            )
+
+    q = ActivitySubcategory.query.filter(
+        ActivitySubcategory.is_active.is_(True),
+        or_(*visibility_clauses),
+    )
+    if activity:
+        q = q.filter(ActivitySubcategory.activity == activity)
+    return q.order_by(
+        ActivitySubcategory.sort_order.asc(),
+        ActivitySubcategory.name.asc(),
+    )
+
+
+def _team_admin_led_team_ids(user):
+    """Return the set of team IDs `user` LEADS (via TeamLead).
+
+    Distinct from team_member_ids_for / managed_team_ids_for: this is
+    the strict "I am a lead of this team" set used for subcategory
+    management permissions. Returns empty set for non-team_admins.
+    """
+    if getattr(user, "role", None) != "team_admin":
+        return set()
+    return {
+        tl.team_id
+        for tl in TeamLead.query.filter_by(user_id=user.id).all()
+    }
+
+
+def _can_manage_subcategory(user, *, org_id=None, team_id=None, sub=None):
+    """Permission gate for create/update/delete on a subcategory row.
+
+    Either pass a `sub` (an ActivitySubcategory instance) OR `org_id` +
+    `team_id` (for new-row checks before insertion).
+
+    Rules:
+      - super_admin: can manage anything (including global subs).
+      - admin (org_admin): can manage anything in their org. Cannot
+        manage global subs.
+      - team_admin: can manage only subs scoped to teams they LEAD.
+        Cannot create org-scoped or global subs.
+      - others (user / validator): no management.
+    """
+    if sub is not None:
+        org_id = sub.org_id
+        team_id = sub.team_id
+
+    role = getattr(user, "role", None)
+    if role == "super_admin":
+        return True
+    if role == "admin":
+        # Org admin: must scope to their own org; cannot touch global.
+        return org_id is not None and org_id == getattr(user, "org_id", None)
+    if role == "team_admin":
+        # Team admin: must be a team-scoped sub for a team they lead,
+        # in their own org.
+        if org_id is None or org_id != getattr(user, "org_id", None):
+            return False
+        if team_id is None:
+            return False
+        return team_id in _team_admin_led_team_ids(user)
+    return False
+
+
+def _resolve_subcategory_for_write(
+    user, activity, subcategory_id, retained_participants, new_participants,
+):
+    """Validate subcategory + event fields for a clock-in / edit write.
+
+    Returns a dict suitable for assigning into a TimeEntry:
+        {
+            "subcategory_id": int | None,
+            "subcategory_name": str | None,
+            "retained_participants": int | None,
+            "new_participants": int | None,
+        }
+
+    Raises ValueError with a human-readable message on any rejection
+    so callers can return a 400 response.
+
+    Rules:
+      - `subcategory_id` is optional. If provided, the row must be
+        visible to `user`, its `activity` must match the entry's
+        activity, and its `is_active` must be true.
+      - `retained_participants` / `new_participants` accepted only when
+        the chosen subcategory has `allow_event_fields=true`. Each
+        must parse as a non-negative integer. Anything else: reject.
+    """
+    # Coerce empty/missing inputs to None so callers can pass through
+    # request JSON unchanged.
+    sub_id_in = subcategory_id if subcategory_id not in ("", 0) else None
+    retained_in = retained_participants
+    new_in = new_participants
+
+    sub_row = None
+    if sub_id_in is not None:
+        try:
+            sub_id_int = int(sub_id_in)
+        except (TypeError, ValueError):
+            raise ValueError("subcategoryId must be an integer")
+        sub_row = _visible_subcategories_query(user).filter(
+            ActivitySubcategory.id == sub_id_int,
+            ActivitySubcategory.activity == activity,
+        ).first()
+        if sub_row is None:
+            raise ValueError(
+                "Selected subcategory is not available for this activity"
+            )
+
+    # Event-field validation.
+    def _coerce_count(value, field_name):
+        if value is None or value == "":
+            return None
+        try:
+            n = int(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{field_name} must be a non-negative integer")
+        if n < 0:
+            raise ValueError(f"{field_name} must be a non-negative integer")
+        return n
+
+    retained = _coerce_count(retained_in, "retainedParticipants")
+    new_p = _coerce_count(new_in, "newParticipants")
+
+    allows_events = bool(sub_row and sub_row.allow_event_fields)
+    if (retained is not None or new_p is not None) and not allows_events:
+        raise ValueError(
+            "retainedParticipants / newParticipants are only accepted "
+            "for subcategories with allow_event_fields enabled"
+        )
+
+    return {
+        "subcategory_id": sub_row.id if sub_row else None,
+        "subcategory_name": sub_row.name if sub_row else None,
+        "retained_participants": retained,
+        "new_participants": new_p,
+    }
 
 
 class TimeTrackingAPI(MethodView):
@@ -140,6 +343,17 @@ class TimeTrackingAPI(MethodView):
             return self.admin_set_hourly_rate()
         elif path == "mark_hourly_paid":
             return self.admin_mark_hourly_paid()
+        # ─── Subcategory management (tier-2 catalog) ────────────
+        elif path == "subcategories_list":
+            return self.subcategories_list()
+        elif path == "subcategories_admin_list":
+            return self.subcategories_admin_list()
+        elif path == "subcategories_create":
+            return self.subcategories_create()
+        elif path == "subcategories_update":
+            return self.subcategories_update()
+        elif path == "subcategories_delete":
+            return self.subcategories_delete()
 
         return jsonify({"message": "Endpoint not found", "status": 404}), 404
 
@@ -195,7 +409,16 @@ class TimeTrackingAPI(MethodView):
             "projectId": entry.project_id,
             "projectName": project.name if project else "No Project",
             "projectShortName": (project.short_name or "") if project else "",
-            "category": CATEGORY_DISPLAY_MAP.get(entry.category, entry.category.capitalize() if entry.category else ""),
+            # The "category" JSON key is preserved for frontend backward
+            # compat; it reads from entry.activity now (DB column was
+            # renamed in migration c4f8a9b0d1e2). Display label still
+            # comes from ACTIVITY_DISPLAY_MAP.
+            "category": ACTIVITY_DISPLAY_MAP.get(entry.activity, entry.activity.capitalize() if entry.activity else ""),
+            "activity": entry.activity,  # raw slug (new — preferred for filters)
+            "subcategoryId": entry.subcategory_id,
+            "subcategoryName": entry.subcategory_name,
+            "retainedParticipants": entry.retained_participants,
+            "newParticipants": entry.new_participants,
             "taskName": entry.task_name,
             "taskRefType": entry.task_ref_type,
             "taskRefId": entry.task_ref_id,
@@ -354,10 +577,16 @@ class TimeTrackingAPI(MethodView):
                 end_date = end_date + timedelta(days=1)
             conditions.append(TimeEntry.clock_in < end_date)
 
-        # Category filter
-        category = data.get("category")
+        # Activity filter (JSON key still "category" for frontend back-compat).
+        category = data.get("category") or data.get("activity")
         if category:
-            conditions.append(TimeEntry.category == category.lower())
+            conditions.append(TimeEntry.activity == category.lower())
+
+        # Subcategory filter — matches the snapshot name on the entry.
+        # Frontend sends the display name (e.g. "Kaart Project") as-is.
+        subcategory_name = data.get("subcategoryName")
+        if subcategory_name:
+            conditions.append(TimeEntry.subcategory_name == subcategory_name)
 
         return TimeEntry.query.filter(*conditions).order_by(TimeEntry.clock_in.desc())
 
@@ -370,20 +599,46 @@ class TimeTrackingAPI(MethodView):
 
         data = request.get_json() or {}
         project_id = data.get("project_id")
-        category = data.get("category", "").lower()
+        # Frontend payload key still "category" (tier-1 activity slug).
+        activity = data.get("category", "").lower()
 
         logger.info(
             f"[CLOCK] clock_in called by user={g.user.id} "
             f"({g.user.osm_username or g.user.email}) "
-            f"project_id={project_id} category={category}"
+            f"project_id={project_id} activity={activity}"
         )
 
-        # Validate category
-        if category not in VALID_CATEGORIES:
+        # Validate activity (tier 1)
+        if activity not in ACTIVITY_SLUGS:
             return jsonify({
-                "message": f"Invalid category. Must be one of: {', '.join(VALID_CATEGORIES)}",
+                "message": f"Invalid category. Must be one of: {', '.join(ACTIVITY_SLUGS)}",
                 "status": 400,
             }), 400
+
+        # Validate subcategory (tier 2) + event fields through the SSOT helper.
+        try:
+            sub_fields = _resolve_subcategory_for_write(
+                g.user,
+                activity,
+                data.get("subcategoryId"),
+                data.get("retainedParticipants"),
+                data.get("newParticipants"),
+            )
+        except ValueError as e:
+            return jsonify({"message": str(e), "status": 400}), 400
+
+        # requires_project gating: if the chosen sub demands a project and the
+        # caller didn't provide one, reject up-front.
+        if sub_fields["subcategory_id"] is not None:
+            sub_row = ActivitySubcategory.query.get(sub_fields["subcategory_id"])
+            if sub_row and sub_row.requires_project and not project_id:
+                return jsonify({
+                    "message": (
+                        f"Subcategory '{sub_row.name}' requires a project — "
+                        f"please pick a project before clocking in."
+                    ),
+                    "status": 400,
+                }), 400
 
         # Validate project if provided
         if project_id:
@@ -418,7 +673,11 @@ class TimeTrackingAPI(MethodView):
         entry.user_id = g.user.id
         entry.project_id = project_id
         entry.org_id = g.user.org_id
-        entry.category = category
+        entry.activity = activity
+        entry.subcategory_id = sub_fields["subcategory_id"]
+        entry.subcategory_name = sub_fields["subcategory_name"]
+        entry.retained_participants = sub_fields["retained_participants"]
+        entry.new_participants = sub_fields["new_participants"]
         entry.task_name = data.get("task_name")
         entry.task_ref_type = data.get("task_ref_type")
         entry.task_ref_id = data.get("task_ref_id")
@@ -427,8 +686,11 @@ class TimeTrackingAPI(MethodView):
         entry.user_notes = user_notes
         entry.save()
 
-        # If "other" with a custom task_name, upsert into custom_topics
-        if category == "other" and entry.task_name:
+        # Legacy: "other" with a free-form task_name upserts into custom_topics.
+        # Going forward, free-form names should be added as ActivitySubcategory
+        # rows via the Time Categories admin page — but we still upsert here so
+        # older clients that haven't migrated keep working.
+        if activity == "other" and entry.task_name and sub_fields["subcategory_id"] is None:
             existing = CustomTopic.query.filter_by(
                 name=entry.task_name, org_id=g.user.org_id
             ).first()
@@ -441,7 +703,8 @@ class TimeTrackingAPI(MethodView):
 
         logger.info(
             f"[CLOCK] clock_in SUCCESS — user={g.user.id} session_id={entry.id} "
-            f"clock_in={entry.clock_in} project={project_id} category={category}"
+            f"clock_in={entry.clock_in} project={project_id} activity={activity} "
+            f"subcategory_id={entry.subcategory_id}"
         )
 
         session_data = self._format_entry(entry)
@@ -498,7 +761,7 @@ class TimeTrackingAPI(MethodView):
 
         logger.info(
             f"[CLOCK] clock_out PROCESSING — user={g.user.id} session_id={entry.id} "
-            f"clock_in={entry.clock_in} project={entry.project_id} category={entry.category}"
+            f"clock_in={entry.clock_in} project={entry.project_id} activity={entry.activity}"
         )
 
         # Clock out
@@ -1115,12 +1378,12 @@ class TimeTrackingAPI(MethodView):
 
         if "category" in data:
             cat = data["category"].lower()
-            if cat not in VALID_CATEGORIES:
+            if cat not in ACTIVITY_SLUGS:
                 return jsonify({
-                    "message": f"Invalid category. Must be one of: {', '.join(VALID_CATEGORIES)}",
+                    "message": f"Invalid category. Must be one of: {', '.join(ACTIVITY_SLUGS)}",
                     "status": 400,
                 }), 400
-            entry.category = cat
+            entry.activity = cat
 
         if "taskName" in data:
             entry.task_name = data["taskName"]
@@ -1128,6 +1391,32 @@ class TimeTrackingAPI(MethodView):
             entry.task_ref_type = data["taskRefType"]
         if "taskRefId" in data:
             entry.task_ref_id = data["taskRefId"]
+
+        # Subcategory + event fields (only re-validate when any of the
+        # three are explicitly in the payload — admins editing only
+        # times shouldn't have to send the sub again).
+        if (
+            "subcategoryId" in data
+            or "retainedParticipants" in data
+            or "newParticipants" in data
+        ):
+            try:
+                sub_fields = _resolve_subcategory_for_write(
+                    # Subcategory visibility check uses the entry's owner, not
+                    # the editing admin — a team_admin editing entries for
+                    # a member should be able to pick subs that member sees.
+                    User.query.get(entry.user_id) or g.user,
+                    entry.activity,
+                    data.get("subcategoryId") if "subcategoryId" in data else entry.subcategory_id,
+                    data.get("retainedParticipants") if "retainedParticipants" in data else entry.retained_participants,
+                    data.get("newParticipants") if "newParticipants" in data else entry.new_participants,
+                )
+            except ValueError as e:
+                return jsonify({"message": str(e), "status": 400}), 400
+            entry.subcategory_id = sub_fields["subcategory_id"]
+            entry.subcategory_name = sub_fields["subcategory_name"]
+            entry.retained_participants = sub_fields["retained_participants"]
+            entry.new_participants = sub_fields["new_participants"]
 
         # Recalculate duration if both times present
         if entry.clock_in and entry.clock_out:
@@ -1168,9 +1457,9 @@ class TimeTrackingAPI(MethodView):
                 "status": 400,
             }), 400
 
-        if category not in VALID_CATEGORIES:
+        if category not in ACTIVITY_SLUGS:
             return jsonify({
-                "message": f"Invalid category. Must be one of: {', '.join(VALID_CATEGORIES)}",
+                "message": f"Invalid category. Must be one of: {', '.join(ACTIVITY_SLUGS)}",
                 "status": 400,
             }), 400
 
@@ -1181,6 +1470,19 @@ class TimeTrackingAPI(MethodView):
                 "message": "User not found in your organization",
                 "status": 404,
             }), 404
+
+        # Subcategory + event fields (validated against the TARGET user's
+        # visibility scope, not the admin's).
+        try:
+            sub_fields = _resolve_subcategory_for_write(
+                user,
+                category,
+                data.get("subcategoryId"),
+                data.get("retainedParticipants"),
+                data.get("newParticipants"),
+            )
+        except ValueError as e:
+            return jsonify({"message": str(e), "status": 400}), 400
 
         # team_admin: target user must be on a managed team
         if not is_org_admin_or_above(g.user):
@@ -1230,7 +1532,11 @@ class TimeTrackingAPI(MethodView):
         entry.user_id = user_id
         entry.org_id = g.user.org_id
         entry.project_id = project_id
-        entry.category = category
+        entry.activity = category
+        entry.subcategory_id = sub_fields["subcategory_id"]
+        entry.subcategory_name = sub_fields["subcategory_name"]
+        entry.retained_participants = sub_fields["retained_participants"]
+        entry.new_participants = sub_fields["new_participants"]
         entry.task_name = data.get("taskName")
         entry.task_ref_type = data.get("taskRefType")
         entry.task_ref_id = data.get("taskRefId")
@@ -1243,8 +1549,9 @@ class TimeTrackingAPI(MethodView):
         entry.edited_at = datetime.utcnow()
         entry.save()
 
-        # If "other" with a custom task_name, upsert into custom_topics
-        if category == "other" and entry.task_name:
+        # Legacy custom_topics upsert — same gating as clock_in: only
+        # when no real subcategory was selected.
+        if category == "other" and entry.task_name and sub_fields["subcategory_id"] is None:
             existing = CustomTopic.query.filter_by(
                 name=entry.task_name, org_id=g.user.org_id
             ).first()
@@ -1275,7 +1582,7 @@ class TimeTrackingAPI(MethodView):
                 "status": 400,
             }), 400
 
-        if category not in VALID_CATEGORIES:
+        if category not in ACTIVITY_SLUGS:
             category = "mapping"
 
         # Validate user exists in same org
@@ -1291,7 +1598,7 @@ class TimeTrackingAPI(MethodView):
         entry.user_id = user_id
         entry.org_id = g.user.org_id
         entry.project_id = project_id
-        entry.category = category
+        entry.activity = category
         entry.clock_in = now - timedelta(hours=8)
         entry.clock_out = now
         entry.duration_seconds = 28800
@@ -1358,7 +1665,8 @@ class TimeTrackingAPI(MethodView):
             ("user_name",     "User",             lambda u, p, e: u.full_name if u else "Unknown"),
             ("osm_username",  "OSM Username",     lambda u, p, e: (u.osm_username if u else "") or ""),
             ("project",       "Project",          lambda u, p, e: (p.name if p else "") or ""),
-            ("category",      "Category",         lambda u, p, e: CATEGORY_DISPLAY_MAP.get(e.category, e.category.capitalize() if e.category else "")),
+            ("category",      "Category",         lambda u, p, e: ACTIVITY_DISPLAY_MAP.get(e.activity, e.activity.capitalize() if e.activity else "")),
+            ("subcategory",   "Subcategory",      lambda u, p, e: e.subcategory_name or ""),
             ("task",          "Task",             lambda u, p, e: e.task_name or ""),
             ("clock_in",      "Clock In",         lambda u, p, e: e.clock_in.isoformat() + "Z" if e.clock_in else ""),
             ("clock_out",     "Clock Out",        lambda u, p, e: e.clock_out.isoformat() + "Z" if e.clock_out else ""),
@@ -1834,4 +2142,290 @@ class TimeTrackingAPI(MethodView):
         return jsonify({
             "status": 200,
             "message": f"{'Marked' if paid else 'Unmarked'} {user.full_name} {year}-{month:02d} as paid",
+        })
+
+    # ─── Subcategory management endpoints ────────────────────────
+    #
+    # Tier-2 catalog. Visibility rules and management permissions are
+    # SSOT'd in the module-level helpers `_visible_subcategories_query`
+    # and `_can_manage_subcategory` above — do not reimplement here.
+
+    @staticmethod
+    def _format_subcategory(sub):
+        """Format an ActivitySubcategory for JSON response."""
+        if sub.team_id is not None:
+            scope = "team"
+        elif sub.org_id is not None:
+            scope = "org"
+        else:
+            scope = "global"
+        return {
+            "id": sub.id,
+            "activity": sub.activity,
+            "name": sub.name,
+            "slug": sub.slug,
+            "scope": scope,
+            "orgId": sub.org_id,
+            "teamId": sub.team_id,
+            "isActive": sub.is_active,
+            "sortOrder": sub.sort_order,
+            "requiresProject": sub.requires_project,
+            "allowEventFields": sub.allow_event_fields,
+            "createdBy": sub.created_by,
+            "createdAt": sub.created_at.isoformat() + "Z" if sub.created_at else None,
+            "updatedAt": sub.updated_at.isoformat() + "Z" if sub.updated_at else None,
+        }
+
+    @staticmethod
+    def _slugify(name):
+        """Lowercase + non-alphanumeric runs collapsed to underscore.
+
+        Matches the SQL slug derivation in the d5a0b1c2e3f4 seed
+        migration so subs created at runtime have the same shape as
+        seeded ones.
+        """
+        if not name:
+            return ""
+        import re
+        return re.sub(r"[^a-zA-Z0-9]+", "_", name.strip()).strip("_").lower()
+
+    def subcategories_list(self):
+        """List subcategories visible to the caller (clock-in dropdown).
+
+        Body: optional ``activity`` to narrow. Returns sorted list.
+        """
+        if not hasattr(g, "user") or not g.user:
+            return jsonify({"message": "Unauthorized", "status": 401}), 401
+        data = request.get_json() or {}
+        activity = data.get("activity")
+        if activity and activity not in ACTIVITY_SLUGS:
+            return jsonify({
+                "message": "Invalid activity",
+                "status": 400,
+            }), 400
+        subs = _visible_subcategories_query(g.user, activity=activity).all()
+        return jsonify({
+            "status": 200,
+            "subcategories": [self._format_subcategory(s) for s in subs],
+        })
+
+    @requires_team_admin_or_above
+    def subcategories_admin_list(self):
+        """List subcategories the caller can MANAGE (admin page).
+
+        - super_admin: every sub in the system (incl. global).
+        - admin (org_admin): every sub in their org.
+        - team_admin: only subs scoped to teams they LEAD (read-only
+          access to wider org subs goes through subcategories_list).
+
+        Optional ``activity`` filter narrows.
+        """
+        data = request.get_json() or {}
+        activity = data.get("activity")
+        if activity and activity not in ACTIVITY_SLUGS:
+            return jsonify({"message": "Invalid activity", "status": 400}), 400
+
+        role = getattr(g.user, "role", None)
+        q = ActivitySubcategory.query
+        if role == "super_admin":
+            pass  # see everything
+        elif role == "admin":
+            q = q.filter(ActivitySubcategory.org_id == g.user.org_id)
+        elif role == "team_admin":
+            led = _team_admin_led_team_ids(g.user)
+            if not led:
+                return jsonify({"status": 200, "subcategories": []})
+            q = q.filter(
+                ActivitySubcategory.org_id == g.user.org_id,
+                ActivitySubcategory.team_id.in_(list(led)),
+            )
+        else:
+            return jsonify({"message": "Forbidden", "status": 403}), 403
+
+        if activity:
+            q = q.filter(ActivitySubcategory.activity == activity)
+        subs = q.order_by(
+            ActivitySubcategory.activity.asc(),
+            ActivitySubcategory.sort_order.asc(),
+            ActivitySubcategory.name.asc(),
+        ).all()
+        return jsonify({
+            "status": 200,
+            "subcategories": [self._format_subcategory(s) for s in subs],
+        })
+
+    @requires_team_admin_or_above
+    def subcategories_create(self):
+        """Create a subcategory row.
+
+        Body:
+            activity: required, must be in ACTIVITY_SLUGS
+            name: required, ≤100 chars
+            scope: "global" | "org" | "team" (super_admin only for global)
+            teamId: required when scope == "team"
+            sortOrder?: int (default 0)
+            requiresProject?: bool (default false)
+            allowEventFields?: bool (default false)
+        """
+        data = request.get_json() or {}
+        activity = (data.get("activity") or "").lower()
+        name = (data.get("name") or "").strip()
+        scope = (data.get("scope") or "").lower()
+
+        if activity not in ACTIVITY_SLUGS:
+            return jsonify({"message": "Invalid activity", "status": 400}), 400
+        if not name:
+            return jsonify({"message": "Name is required", "status": 400}), 400
+        if len(name) > 100:
+            return jsonify({
+                "message": "Name must be 100 characters or fewer",
+                "status": 400,
+            }), 400
+        if scope not in ("global", "org", "team"):
+            return jsonify({
+                "message": "scope must be one of: global, org, team",
+                "status": 400,
+            }), 400
+
+        # Resolve target org_id / team_id from scope, then permission-check
+        # through the SSOT helper.
+        if scope == "global":
+            org_id_target = None
+            team_id_target = None
+        elif scope == "org":
+            org_id_target = g.user.org_id
+            team_id_target = None
+        else:  # team
+            try:
+                team_id_target = int(data.get("teamId"))
+            except (TypeError, ValueError):
+                return jsonify({
+                    "message": "teamId is required for team-scoped subcategories",
+                    "status": 400,
+                }), 400
+            team = Team.query.get(team_id_target)
+            if team is None or team.org_id != g.user.org_id:
+                return jsonify({"message": "Team not found", "status": 404}), 404
+            org_id_target = g.user.org_id
+
+        if not _can_manage_subcategory(
+            g.user, org_id=org_id_target, team_id=team_id_target,
+        ):
+            return jsonify({
+                "message": "You don't have permission to create subcategories in that scope",
+                "status": 403,
+            }), 403
+
+        slug = self._slugify(name)
+        if not slug:
+            return jsonify({"message": "Name must contain at least one alphanumeric character", "status": 400}), 400
+
+        # Reject duplicate within the (activity, slug, scope) uniqueness.
+        dup = ActivitySubcategory.query.filter_by(
+            activity=activity, slug=slug,
+            org_id=org_id_target, team_id=team_id_target,
+        ).first()
+        if dup is not None:
+            return jsonify({
+                "message": "A subcategory with that name already exists in this scope",
+                "status": 409,
+            }), 409
+
+        sub = ActivitySubcategory()
+        sub.activity = activity
+        sub.name = name
+        sub.slug = slug
+        sub.org_id = org_id_target
+        sub.team_id = team_id_target
+        sub.is_active = True
+        sub.sort_order = int(data.get("sortOrder") or 0)
+        sub.requires_project = bool(data.get("requiresProject"))
+        sub.allow_event_fields = bool(data.get("allowEventFields"))
+        sub.created_by = g.user.id
+        sub.save()
+
+        return jsonify({
+            "status": 200,
+            "message": "Subcategory created",
+            "subcategory": self._format_subcategory(sub),
+        })
+
+    @requires_team_admin_or_above
+    def subcategories_update(self):
+        """Update a subcategory's mutable fields.
+
+        Scope (org_id / team_id) and parent activity cannot be changed
+        in-place — delete + recreate for that. Mutable: name, is_active,
+        sort_order, requires_project, allow_event_fields.
+        """
+        data = request.get_json() or {}
+        try:
+            sub_id = int(data.get("id"))
+        except (TypeError, ValueError):
+            return jsonify({"message": "id is required", "status": 400}), 400
+
+        sub = ActivitySubcategory.query.get(sub_id)
+        if sub is None:
+            return jsonify({"message": "Subcategory not found", "status": 404}), 404
+        if not _can_manage_subcategory(g.user, sub=sub):
+            return jsonify({"message": "Forbidden", "status": 403}), 403
+
+        if "name" in data:
+            new_name = (data.get("name") or "").strip()
+            if not new_name:
+                return jsonify({"message": "Name cannot be empty", "status": 400}), 400
+            if len(new_name) > 100:
+                return jsonify({
+                    "message": "Name must be 100 characters or fewer",
+                    "status": 400,
+                }), 400
+            sub.name = new_name
+            # slug stays — renames don't break historical snapshots and
+            # changing the slug would be confusing in URLs/filters.
+
+        if "isActive" in data:
+            sub.is_active = bool(data.get("isActive"))
+        if "sortOrder" in data:
+            try:
+                sub.sort_order = int(data.get("sortOrder"))
+            except (TypeError, ValueError):
+                return jsonify({"message": "sortOrder must be an integer", "status": 400}), 400
+        if "requiresProject" in data:
+            sub.requires_project = bool(data.get("requiresProject"))
+        if "allowEventFields" in data:
+            sub.allow_event_fields = bool(data.get("allowEventFields"))
+
+        sub.save()
+        return jsonify({
+            "status": 200,
+            "message": "Subcategory updated",
+            "subcategory": self._format_subcategory(sub),
+        })
+
+    @requires_team_admin_or_above
+    def subcategories_delete(self):
+        """Soft-delete a subcategory (is_active = false).
+
+        We never hard-delete: time_entries snapshot `subcategory_name`
+        already, but keeping the row around preserves the link from
+        `time_entries.subcategory_id` for joins (audit, drilldowns).
+        """
+        data = request.get_json() or {}
+        try:
+            sub_id = int(data.get("id"))
+        except (TypeError, ValueError):
+            return jsonify({"message": "id is required", "status": 400}), 400
+
+        sub = ActivitySubcategory.query.get(sub_id)
+        if sub is None:
+            return jsonify({"message": "Subcategory not found", "status": 404}), 404
+        if not _can_manage_subcategory(g.user, sub=sub):
+            return jsonify({"message": "Forbidden", "status": 403}), 403
+
+        sub.is_active = False
+        sub.save()
+        return jsonify({
+            "status": 200,
+            "message": "Subcategory disabled",
+            "subcategory": self._format_subcategory(sub),
         })

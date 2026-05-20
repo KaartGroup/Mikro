@@ -1109,7 +1109,7 @@ class ProjectAPI(MethodView):
         # --- Time tracking summary ---
         time_cat_rows = (
             db.session.query(
-                TimeEntry.category,
+                TimeEntry.activity,
                 func.sum(TimeEntry.duration_seconds),
             )
             .filter(
@@ -1117,7 +1117,7 @@ class ProjectAPI(MethodView):
                 TimeEntry.status == "completed",
                 TimeEntry.duration_seconds != None,
             )
-            .group_by(TimeEntry.category)
+            .group_by(TimeEntry.activity)
             .all()
         )
         time_by_category = {}

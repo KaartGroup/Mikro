@@ -150,13 +150,15 @@ def _get_summary(org_id, start_date, end_date, member_ids):
 def _get_hours_by_category(org_id, start_date, end_date, member_ids):
     f = _build_filter(org_id, start_date, end_date, member_ids)
     rows = (
-        db.session.query(TimeEntry.category, func.sum(TimeEntry.duration_seconds).label("seconds"))
+        db.session.query(TimeEntry.activity, func.sum(TimeEntry.duration_seconds).label("seconds"))
         .filter(*f)
-        .group_by(TimeEntry.category)
+        .group_by(TimeEntry.activity)
         .all()
     )
     return [
-        {"category": row.category or "other", "hours": round((row.seconds or 0) / 3600, 1)}
+        # JSON key "category" preserved for frontend compat (reads from
+        # the renamed `activity` column underneath).
+        {"category": row.activity or "other", "hours": round((row.seconds or 0) / 3600, 1)}
         for row in rows
     ]
 
@@ -231,11 +233,11 @@ def _get_daily_category_hours(org_id, start_date, end_date, member_ids):
     rows = (
         db.session.query(
             func.date_trunc("day", TimeEntry.clock_in).label("day"),
-            TimeEntry.category,
+            TimeEntry.activity,
             func.sum(TimeEntry.duration_seconds).label("seconds"),
         )
         .filter(*f)
-        .group_by("day", TimeEntry.category)
+        .group_by("day", TimeEntry.activity)
         .order_by("day")
         .all()
     )
@@ -244,7 +246,7 @@ def _get_daily_category_hours(org_id, start_date, end_date, member_ids):
     all_cats = set()
     for row in rows:
         day_key = row.day.strftime("%Y-%m-%d")
-        cat = row.category or "other"
+        cat = row.activity or "other"
         all_cats.add(cat)
         daily_cat_map.setdefault(day_key, {"day": day_key})
         daily_cat_map[day_key][cat] = round((row.seconds or 0) / 3600, 1)
@@ -274,9 +276,9 @@ def _get_user_breakdown(org_id, start_date, end_date, member_ids):
         if not user:
             continue
         cat_rows = (
-            db.session.query(TimeEntry.category, func.sum(TimeEntry.duration_seconds).label("seconds"))
+            db.session.query(TimeEntry.activity, func.sum(TimeEntry.duration_seconds).label("seconds"))
             .filter(*f, TimeEntry.user_id == row.user_id)
-            .group_by(TimeEntry.category)
+            .group_by(TimeEntry.activity)
             .all()
         )
         result.append({
@@ -288,7 +290,7 @@ def _get_user_breakdown(org_id, start_date, end_date, member_ids):
             "changeset_count": row.changesets or 0,
             "changes_count": row.changes or 0,
             "category_hours": {
-                cd.category or "other": round((cd.seconds or 0) / 3600, 1)
+                cd.activity or "other": round((cd.seconds or 0) / 3600, 1)
                 for cd in cat_rows
             },
         })
@@ -301,11 +303,11 @@ def _get_weekly_category_hours(org_id, start_date, end_date, member_ids):
     rows = (
         db.session.query(
             (func.date_trunc("week", TimeEntry.clock_in + timedelta(days=1)) - timedelta(days=1)).label("week"),
-            TimeEntry.category,
+            TimeEntry.activity,
             func.sum(TimeEntry.duration_seconds).label("seconds"),
         )
         .filter(*f)
-        .group_by("week", TimeEntry.category)
+        .group_by("week", TimeEntry.activity)
         .order_by("week")
         .all()
     )
@@ -317,7 +319,7 @@ def _get_weekly_category_hours(org_id, start_date, end_date, member_ids):
         week_key = row.week.strftime("%Y-%m-%d")
         if week_key >= end_date_str:
             continue
-        cat = row.category or "other"
+        cat = row.activity or "other"
         all_cats.add(cat)
         weekly_cat_map.setdefault(week_key, {"week": week_key})
         weekly_cat_map[week_key][cat] = round((row.seconds or 0) / 3600, 1)

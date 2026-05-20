@@ -31,13 +31,15 @@ interface TimeTrackingWidgetProps {
 
 import {
   TOPIC_OPTIONS as _TOPIC_OPTIONS,
-  topicRequiresProject,
+  requiresProjectFor,
   localDayStartIsoUtc,
   localDayEndIsoUtc,
   localWeekStartIsoUtc,
   formatDurationHM,
   formatLiveDuration,
 } from "@/lib/timeTracking";
+import { useFetchSubcategories } from "@/hooks";
+import type { Subcategory } from "@/types";
 
 const TOPIC_OPTIONS: SelectOption[] = _TOPIC_OPTIONS.map((t) => ({ value: t.value, label: t.label }));
 
@@ -54,6 +56,15 @@ export function TimeTrackingWidget({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
+  // Tier-2 subcategory state. `subOptions` is the visible list for the
+  // current activity; `selectedSub` is the picked row. Event-attendance
+  // inputs (`retainedInput`, `newInput`) only render when the picked
+  // sub has allow_event_fields=true (e.g. Community -> Events).
+  const [selectedSub, setSelectedSub] = useState<Subcategory | null>(null);
+  const [subOptions, setSubOptions] = useState<Subcategory[]>([]);
+  const [retainedInput, setRetainedInput] = useState<string>("");
+  const [newInput, setNewInput] = useState<string>("");
+  const { mutate: fetchSubcategories } = useFetchSubcategories();
   const [taskName, setTaskName] = useState<string>("");
   const [taskRefType, setTaskRefType] = useState<string | null>(null);
   const [taskRefId, setTaskRefId] = useState<number | null>(null);
@@ -167,17 +178,53 @@ export function TimeTrackingWidget({
     }
   }, [selectedTopic, fetchTrainings, fetchChecklists]);
 
-  // Reset task and project fields when topic changes
+  // Reset task / project / sub fields when topic changes, then fetch
+  // the tier-2 subcategories visible to this user for the new activity.
   useEffect(() => {
     setTaskName("");
     setTaskRefType(null);
     setTaskRefId(null);
     setCustomTopicInput("");
     setIsAddingCustomTopic(false);
-    if (!topicRequiresProject(selectedTopic)) {
+    setSelectedSub(null);
+    setRetainedInput("");
+    setNewInput("");
+    if (!selectedTopic) {
+      setSubOptions([]);
+      setSelectedProject("");
+      return;
+    }
+    // Use the activity-level fallback to clear project; selectedSub is
+    // null here so this falls back to PROJECT_REQUIRED_FALLBACK_ACTIVITIES.
+    if (!requiresProjectFor(selectedTopic, null)) {
       setSelectedProject("");
     }
+    let cancelled = false;
+    fetchSubcategories({ activity: selectedTopic })
+      .then((res) => {
+        if (cancelled) return;
+        const list = res?.subcategories ?? [];
+        setSubOptions(list);
+        if (list.length === 1) setSelectedSub(list[0]);
+      })
+      .catch(() => {
+        if (!cancelled) setSubOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // `fetchSubcategories` is non-stable (mutation hook returns a new
+    // function each render); intentionally excluded from deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTopic]);
+
+  // Clear event-field inputs when the picked sub doesn't accept them.
+  useEffect(() => {
+    if (!selectedSub?.allowEventFields) {
+      setRetainedInput("");
+      setNewInput("");
+    }
+  }, [selectedSub]);
 
   // Fetch daily/weekly totals when clocked in. Windows are aligned to
   // the user's browser-local calendar (via ISO UTC instants), so "today"
@@ -220,7 +267,7 @@ export function TimeTrackingWidget({
 
   const handleClockIn = useCallback(async () => {
     if (!selectedTopic) return;
-    const needsProject = topicRequiresProject(selectedTopic);
+    const needsProject = requiresProjectFor(selectedTopic, selectedSub);
     if (needsProject && !selectedProject) return;
     setApiError(null);
 
@@ -231,6 +278,15 @@ export function TimeTrackingWidget({
         task_name: taskName || null,
         task_ref_type: taskRefType || null,
         task_ref_id: taskRefId || null,
+        subcategoryId: selectedSub?.id ?? null,
+        retainedParticipants:
+          selectedSub?.allowEventFields && retainedInput !== ""
+            ? parseInt(retainedInput, 10)
+            : null,
+        newParticipants:
+          selectedSub?.allowEventFields && newInput !== ""
+            ? parseInt(newInput, 10)
+            : null,
         userNotes: pendingUserNotes,
       });
 
@@ -255,7 +311,7 @@ export function TimeTrackingWidget({
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Failed to clock in");
     }
-  }, [selectedProject, selectedTopic, taskName, taskRefType, taskRefId, clockIn, projects, fetchTotals, pendingUserNotes, refetchSession]);
+  }, [selectedProject, selectedTopic, selectedSub, retainedInput, newInput, taskName, taskRefType, taskRefId, clockIn, projects, fetchTotals, pendingUserNotes, refetchSession]);
 
   const handleSaveActiveNotes = useCallback(
     async (value: string | null) => {
@@ -335,7 +391,7 @@ export function TimeTrackingWidget({
   const switchAutoClockRef = useRef(false);
   useEffect(() => {
     if (!switchMode || !selectedTopic || isClockedIn || clockingIn) return;
-    const needsProject = topicRequiresProject(selectedTopic);
+    const needsProject = requiresProjectFor(selectedTopic, selectedSub);
     if (needsProject && !selectedProject) return;
     // Prevent double-fire
     if (switchAutoClockRef.current) return;
@@ -436,7 +492,7 @@ export function TimeTrackingWidget({
     if (!selectedTopic) return null;
 
     // Project-based topics — no task selector needed, project already selected above
-    if (topicRequiresProject(selectedTopic)) {
+    if (requiresProjectFor(selectedTopic, selectedSub)) {
       return null;
     }
 
@@ -762,7 +818,51 @@ export function TimeTrackingWidget({
             onChange={setSelectedTopic}
             placeholder="Select task"
           />
-          {selectedTopic && topicRequiresProject(selectedTopic) && (
+          {subOptions.length > 0 && (
+            <Select
+              label="Subcategory"
+              options={subOptions.map((s) => ({ value: String(s.id), label: s.name }))}
+              value={selectedSub ? String(selectedSub.id) : ""}
+              onChange={(v) => {
+                const id = v ? parseInt(v, 10) : null;
+                setSelectedSub(id == null ? null : subOptions.find((s) => s.id === id) ?? null);
+              }}
+              placeholder="Select subcategory"
+            />
+          )}
+          {selectedSub?.allowEventFields && (
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex flex-col text-xs gap-1">
+                <span className="text-muted-foreground">
+                  # Retained Participants
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={retainedInput}
+                  onChange={(e) => setRetainedInput(e.target.value)}
+                  className="rounded border border-border bg-background px-2 py-1 text-sm"
+                  placeholder="0"
+                />
+              </label>
+              <label className="flex flex-col text-xs gap-1">
+                <span className="text-muted-foreground">
+                  # New Participants
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={newInput}
+                  onChange={(e) => setNewInput(e.target.value)}
+                  className="rounded border border-border bg-background px-2 py-1 text-sm"
+                  placeholder="0"
+                />
+              </label>
+            </div>
+          )}
+          {selectedTopic && requiresProjectFor(selectedTopic, selectedSub) && (
             <Select
               label="Project"
               options={projectOptions}
@@ -788,7 +888,12 @@ export function TimeTrackingWidget({
           <Button
             variant="primary"
             onClick={handleClockIn}
-            disabled={!selectedTopic || (topicRequiresProject(selectedTopic) && !selectedProject) || clockingIn}
+            disabled={
+              !selectedTopic
+              || (subOptions.length > 0 && !selectedSub)
+              || (requiresProjectFor(selectedTopic, selectedSub) && !selectedProject)
+              || clockingIn
+            }
             className="w-full mt-2"
           >
             <svg

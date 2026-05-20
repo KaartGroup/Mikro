@@ -1460,7 +1460,10 @@ class UserAPI(MethodView):
             "clockOut": entry.clock_out.isoformat() + "Z" if entry.clock_out else None,
             "duration": duration,
             "durationSeconds": entry.duration_seconds,
-            "category": entry.category.capitalize() if entry.category else "",
+            # JSON key "category" preserved for frontend compat (reads
+            # from the renamed `activity` column underneath).
+            "category": entry.activity.capitalize() if entry.activity else "",
+            "subcategoryName": entry.subcategory_name,
             "projectId": entry.project_id,
             "projectName": project.name if project else "No Project",
             "projectShortName": (project.short_name or "") if project else "",
