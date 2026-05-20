@@ -44,7 +44,11 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "c4f8a9b0d1e2"
-down_revision = "2966333a6cfa"
+# Re-rooted after master rebase: payments-v2 (b3d7e2f4a1c8) landed on
+# master first, so this migration's parent moves from 2966333a6cfa
+# (the prior master head) to b3d7e2f4a1c8 (the new one). Single linear
+# alembic chain after this change — verify with rule #12 check below.
+down_revision = "b3d7e2f4a1c8"
 branch_labels = None
 depends_on = None
 
