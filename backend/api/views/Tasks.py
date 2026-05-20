@@ -7,6 +7,7 @@ TM3 support has been removed.
 """
 
 import requests
+from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import func
 from flask.views import MethodView
@@ -712,17 +713,6 @@ class TaskAPI(MethodView):
         org_id = g.user.org_id
         user_id = g.user.id
 
-        # Clear stale jobs first
-        stale = SyncJob.query.filter(
-            SyncJob.org_id == org_id,
-            SyncJob.status.in_(["running", "queued"]),
-        ).all()
-        for sj in stale:
-            sj.status = "failed"
-            sj.error = "Cleared by update_user_tasks"
-        if stale:
-            db.session.commit()
-
         queued = 0
         for project in user_projects:
             SyncJob.create(
@@ -799,8 +789,6 @@ class TaskAPI(MethodView):
         ).first()
         if running_job:
             # If job has been running for >15 min, it's stale — mark it failed
-            from datetime import datetime, timezone, timedelta
-
             if running_job.started_at:
                 age = datetime.now(timezone.utc) - running_job.started_at.replace(
                     tzinfo=timezone.utc
@@ -897,17 +885,6 @@ class TaskAPI(MethodView):
             return {"message": "User has no project assignments", "status": 200}
 
         org_id = g.user.org_id
-
-        # Clear any stale running/queued jobs first
-        stale_jobs = SyncJob.query.filter(
-            SyncJob.org_id == org_id,
-            SyncJob.status.in_(["running", "queued"]),
-        ).all()
-        for sj in stale_jobs:
-            sj.status = "failed"
-            sj.error = "Cleared by sync_user_projects"
-        if stale_jobs:
-            db.session.commit()
 
         # Queue ONE job per unique project
         queued = []

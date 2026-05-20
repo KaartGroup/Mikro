@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 
-def run_project_sync_job(app, job):
+def run_project_sync_job(job):
     """
     Execute a project-scoped sync job.
 
