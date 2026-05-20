@@ -504,6 +504,8 @@ export interface UserProfileData {
   is_tracked_only?: boolean;
   micropayments_visible?: boolean;
   hourly_rate?: number | null;
+  compensation_model?: CompensationModel | null;
+  monthly_salary?: number | null;
   mapillary_username?: string;
   is_active?: boolean;
   joined: string;
@@ -1425,6 +1427,176 @@ export interface RegionsResponse {
 export interface CountriesResponse {
   countries: Country[];
   status: number;
+}
+
+// ─── Payments v1 (admin payroll workspace) ──────────────────────────
+
+export type PaymentCycleStatus =
+  | "pending"
+  | "approved"
+  | "held"
+  | "paid";
+
+export interface PaymentCycleRow {
+  user_id: string;
+  name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  payment_email: string | null;
+  osm_username: string | null;
+  hours: number;
+  seconds: number;
+  hourly_rate: number | null;
+  compensation_model: CompensationModel;
+  monthly_salary: number | null;
+  calculated_wage: number | null;
+  adjustments_total: number;
+  adjustments_count: number;
+  total_payable: number;
+  status: PaymentCycleStatus;
+  status_note: string | null;
+  status_actor_id: string | null;
+  status_updated_at: string | null;
+}
+
+export type CompensationModel =
+  | "per_task"
+  | "hourly"
+  | "salaried"
+  | "project_based"
+  | "hybrid";
+
+export interface PayrollForecastCycle {
+  label: string;
+  start: string;
+  end: string;
+  is_current: boolean;
+  is_projected: boolean;
+  confirmed: number;
+  variable: number;
+  total: number;
+}
+
+export interface PayrollForecastResponse {
+  cadence: string;
+  cycles: PayrollForecastCycle[];
+  stats: {
+    projected_growth: number;
+    projected_growth_pct: number;
+    avg_monthly_growth: number;
+    avg_monthly_growth_pct: number;
+    variable_basis: number;
+  };
+  status: number;
+}
+
+export interface ProjectDispensationRow {
+  id: number;
+  name: string;
+  budget: number;
+  distributed: number;
+  remaining: number;
+}
+
+export interface ProjectDispensationResponse {
+  projects: ProjectDispensationRow[];
+  project_count: number;
+  totals: { budget: number; distributed: number; remaining: number };
+  status: number;
+}
+
+export interface PayrollCadenceConfig {
+  cadence: "monthly" | "semi_monthly" | "bi_weekly";
+  anchor_day: number | null;
+  anchor_date: string | null;
+  timezone: string | null;
+}
+
+export interface PayrollConfigResponse {
+  config: PayrollCadenceConfig;
+  is_default: boolean;
+  updated_by?: string;
+  updated_at?: string;
+  status: number;
+}
+
+export interface PaymentCycleResponse {
+  rows: PaymentCycleRow[];
+  cycle_start: string;
+  cycle_end: string;
+  include_zero_hours: boolean;
+  status: number;
+}
+
+export interface PaymentCycleKpis {
+  total_payable: number;
+  total_paid_lifetime: number;
+  approved_total: number;
+  adjustments_total: number;
+  pending_count: number;
+  approved_count: number;
+  held_count: number;
+  paid_count: number;
+  compensation_distribution: {
+    per_task: number;
+    hourly: number;
+    salaried: number;
+    project_based: number;
+    hybrid: number;
+  };
+}
+
+export interface PaymentCycleKpisResponse {
+  kpis: PaymentCycleKpis;
+  cycle_start: string;
+  cycle_end: string;
+  status: number;
+}
+
+export interface PaymentAdjustment {
+  id: number;
+  user_id: string;
+  cycle_start: string;
+  cycle_end: string;
+  amount: number;
+  type: "reimbursement" | "correction" | "other";
+  note: string | null;
+  source: "admin_entry" | "approved_request";
+  request_id: number | null;
+  added_by: string;
+  added_by_name: string | null;
+  created_at: string | null;
+}
+
+export interface PaymentContributorSession {
+  id: number;
+  clock_in: string | null;
+  clock_out: string | null;
+  duration_seconds: number;
+  category: string;
+  project_id: number | null;
+  task_name: string | null;
+  user_notes: string | null;
+}
+
+export interface PaymentContributorDetailResponse {
+  contributor: PaymentCycleRow;
+  sessions: PaymentContributorSession[];
+  adjustments: PaymentAdjustment[];
+  cycle_start: string;
+  cycle_end: string;
+  status: number;
+}
+
+export interface PaymentStatusRow {
+  user_id: string;
+  cycle_start: string;
+  cycle_end: string;
+  status: PaymentCycleStatus;
+  note: string | null;
+  actor_id: string | null;
+  updated_at: string | null;
 }
 
 // Hourly contractor payment tracking

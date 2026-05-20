@@ -49,6 +49,11 @@ import type {
   ChannelSummariesResponse,
   HourlySummaryResponse,
   MyMonthlySummaryResponse,
+  PaymentCycleResponse,
+  PaymentCycleKpisResponse,
+  PaymentContributorDetailResponse,
+  PaymentStatusRow,
+  PaymentAdjustment,
 } from "@/types";
 
 /**
@@ -1179,4 +1184,115 @@ export function useSetHourlyRate() {
 
 export function useMarkHourlyPaid() {
   return useApiMutation<{ message: string; status: number }>("/timetracking/mark_hourly_paid");
+}
+
+// ─── Payments v1 (admin payroll workspace, Trello DWAbQFlL) ──────────
+
+export function useFetchPaymentCycle() {
+  return useApiMutation<PaymentCycleResponse>("/payments/cycle");
+}
+
+export function useFetchPaymentCycleKpis() {
+  return useApiMutation<PaymentCycleKpisResponse>("/payments/cycle/kpis");
+}
+
+export function useFetchPaymentContributor() {
+  return useApiMutation<PaymentContributorDetailResponse>("/payments/contributor");
+}
+
+export function useFetchProjectDispensation() {
+  return useApiMutation<import("@/types").ProjectDispensationResponse>(
+    "/payments/project-dispensation",
+  );
+}
+
+export function useFetchPaymentForecast() {
+  return useApiMutation<import("@/types").PayrollForecastResponse>(
+    "/payments/forecast",
+  );
+}
+
+export function useFetchPayrollConfig() {
+  return useApiMutation<import("@/types").PayrollConfigResponse>(
+    "/payments/config/fetch",
+  );
+}
+
+export function useSavePayrollConfig() {
+  return useApiMutation<import("@/types").PayrollConfigResponse>(
+    "/payments/config",
+  );
+}
+
+export function useCreatePaymentAdjustment() {
+  return useApiMutation<{ adjustment: PaymentAdjustment; status: number }>(
+    "/payments/adjustment/create",
+  );
+}
+
+export function useDeletePaymentAdjustment() {
+  return useApiMutation<{ message: string; adjustment_id: number; status: number }>(
+    "/payments/adjustment/delete",
+  );
+}
+
+export function useSetPaymentCycleStatus() {
+  return useApiMutation<{ status_row: PaymentStatusRow; status: number }>(
+    "/payments/status/set",
+  );
+}
+
+/**
+ * Download the cycle CSV. Not a useApiMutation — the response is a
+ * text/csv blob, not JSON. Calling ``download(cycleStart, cycleEnd)``
+ * fetches the file and triggers a browser download.
+ */
+export function useExportPaymentCycle() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const download = useCallback(
+    async (
+      cycleStart: string,
+      cycleEnd: string,
+      filters?: Record<string, string[]>,
+    ) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch("/backend/payments/cycle/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cycle_start: cycleStart,
+            cycle_end: cycleEnd,
+            ...(filters && Object.keys(filters).length > 0 ? { filters } : {}),
+          }),
+        });
+        if (!response.ok) {
+          const msg = `Export failed (${response.status})`;
+          setError(msg);
+          throw new Error(msg);
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `mikro-payments-${cycleStart}-${cycleEnd}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        setError(msg);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  return { download, loading, error };
 }

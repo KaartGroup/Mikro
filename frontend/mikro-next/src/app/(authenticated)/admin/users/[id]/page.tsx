@@ -280,6 +280,8 @@ export default function UserProfilePage() {
   const [editCountryId2, setEditCountryId2] = useState("");
   const [editPaymentsVisible, setEditPaymentsVisible] = useState(false);
   const [editHourlyRate, setEditHourlyRate] = useState<string>("");
+  const [editCompModel, setEditCompModel] = useState<string>("");
+  const [editMonthlySalary, setEditMonthlySalary] = useState<string>("");
 
   // Time entry edit modal state
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
@@ -625,6 +627,8 @@ export default function UserProfilePage() {
     setEditCountryId2(user.country_id ? String(user.country_id) : "");
     setEditPaymentsVisible(user.micropayments_visible ?? false);
     setEditHourlyRate(user.hourly_rate?.toString() ?? "");
+    setEditCompModel(user.compensation_model ?? "");
+    setEditMonthlySalary(user.monthly_salary?.toString() ?? "");
     setEditModalOpen(true);
   };
 
@@ -642,6 +646,10 @@ export default function UserProfilePage() {
         country_id: editCountryId2 ? Number(editCountryId2) : null,
         micropayments_visible: editPaymentsVisible,
         hourly_rate: editHourlyRate ? parseFloat(editHourlyRate) : null,
+        compensation_model: editCompModel || null,
+        monthly_salary: editMonthlySalary
+          ? parseFloat(editMonthlySalary)
+          : null,
       });
       toast.success("User updated");
       setEditModalOpen(false);
@@ -2734,17 +2742,71 @@ export default function UserProfilePage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Hourly Rate</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-              value={editHourlyRate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditHourlyRate(e.target.value)}
-              placeholder="Not set"
-            />
+            <label className="block text-sm font-medium mb-1">
+              Compensation Model
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              value={editCompModel}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                setEditCompModel(e.target.value)
+              }
+            >
+              <option value="">Unspecified (legacy)</option>
+              <option value="per_task">Per-task (micro-paid)</option>
+              <option value="hourly">Hourly</option>
+              <option value="salaried">Salaried</option>
+              <option value="project_based">Project-based</option>
+              <option value="hybrid">Hybrid</option>
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Unspecified behaves as before (per-task, or hourly if a rate is
+              set). Project-based &amp; hybrid payout math is still pending
+              definition — they total from adjustments for now.
+            </p>
           </div>
+          {(editCompModel === "hourly" ||
+            editCompModel === "hybrid" ||
+            editCompModel === "" ||
+            editCompModel === "per_task") && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Hourly Rate
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                value={editHourlyRate}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setEditHourlyRate(e.target.value)
+                }
+                placeholder="Not set"
+              />
+            </div>
+          )}
+          {(editCompModel === "salaried" || editCompModel === "hybrid") && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Monthly Salary
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                value={editMonthlySalary}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setEditMonthlySalary(e.target.value)
+                }
+                placeholder="Not set"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Prorated to the selected payroll cycle.
+              </p>
+            </div>
+          )}
         </div>
       </Modal>
     </div>

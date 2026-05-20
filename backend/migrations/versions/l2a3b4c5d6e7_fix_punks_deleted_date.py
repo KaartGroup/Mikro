@@ -16,15 +16,15 @@ depends_on = None
 
 
 def upgrade():
-    # Drop the wrong column if it exists
-    try:
-        op.drop_column("punks", "deleted")
-    except Exception:
-        pass
-    # Add the correct column
-    op.add_column(
-        "punks",
-        sa.Column("deleted_date", sa.DateTime(), nullable=True),
+    # Drop the wrong column if it exists. ``IF EXISTS`` keeps the
+    # statement safe on fresh DBs where the broken column never
+    # landed (e.g. local dev) — try/except can't recover because
+    # PG aborts the whole tx on a failed DDL.
+    op.execute('ALTER TABLE punks DROP COLUMN IF EXISTS deleted')
+    # Add the correct column (no-op if a previous run already added it)
+    op.execute(
+        'ALTER TABLE punks ADD COLUMN IF NOT EXISTS deleted_date '
+        'TIMESTAMP WITHOUT TIME ZONE'
     )
 
 

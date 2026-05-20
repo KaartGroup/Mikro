@@ -155,6 +155,19 @@ class User(ModelWithSoftDeleteAndCRUD, SurrogatePK):
 
     # Hourly contractor rate (if set, user is treated as hourly contractor)
     hourly_rate = db.Column(db.Float, nullable=True, default=None)
+    # Overtime placeholder columns (added 2026-05-12 ahead of payments-v1
+    # rollout so we don't have to migrate again once overtime is actually
+    # used). Nullable; threshold defaults to 40 (US standard) when set.
+    overtime_rate = db.Column(db.Numeric(10, 2), nullable=True, default=None)
+    overtime_threshold_hours = db.Column(
+        db.Integer, nullable=True, default=None
+    )
+    # Compensation model (added 2026-05-18). NULL = legacy/unspecified →
+    # resolver treats as per_task (core) + optional hourly_rate overlay.
+    # Explicit values: per_task | hourly | salaried | project_based | hybrid
+    compensation_model = db.Column(db.String(20), nullable=True, default=None)
+    # Salaried base; prorated to the cycle by the payments computation.
+    monthly_salary = db.Column(db.Numeric(10, 2), nullable=True, default=None)
 
     def __repr__(self):
         return f"<User {self.email}>"
@@ -848,6 +861,88 @@ class PendingInvite(CRUDMixin, SurrogatePK, db.Model):
     created_at = db.Column(db.DateTime, default=func.now(), nullable=False)
 
 
+class PaymentAdjustment(CRUDMixin, SurrogatePK, db.Model):
+    """Per-user × per-cycle payment adjustment (reimbursement / correction).
+
+    Admin-entered or auto-created when a reimbursement request is approved
+    (the editor → admin queue flow lives on Trello card PkljPEJx).
+    Multiple rows per (user, cycle) are summed when displayed on the
+    Payments v1 page. Soft-delete preserves audit trail.
+    """
+
+    __tablename__ = "payment_adjustments"
+
+    user_id = db.Column(
+        db.String(255),
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    cycle_start = db.Column(db.Date, nullable=False, index=True)
+    cycle_end = db.Column(db.Date, nullable=False, index=True)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    # "reimbursement" | "correction" | "other"
+    type = db.Column(
+        db.String(50), nullable=False, server_default="reimbursement"
+    )
+    note = db.Column(db.Text, nullable=True)
+    # "admin_entry" | "approved_request"
+    source = db.Column(
+        db.String(50), nullable=False, server_default="admin_entry"
+    )
+    request_id = db.Column(db.Integer, nullable=True)
+    added_by = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=func.now(), nullable=False)
+    is_deleted = db.Column(
+        db.Boolean, nullable=False, default=False, server_default=db.false()
+    )
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    deleted_by = db.Column(db.String(255), nullable=True)
+
+
+class PaymentCycleStatus(CRUDMixin, SurrogatePK, db.Model):
+    """Per-user × per-cycle payment status for the Payments v1 page.
+
+    Rows are created lazily on first state transition — a missing row is
+    treated as the default ``"pending"`` state. State machine:
+    Pending → Approved → Paid (forward), with Pending|Approved → Held
+    (off-ramp; recoverable back to Pending). Audited via actor_id +
+    updated_at.
+    """
+
+    __tablename__ = "payment_cycle_status"
+
+    user_id = db.Column(
+        db.String(255),
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    cycle_start = db.Column(db.Date, nullable=False, index=True)
+    cycle_end = db.Column(db.Date, nullable=False, index=True)
+    # "pending" | "approved" | "held" | "paid"
+    status = db.Column(
+        db.String(20), nullable=False, server_default="pending"
+    )
+    note = db.Column(db.Text, nullable=True)
+    actor_id = db.Column(db.String(255), nullable=True)
+    updated_at = db.Column(
+        db.DateTime,
+        default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "cycle_start",
+            "cycle_end",
+            name="uq_payment_cycle_status_user_cycle",
+        ),
+    )
+
+
 class TimeEntry(CRUDMixin, db.Model):
     """Time tracking entry for contractor clock in/out."""
 
@@ -1011,6 +1106,30 @@ class ChangesetAdiff(CRUDMixin, db.Model):
 
     def __repr__(self):
         return f"<ChangesetAdiff org={self.org_id} cs={self.changeset_id}>"
+
+
+class PayrollConfig(CRUDMixin, db.Model):
+    """Per-org payroll cadence config (one row per org_id).
+
+    Drives the payments-page cycle picker's default + preset periods.
+    Custom date ranges remain allowed regardless. Fail-open: absence of a
+    row means monthly / anchor day 1.
+    """
+
+    __tablename__ = "payroll_config"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    org_id = Column(String(255), nullable=False, unique=True, index=True)
+    # "monthly" | "semi_monthly" | "bi_weekly"
+    cadence = Column(String(20), nullable=False, default="monthly")
+    anchor_day = Column(Integer, nullable=True)   # monthly day-of-month (1–28)
+    anchor_date = Column(db.Date, nullable=True)  # bi_weekly period origin
+    timezone = Column(String(50), nullable=True)
+    updated_by = Column(String(255), nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<PayrollConfig org={self.org_id} cadence={self.cadence}>"
 
 
 class Punk(ModelWithSoftDeleteAndCRUD, SurrogatePK):

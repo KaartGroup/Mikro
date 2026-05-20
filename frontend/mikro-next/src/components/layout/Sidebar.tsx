@@ -47,7 +47,10 @@ const adminNavItems: NavItem[] = [
   { label: "Checklists", href: "/admin/checklists", icon: "list" },
   { label: "Users", href: "/admin/users", icon: "users" },
   { label: "Teams", href: "/admin/teams", icon: "team" },
-  { label: "Payments", href: "/admin/payments", icon: "dollar" },
+  // OLD payments page hidden 2026-05-19 — kept in code for fallback;
+  // route /admin/payments still works directly. Re-enable by un-commenting.
+  // { label: "Payments", href: "/admin/payments", icon: "dollar" },
+  { label: "Payments v2", href: "/admin/payments-v2", icon: "dollar", tooltip: "New — Payroll workspace" },
   { label: "Reports", href: "/admin/reports", icon: "chart" },
   { label: "Regions", href: "/admin/regions", icon: "globe" },
   { label: "Punks List", href: "/admin/punks", icon: "shield" },
@@ -66,7 +69,10 @@ const teamAdminNavItems: NavItem[] = [
   { label: "Checklists", href: "/admin/checklists", icon: "list" },
   { label: "Users", href: "/admin/users", icon: "users" },
   { label: "Teams", href: "/admin/teams", icon: "team" },
-  { label: "Payments", href: "/admin/payments", icon: "dollar" },
+  // OLD payments page hidden 2026-05-19 — kept in code for fallback;
+  // route /admin/payments still works directly. Re-enable by un-commenting.
+  // { label: "Payments", href: "/admin/payments", icon: "dollar" },
+  { label: "Payments v2", href: "/admin/payments-v2", icon: "dollar", tooltip: "New — Payroll workspace" },
   { label: "Reports", href: "/admin/reports", icon: "chart" },
 ];
 

@@ -23,6 +23,19 @@ from typing import Iterable
 from .team_scoping import team_admin_can_access_user
 
 
+# Role hierarchy for pay visibility. A viewer never sees pay for a target
+# whose role ranks at or above the viewer's own (a team_admin must not see
+# org/super-admin — or peer team_admin — pay even if they share a team).
+# validator and user are both "below team_admin" (rank 0).
+_ROLE_RANK = {
+    "user": 0,
+    "validator": 0,
+    "team_admin": 2,
+    "admin": 3,
+    "super_admin": 4,
+}
+
+
 # Any response field whose presence exposes pay/contact-for-pay data.
 # Adding a new column to User that carries money/PII? Add it here AND
 # check that every existing endpoint returning User data either uses
@@ -80,8 +93,14 @@ def can_view_pay_for(viewer, target) -> bool:
             # branch only matters if/when cross-org reads land.
             return True
         return viewer_org is not None and viewer_org == target_org
-    # Team Admin: visible if target is a member of any team viewer leads.
+    # Team Admin: visible only if the target is a member of any team the
+    # viewer leads AND the target's role ranks strictly below team_admin.
+    # The rank gate stops a team_admin from seeing an org_admin /
+    # super_admin (or a peer team_admin) who happens to share a team.
     if viewer_role == "team_admin":
+        target_role = getattr(target, "role", None)
+        if _ROLE_RANK.get(target_role, 0) >= _ROLE_RANK["team_admin"]:
+            return False
         return team_admin_can_access_user(viewer, target_id)
     return False
 
