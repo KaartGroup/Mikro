@@ -148,24 +148,6 @@ class MapRouletteSync:
 
         # Exact match first
         user = User.query.filter_by(osm_username=osm_username).first()
-        if user:
-            current_app.logger.info(
-                f"[RESOLVE] '{osm_username}' -> FOUND user id={user.id} "
-                f"email={user.email} osm='{user.osm_username}'"
-            )
-        else:
-            # Log all users with similar names to help debug mismatches
-            from sqlalchemy import func as sa_func
-            similar = User.query.filter(
-                sa_func.lower(User.osm_username).like(f"%{osm_username.lower()[:4]}%")
-            ).all()
-            similar_list = [
-                f"'{u.osm_username}' (id={u.id})" for u in similar
-            ] if similar else ["none"]
-            current_app.logger.warning(
-                f"[RESOLVE] '{osm_username}' -> NOT FOUND. "
-                f"Similar usernames in DB: {', '.join(similar_list)}"
-            )
         return user
 
     def _fetch_task_history(self, task_id, base_url=None, headers=None, app=None):
