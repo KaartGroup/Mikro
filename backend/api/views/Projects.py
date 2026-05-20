@@ -403,13 +403,8 @@ class ProjectAPI(MethodView):
         _auto_assign_country(challenge_id, parsed_country)
 
         # Queue background metadata backfill (name + task count from MR API)
-        from api.database import SyncJob
-        SyncJob.create(
-            org_id=g.user.org_id,
-            status="queued",
-            job_type="mr_metadata_backfill",
-            target_id=challenge_id,
-        )
+        from ..worker.sync_queue import SyncJobQueue
+        SyncJobQueue.enqueue_mr_backfill(g.user.org_id, challenge_id)
 
         return {"message": "Project created — metadata loading in background", "project_id": challenge_id, "status": 200}
 

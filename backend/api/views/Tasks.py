@@ -7,7 +7,7 @@ TM3 support has been removed.
 """
 
 import requests
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 
 from sqlalchemy import func
 from flask.views import MethodView
@@ -28,6 +28,7 @@ from ..database import (
     SyncJob,
     db,
 )
+from ..worker.sync_queue import SyncJobQueue
 
 
 from .split_task_helpers import (
@@ -715,14 +716,9 @@ class TaskAPI(MethodView):
 
         queued = 0
         for project in user_projects:
-            SyncJob.create(
-                org_id=org_id,
-                status="queued",
-                job_type="project_sync",
-                target_id=project.id,
-                progress=f"user:{user_id}",
-            )
-            queued += 1
+            _, created = SyncJobQueue.enqueue_project_sync(org_id, project.id, user_id=user_id)
+            if created:
+                queued += 1
 
         return {"message": f"Sync queued for {queued} project(s)", "status": 200}
 
@@ -737,23 +733,7 @@ class TaskAPI(MethodView):
         if not g.user:
             return {"message": "User not found", "status": 304}
 
-        # Check if a sync is already running
-        running_job = SyncJob.query.filter_by(
-            org_id=g.user.org_id, status="running"
-        ).first()
-        if running_job:
-            return {
-                "message": "Sync already in progress",
-                "job_id": running_job.id,
-                "progress": running_job.progress,
-                "status": 200,
-            }
-
-        # Create a new sync job (worker picks it up)
-        job = SyncJob.create(
-            org_id=g.user.org_id,
-            status="queued",
-        )
+        job, _ = SyncJobQueue.enqueue_task_sync(g.user.org_id)
 
         return {
             "message": "Task sync queued — running in background",
@@ -783,61 +763,7 @@ class TaskAPI(MethodView):
         if not project:
             return {"message": "Project not found", "status": 404}
 
-        # Check if a sync is already running for this org
-        running_job = SyncJob.query.filter_by(
-            org_id=g.user.org_id, status="running"
-        ).first()
-        if running_job:
-            # If job has been running for >15 min, it's stale — mark it failed
-            if running_job.started_at:
-                age = datetime.now(timezone.utc) - running_job.started_at.replace(
-                    tzinfo=timezone.utc
-                )
-                if age > timedelta(minutes=15):
-                    current_app.logger.warning(
-                        f"Marking stale running job {running_job.id} as failed "
-                        f"(running for {age})"
-                    )
-                    running_job.status = "failed"
-                    running_job.error = "Timed out (stale after 15 minutes)"
-                    running_job.completed_at = datetime.now(timezone.utc)
-                    db.session.commit()
-                else:
-                    return {
-                        "message": "A sync is already in progress",
-                        "job_id": running_job.id,
-                        "progress": running_job.progress,
-                        "status": 200,
-                    }
-            else:
-                return {
-                    "message": "A sync is already in progress",
-                    "job_id": running_job.id,
-                    "progress": running_job.progress,
-                    "status": 200,
-                }
-
-        # Also check for queued jobs that haven't been picked up
-        queued_job = SyncJob.query.filter_by(
-            org_id=g.user.org_id, status="queued"
-        ).first()
-        if queued_job:
-            current_app.logger.info(
-                f"Sync already queued (job {queued_job.id}, type={queued_job.job_type})"
-            )
-            return {
-                "message": "A sync is already queued",
-                "job_id": queued_job.id,
-                "status": 200,
-            }
-
-        # Queue a project-scoped sync job
-        job = SyncJob.create(
-            org_id=g.user.org_id,
-            status="queued",
-            job_type="project_sync",
-            target_id=project_id,
-        )
+        job, _ = SyncJobQueue.enqueue_project_sync(g.user.org_id, project_id)
 
         current_app.logger.info(
             f"Project sync queued: job {job.id}, project {project_id} ({project.name})"
@@ -892,13 +818,7 @@ class TaskAPI(MethodView):
             project = Project.query.get(pid)
             if not project or project.org_id != org_id:
                 continue
-            job = SyncJob.create(
-                org_id=org_id,
-                status="queued",
-                job_type="project_sync",
-                target_id=pid,
-                progress=f"user:{user_id}",
-            )
+            job, _ = SyncJobQueue.enqueue_project_sync(org_id, pid, user_id=user_id)
             queued.append({"project_id": pid, "project_name": project.name, "job_id": job.id})
 
         return {

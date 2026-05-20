@@ -3,6 +3,7 @@ from collections import defaultdict
 from flask import g, request
 
 from ...database import db, ChangesetAdiff, SyncJob, TeamUser
+from ...worker.sync_queue import SyncJobQueue
 from ...utils.tz import parse_date_range
 from ...utils.adiff_analyzer import TRACKED_KEYS, KEY_FILTERS, parse_adiff_transitions, merge_transitions
 
@@ -141,19 +142,10 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
 
 
 def _queue_analysis_job(org_id):
-    """Creates a new element_analysis SyncJob, or returns the existing one if already running."""
-    existing = SyncJob.query.filter(
-        SyncJob.org_id == org_id,
-        SyncJob.job_type == "element_analysis",
-        SyncJob.status.in_(["queued", "running"]),
-    ).first()
-    if existing:
-        return {"status": 200, "job_id": existing.id, "message": "Analysis job already in progress"}
-
-    new_job = SyncJob(org_id=org_id, status="queued", job_type="element_analysis")
-    db.session.add(new_job)
-    db.session.commit()
-    return {"status": 200, "job_id": new_job.id}
+    """Creates a new element_analysis SyncJob, or returns the existing one if already queued."""
+    job, created = SyncJobQueue.enqueue_element_analysis(org_id)
+    msg = "Analysis job queued" if created else "Analysis job already in progress"
+    return {"status": 200, "job_id": job.id, "message": msg}
 
 
 def get_element_analysis_status(org_id):

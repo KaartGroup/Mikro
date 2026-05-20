@@ -9,6 +9,7 @@ from datetime import datetime, timezone, timedelta
 logger = logging.getLogger(__name__)
 
 from .jobs.sync import run_sync_job
+from .sync_queue import SyncJobQueue
 from .jobs.project_sync import run_project_sync_job
 from .jobs.element_analysis import run_element_analysis_job
 from .jobs.mr_backfill import run_mr_metadata_backfill
@@ -91,15 +92,9 @@ def schedule_nightly_jobs(app):
         )
         for (org_id,) in orgs:
             for job_type in ("task_sync", "element_analysis"):
-                existing = SyncJob.query.filter(
-                    SyncJob.org_id == org_id,
-                    SyncJob.job_type == job_type,
-                    SyncJob.status.in_(["queued", "running"]),
-                ).first()
-                if not existing:
-                    db.session.add(SyncJob(org_id=org_id, status="queued", job_type=job_type))
+                _, created = SyncJobQueue.enqueue(org_id, job_type)
+                if created:
                     logger.info(f"Auto-scheduled nightly {job_type} for org {org_id}")
-        db.session.commit()
 
 
 def poll_for_jobs(app):
@@ -112,8 +107,8 @@ def poll_for_jobs(app):
 
             running = SyncJob.query.filter_by(org_id=job.org_id, status="running").first()
             if running and not _expire_stale_sync_job(db, running):
-                logger.info(
-                    f"Skipping job {job.id} — job {running.id} already running for org {job.org_id}"
+                logger.debug(
+                    f"Job {job.id} waiting — job {running.id} still running for org {job.org_id}"
                 )
                 return
 
