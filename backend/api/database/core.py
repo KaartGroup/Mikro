@@ -900,6 +900,91 @@ class PaymentAdjustment(CRUDMixin, SurrogatePK, db.Model):
     deleted_by = db.Column(db.String(255), nullable=True)
 
 
+class ReimbursementRequest(CRUDMixin, SurrogatePK, db.Model):
+    """Editor-submitted reimbursement workflow record.
+
+    Sibling of :class:`PaymentAdjustment`. Splits the workflow (this
+    table) from the financial record (PaymentAdjustment). Editors
+    submit -> rows land here as ``pending``. Admin approves -> we
+    create a paired ``PaymentAdjustment`` row with
+    ``source='approved_request'`` and ``request_id=this.id``, and
+    link back via :attr:`adjustment_id`. Reject -> the request stays
+    here as a record with :attr:`reviewer_note`; no adjustment is
+    created. Withdraw is editor-only and only valid while ``pending``.
+
+    Approved / rejected / withdrawn are terminal. To "undo" an approval
+    admin soft-deletes the resulting :class:`PaymentAdjustment` row
+    via the existing delete flow; the request stays in approved state
+    for audit (the FK on :attr:`adjustment_id` is ON DELETE SET NULL
+    so the link nulls cleanly).
+
+    No cycle columns here by design: the editor's submission doesn't
+    carry a cycle. The admin picks the cycle at approval time and the
+    chosen cycle lives on the paired :class:`PaymentAdjustment` row
+    where it belongs.
+    """
+
+    __tablename__ = "reimbursement_requests"
+
+    user_id = db.Column(
+        db.String(255),
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    org_id = db.Column(db.String(255), nullable=True)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    # DO Spaces object key (e.g. "reimbursements/<user_id>/<uuid>/<file>").
+    # NOT a signed URL — backend signs on demand at fetch time.
+    attachment_url = db.Column(db.String(500), nullable=True)
+    # pending | approved | rejected | withdrawn — see docstring.
+    status = db.Column(
+        db.String(20), nullable=False, default="pending", server_default="pending"
+    )
+    submitted_at = db.Column(
+        db.DateTime, nullable=False, default=func.now(), server_default=func.now()
+    )
+    reviewed_by = db.Column(db.String(255), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewer_note = db.Column(db.Text, nullable=True)
+    # FK to the PaymentAdjustment row created on approval. ON DELETE
+    # SET NULL via the migration so a soft-delete of the adjustment
+    # doesn't orphan the request.
+    adjustment_id = db.Column(
+        db.Integer,
+        db.ForeignKey("payment_adjustments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    user = db.relationship(
+        "User",
+        backref=db.backref("reimbursement_requests", passive_deletes=True),
+    )
+    adjustment = db.relationship("PaymentAdjustment")
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "amount > 0",
+            name="ck_reimbursement_requests_amount_positive",
+        ),
+        db.Index(
+            "ix_reimbursement_requests_org_status", "org_id", "status",
+        ),
+        db.Index(
+            "ix_reimbursement_requests_user_submitted",
+            "user_id", "submitted_at",
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<ReimbursementRequest {self.id} user={self.user_id} "
+            f"amount={self.amount} status={self.status}>"
+        )
+
+
 class PaymentCycleStatus(CRUDMixin, SurrogatePK, db.Model):
     """Per-user × per-cycle payment status for the Payments v1 page.
 

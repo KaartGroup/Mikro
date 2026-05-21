@@ -56,6 +56,10 @@ import type {
   PaymentContributorDetailResponse,
   PaymentStatusRow,
   PaymentAdjustment,
+  ReimbursementListResponse,
+  ReimbursementMutationResponse,
+  ReimbursementUploadUrlResponse,
+  ReimbursementAttachmentUrlResponse,
 } from "@/types";
 
 /**
@@ -1289,6 +1293,61 @@ export function useDeletePaymentAdjustment() {
 export function useSetPaymentCycleStatus() {
   return useApiMutation<{ status_row: PaymentStatusRow; status: number }>(
     "/payments/status/set",
+  );
+}
+
+// ── Reimbursement workflow (Trello PkljPEJx) ───────────────────────
+//
+// Editor side: submit / my / withdraw / upload-url.
+// Admin side: pending / approve / reject + attachment-url (shared).
+// All hooks go through the same /payments/* prefix as the rest of
+// the Payments v2 API.
+
+export function useSubmitReimbursementRequest() {
+  return useApiMutation<ReimbursementMutationResponse>(
+    "/payments/reimbursement/submit",
+  );
+}
+
+export function useMyReimbursementRequests() {
+  return useApiMutation<ReimbursementListResponse>(
+    "/payments/reimbursement/my",
+  );
+}
+
+export function useWithdrawReimbursementRequest() {
+  return useApiMutation<ReimbursementMutationResponse>(
+    "/payments/reimbursement/withdraw",
+  );
+}
+
+export function useReimbursementUploadUrl() {
+  return useApiMutation<ReimbursementUploadUrlResponse>(
+    "/payments/reimbursement/upload-url",
+  );
+}
+
+export function usePendingReimbursements() {
+  return useApiMutation<ReimbursementListResponse>(
+    "/payments/reimbursement/pending",
+  );
+}
+
+export function useApproveReimbursementRequest() {
+  return useApiMutation<ReimbursementMutationResponse>(
+    "/payments/reimbursement/approve",
+  );
+}
+
+export function useRejectReimbursementRequest() {
+  return useApiMutation<ReimbursementMutationResponse>(
+    "/payments/reimbursement/reject",
+  );
+}
+
+export function useReimbursementAttachmentUrl() {
+  return useApiMutation<ReimbursementAttachmentUrlResponse>(
+    "/payments/reimbursement/attachment-url",
   );
 }
 

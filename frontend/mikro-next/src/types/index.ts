@@ -1630,6 +1630,66 @@ export interface PaymentAdjustment {
   created_at: string | null;
 }
 
+// Reimbursement workflow (editor -> admin queue). Sibling of
+// PaymentAdjustment: a ReimbursementRequest is the *workflow* record;
+// when an admin approves one, a paired PaymentAdjustment row is
+// created and linked via `adjustment_id` here / `request_id` there.
+export type ReimbursementStatus = "pending" | "approved" | "rejected" | "withdrawn";
+
+export interface ReimbursementRequest {
+  id: number;
+  user_id: string;
+  org_id: string | null;
+  amount: number;
+  description: string;
+  /** DO Spaces object key. NOT a fetchable URL — call
+   *  `/payment/reimbursement/attachment-url` to get a short-lived signed
+   *  GET URL when rendering / downloading the receipt. */
+  attachment_url: string | null;
+  has_attachment: boolean;
+  status: ReimbursementStatus;
+  submitted_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  reviewer_note: string | null;
+  adjustment_id: number | null;
+  // Present on the admin queue (pending_reimbursements) — omitted on
+  // the editor's own-history rows.
+  user_name?: string;
+  user_osm_username?: string;
+}
+
+export interface ReimbursementListResponse {
+  status: number;
+  requests: ReimbursementRequest[];
+  /** Only present on admin /pending responses. */
+  pending_count?: number;
+  message?: string;
+}
+
+export interface ReimbursementMutationResponse {
+  status: number;
+  request?: ReimbursementRequest;
+  adjustment_id?: number;
+  message?: string;
+}
+
+export interface ReimbursementUploadUrlResponse {
+  status: number;
+  url?: string;
+  key?: string;
+  expires_in_seconds?: number;
+  max_bytes?: number;
+  message?: string;
+}
+
+export interface ReimbursementAttachmentUrlResponse {
+  status: number;
+  url?: string;
+  expires_in_seconds?: number;
+  message?: string;
+}
+
 export interface PaymentContributorSession {
   id: number;
   clock_in: string | null;

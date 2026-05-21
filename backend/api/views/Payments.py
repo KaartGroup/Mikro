@@ -12,10 +12,13 @@ Routes mounted under ``/api/payments/`` in ``app.py``.
 
 import csv
 import io
+import re
+import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from flask import Response, g, request
+import boto3
+from flask import Response, current_app, g, request
 from flask.views import MethodView
 from sqlalchemy import cast, func, Date as SqlDate
 
@@ -32,6 +35,7 @@ from ..database import (
     PayrollConfig,
     Project,
     ProjectTeam,
+    ReimbursementRequest,
     TimeEntry,
     User,
     db,
@@ -39,6 +43,115 @@ from ..database import (
 from ..filters import resolve_filtered_user_ids
 from ..payroll_periods import generate_cycles
 from ..utils import requires_admin, requires_team_admin_or_above
+
+
+# ─── DO Spaces helpers (receipt uploads / fetches) ──────────────────
+#
+# Mirrors the pattern in Transcription.py's ``_get_s3_client``. The
+# reimbursement-request flow uses these to issue short-lived signed
+# URLs for editor receipt uploads and admin receipt views. The bucket
+# stays private at the DO Spaces ACL level — every read is mediated
+# by a backend permission check (see _can_view_receipt below) followed
+# by a fresh GET URL signed for that one viewer.
+#
+# Receipts whitelist:
+#   image/jpeg, image/png, image/heic, application/pdf
+#   max 10 MB
+# Both checks are enforced at presign time (we refuse to issue a URL
+# for non-conforming uploads).
+
+
+_RECEIPT_ALLOWED_CONTENT_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/heic",
+    "application/pdf",
+}
+_RECEIPT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+_RECEIPT_URL_EXPIRES_S = 300  # 5 minutes
+
+
+def _spaces_client():
+    """boto3 S3 client for DO Spaces.
+
+    Duplicated from Transcription.py for now — a future small refactor
+    can extract both call sites to ``backend/api/utils/spaces.py``.
+    """
+    return boto3.client(
+        "s3",
+        endpoint_url=current_app.config.get("DO_SPACES_ENDPOINT"),
+        aws_access_key_id=current_app.config.get("DO_SPACES_KEY"),
+        aws_secret_access_key=current_app.config.get("DO_SPACES_SECRET"),
+        region_name=current_app.config.get("DO_SPACES_REGION"),
+    )
+
+
+_FILENAME_SAFE_RE = re.compile(r"[^a-zA-Z0-9._-]+")
+
+
+def _safe_filename(name):
+    """Sanitize a user-supplied filename for use in an object key.
+
+    Keep just a tail (extension preservation) — receipts don't need
+    the original name surfaced anywhere except admin view, where the
+    backend can derive a display name.
+    """
+    if not name:
+        return "receipt"
+    cleaned = _FILENAME_SAFE_RE.sub("_", name).strip("._-")
+    return cleaned[-80:] or "receipt"
+
+
+def _receipt_object_key(user_id, filename):
+    """Compose the Spaces object key for a reimbursement receipt.
+
+    Shape: ``reimbursements/<user_id>/<uuid4>/<safe-filename>``. The
+    UUID prefix guarantees uniqueness even if the editor uploads two
+    receipts named the same thing, and lets us regenerate the URL
+    without worrying about collisions.
+    """
+    return f"reimbursements/{user_id}/{uuid.uuid4()}/{_safe_filename(filename)}"
+
+
+def _presigned_put_url(key, content_type, max_bytes=_RECEIPT_MAX_BYTES):
+    """Short-lived presigned PUT URL for a single-file upload.
+
+    The browser uses this to upload the receipt directly to Spaces
+    without proxying the bytes through Flask. ``ContentLength`` here
+    constrains the PUT — Spaces refuses an upload bigger than this.
+    """
+    bucket = current_app.config.get("DO_SPACES_BUCKET")
+    if not bucket:
+        raise RuntimeError("DO_SPACES_BUCKET not configured")
+    s3 = _spaces_client()
+    return s3.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": bucket,
+            "Key": key,
+            "ContentType": content_type,
+            "ContentLength": max_bytes,
+            "ACL": "private",
+        },
+        ExpiresIn=_RECEIPT_URL_EXPIRES_S,
+        HttpMethod="PUT",
+    )
+
+
+def _presigned_get_url(key):
+    """Short-lived presigned GET URL so an authorized viewer can fetch
+    a receipt straight from Spaces (image rendering / PDF download).
+    """
+    bucket = current_app.config.get("DO_SPACES_BUCKET")
+    if not bucket:
+        raise RuntimeError("DO_SPACES_BUCKET not configured")
+    s3 = _spaces_client()
+    return s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": bucket, "Key": key},
+        ExpiresIn=_RECEIPT_URL_EXPIRES_S,
+        HttpMethod="GET",
+    )
 
 
 # Status state machine for the cycle row pill
@@ -401,6 +514,23 @@ class PaymentsAPI(MethodView):
             return self.fetch_payroll_config()
         elif path == "config":
             return self.save_payroll_config()
+        # ─── reimbursement workflow (Trello PkljPEJx) ────────────────
+        elif path == "reimbursement/submit":
+            return self.reimbursement_submit()
+        elif path == "reimbursement/my":
+            return self.reimbursement_my()
+        elif path == "reimbursement/withdraw":
+            return self.reimbursement_withdraw()
+        elif path == "reimbursement/upload-url":
+            return self.reimbursement_upload_url()
+        elif path == "reimbursement/pending":
+            return self.reimbursement_pending()
+        elif path == "reimbursement/approve":
+            return self.reimbursement_approve()
+        elif path == "reimbursement/reject":
+            return self.reimbursement_reject()
+        elif path == "reimbursement/attachment-url":
+            return self.reimbursement_attachment_url()
         return {"message": f"Unknown payments path: {path}", "status": 404}, 404
 
     # ────────────────────────── cycle table ──────────────────────────
@@ -1295,5 +1425,430 @@ class PaymentsAPI(MethodView):
             },
             "is_default": False,
             "message": "Payroll config saved",
+            "status": 200,
+        }
+
+    # ─── Reimbursement-request workflow (Trello PkljPEJx) ───────────
+    #
+    # Workflow rules (echoes the docstring on ReimbursementRequest):
+    #   - Editor submits a request -> row in pending state. user_id +
+    #     org_id always derived from g.user (never trusted from body).
+    #   - Editor can withdraw their own pending requests; not after
+    #     review.
+    #   - Admin can approve (creates paired PaymentAdjustment) or
+    #     reject (with reviewer_note). Admin picks the cycle at
+    #     approval time — the editor's submission has no cycle.
+    #   - Pay-visibility model: editors see their own rows only;
+    #     admins see rows for users they can view via
+    #     ``can_view_pay_for``.
+    #
+    # Notifications are stubbed (comms platform not yet built); the
+    # three trigger points are marked TODO comms-platform inline so
+    # wiring becomes a 5-minute follow-up per call site when comms
+    # lands.
+
+    # Helper — format one request for JSON. Single source of truth so
+    # editor + admin endpoints emit the same shape.
+    @staticmethod
+    def _format_reimbursement(req):
+        return {
+            "id": req.id,
+            "user_id": req.user_id,
+            "org_id": req.org_id,
+            "amount": float(req.amount) if req.amount is not None else None,
+            "description": req.description,
+            "attachment_url": req.attachment_url,  # Spaces object key — clients ask /attachment-url to get a signed URL.
+            "has_attachment": bool(req.attachment_url),
+            "status": req.status,
+            "submitted_at": req.submitted_at.isoformat() + "Z" if req.submitted_at else None,
+            "reviewed_by": req.reviewed_by,
+            "reviewed_at": req.reviewed_at.isoformat() + "Z" if req.reviewed_at else None,
+            "reviewer_note": req.reviewer_note,
+            "adjustment_id": req.adjustment_id,
+        }
+
+    @staticmethod
+    def _format_reimbursement_with_user(req, user):
+        """Same as _format_reimbursement plus a minimal user payload
+        for the admin queue (so the table can render name + osm
+        username without a second round-trip)."""
+        out = PaymentsAPI._format_reimbursement(req)
+        if user is not None:
+            out["user_name"] = _user_display_name(user)
+            out["user_osm_username"] = user.osm_username or ""
+        return out
+
+    # ── Editor endpoints ─────────────────────────────────────
+
+    def reimbursement_submit(self):
+        """Editor submits a new reimbursement request.
+
+        user_id + org_id come from the session — payload is ignored
+        for those fields. Amount must be > 0; description required.
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+
+        body = request.json or {}
+        try:
+            amount = Decimal(str(body.get("amount")))
+        except Exception:
+            return {"message": "amount must be a number", "status": 400}
+        if amount <= 0:
+            return {"message": "amount must be > 0", "status": 400}
+
+        description = (body.get("description") or "").strip()
+        if not description:
+            return {"message": "description is required", "status": 400}
+        if len(description) > 2000:
+            return {"message": "description exceeds 2000 characters", "status": 400}
+
+        attachment_url = (body.get("attachment_url") or "").strip() or None
+        if attachment_url and not attachment_url.startswith("reimbursements/"):
+            return {
+                "message": "attachment_url must be a reimbursements/ object key",
+                "status": 400,
+            }
+
+        row = ReimbursementRequest.create(
+            user_id=g.user.id,
+            org_id=g.user.org_id,
+            amount=amount,
+            description=description,
+            attachment_url=attachment_url,
+            status="pending",
+        )
+        # TODO comms-platform: notify org admins of new pending request.
+        return {
+            "request": self._format_reimbursement(row),
+            "message": "Reimbursement request submitted",
+            "status": 200,
+        }
+
+    def reimbursement_my(self):
+        """List the current user's own reimbursement requests.
+
+        Optional ``status`` filter; results ordered newest-first by
+        submitted_at.
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+
+        body = request.json or {}
+        status_filter = (body.get("status") or "").strip().lower() or None
+        if status_filter and status_filter not in {
+            "pending", "approved", "rejected", "withdrawn",
+        }:
+            return {"message": "invalid status filter", "status": 400}
+
+        q = ReimbursementRequest.query.filter(
+            ReimbursementRequest.user_id == g.user.id
+        )
+        if status_filter:
+            q = q.filter(ReimbursementRequest.status == status_filter)
+        rows = q.order_by(ReimbursementRequest.submitted_at.desc()).all()
+        return {
+            "requests": [self._format_reimbursement(r) for r in rows],
+            "status": 200,
+        }
+
+    def reimbursement_withdraw(self):
+        """Editor withdraws their own pending request.
+
+        Only the owner can withdraw, and only while still pending —
+        approved/rejected/already-withdrawn requests are terminal.
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+
+        body = request.json or {}
+        req_id = body.get("request_id")
+        if not req_id:
+            return {"message": "request_id required", "status": 400}
+
+        row = ReimbursementRequest.query.get(req_id)
+        if not row or row.user_id != g.user.id:
+            return {"message": "Request not found", "status": 404}
+        if row.status != "pending":
+            return {
+                "message": f"Cannot withdraw a request in '{row.status}' state",
+                "status": 409,
+            }
+
+        row.status = "withdrawn"
+        row.save()
+        return {
+            "request": self._format_reimbursement(row),
+            "message": "Reimbursement request withdrawn",
+            "status": 200,
+        }
+
+    def reimbursement_upload_url(self):
+        """Issue a short-lived presigned PUT URL for a receipt upload.
+
+        Body:
+            filename: required, used to derive a safe object key
+                      (the original name does NOT round-trip into
+                      anything user-visible)
+            content_type: required, must be in the whitelist
+                          (jpeg/png/heic/pdf)
+
+        Returns ``{ url, key }``. Editor PUTs the file to ``url``,
+        then includes ``key`` as ``attachment_url`` on the submit
+        call.
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+
+        body = request.json or {}
+        filename = (body.get("filename") or "").strip()
+        content_type = (body.get("content_type") or "").strip().lower()
+        if not filename:
+            return {"message": "filename required", "status": 400}
+        if content_type not in _RECEIPT_ALLOWED_CONTENT_TYPES:
+            return {
+                "message": (
+                    "content_type must be one of: "
+                    + ", ".join(sorted(_RECEIPT_ALLOWED_CONTENT_TYPES))
+                ),
+                "status": 400,
+            }
+
+        key = _receipt_object_key(g.user.id, filename)
+        try:
+            url = _presigned_put_url(key, content_type)
+        except RuntimeError as e:
+            return {"message": str(e), "status": 500}
+        return {
+            "url": url,
+            "key": key,
+            "expires_in_seconds": _RECEIPT_URL_EXPIRES_S,
+            "max_bytes": _RECEIPT_MAX_BYTES,
+            "status": 200,
+        }
+
+    # ── Admin endpoints ──────────────────────────────────────
+
+    @requires_team_admin_or_above
+    def reimbursement_pending(self):
+        """List pending reimbursement requests visible to this admin.
+
+        Scope: the viewer's org_id, filtered to user_ids the viewer
+        can ``can_view_pay_for``. Optional ``status`` filter (defaults
+        to 'pending' for the queue use-case but the UI can pass other
+        values to view history).
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+
+        body = request.json or {}
+        status_filter = (body.get("status") or "pending").strip().lower()
+        if status_filter not in {"pending", "approved", "rejected", "withdrawn", "all"}:
+            return {"message": "invalid status filter", "status": 400}
+
+        q = ReimbursementRequest.query.filter(
+            ReimbursementRequest.org_id == g.user.org_id
+        )
+        if status_filter != "all":
+            q = q.filter(ReimbursementRequest.status == status_filter)
+        rows = q.order_by(ReimbursementRequest.submitted_at.desc()).all()
+
+        # Pay-visibility filter. We load each row's owner once (small N
+        # for the pending queue; if this grows we batch via WHERE
+        # user_id IN (...) later).
+        out = []
+        for r in rows:
+            owner = User.query.get(r.user_id)
+            if owner is None:
+                continue
+            if not can_view_pay_for(g.user, owner):
+                continue
+            out.append(self._format_reimbursement_with_user(r, owner))
+        return {
+            "requests": out,
+            "pending_count": sum(1 for x in out if x["status"] == "pending"),
+            "status": 200,
+        }
+
+    @requires_team_admin_or_above
+    def reimbursement_approve(self):
+        """Approve a pending request → creates the paired
+        ``PaymentAdjustment`` row in the cycle the admin picks.
+
+        Body:
+            request_id: required
+            cycle_start, cycle_end: required, ISO dates
+            reviewer_note: optional
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+
+        body = request.json or {}
+        req_id = body.get("request_id")
+        cycle_start = _parse_iso_date(body.get("cycle_start"))
+        cycle_end = _parse_iso_date(body.get("cycle_end"))
+        reviewer_note = (body.get("reviewer_note") or "").strip() or None
+
+        if not req_id:
+            return {"message": "request_id required", "status": 400}
+        if not cycle_start or not cycle_end or cycle_end < cycle_start:
+            return {
+                "message": "cycle_start + cycle_end required",
+                "status": 400,
+            }
+        if reviewer_note and len(reviewer_note) > 2000:
+            return {
+                "message": "reviewer_note exceeds 2000 characters",
+                "status": 400,
+            }
+
+        row = ReimbursementRequest.query.get(req_id)
+        if row is None:
+            return {"message": "Request not found", "status": 404}
+        if row.org_id != g.user.org_id:
+            return {"message": "Cross-org request denied", "status": 403}
+        if row.status != "pending":
+            return {
+                "message": f"Cannot approve a request in '{row.status}' state",
+                "status": 409,
+            }
+
+        # Pay-visibility check: viewer must be allowed to act on this user.
+        owner = User.query.get(row.user_id)
+        if owner is None or not can_view_pay_for(g.user, owner):
+            return {"message": "Not authorized for this request", "status": 403}
+
+        # Create the paired PaymentAdjustment. Description carries into
+        # the adjustment's note so the cycle row shows the editor's
+        # reason without a join back.
+        adj = PaymentAdjustment.create(
+            user_id=row.user_id,
+            cycle_start=cycle_start,
+            cycle_end=cycle_end,
+            amount=row.amount,
+            type="reimbursement",
+            note=row.description,
+            source="approved_request",
+            request_id=row.id,
+            added_by=g.user.id,
+        )
+
+        row.status = "approved"
+        row.reviewed_by = g.user.id
+        row.reviewed_at = datetime.utcnow()
+        row.reviewer_note = reviewer_note
+        row.adjustment_id = adj.id
+        row.save()
+
+        # TODO comms-platform: notify editor that their request was approved.
+        return {
+            "request": self._format_reimbursement(row),
+            "adjustment_id": adj.id,
+            "message": "Reimbursement approved",
+            "status": 200,
+        }
+
+    @requires_team_admin_or_above
+    def reimbursement_reject(self):
+        """Reject a pending request with a required reviewer note.
+
+        No PaymentAdjustment is created. The request stays in the
+        rejected state for audit; the editor sees the reviewer note
+        in their own-history panel.
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+
+        body = request.json or {}
+        req_id = body.get("request_id")
+        reviewer_note = (body.get("reviewer_note") or "").strip()
+        if not req_id:
+            return {"message": "request_id required", "status": 400}
+        if not reviewer_note:
+            return {
+                "message": "reviewer_note is required when rejecting",
+                "status": 400,
+            }
+        if len(reviewer_note) > 2000:
+            return {
+                "message": "reviewer_note exceeds 2000 characters",
+                "status": 400,
+            }
+
+        row = ReimbursementRequest.query.get(req_id)
+        if row is None:
+            return {"message": "Request not found", "status": 404}
+        if row.org_id != g.user.org_id:
+            return {"message": "Cross-org request denied", "status": 403}
+        if row.status != "pending":
+            return {
+                "message": f"Cannot reject a request in '{row.status}' state",
+                "status": 409,
+            }
+
+        owner = User.query.get(row.user_id)
+        if owner is None or not can_view_pay_for(g.user, owner):
+            return {"message": "Not authorized for this request", "status": 403}
+
+        row.status = "rejected"
+        row.reviewed_by = g.user.id
+        row.reviewed_at = datetime.utcnow()
+        row.reviewer_note = reviewer_note
+        row.save()
+
+        # TODO comms-platform: notify editor of rejection with reason.
+        return {
+            "request": self._format_reimbursement(row),
+            "message": "Reimbursement rejected",
+            "status": 200,
+        }
+
+    def reimbursement_attachment_url(self):
+        """Issue a short-lived signed GET URL for a request's receipt.
+
+        Dual-audience endpoint — no role decorator on purpose. The
+        permission check is inline because:
+
+          - The editor (any authenticated user) needs access to their
+            own receipts (they uploaded them; they should be able to
+            re-view them from their own-history panel).
+
+          - An admin with ``can_view_pay_for`` access to the owner
+            also needs access (to review attached receipts during
+            approval triage).
+
+        Auth gating is the ``if not g.user`` check + the explicit
+        ownership-OR-pay-visibility branch below. Cross-org is hard-
+        denied first via the org_id match.
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+
+        body = request.json or {}
+        req_id = body.get("request_id")
+        if not req_id:
+            return {"message": "request_id required", "status": 400}
+
+        row = ReimbursementRequest.query.get(req_id)
+        if row is None:
+            return {"message": "Request not found", "status": 404}
+        if not row.attachment_url:
+            return {"message": "This request has no attachment", "status": 404}
+
+        # Owner OR admin-with-pay-visibility-for-owner.
+        if row.user_id != g.user.id:
+            if row.org_id != g.user.org_id:
+                return {"message": "Cross-org access denied", "status": 403}
+            owner = User.query.get(row.user_id)
+            if owner is None or not can_view_pay_for(g.user, owner):
+                return {"message": "Not authorized for this request", "status": 403}
+
+        try:
+            url = _presigned_get_url(row.attachment_url)
+        except RuntimeError as e:
+            return {"message": str(e), "status": 500}
+        return {
+            "url": url,
+            "expires_in_seconds": _RECEIPT_URL_EXPIRES_S,
             "status": 200,
         }
