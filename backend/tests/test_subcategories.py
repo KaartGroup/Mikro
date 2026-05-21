@@ -63,6 +63,7 @@ class _FakeSub:
         is_active=True,
         requires_project=False,
         allow_event_fields=False,
+        created_by=None,
     ):
         self.id = id
         self.activity = activity
@@ -72,6 +73,11 @@ class _FakeSub:
         self.is_active = is_active
         self.requires_project = requires_project
         self.allow_event_fields = allow_event_fields
+        # 2026-05-21: required by _can_manage_subcategory's authorship
+        # rule for team_admin. Defaults to None so existing tests that
+        # don't care about authorship (admin/super_admin paths) still
+        # work without explicit values.
+        self.created_by = created_by
 
 
 class _FakeTeamLead:
@@ -157,21 +163,117 @@ def test_admin_cannot_manage_other_org_subs():
 
 
 @patch("api.views.TimeTracking.TeamLead")
-def test_team_admin_can_only_manage_subs_for_teams_they_lead(TeamLead):
+def test_team_admin_can_create_in_own_org_at_org_or_team_scope(TeamLead):
+    """Updated 2026-05-21 (Logan taxonomy pass): team_admin gained the
+    ability to CREATE subs in their own org at any non-global scope.
+    Authorship-based edit gating happens separately (see below)."""
     TeamLead.query.filter_by.return_value.all.return_value = [
         _FakeTeamLead("ta", 10),
     ]
     ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
-    # Team they lead -> allowed
+    # Create-path calls pass org_id/team_id without `sub`.
+    # Org-scoped in own org — NOW allowed (was denied pre-2026-05-21).
+    assert _can_manage_subcategory(ta, org_id="kaart-org", team_id=None)
+    # Team-scoped to a team they lead — allowed.
     assert _can_manage_subcategory(ta, org_id="kaart-org", team_id=10)
-    # Team they don't lead -> denied
-    assert not _can_manage_subcategory(ta, org_id="kaart-org", team_id=11)
-    # Org-scoped (no team) -> denied — team_admins can't elevate
-    assert not _can_manage_subcategory(ta, org_id="kaart-org", team_id=None)
-    # Global -> denied
+    # Team-scoped to a team they don't lead — also allowed at CREATE
+    # path. Lead-only gating is enforced on UPDATE/DELETE through the
+    # authorship + lead-fallback rule (tested below).
+    assert _can_manage_subcategory(ta, org_id="kaart-org", team_id=11)
+
+
+@patch("api.views.TimeTracking.TeamLead")
+def test_team_admin_cannot_create_global_subs(TeamLead):
+    """Global stays super_admin-only. team_admin's CREATE freedom is
+    bounded by org_id != NULL."""
+    TeamLead.query.filter_by.return_value.all.return_value = []
+    ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
     assert not _can_manage_subcategory(ta, org_id=None, team_id=None)
-    # Team in a different org -> denied
+
+
+@patch("api.views.TimeTracking.TeamLead")
+def test_team_admin_cannot_create_subs_in_other_org(TeamLead):
+    """Cross-org rail. The org_id match is enforced before any other
+    team_admin rule."""
+    TeamLead.query.filter_by.return_value.all.return_value = []
+    ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
+    assert not _can_manage_subcategory(ta, org_id="external-org", team_id=None)
     assert not _can_manage_subcategory(ta, org_id="external-org", team_id=10)
+
+
+@patch("api.views.TimeTracking.TeamLead")
+def test_team_admin_can_edit_sub_they_created(TeamLead):
+    """Authorship rule (new 2026-05-21): a team_admin's own subs are
+    editable regardless of scope (within their own org). This is how
+    Logan's re-stamped seeded tree becomes editable for him."""
+    TeamLead.query.filter_by.return_value.all.return_value = []
+    ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
+    own_org_sub = _FakeSub(
+        1, "qc_review", "Kaart QC",
+        org_id="kaart-org", team_id=None,
+    )
+    own_org_sub.created_by = "ta"
+    assert _can_manage_subcategory(ta, sub=own_org_sub)
+    own_team_sub = _FakeSub(
+        2, "meeting", "Daily Standup",
+        org_id="kaart-org", team_id=99,
+    )
+    own_team_sub.created_by = "ta"
+    assert _can_manage_subcategory(ta, sub=own_team_sub)
+
+
+@patch("api.views.TimeTracking.TeamLead")
+def test_team_admin_cannot_edit_sub_someone_else_created_in_their_org(TeamLead):
+    """Flip side of the authorship rule: a team_admin can't touch
+    subs owned by other people in their org. Prevents one team_admin
+    from stomping another's edits to a shared org-scoped sub."""
+    TeamLead.query.filter_by.return_value.all.return_value = []
+    ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
+    org_sub_by_other = _FakeSub(
+        1, "qc_review", "Kaart QC",
+        org_id="kaart-org", team_id=None,
+    )
+    org_sub_by_other.created_by = "other-team-admin"
+    assert not _can_manage_subcategory(ta, sub=org_sub_by_other)
+
+
+@patch("api.views.TimeTracking.TeamLead")
+def test_team_admin_can_edit_team_subs_for_led_teams_via_lead_fallback(TeamLead):
+    """Even without authorship, team_admin can still manage team-scoped
+    subs for teams they LEAD. Preserves the pre-2026-05-21 lead path
+    for team-scoped subs that pre-date the authorship rule."""
+    TeamLead.query.filter_by.return_value.all.return_value = [
+        _FakeTeamLead("ta", 10),
+    ]
+    ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
+    sub_on_led_team_by_other = _FakeSub(
+        1, "meeting", "Sprint Planning",
+        org_id="kaart-org", team_id=10,
+    )
+    sub_on_led_team_by_other.created_by = "someone-else"
+    assert _can_manage_subcategory(ta, sub=sub_on_led_team_by_other)
+    # Same sub on a team they DON'T lead -> denied.
+    sub_on_other_team = _FakeSub(
+        2, "meeting", "Sprint Planning",
+        org_id="kaart-org", team_id=11,
+    )
+    sub_on_other_team.created_by = "someone-else"
+    assert not _can_manage_subcategory(ta, sub=sub_on_other_team)
+
+
+@patch("api.views.TimeTracking.TeamLead")
+def test_team_admin_cannot_edit_sub_in_other_org_even_if_they_created_it(TeamLead):
+    """Cross-org rail wins even if Logan somehow owns a row in another
+    org's catalog (shouldn't be possible via the create path; defensive
+    against data anomalies)."""
+    TeamLead.query.filter_by.return_value.all.return_value = []
+    ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
+    foreign_sub = _FakeSub(
+        1, "qc_review", "Kaart QC",
+        org_id="external-org", team_id=None,
+    )
+    foreign_sub.created_by = "ta"  # authorship doesn't bypass cross-org
+    assert not _can_manage_subcategory(ta, sub=foreign_sub)
 
 
 def test_regular_user_and_validator_cannot_manage_anything():

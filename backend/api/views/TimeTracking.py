@@ -71,32 +71,47 @@ def _ascii_safe(s):
 # activity needs to be added in BOTH places (and seeded with a
 # default set of subcategories via the Time Categories admin page
 # or a follow-up migration).
+# 2026-05-21 Logan taxonomy pass: removed `validating`, `checklist`, and
+# `community` from the accepted activity set per his request (Validating
+# folded into QC/Validation; Checklist deprecated; Community's subs
+# relocated under Other). The slugs are NOT in ACTIVITY_DISPLAY_MAP-less
+# territory — historical entries with those values still render via the
+# display map below — but new clock-ins with those slugs now 400. Legacy
+# alias `validation` is also dropped from accepted slugs for the same
+# reason. `mapping` (-> Editing) and `review` (-> QC/Validation) stay
+# accepted for back-compat from older clients.
 ACTIVITY_SLUGS = {
-    "editing", "validating", "training", "checklist",
+    "editing", "training",
     "qc_review", "meeting", "documentation", "imagery_capture",
-    "project_creation", "community", "other",
+    "project_creation", "other",
     # Legacy values still accepted for backward compat (clock-in payloads
     # from older clients). Normalized to canonical slugs on display.
-    "mapping", "validation", "review",
+    "mapping", "review",
 }
 
 # Map stored activity slug -> display label. User-facing UI strings.
+# Retired activities (`validating`, `checklist`, `community`) keep their
+# display entries so historical time_entries continue to render their
+# original label correctly even though new clock-ins can no longer pick
+# them. `qc_review` was renamed from "QC / Review" -> "QC / Validation"
+# in the same pass (Logan merged Validating into it).
 ACTIVITY_DISPLAY_MAP = {
     "editing": "Editing",
-    "validating": "Validating",
     "training": "Training",
-    "checklist": "Checklist",
-    "qc_review": "QC / Review",
+    "qc_review": "QC / Validation",
     "meeting": "Meeting",
     "documentation": "Documentation",
     "imagery_capture": "Imagery Capture",
     "project_creation": "Project Creation",
-    "community": "Community",
     "other": "Other",
-    # Legacy mappings -> canonical labels
+    # Retired activities — kept for display continuity on historical rows.
+    "validating": "Validating",
+    "checklist": "Checklist",
+    "community": "Community",
+    # Legacy mappings -> canonical labels (post-rename for review/validation).
     "mapping": "Editing",
     "validation": "Validating",
-    "review": "QC / Review",
+    "review": "QC / Validation",
 }
 
 
@@ -193,13 +208,23 @@ def _can_manage_subcategory(user, *, org_id=None, team_id=None, sub=None):
       - super_admin: can manage anything (including global subs).
       - admin (org_admin): can manage anything in their org. Cannot
         manage global subs.
-      - team_admin: can manage only subs scoped to teams they LEAD.
-        Cannot create org-scoped or global subs.
+      - team_admin (authorship-based, updated 2026-05-21):
+          * CREATE: can create subs in their own org at either org-scope
+            or team-scope (any team in their own org). Global is denied.
+          * EDIT / DELETE: can only manage subs they CREATED themselves
+            (sub.created_by == user.id). PLUS, the team-scoped subs for
+            teams they LEAD remain manageable for the team-lead path.
+            Seeded rows that were re-stamped to a team_admin's id via
+            the e6c4d5b6f7a8 migration become editable by that admin
+            under this rule.
       - others (user / validator): no management.
     """
     if sub is not None:
         org_id = sub.org_id
         team_id = sub.team_id
+        sub_created_by = sub.created_by
+    else:
+        sub_created_by = None  # create path — no row exists yet
 
     role = getattr(user, "role", None)
     if role == "super_admin":
@@ -208,13 +233,20 @@ def _can_manage_subcategory(user, *, org_id=None, team_id=None, sub=None):
         # Org admin: must scope to their own org; cannot touch global.
         return org_id is not None and org_id == getattr(user, "org_id", None)
     if role == "team_admin":
-        # Team admin: must be a team-scoped sub for a team they lead,
-        # in their own org.
+        # Team admin: never touches global, never touches another org.
         if org_id is None or org_id != getattr(user, "org_id", None):
             return False
-        if team_id is None:
+        # Editing an existing row: authorship rule (or led-team fallback).
+        if sub is not None:
+            if sub_created_by == user.id:
+                return True
+            if team_id is not None and team_id in _team_admin_led_team_ids(user):
+                return True
             return False
-        return team_id in _team_admin_led_team_ids(user)
+        # Creating a new row: allowed in own org at org-scope or any
+        # team-scope IF the team belongs to this org (FK already
+        # constrains that; we just need the org_id match above).
+        return True
     return False
 
 
@@ -2211,12 +2243,17 @@ class TimeTrackingAPI(MethodView):
 
     @requires_team_admin_or_above
     def subcategories_admin_list(self):
-        """List subcategories the caller can MANAGE (admin page).
+        """List subcategories the caller can SEE on the admin page.
 
+        Visibility-on-admin-tab rules (echoes _can_manage_subcategory):
         - super_admin: every sub in the system (incl. global).
         - admin (org_admin): every sub in their org.
-        - team_admin: only subs scoped to teams they LEAD (read-only
-          access to wider org subs goes through subcategories_list).
+        - team_admin (updated 2026-05-21): every sub in their own org
+          that's either org-scoped OR team-scoped to a team they lead.
+          Edit/disable is then gated row-by-row by _can_manage_subcategory
+          (authorship rule), so rows they didn't create render in the
+          table but their action buttons are no-ops server-side. The
+          frontend can decide to render them disabled.
 
         Optional ``activity`` filter narrows.
         """
@@ -2233,11 +2270,13 @@ class TimeTrackingAPI(MethodView):
             q = q.filter(ActivitySubcategory.org_id == g.user.org_id)
         elif role == "team_admin":
             led = _team_admin_led_team_ids(g.user)
-            if not led:
-                return jsonify({"status": 200, "subcategories": []})
+            # Org-scoped subs in own org + team-scoped subs for teams led.
+            scope_clauses = [ActivitySubcategory.team_id.is_(None)]
+            if led:
+                scope_clauses.append(ActivitySubcategory.team_id.in_(list(led)))
             q = q.filter(
                 ActivitySubcategory.org_id == g.user.org_id,
-                ActivitySubcategory.team_id.in_(list(led)),
+                or_(*scope_clauses),
             )
         else:
             return jsonify({"message": "Forbidden", "status": 403}), 403

@@ -2,19 +2,20 @@
  * Shared time tracking constants — single source of truth for all clock widgets.
  */
 
+// 2026-05-21 Logan taxonomy pass: dropped Validating (folded into
+// QC/Validation), Checklist (deprecated), and Community (subs
+// relocated under Other). Renamed QC/Review -> QC/Validation. The
+// dropped slugs still resolve via CATEGORY_LABELS below so historical
+// entries render correctly; they just no longer appear in clock-in
+// dropdowns and the backend rejects them on new clock-ins.
 export const TOPIC_OPTIONS = [
   { value: "editing", label: "Editing" },
-  { value: "validating", label: "Validating" },
   { value: "training", label: "Training" },
-  { value: "checklist", label: "Checklist" },
-  { value: "qc_review", label: "QC / Review" },
+  { value: "qc_review", label: "QC / Validation" },
   { value: "meeting", label: "Meeting" },
   { value: "documentation", label: "Documentation" },
   { value: "imagery_capture", label: "Imagery Capture" },
   { value: "project_creation", label: "Project Creation" },
-  // Added 2026-04 per F10 — covers Jorge's community-discussion /
-  // outreach work that previously had no trackable category.
-  { value: "community", label: "Community" },
   { value: "other", label: "Other" },
 ] as const;
 
@@ -33,9 +34,12 @@ export const TOPIC_OPTIONS = [
  *
  * Keep this short — anything more nuanced lives on subcategory rows.
  */
+// 2026-05-21: dropped "validating" (activity removed; QC/Validation now
+// covers it). Editing still requires a project; qc_review's per-sub
+// flag is the canonical source — this fallback only kicks in if no sub
+// is selected yet OR a fresh-DB org has nothing seeded.
 const PROJECT_REQUIRED_FALLBACK_ACTIVITIES = new Set([
   "editing",
-  "validating",
   "qc_review",
 ]);
 
@@ -84,19 +88,30 @@ export const EMPTY_SUBCATEGORY_CELL = "—";
  * don't recognize fails closed instead of being silently misrouted.
  */
 
-/** Canonical category key → display label. */
+/**
+ * Canonical activity key → display label.
+ *
+ * Includes the three retired-but-historical slugs (`validating`,
+ * `checklist`, `community`) so legacy time_entries with those values
+ * keep their original label in tables/filters. New clock-ins cannot
+ * pick them — see TOPIC_OPTIONS above.
+ *
+ * `qc_review` display changed 2026-05-21 from "QC / Review" to
+ * "QC / Validation" per Logan's taxonomy pass.
+ */
 export const CATEGORY_LABELS: Record<string, string> = {
   editing: "Editing",
-  validating: "Validating",
   training: "Training",
-  checklist: "Checklist",
-  qc_review: "QC / Review",
+  qc_review: "QC / Validation",
   meeting: "Meeting",
   documentation: "Documentation",
   imagery_capture: "Imagery Capture",
   project_creation: "Project Creation",
-  community: "Community",
   other: "Other",
+  // Retired activities — display-only, for historical row labels.
+  validating: "Validating",
+  checklist: "Checklist",
+  community: "Community",
 };
 
 /**
