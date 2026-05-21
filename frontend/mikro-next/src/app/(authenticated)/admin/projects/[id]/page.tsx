@@ -157,8 +157,8 @@ export default function AdminProjectProfilePage() {
         </Link>
 
         <div className="flex items-start justify-between mt-2">
-          <div>
-            <div className="flex items-center gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold">{proj.name}</h1>
               <Badge variant={isMR ? "secondary" : "default"}>
                 {isMR ? "MapRoulette" : "TM4"}
@@ -170,8 +170,42 @@ export default function AdminProjectProfilePage() {
               )}
               <Badge variant="outline">{proj.difficulty || "Unknown"}</Badge>
             </div>
+            {/* 2026-05-21 (Logan ask): display short name, source ID, and
+                source URL alongside the long name. All read-only here —
+                short name is editable via the Edit Project modal on the
+                projects list. */}
+            <dl className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1 text-sm">
+              {proj.short_name && (
+                <div className="flex gap-2">
+                  <dt className="text-muted-foreground">Short Name:</dt>
+                  <dd className="font-medium truncate" title={proj.short_name}>
+                    {proj.short_name}
+                  </dd>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <dt className="text-muted-foreground">Source ID:</dt>
+                <dd className="font-mono">{proj.id}</dd>
+              </div>
+              {proj.url && (
+                <div className="flex gap-2 md:col-span-1 min-w-0">
+                  <dt className="text-muted-foreground shrink-0">Source URL:</dt>
+                  <dd className="min-w-0">
+                    <a
+                      href={proj.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-kaart-orange hover:underline truncate inline-block max-w-full align-bottom"
+                      title={proj.url}
+                    >
+                      {proj.url}
+                    </a>
+                  </dd>
+                </div>
+              )}
+            </dl>
             {proj.created_by_name && (
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-2">
                 Created by {proj.created_by_name}
               </p>
             )}

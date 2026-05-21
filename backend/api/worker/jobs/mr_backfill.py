@@ -16,6 +16,7 @@ def run_mr_metadata_backfill(app, job):
     """
     from ...database import db, Project
     from ...views.MapRoulette import MapRouletteSync
+    from ...views.Projects import _strip_trailing_hashtags
 
     challenge_id = job.target_id
     max_retries = 3
@@ -64,7 +65,14 @@ def run_mr_metadata_backfill(app, job):
             return
 
         old_name = project.name
-        project.name = mr_data.get("name", project.name)
+        # MR challenge titles routinely include trailing hashtags (e.g.
+        # `#Kaart`, `#Colombia`, `#MR57669`) that whoever set the
+        # challenge up picked ad-hoc and don't always match Mikro's
+        # bookkeeping. Strip them at the single write sink so the long
+        # name in Mikro is the human-readable portion only. Helper is
+        # idempotent — safe on titles that have no hashtags.
+        raw_name = mr_data.get("name", project.name)
+        project.name = _strip_trailing_hashtags(raw_name)
 
         try:
             mr_sync = MapRouletteSync()

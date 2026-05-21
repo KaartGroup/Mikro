@@ -263,9 +263,10 @@ export function SidebarClock() {
         if (cancelled) return;
         const list = res?.subcategories ?? [];
         setSubOptions(list);
-        // Auto-pick when there's exactly one option, so the user
-        // doesn't have to click a single-item dropdown.
-        if (list.length === 1) setSelectedSub(list[0]);
+        // 2026-05-21: do NOT auto-pick a single subcategory option.
+        // Logan's ask — clock-in defaults to no subcategory chosen
+        // regardless of how many options are configured; users opt
+        // in when the activity really has a tier-2 to record.
       })
       .catch(() => {
         if (!cancelled) setSubOptions([]);
@@ -429,11 +430,10 @@ export function SidebarClock() {
     );
   }
 
-  // Not clocked in — topic first, then sub (if any available), then conditional project.
-  // If subOptions has entries we require one to be picked before clock-in is allowed.
-  const needsSub = subOptions.length > 0;
+  // Not clocked in — topic first, then optional sub, then conditional project.
+  // 2026-05-21: subcategory selection is NEVER required for clock-in, even
+  // when options exist. Logan's ask — defaulting to none across the board.
   const canClockIn = !!selectedTopic
-    && (!needsSub || !!selectedSub)
     && (!needsProject || !!selectedProject)
     && !clockingIn;
 

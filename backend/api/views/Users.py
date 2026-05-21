@@ -689,8 +689,13 @@ class UserAPI(MethodView):
         # Return the final response
         return return_obj
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_project_users(self):
+        # Decorator opened 2026-05-21 (was @requires_admin). team_admin
+        # needs to see the assigned-users panel inside the Edit Project
+        # modal — otherwise the Users tab renders empty and the Promise.all
+        # rejection silently wipes the Teams tab too. The org_id filter
+        # below keeps the response cross-org-safe.
         # Initialize an empty dictionary for returning the response
         return_obj = {}
         # Check if the user is not found in the context
@@ -1326,8 +1331,16 @@ class UserAPI(MethodView):
         return return_obj
 
     # # ADMIN ONLY ROUTE - ASSIGN CURRENT SELECTED USER TO CURRENT SELECTED TEAM # noqa: E501
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_user(self):
+        # Decorator opened 2026-05-21 (was @requires_admin). This is the
+        # toggle endpoint the Edit Project modal's Assign/Unassign buttons
+        # actually hit (frontend useAssignUser → /user/assign_user). With
+        # @requires_admin a team_admin's click was rejected at the gate,
+        # which is exactly what Logan was hitting on the edit modal.
+        # Inline scope check below restricts team_admin to managed-team
+        # members; org_admin+ bypass via the role gate so an admin who
+        # doesn't happen to lead a team isn't accidentally locked out.
         # Initialize response dictionary
         response = {}
         # Extract project_id from request body
@@ -1343,6 +1356,10 @@ class UserAPI(MethodView):
             # Return error response if user_id is not provided
             response["message"] = "User_id required"
             response["status"] = 400
+            return response
+        if g.user.role == "team_admin" and not team_admin_can_access_user(g.user, user_id):
+            response["message"] = "User not on a team you manage"
+            response["status"] = 403
             return response
         # Check if relation between user and project already exists
         user_relation = ProjectUser.query.filter_by(
