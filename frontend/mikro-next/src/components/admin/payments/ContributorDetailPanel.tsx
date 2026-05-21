@@ -123,7 +123,13 @@ export function ContributorDetailPanel({
       ...(filters ? { filters } : {}),
     })
       .then((res) => setDetail(res))
-      .catch(() => toast.error("Failed to load contributor detail"));
+      .catch((err) =>
+        toast.error(
+          err instanceof Error
+            ? `Failed to load contributor detail: ${err.message}`
+            : "Failed to load contributor detail",
+        ),
+      );
     // `toast` is intentionally excluded from the deps: useToastActions()
     // returns a fresh object literal every render, so including it would
     // refire this effect (and refetch contributor detail) on every render.
