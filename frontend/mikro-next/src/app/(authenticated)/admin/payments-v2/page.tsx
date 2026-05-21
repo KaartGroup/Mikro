@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -10,6 +11,9 @@ import {
   Modal,
   Input,
   Skeleton,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   useToastActions,
   Val,
 } from "@/components/ui";
@@ -42,6 +46,10 @@ import { CyclePicker } from "@/components/admin/payments/CyclePicker";
 import { CycleConfigModal } from "@/components/admin/payments/CycleConfigModal";
 import { PayrollForecastChart } from "@/components/admin/payments/PayrollForecastChart";
 import { ProjectDispensationCard } from "@/components/admin/payments/ProjectDispensationCard";
+import {
+  ReimbursementsAdminPanel,
+  ReimbursementsAdminSummary,
+} from "@/components/admin/payments/ReimbursementsAdmin";
 import type {
   PayrollForecastResponse,
   ProjectDispensationResponse,
@@ -86,6 +94,27 @@ function lastOfLastMonthIso(d = new Date()): string {
 
 export default function AdminPaymentsV2Page() {
   const toast = useToastActions();
+
+  // Page-level tab state for the Payments / Reimbursements split.
+  // Synced to ?tab= so refreshes and shared links land on the same
+  // tab. The Reimbursements tab renders <ReimbursementsAdminPanel>
+  // (./components/admin/payments/ReimbursementsAdmin.tsx); the
+  // Payments tab keeps the existing single-page workspace.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const activeTab: "payments" | "reimbursements" =
+    searchParams?.get("tab") === "reimbursements" ? "reimbursements" : "payments";
+  const setActiveTab = (next: string) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    if (next === "payments") {
+      params.delete("tab");
+    } else {
+      params.set("tab", next);
+    }
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+  };
   const { role: viewerRole } = useCurrentUserRole();
   const canEdit = isOrgAdminOrAbove(viewerRole);
 
@@ -380,6 +409,22 @@ export default function AdminPaymentsV2Page() {
           </span>
         </div>
       </div>
+
+      {/* Payments / Reimbursements tab strip — synced to ?tab= in the URL.
+          The Reimbursements tab renders the editor-submitted-reimbursement
+          queue (./components/admin/payments/ReimbursementsAdmin.tsx); the
+          Payments tab keeps the existing single-page workspace below. */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="payments">
+        <TabsList>
+          <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="reimbursements">Reimbursements</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {activeTab === "reimbursements" ? (
+        <ReimbursementsAdminPanel />
+      ) : (
+        <>
 
       {/* Master filter bar — same standard filters as Users/Projects.
           Page-wide: narrows the table AND the selected-contributor detail.
@@ -776,6 +821,14 @@ export default function AdminPaymentsV2Page() {
             </CardContent>
           </Card>
 
+          {/* Real reimbursement inbox summary. Replaces the
+              "3 new reimbursement requests in queue" line in the
+              mock Notifications card below — clicking flips the
+              page-level tab to Reimbursements (?tab=reimbursements). */}
+          <ReimbursementsAdminSummary
+            onNavigate={() => setActiveTab("reimbursements")}
+          />
+
           <Card
             className="opacity-95 flex-1 flex flex-col"
             title={
@@ -1039,6 +1092,8 @@ export default function AdminPaymentsV2Page() {
           reloadForecast();
         }}
       />
+        </>
+      )}
     </div>
   );
 }

@@ -32,6 +32,10 @@ import {
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { PayRateCard } from "@/components/user/PayRateCard";
 import { MonthlyPaySummaryCard } from "@/components/user/MonthlyPaySummaryCard";
+import {
+  ReimbursementSubmitModal,
+  ReimbursementsHistoryPanel,
+} from "@/components/user/ReimbursementsSection";
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -50,6 +54,16 @@ export default function UserPaymentsPage() {
 
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [paymentNotes, setPaymentNotes] = useState("");
+
+  // Reimbursement workflow state. The submit modal lives at page level
+  // so the "Submit Reimbursement" header button can open it regardless
+  // of which tab is active. `reimbursementsRefreshKey` is bumped after
+  // a successful submit to trigger the history panel to refetch.
+  // Tabs are controlled (vs the original uncontrolled defaultValue)
+  // so submitting a request can switch the active tab to Reimbursements.
+  const [showReimbursementModal, setShowReimbursementModal] = useState(false);
+  const [reimbursementsRefreshKey, setReimbursementsRefreshKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<string>("pending");
 
   const ROWS_PER_PAGE = 20;
   const [requestsPage, setRequestsPage] = useState(1);
@@ -128,12 +142,29 @@ export default function UserPaymentsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
       {/* Header */}
-      <div style={{ marginBottom: 8 }}>
-        <h1 className="text-3xl font-bold tracking-tight">Payments</h1>
-        <p className="text-muted-foreground" style={{ marginTop: 8 }}>
-          Track your earnings and payment history
-        </p>
+      <div className="flex items-start justify-between gap-3" style={{ marginBottom: 8 }}>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Payments</h1>
+          <p className="text-muted-foreground" style={{ marginTop: 8 }}>
+            Track your earnings and payment history
+          </p>
+        </div>
+        <Button onClick={() => setShowReimbursementModal(true)}>
+          + Submit Reimbursement
+        </Button>
       </div>
+
+      {/* Reimbursement submit modal — controlled by the header button.
+          Bumps the history panel's refresh key on success and switches
+          the active tab so the new row is immediately visible. */}
+      <ReimbursementSubmitModal
+        isOpen={showReimbursementModal}
+        onClose={() => setShowReimbursementModal(false)}
+        onSubmitted={() => {
+          setReimbursementsRefreshKey((k) => k + 1);
+          setActiveTab("reimbursements");
+        }}
+      />
 
       {/* Pay section — F12 hourly rate + F13 monthly summary. Also shown
           on /account; final placement TBD with Aaron. */}
@@ -243,11 +274,14 @@ export default function UserPaymentsPage() {
         </div>
       </div>
 
-      {/* Tabs for Requests and History */}
-      <Tabs defaultValue="pending">
+      {/* Tabs for Requests, History, and Reimbursements. Controlled
+          via `activeTab` so the submit-modal success handler can flip
+          the user to the new request's tab. */}
+      <Tabs defaultValue="pending" value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="pending">Pending Requests ({formatNumber(requests.length).text})</TabsTrigger>
           <TabsTrigger value="history">Payment History ({formatNumber(payments.length).text})</TabsTrigger>
+          <TabsTrigger value="reimbursements">Reimbursements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending">
@@ -356,6 +390,10 @@ export default function UserPaymentsPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="reimbursements">
+          <ReimbursementsHistoryPanel refreshKey={reimbursementsRefreshKey} />
         </TabsContent>
       </Tabs>
 
