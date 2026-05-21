@@ -979,7 +979,12 @@ export interface ProjectProfileTask {
 
 export interface ProjectProfileTimeEntry {
   user_name: string;
+  /** Display label of the tier-1 activity (e.g. "QC / Validation"). */
   category: string;
+  /** Raw activity slug (added 2026-05-21 alongside the category fix; mirrors
+   *  the global TimeEntry shape from TimeTracking.py:444-449). Optional for
+   *  backward compatibility with older API rollouts. */
+  activity?: string;
   clock_in: string | null;
   clock_out: string | null;
   duration_seconds: number | null;

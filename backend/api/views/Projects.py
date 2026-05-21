@@ -22,6 +22,7 @@ from ..auth import (
 from ..filters import resolve_filtered_user_ids, get_user_country_ids, is_visible_by_location
 from ..stats import count_tasks_split_aware, get_project_stats, get_project_stats_from_tasks, get_batch_project_stats, get_user_task_stats, get_user_payment_balances, get_batch_project_stats_fast
 from .MapRoulette import MapRouletteSync
+from .TimeTracking import ACTIVITY_DISPLAY_MAP
 from ..database import (
     db,
     Country,
@@ -1115,11 +1116,20 @@ class ProjectAPI(MethodView):
             .group_by(TimeEntry.activity)
             .all()
         )
+        # `by_category` is keyed by the display label (e.g. "QC / Validation")
+        # so the frontend can render it directly. The model column is `activity`
+        # (slug); we display-map via ACTIVITY_DISPLAY_MAP. JSON key kept as
+        # `by_category` for frontend back-compat, mirroring the convention in
+        # TimeTracking.py:444-449.
         time_by_category = {}
         total_time_seconds = 0
-        for cat, secs in time_cat_rows:
-            if cat and secs:
-                time_by_category[cat] = secs
+        for activity_slug, secs in time_cat_rows:
+            if activity_slug and secs:
+                display = ACTIVITY_DISPLAY_MAP.get(
+                    activity_slug,
+                    activity_slug.capitalize() if activity_slug else "",
+                )
+                time_by_category[display] = time_by_category.get(display, 0) + secs
                 total_time_seconds += secs
 
         # Recent time entries (last 20)
@@ -1138,11 +1148,19 @@ class ProjectAPI(MethodView):
         entry_users = {u.id: u for u in User.query.filter(User.id.in_(entry_user_ids)).all()} if entry_user_ids else {}
         for e in recent_entries:
             eu = entry_users.get(e.user_id)
+            # Mirror TimeTracking.py:444-449 convention: `category` is the
+            # display label (kept for frontend back-compat), `activity` is the
+            # raw slug. Model column was renamed `category` -> `activity` in
+            # migration c4f8a9b0d1e2 — reading e.activity here, never e.category.
             recent_entries_data.append({
                 "user_name": (f"{eu.first_name or ''} {eu.last_name or ''}".strip() or eu.email) if eu else "Unknown",
                 "first_name": (eu.first_name or "") if eu else "",
                 "last_name": (eu.last_name or "") if eu else "",
-                "category": e.category,
+                "category": ACTIVITY_DISPLAY_MAP.get(
+                    e.activity,
+                    e.activity.capitalize() if e.activity else "",
+                ),
+                "activity": e.activity,
                 "clock_in": e.clock_in.isoformat() if e.clock_in else None,
                 "clock_out": e.clock_out.isoformat() if e.clock_out else None,
                 "duration_seconds": e.duration_seconds,
