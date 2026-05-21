@@ -205,7 +205,8 @@ export function TimeTrackingWidget({
         if (cancelled) return;
         const list = res?.subcategories ?? [];
         setSubOptions(list);
-        if (list.length === 1) setSelectedSub(list[0]);
+        // 2026-05-21: do NOT auto-pick a single subcategory option. Matches
+        // SidebarClock — clock-in defaults to no sub regardless of count.
       })
       .catch(() => {
         if (!cancelled) setSubOptions([]);
@@ -890,7 +891,7 @@ export function TimeTrackingWidget({
             onClick={handleClockIn}
             disabled={
               !selectedTopic
-              || (subOptions.length > 0 && !selectedSub)
+              // 2026-05-21: subcategory never required for clock-in.
               || (requiresProjectFor(selectedTopic, selectedSub) && !selectedProject)
               || clockingIn
             }

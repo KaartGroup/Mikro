@@ -49,6 +49,7 @@ import {
   useUsersList,
   useCurrentUserRole,
   useManagedTeams,
+  useLookupProjectByUrl,
 } from "@/hooks";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import Link from "next/link";
@@ -112,6 +113,7 @@ export default function AdminProjectsPage() {
   const { mutate: unassignTeamFromProject } = useUnassignTeamFromProject();
   const { mutate: syncProject } = useSyncProject();
   const { mutate: checkSyncStatus } = useCheckSyncStatus();
+  const { mutate: lookupProjectByUrl } = useLookupProjectByUrl();
   // Full org user list — drives the pre-select Users tab on the Add-Project
   // modal so admins can pick assignees at create time instead of having
   // to edit the project afterwards (UI20).
@@ -166,6 +168,22 @@ export default function AdminProjectsPage() {
   const [addUserSearch, setAddUserSearch] = useState("");
   const [addLocationSearch, setAddLocationSearch] = useState("");
 
+  // Preflight duplicate-check state. Populated when the URL field blurs;
+  // surfaces an inline banner so the admin can abort before filling out
+  // the rest of the form (Logan ask, 2026-05-21).
+  type AddPreflight =
+    | { state: "idle" }
+    | { state: "checking" }
+    | { state: "ok"; sourceId: number | null }
+    | {
+        state: "dupe-here";
+        sourceId: number;
+        project: { id: number; name: string; short_name: string | null };
+      }
+    | { state: "dupe-other-org"; sourceId: number }
+    | { state: "unparseable" };
+  const [addPreflight, setAddPreflight] = useState<AddPreflight>({ state: "idle" });
+
   // Reset pagination when search or filters change
   useEffect(() => {
     setActivePageNum(1);
@@ -200,6 +218,44 @@ export default function AdminProjectsPage() {
 
   const handleInputChange = (field: keyof ProjectFormData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  /** Run the duplicate preflight against the URL currently in formData.
+   *  No-ops on empty input. Resets to `idle` if the URL is cleared. */
+  const runAddPreflight = async () => {
+    const url = formData.url.trim();
+    if (!url) {
+      setAddPreflight({ state: "idle" });
+      return;
+    }
+    setAddPreflight({ state: "checking" });
+    try {
+      const res = await lookupProjectByUrl({ url });
+      if (!res?.exists) {
+        // Distinguish "URL didn't parse" from "URL is fine, no dupe" via
+        // the backend's `parseable` flag — falling back to source_id
+        // absence would misclassify every fresh URL.
+        if (res?.parseable === false) {
+          setAddPreflight({ state: "unparseable" });
+        } else {
+          setAddPreflight({ state: "ok", sourceId: res?.source_id ?? null });
+        }
+        return;
+      }
+      if (res.same_org && res.project) {
+        setAddPreflight({
+          state: "dupe-here",
+          sourceId: res.source_id ?? res.project.id,
+          project: res.project,
+        });
+      } else {
+        setAddPreflight({ state: "dupe-other-org", sourceId: res.source_id ?? 0 });
+      }
+    } catch (err) {
+      // Don't block submission on a flaky preflight — log and stay idle.
+      console.error("preflight check failed", err);
+      setAddPreflight({ state: "idle" });
+    }
   };
 
   const handleCalculateBudget = async () => {
@@ -237,6 +293,10 @@ export default function AdminProjectsPage() {
       const result = await createProject({
         url: formData.url,
         source: formData.source,
+        // Optional editor-provided short name. Falls through to
+        // _auto_parse_project_name on the backend when empty (Logan ask
+        // 2026-05-21 — admins can override the auto-derived label).
+        short_name: formData.short_name.trim() || undefined,
         rate_type: true,
         mapping_rate: formData.payments_enabled ? parseFloat(formData.mapping_rate) : 0,
         validation_rate: formData.payments_enabled ? parseFloat(formData.validation_rate) : 0,
@@ -310,6 +370,7 @@ export default function AdminProjectsPage() {
       setPreSelectedUserIds(new Set());
       setAddLocationSearch("");
       setAddUserSearch("");
+      setAddPreflight({ state: "idle" });
       refetch(buildRefetchBody());
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create project";
@@ -414,18 +475,29 @@ export default function AdminProjectsPage() {
     setEditTab("settings");
     setEditModalLoading(true);
     setShowEditModal(true);
-    // Fetch users and teams for this project
+    // 2026-05-21: Promise.allSettled rather than Promise.all so a 4xx
+    // from one endpoint (e.g. fetch_project_users denying a team_admin)
+    // doesn't blank the OTHER tab. Each list is set independently from
+    // its own fulfilled/rejected outcome. Previous behaviour silently
+    // wiped both tabs when fetch_project_users 403'd — the symptom
+    // Logan reported on the edit-project modal.
     try {
-      const [usersResponse, teamsResponse] = await Promise.all([
+      const [usersResult, teamsResult] = await Promise.allSettled([
         fetchProjectUsers({ project_id: project.id }),
         fetchProjectTeams({ projectId: project.id }),
       ]);
-      setProjectUsers(usersResponse?.users ?? []);
-      setProjectTeams(teamsResponse?.teams ?? []);
-    } catch {
-      console.error("Failed to fetch project data");
-      setProjectUsers([]);
-      setProjectTeams([]);
+      if (usersResult.status === "fulfilled") {
+        setProjectUsers(usersResult.value?.users ?? []);
+      } else {
+        console.error("Failed to fetch project users", usersResult.reason);
+        setProjectUsers([]);
+      }
+      if (teamsResult.status === "fulfilled") {
+        setProjectTeams(teamsResult.value?.teams ?? []);
+      } else {
+        console.error("Failed to fetch project teams", teamsResult.reason);
+        setProjectTeams([]);
+      }
     } finally {
       setEditModalLoading(false);
     }
@@ -532,6 +604,12 @@ export default function AdminProjectsPage() {
           aVal = (a.short_name || a.name || "").toLowerCase();
           bVal = (b.short_name || b.name || "").toLowerCase();
           break;
+        case "source_id":
+          // project.id IS the source id (upstream TM4/MR numeric id is
+          // persisted as our PK). Numeric compare for stable ordering.
+          aVal = a.id ?? 0;
+          bVal = b.id ?? 0;
+          break;
         case "total_tasks":
           aVal = a.total_tasks ?? 0;
           bVal = b.total_tasks ?? 0;
@@ -563,14 +641,24 @@ export default function AdminProjectsPage() {
     return sorted;
   };
 
+  /** NFD-decompose + strip combining marks so accents don't sink an otherwise
+   *  obvious match (e.g. searching "Vias Chia" needs to find "Vías Chía"). */
+  const normalizeForSearch = (s: string): string =>
+    (s || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
   const filterProjectsBySearch = (list: Project[]) => {
     if (!projectSearch.trim()) return list;
-    const search = projectSearch.trim().toLowerCase();
-    return list.filter(
-      (p) =>
-        (p.name || "").toLowerCase().includes(search) ||
-        (p.short_name || "").toLowerCase().includes(search)
-    );
+    const q = normalizeForSearch(projectSearch.trim());
+    return list.filter((p) => {
+      // Match against long name, short name, source URL, and source id.
+      // The source id is the integer project.id (Mikro stores the upstream
+      // TM4/MR id directly as the PK — see Project model).
+      if (normalizeForSearch(p.name || "").includes(q)) return true;
+      if (normalizeForSearch(p.short_name || "").includes(q)) return true;
+      if (normalizeForSearch(p.url || "").includes(q)) return true;
+      if (String(p.id).includes(q)) return true;
+      return false;
+    });
   };
 
   /** Calculate completion % for a project (TM4 or MR). Capped at 100%. */
@@ -600,12 +688,13 @@ export default function AdminProjectsPage() {
   };
 
   const projSortColumns = [
-    { key: "name", label: "Project", width: "w-[26%]" },
+    { key: "name", label: "Project", width: "w-[22%]" },
+    { key: "source_id", label: "Source ID", width: "w-[8%]" },
     { key: "total_tasks", label: "Tasks", width: "w-[6%]" },
     { key: "", label: "Progress", width: "w-[14%]" },
     { key: "completion", label: "Done", width: "w-[6%]" },
-    { key: "mapping_rate", label: "Rates", width: "w-[11%]" },
-    { key: "budget", label: "Budget", width: "w-[11%]" },
+    { key: "mapping_rate", label: "Rates", width: "w-[9%]" },
+    { key: "budget", label: "Budget", width: "w-[9%]" },
     { key: "difficulty", label: "Difficulty", width: "w-[10%]" },
   ];
 
@@ -664,9 +753,22 @@ export default function AdminProjectsPage() {
                   className="text-sm text-kaart-orange hover:underline"
                   title={project.source === "mr" ? "Open in MapRoulette" : "Open in Tasking Manager"}
                 >
-                  #{project.id}
+                  Open ↗
                 </a>
               </div>
+            </TableCell>
+            <TableCell>
+              {/* Source ID = upstream TM4/MR id, persisted as project.id PK.
+                  Monospace + small so the digits don't crowd the row. */}
+              <a
+                href={getProjectExternalUrl(project.id, project.source)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-sm text-kaart-orange hover:underline"
+                title={project.source === "mr" ? "Open in MapRoulette" : "Open in Tasking Manager"}
+              >
+                {project.id}
+              </a>
             </TableCell>
             <TableCell>
               {project.total_tasks === 0 && !project.last_synced ? (
@@ -773,7 +875,7 @@ export default function AdminProjectsPage() {
         ))}
         {projectList.length === 0 && (
           <TableRow>
-            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+            <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
               No projects found
             </TableCell>
           </TableRow>
@@ -1032,7 +1134,14 @@ export default function AdminProjectsPage() {
             <Button variant="outline" onClick={() => setShowAddModal(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateProject} isLoading={creating}>
+            <Button
+              onClick={handleCreateProject}
+              isLoading={creating}
+              // Block submission when preflight detected a same-org dupe —
+              // backend would 400 anyway. Cross-org dupes don't block the
+              // button because create_project itself rejects them clearly.
+              disabled={creating || addPreflight.state === "dupe-here"}
+            >
               Create Project
             </Button>
           </>
@@ -1085,7 +1194,57 @@ export default function AdminProjectsPage() {
                   label={formData.source === "mr" ? "MapRoulette Challenge URL" : "TM4 Project URL"}
                   placeholder={formData.source === "mr" ? "https://maproulette.org/browse/challenges/123" : "https://tasks.kaart.com/projects/123"}
                   value={formData.url}
-                  onChange={(e) => handleInputChange("url", e.target.value)}
+                  onChange={(e) => {
+                    handleInputChange("url", e.target.value);
+                    // Reset stale preflight result while the admin is typing.
+                    if (addPreflight.state !== "idle") {
+                      setAddPreflight({ state: "idle" });
+                    }
+                  }}
+                  onBlur={runAddPreflight}
+                />
+                {/* Preflight duplicate-check banner (2026-05-21, Logan ask).
+                    Runs on URL blur. Surfaces same-org dupes with a link to
+                    the existing project; cross-org dupes get a generic
+                    message (no name leakage). */}
+                {addPreflight.state === "checking" && (
+                  <p className="text-xs text-muted-foreground -mt-2">Checking for duplicates…</p>
+                )}
+                {addPreflight.state === "dupe-here" && (
+                  <div className="bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800 rounded-md p-3 text-sm">
+                    <p className="font-medium text-red-700 dark:text-red-300">Already in Mikro</p>
+                    <p className="text-red-600 dark:text-red-400 mt-1">
+                      Source ID {addPreflight.sourceId} — &quot;{addPreflight.project.name}&quot;
+                      {addPreflight.project.short_name ? ` (${addPreflight.project.short_name})` : ""}
+                    </p>
+                    <Link
+                      href={`/admin/projects/${addPreflight.project.id}`}
+                      className="inline-block mt-1 text-red-700 dark:text-red-300 underline"
+                    >
+                      Open existing project →
+                    </Link>
+                  </div>
+                )}
+                {addPreflight.state === "dupe-other-org" && (
+                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-md p-3 text-sm">
+                    <p className="font-medium text-amber-700 dark:text-amber-300">
+                      Source ID {addPreflight.sourceId} belongs to another organization
+                    </p>
+                    <p className="text-amber-600 dark:text-amber-400 mt-1">
+                      The same upstream project has already been imported by another org. Ask a super admin if cross-org access is needed.
+                    </p>
+                  </div>
+                )}
+                {addPreflight.state === "unparseable" && (
+                  <p className="text-xs text-amber-600">
+                    Could not extract a project id from this URL — double-check the format.
+                  </p>
+                )}
+                <Input
+                  label="Short Name (optional)"
+                  placeholder="Leave blank to auto-derive from project name"
+                  value={formData.short_name}
+                  onChange={(e) => handleInputChange("short_name", e.target.value)}
                 />
                 <div className="flex items-center gap-2 mb-4">
                   <input
@@ -1400,12 +1559,38 @@ export default function AdminProjectsPage() {
 
           <TabsContent value="settings">
             <div className="space-y-4">
+              {/* 2026-05-21 (Logan ask): show the long name as a read-only
+                  field alongside the editable short name. Source URL +
+                  source id are read-only too — both display under the
+                  short-name input below. */}
+              <Input
+                label="Long Name"
+                value={selectedProject?.name ?? ""}
+                readOnly
+                disabled
+              />
               <Input
                 label="Short Name"
                 placeholder="e.g. Philippines — Construction Check"
                 value={formData.short_name}
                 onChange={(e) => handleInputChange("short_name", e.target.value)}
               />
+              {selectedProject && (
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Source ID"
+                    value={String(selectedProject.id)}
+                    readOnly
+                    disabled
+                  />
+                  <Input
+                    label={selectedProject.source === "mr" ? "MapRoulette URL" : "TM4 URL"}
+                    value={selectedProject.url || ""}
+                    readOnly
+                    disabled
+                  />
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"

@@ -18,6 +18,7 @@ from ..utils import requires_admin, requires_team_admin_or_above
 from ..auth import (
     is_org_admin_or_above,
     managed_team_ids_for,
+    team_admin_can_access_user,
 )
 from ..filters import resolve_filtered_user_ids, get_user_country_ids, is_visible_by_location
 from ..stats import count_tasks_split_aware, get_project_stats, get_project_stats_from_tasks, get_batch_project_stats, get_user_task_stats, get_user_payment_balances, get_batch_project_stats_fast
@@ -41,6 +42,22 @@ from ..database import (
     ProjectTeam,
     TeamUser,
 )
+
+
+def _strip_trailing_hashtags(name):
+    """Return everything before the first ` #` in a project title.
+
+    MR titles routinely carry trailing hashtags (e.g. ``#Kaart``,
+    ``#Colombia``, ``#MR57669``) that don't always line up with the
+    actual project — whoever sets the MR challenge up picks them ad-hoc.
+    For Mikro's purposes the long name is the human-readable portion,
+    everything before the first space-hash boundary. Idempotent;
+    returns the input unchanged when no hashtags are present or when
+    the input is empty.
+    """
+    if not name:
+        return name
+    return re.split(r"\s+#", name, 1)[0].strip()
 
 
 def _auto_parse_project_name(name):
@@ -206,6 +223,8 @@ class ProjectAPI(MethodView):
             return self.unassign_project_training()
         elif path == "fetch_project_profile":
             return self.fetch_project_profile()
+        elif path == "lookup_project_by_url":
+            return self.lookup_project_by_url()
 
         return {
             "message": "Only /project/{fetch_users,fetch_user_projects} is permitted with GET",  # noqa: E501
@@ -266,10 +285,24 @@ class ProjectAPI(MethodView):
             }
         project_id = m.group(1)
 
-        # Check if project already exists
+        # Check if project already exists. The ID is the upstream
+        # TM4/MR numeric ID stored as our PK, so collisions can come
+        # from another org in the same Mikro instance too — surface
+        # that distinction so the admin knows whether they own the
+        # record or it belongs elsewhere.
         project_exists = Project.query.filter_by(id=project_id).first()
         if project_exists:
-            return {"message": "Project already exists", "status": 400}
+            same_org = project_exists.org_id == g.user.org_id
+            return {
+                "message": (
+                    "Project already exists in this org: "
+                    f"\"{project_exists.name}\" (#{project_exists.id})"
+                ) if same_org else (
+                    "Project source already imported by another organization; "
+                    "contact admin to share access."
+                ),
+                "status": 400,
+            }
 
         # Fetch project data from TM4 API
         base_url = self._get_tm4_base_url()
@@ -357,10 +390,22 @@ class ProjectAPI(MethodView):
         if not challenge_id:
             return {"message": "Cannot get challenge ID from MapRoulette URL", "status": 400}
 
-        # Check if project already exists
+        # Check if project already exists. The MR challenge id is our
+        # PK so a collision can come from another org's import too —
+        # name the distinction.
         project_exists = Project.query.filter_by(id=challenge_id).first()
         if project_exists:
-            return {"message": "Project already exists", "status": 400}
+            same_org = project_exists.org_id == g.user.org_id
+            return {
+                "message": (
+                    "Project already exists in this org: "
+                    f"\"{project_exists.name}\" (#{project_exists.id})"
+                ) if same_org else (
+                    "Project source already imported by another organization; "
+                    "contact admin to share access."
+                ),
+                "status": 400,
+            }
 
         payments_enabled = request.json.get("payments_enabled", True)
         if payments_enabled:
@@ -960,6 +1005,77 @@ class ProjectAPI(MethodView):
             "message": "Projects found",
             "status": 200,
         }
+
+    @requires_team_admin_or_above
+    def lookup_project_by_url(self):
+        """Preflight duplicate check for the Add-Project modal.
+
+        The frontend posts a URL the admin has just pasted in and we
+        report whether Mikro already has that source project — same
+        org or another org. Lets the admin abort the form before
+        filling everything out only to hit a hard 400 on submit.
+
+        Response shape:
+            { exists: false }                            no record at this id
+            { exists: true, same_org: true, project: {.}}  importable; admin
+                                                            should open it
+                                                            instead
+            { exists: true, same_org: false }            another org owns it;
+                                                            no leakage of name
+        """
+        if not g.user:
+            return {"message": "User not found", "status": 304}
+        url = (request.json or {}).get("url", "").strip()
+        if not url:
+            return {"message": "url required", "status": 400}
+        # Reuse the source-detect + ID-extract helpers so this stays in
+        # lock-step with whatever create_project will derive from the
+        # same URL.
+        source = self._detect_source(url)
+        project_id = None
+        if source == "mr":
+            project_id = self._extract_mr_challenge_id(url)
+        else:
+            m = re.match(r"^.*\/([0-9]+)$", url)
+            if m:
+                project_id = int(m.group(1))
+        if project_id is None:
+            # parseable=false sentinel: caller distinguishes via this flag,
+            # NOT via the absence of source_id (a fresh-but-parseable URL
+            # also returns exists:false but DOES carry source_id below).
+            return {
+                "status": 200,
+                "exists": False,
+                "parseable": False,
+                "message": "Could not extract a project id from the URL",
+            }
+        existing = Project.query.filter_by(id=project_id).first()
+        if not existing:
+            return {
+                "status": 200,
+                "exists": False,
+                "parseable": True,
+                "source": source,
+                "source_id": project_id,
+            }
+        same_org = existing.org_id == g.user.org_id
+        out = {
+            "status": 200,
+            "exists": True,
+            "parseable": True,
+            "same_org": same_org,
+            "source": source,
+            "source_id": project_id,
+        }
+        if same_org:
+            # Show enough for the admin to open it instead; never leak
+            # cross-org project names.
+            out["project"] = {
+                "id": existing.id,
+                "name": existing.name,
+                "short_name": existing.short_name,
+            }
+        return out
 
     def fetch_project_profile(self):
         """Fetch comprehensive profile data for a single project."""
@@ -1823,7 +1939,7 @@ class ProjectAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_user_project(self):
         # Check if user is authenticated
         if not g:
@@ -1834,15 +1950,24 @@ class ProjectAPI(MethodView):
             return {"message": "user_id required", "status": 400}
         if not project_id:
             return {"message": "project_id required", "status": 400}
+        # team_admin can only attach members of teams they lead.
+        # `team_admin_can_access_user` short-circuits to False for any
+        # viewer with no managed teams, which would also catch org_admins
+        # who don't happen to lead a team — gate explicitly on the role.
+        if g.user.role == "team_admin" and not team_admin_can_access_user(g.user, user_id):
+            return {
+                "message": "User not on a team you manage",
+                "status": 403,
+            }
         target_project = Project.query.filter_by(id=project_id).first()
-        if target_project.total_editors == target_project.max_editors:
-            return {"message": "Editor limit reached", "status": 400}
-        ProjectUser.create(project_id=project_id, user_id=user_id)
         if not target_project:
             return {
                 "message": "project %s not found" % (project_id),
                 "status": 400,
             }
+        if target_project.total_editors == target_project.max_editors:
+            return {"message": "Editor limit reached", "status": 400}
+        ProjectUser.create(project_id=project_id, user_id=user_id)
         new_editor_count = target_project.total_editors + 1
         target_project.update(total_editors=new_editor_count)
         return {
@@ -1850,7 +1975,7 @@ class ProjectAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_user_project(self):
         # Check if user is authenticated
         if not g:
@@ -1861,6 +1986,14 @@ class ProjectAPI(MethodView):
             return {"message": "user_id required", "status": 400}
         if not project_id:
             return {"message": "project_id required", "status": 400}
+        # team_admin scope mirrors assign: can only detach a member of
+        # a team they lead. Bypass for org_admin+ — see assign for why
+        # the explicit role gate is needed.
+        if g.user.role == "team_admin" and not team_admin_can_access_user(g.user, user_id):
+            return {
+                "message": "User not on a team you manage",
+                "status": 403,
+            }
         target_relation = ProjectUser.query.filter_by(
             project_id=project_id, user_id=user_id
         ).first()

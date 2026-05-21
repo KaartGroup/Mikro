@@ -376,6 +376,30 @@ export function useCreateProject() {
   return useApiMutation<{ message: string; project_id: number; status: number }>("/project/create_project");
 }
 
+/**
+ * Preflight check: does Mikro already have a project for the URL the
+ * admin just pasted? Returns `exists: false` for new sources, or
+ * `exists: true, same_org, source_id, source` (plus the project's
+ * display fields when same_org) so the Add modal can warn before
+ * the admin fills the rest of the form.
+ */
+export function useLookupProjectByUrl() {
+  return useApiMutation<{
+    status: number;
+    exists: boolean;
+    /** False iff the backend couldn't extract a numeric id from the URL.
+     *  Use this — not the absence of source_id — to detect unparseable
+     *  URLs; a fresh, parseable URL returns exists:false and DOES include
+     *  source_id. */
+    parseable?: boolean;
+    same_org?: boolean;
+    source?: "tm4" | "mr";
+    source_id?: number;
+    project?: { id: number; name: string; short_name: string | null };
+    message?: string;
+  }>("/project/lookup_project_by_url");
+}
+
 export function useUpdateProject() {
   return useApiMutation("/project/update_project");
 }
