@@ -7,7 +7,7 @@ alongside team_scoping integration tests.
 
 from unittest.mock import patch
 
-from ..api.auth.pay_visibility import (
+from api.auth.pay_visibility import (
     PAY_FIELDS,
     can_view_pay_for,
     redact_pay_fields,
@@ -60,7 +60,7 @@ def test_team_admin_can_view_managed_member_pay():
     team_admin = _FakeUser("auth0|lead", "team_admin")
     target = _FakeUser("auth0|member", "user")
     with patch(
-        "backend.api.auth.pay_visibility.team_admin_can_access_user",
+        "api.auth.pay_visibility.team_admin_can_access_user",
         return_value=True,
     ):
         assert can_view_pay_for(team_admin, target)
@@ -71,7 +71,7 @@ def test_team_admin_cannot_view_unmanaged_user_pay():
     team_admin = _FakeUser("auth0|lead", "team_admin")
     target = _FakeUser("auth0|other", "user")
     with patch(
-        "backend.api.auth.pay_visibility.team_admin_can_access_user",
+        "api.auth.pay_visibility.team_admin_can_access_user",
         return_value=False,
     ):
         assert not can_view_pay_for(team_admin, target)
@@ -82,7 +82,7 @@ def test_team_admin_with_zero_managed_teams_cannot_view_other_pay():
     team_admin = _FakeUser("auth0|lead", "team_admin")
     target = _FakeUser("auth0|x", "user")
     with patch(
-        "backend.api.auth.pay_visibility.team_admin_can_access_user",
+        "api.auth.pay_visibility.team_admin_can_access_user",
         return_value=False,
     ):
         assert not can_view_pay_for(team_admin, target)

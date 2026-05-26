@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type {
   AdminDashboardStats,
   UserDashboardStats,
+  ValidatorDashboardStats,
   UsersResponse,
   ProjectsResponse,
   TransactionsResponse,
@@ -149,13 +150,13 @@ export function useAdminDashboardStats() {
 }
 
 // User Dashboard Stats
-export function useUserDashboardStats() {
-  return useApiCall<UserDashboardStats>("/project/fetch_user_dash_stats");
+export function useUserDashboardStats(enabled = true) {
+  return useApiCall<UserDashboardStats>("/project/fetch_user_dash_stats", { immediate: enabled });
 }
 
 // Validator Dashboard Stats
-export function useValidatorDashboardStats() {
-  return useApiCall<UserDashboardStats>("/project/fetch_validator_dash_stats");
+export function useValidatorDashboardStats(enabled = true) {
+  return useApiCall<ValidatorDashboardStats>("/project/fetch_validator_dash_stats", { immediate: enabled });
 }
 
 // Users List (Admin)
@@ -169,13 +170,13 @@ export function useOrgProjects() {
 }
 
 // User's Projects
-export function useUserProjects() {
-  return useApiCall<ProjectsResponse>("/project/fetch_user_projects");
+export function useUserProjects(enabled = true) {
+  return useApiCall<ProjectsResponse>("/project/fetch_user_projects", { immediate: enabled });
 }
 
 // Validator's Projects
-export function useValidatorProjects() {
-  return useApiCall<ProjectsResponse>("/project/fetch_validator_projects");
+export function useValidatorProjects(enabled = true) {
+  return useApiCall<ProjectsResponse>("/project/fetch_validator_projects", { immediate: enabled });
 }
 
 // Transactions (Admin)

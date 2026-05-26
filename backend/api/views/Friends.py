@@ -11,7 +11,7 @@ from flask.views import MethodView
 from flask import g, request, current_app
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from ..utils import requires_admin
+from ..utils import requires_team_admin_or_above
 from ..database import db, Friend, FriendChangeset
 import json
 import requests as http_requests
@@ -59,7 +59,7 @@ class FriendAPI(MethodView):
 
     # ─── List all friends ──────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_friends(self):
         """Return all friends for the org with cached stats."""
         org_id = g.user.org_id
@@ -98,7 +98,7 @@ class FriendAPI(MethodView):
 
     # ─── Create friend ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def create_friend(self):
         """Add a new friend to the watchlist."""
         data = request.json or {}
@@ -141,7 +141,7 @@ class FriendAPI(MethodView):
 
     # ─── Update friend ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def update_friend(self):
         """Update notes and/or tags for a friend."""
         data = request.json or {}
@@ -166,7 +166,7 @@ class FriendAPI(MethodView):
 
     # ─── Delete friend ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def delete_friend(self):
         """Hard delete a friend and its cached changesets."""
         data = request.json or {}
@@ -187,7 +187,7 @@ class FriendAPI(MethodView):
 
     # ─── Friend detail ─────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_friend_detail(self):
         """Return friend info, cached changesets, heatmap points, and summary."""
         data = request.json or {}
@@ -303,7 +303,7 @@ class FriendAPI(MethodView):
 
     # ─── Refresh friend activity ───────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def refresh_friend_activity(self):
         """Fetch latest changeset data from OSM API and update cache."""
         data = request.json or {}
@@ -325,7 +325,7 @@ class FriendAPI(MethodView):
 
     # ─── Toggle discussion flag ───────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def toggle_discussion_flag(self):
         """Toggle a discussion link as flagged/unflagged."""
         data = request.json or {}

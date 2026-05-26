@@ -9,7 +9,7 @@ and filter options for the universal FilterBar.
 from flask.views import MethodView
 from flask import g, request
 
-from ..utils import requires_admin
+from ..utils import requires_team_admin_or_above, requires_admin
 from ..database import (
     db,
     Region,
@@ -85,7 +85,7 @@ class RegionAPI(MethodView):
 
     # ─── Regions ──────────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_regions(self):
         """List all regions with their countries."""
         regions = Region.query.order_by(Region.name).all()
@@ -179,7 +179,7 @@ class RegionAPI(MethodView):
 
     # ─── Countries ────────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_countries(self):
         """List all countries with region info."""
         countries = Country.query.order_by(Country.name).all()
@@ -351,7 +351,7 @@ class RegionAPI(MethodView):
 
     # ─── Filter Options ───────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_filter_options(self):
         """
         Return all available filter dimensions and their values.
@@ -515,21 +515,21 @@ class RegionAPI(MethodView):
 
     # ── Project locations ──
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_project_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._assign_locations(ProjectCountry, "project_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_project_location(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._unassign_location(ProjectCountry, "project_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_project_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
@@ -538,21 +538,21 @@ class RegionAPI(MethodView):
 
     # ── Training locations ──
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_training_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._assign_locations(TrainingCountry, "training_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_training_location(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._unassign_location(TrainingCountry, "training_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_training_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
@@ -561,21 +561,21 @@ class RegionAPI(MethodView):
 
     # ── Checklist locations ──
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_checklist_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._assign_locations(ChecklistCountry, "checklist_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_checklist_location(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._unassign_location(ChecklistCountry, "checklist_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_checklist_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
@@ -605,7 +605,7 @@ class RegionAPI(MethodView):
 
     # ─── Seed Defaults ────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def seed_defaults(self):
         """Seed default regions and countries. Idempotent — skips existing."""
         import logging

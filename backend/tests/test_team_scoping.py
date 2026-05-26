@@ -6,7 +6,7 @@ and DB-free.
 
 from unittest.mock import patch, MagicMock
 
-from ..api.auth.team_scoping import (
+from api.auth.team_scoping import (
     managed_team_ids_for,
     team_member_ids_for,
     team_admin_can_access_team,
@@ -50,23 +50,24 @@ def test_managed_team_ids_for_viewer_with_no_id():
 
 def test_managed_team_ids_for_returns_team_ids():
     viewer = _FakeUser("auth0|lead")
-    fake_filter = MagicMock()
-    fake_filter.all.return_value = [_FakeTeam(1), _FakeTeam(2), _FakeTeam(7)]
-    with patch("backend.api.auth.team_scoping.Team") as MockTeam:
-        MockTeam.query.filter_by.return_value = fake_filter
+    with patch("api.auth.team_scoping.Team") as MockTeam, patch(
+        "api.auth.team_scoping.TeamLead"
+    ):
+        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = [
+            _FakeTeam(1),
+            _FakeTeam(2),
+            _FakeTeam(7),
+        ]
         result = managed_team_ids_for(viewer)
     assert result == [1, 2, 7]
-    MockTeam.query.filter_by.assert_called_once_with(
-        lead_id="auth0|lead", org_id="kaart-org"
-    )
 
 
 def test_managed_team_ids_for_empty_when_not_a_lead_anywhere():
     viewer = _FakeUser("auth0|orphan")
-    fake_filter = MagicMock()
-    fake_filter.all.return_value = []
-    with patch("backend.api.auth.team_scoping.Team") as MockTeam:
-        MockTeam.query.filter_by.return_value = fake_filter
+    with patch("api.auth.team_scoping.Team") as MockTeam, patch(
+        "api.auth.team_scoping.TeamLead"
+    ):
+        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = []
         assert managed_team_ids_for(viewer) == []
 
 
@@ -84,7 +85,7 @@ def test_team_member_ids_for_returns_user_ids():
         _FakeTeamUser("auth0|b", 1),
         _FakeTeamUser("auth0|c", 2),
     ]
-    with patch("backend.api.auth.team_scoping.TeamUser") as MockTU:
+    with patch("api.auth.team_scoping.TeamUser") as MockTU:
         MockTU.query.filter.return_value = fake_filter
         result = team_member_ids_for([1, 2])
     assert result == {"auth0|a", "auth0|b", "auth0|c"}
@@ -95,19 +96,25 @@ def test_team_member_ids_for_returns_user_ids():
 
 def test_team_admin_can_access_team_yes():
     viewer = _FakeUser("auth0|lead")
-    fake_filter = MagicMock()
-    fake_filter.all.return_value = [_FakeTeam(1), _FakeTeam(5)]
-    with patch("backend.api.auth.team_scoping.Team") as MockTeam:
-        MockTeam.query.filter_by.return_value = fake_filter
+    with patch("api.auth.team_scoping.Team") as MockTeam, patch(
+        "api.auth.team_scoping.TeamLead"
+    ):
+        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = [
+            _FakeTeam(1),
+            _FakeTeam(5),
+        ]
         assert team_admin_can_access_team(viewer, 5)
 
 
 def test_team_admin_can_access_team_no():
     viewer = _FakeUser("auth0|lead")
-    fake_filter = MagicMock()
-    fake_filter.all.return_value = [_FakeTeam(1), _FakeTeam(5)]
-    with patch("backend.api.auth.team_scoping.Team") as MockTeam:
-        MockTeam.query.filter_by.return_value = fake_filter
+    with patch("api.auth.team_scoping.Team") as MockTeam, patch(
+        "api.auth.team_scoping.TeamLead"
+    ):
+        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = [
+            _FakeTeam(1),
+            _FakeTeam(5),
+        ]
         assert not team_admin_can_access_team(viewer, 99)
 
 
@@ -122,30 +129,30 @@ def test_team_admin_can_access_team_none_inputs():
 
 def test_team_admin_can_access_user_when_target_in_managed_team():
     viewer = _FakeUser("auth0|lead")
-    team_filter = MagicMock()
-    team_filter.all.return_value = [_FakeTeam(1)]
     membership_filter = MagicMock()
     membership_filter.first.return_value = _FakeTeamUser("auth0|member", 1)
 
-    with patch("backend.api.auth.team_scoping.Team") as MockTeam, patch(
-        "backend.api.auth.team_scoping.TeamUser"
-    ) as MockTU:
-        MockTeam.query.filter_by.return_value = team_filter
+    with patch("api.auth.team_scoping.Team") as MockTeam, patch(
+        "api.auth.team_scoping.TeamLead"
+    ), patch("api.auth.team_scoping.TeamUser") as MockTU:
+        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = [
+            _FakeTeam(1)
+        ]
         MockTU.query.filter.return_value = membership_filter
         assert team_admin_can_access_user(viewer, "auth0|member")
 
 
 def test_team_admin_can_access_user_when_target_not_in_team():
     viewer = _FakeUser("auth0|lead")
-    team_filter = MagicMock()
-    team_filter.all.return_value = [_FakeTeam(1)]
     membership_filter = MagicMock()
     membership_filter.first.return_value = None
 
-    with patch("backend.api.auth.team_scoping.Team") as MockTeam, patch(
-        "backend.api.auth.team_scoping.TeamUser"
-    ) as MockTU:
-        MockTeam.query.filter_by.return_value = team_filter
+    with patch("api.auth.team_scoping.Team") as MockTeam, patch(
+        "api.auth.team_scoping.TeamLead"
+    ), patch("api.auth.team_scoping.TeamUser") as MockTU:
+        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = [
+            _FakeTeam(1)
+        ]
         MockTU.query.filter.return_value = membership_filter
         assert not team_admin_can_access_user(viewer, "auth0|stranger")
 
@@ -153,11 +160,11 @@ def test_team_admin_can_access_user_when_target_not_in_team():
 def test_team_admin_can_access_user_zero_managed_teams():
     """The empty-state team_admin: no teams led, no access to anyone."""
     viewer = _FakeUser("auth0|orphan")
-    team_filter = MagicMock()
-    team_filter.all.return_value = []
 
-    with patch("backend.api.auth.team_scoping.Team") as MockTeam:
-        MockTeam.query.filter_by.return_value = team_filter
+    with patch("api.auth.team_scoping.Team") as MockTeam, patch(
+        "api.auth.team_scoping.TeamLead"
+    ):
+        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = []
         assert not team_admin_can_access_user(viewer, "auth0|x")
 
 
