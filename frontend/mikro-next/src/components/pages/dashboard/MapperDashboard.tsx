@@ -24,8 +24,8 @@ import {
   useUserPayable,
   useSubmitPaymentRequest,
   useSyncUserTasks,
-  usePaymentsVisible,
 } from "@/hooks";
+import { useRole } from "@/contexts/RoleContext";
 import type { Project, ValidatorDashboardStats } from "@/types";
 import { formatNumber, formatCurrency, getProjectExternalUrl } from "@/lib/utils";
 import Link from "next/link";
@@ -166,7 +166,7 @@ export function MapperDashboard({ isValidator = false }: Props) {
   const { data: payable, loading: payableLoading, refetch: refetchPayable } = useUserPayable();
   const { mutate: submitPayment, loading: submittingPayment } = useSubmitPaymentRequest();
   const { mutate: syncTasks, loading: syncing } = useSyncUserTasks();
-  const { paymentsVisible } = usePaymentsVisible();
+  const { paymentsVisible } = useRole();
   const toast = useToastActions();
   const [isRequestingPayment, setIsRequestingPayment] = useState(false);
 

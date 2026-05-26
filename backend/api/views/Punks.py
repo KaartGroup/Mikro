@@ -11,7 +11,7 @@ from flask.views import MethodView
 from flask import g, request, current_app
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from ..utils import requires_team_admin_or_above
+from ..utils import requires_team_admin_or_above, requires_admin
 from ..database import db, Punk, PunkChangeset
 import json
 import requests as http_requests
@@ -374,7 +374,7 @@ class PunkAPI(MethodView):
 
     # ─── Purge all discussions ───────────────────────────
 
-    @requires_team_admin_or_above
+    @requires_admin
     def purge_all_discussions(self):
         """Clear cached discussions from ALL punks. Dev tool."""
         punks = Punk.query.filter(Punk.org_id == g.user.org_id).all()

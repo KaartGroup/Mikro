@@ -39,10 +39,10 @@ export function RoleProvider({
 
   useEffect(() => {
     const stored = localStorage.getItem(PREVIEW_KEY);
-    if (stored) {
+    if (stored && isAnyAdmin(initialActualRole)) {
       setPreviewRoleState(stored as UserRole);
     }
-  }, []);
+  }, [initialActualRole]);
 
   const role = previewRole ?? initialRole;
   const isPreviewMode = previewRole !== null;

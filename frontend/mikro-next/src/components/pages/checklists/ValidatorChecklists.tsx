@@ -3,14 +3,15 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, Button, Modal, Val } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
-import { useValidatorChecklists, useConfirmChecklistItem, useAddChecklistComment, usePaymentsVisible } from "@/hooks";
+import { useValidatorChecklists, useConfirmChecklistItem, useAddChecklistComment } from "@/hooks";
+import { useRole } from "@/contexts/RoleContext";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 
 export function ValidatorChecklists() {
   const { data, loading, refetch } = useValidatorChecklists();
   const { mutate: confirmItem } = useConfirmChecklistItem();
   const { mutate: addComment, loading: addingComment } = useAddChecklistComment();
-  const { paymentsVisible } = usePaymentsVisible();
+  const { paymentsVisible } = useRole();
   const toast = useToastActions();
 
   const completedChecklists = data?.ready_for_confirmation || [];

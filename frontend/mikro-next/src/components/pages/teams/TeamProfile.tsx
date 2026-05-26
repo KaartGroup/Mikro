@@ -254,7 +254,7 @@ export function TeamProfile({ isAdmin = false }: Props) {
                       <tr
                         key={proj.id}
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => router.push("/projects")}
+                        onClick={() => router.push(`/projects/${proj.id}`)}
                       >
                         <td className="px-6 py-4">
                           <span className="font-medium text-kaart-orange">{proj.name}</span>
