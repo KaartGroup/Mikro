@@ -12,19 +12,18 @@ def run_project_sync_job(job):
     if the project is visible). Runs in the background worker to avoid
     gunicorn timeout.
     """
-    from ...database import db, User, Project, ProjectUser
+    from ...database import db, User, Project, ProjectUser, ProjectTeam, TeamUser, Task
     from ...views.Tasks import TaskAPI
     from ...views.MapRoulette import MapRouletteSync
 
     task_api = TaskAPI()
 
     try:
+        # Extract before overwriting progress with status text.
+        # User.id is the Auth0 sub string (e.g. "auth0|abc123"), not an int.
         target_user_id = None
         if job.progress and job.progress.startswith("user:"):
-            try:
-                target_user_id = int(job.progress.split(":", 1)[1])
-            except ValueError:
-                logger.warning(f"Project sync job {job.id}: invalid user id in progress field")
+            target_user_id = job.progress.split(":", 1)[1]
 
         job.status = "running"
         job.started_at = datetime.now(timezone.utc)
@@ -43,8 +42,6 @@ def run_project_sync_job(job):
             target_user = User.query.get(target_user_id)
             users = [target_user] if target_user else []
         else:
-            from ...database import ProjectTeam, TeamUser, Task
-
             direct_ids = set(
                 pu.user_id
                 for pu in ProjectUser.query.filter_by(project_id=project.id).all()
