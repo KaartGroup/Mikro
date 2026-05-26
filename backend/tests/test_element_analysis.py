@@ -143,6 +143,33 @@ class TestParseAdiffTransitions:
         assert stats["oneway"] == {(None, "yes"): 1}
         assert stats["highway"] == {}  # residential unchanged, filtered out
 
+    # --- multi-key changesets ---
+
+    def test_182097240_six_keys(self):
+        stats = _parse("182097240_multi_highway_name_oneway_ref_restriction_type.xml")
+        assert stats["ref"][(None, "66")] == 1
+        assert stats["oneway"][(None, "yes")] == 3
+        assert stats["oneway"][("yes", None)] == 2
+        assert stats["highway"][(None, "trunk")] == 1
+        assert stats["restriction"][(None, "no_left_turn")] == 1
+        assert stats["name"][(None, "Avenida Carrera 27")] == 1
+        assert stats["type"][(None, "restriction")] == 1
+        assert stats["access"] == {}
+        assert stats["barrier"] == {}
+        assert stats["construction"] == {}
+
+    def test_182054191_seven_keys(self):
+        stats = _parse("182054191_multi_access_highway_name_oneway_ref_restriction_type.xml")
+        assert stats["access"][(None, "private")] == 1
+        assert stats["highway"][("trunk", "primary")] == 16
+        assert stats["highway"][("trunk_link", "primary_link")] == 4
+        assert stats["oneway"][("yes", None)] == 1
+        assert stats["ref"][(None, "45A")] == 2
+        assert stats["restriction"][(None, "no_left_turn")] == 2
+        assert stats["type"][(None, "restriction")] == 2
+        assert stats["barrier"] == {}
+        assert stats["construction"] == {}
+
     # --- no-transition files ---
 
     def test_geometry_only_changeset_has_no_transitions(self):

@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="utf-8"?>
+<osm version="0.6" generator="osmcha" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
+  <action type="modify">
+    <old>
+      <node id="649983299" version="18" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629" lon="-73.1134382" lat="7.1023428">
+        <tag k="highway" v="traffic_signals"/>
+        <tag k="traffic_signals" v="signal"/>
+      </node>
+    </old>
+    <new>
+      <node id="649983299" version="19" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" lat="7.102392" lon="-73.1134449">
+        <tag k="highway" v="traffic_signals"/>
+        <tag k="traffic_signals" v="signal"/>
+      </node>
+    </new>
+  </action>
+  <action type="delete">
+    <old>
+      <node id="12987807229" version="3" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629" lon="-73.1133377" lat="7.102317">
+        <tag k="highway" v="traffic_signals"/>
+        <tag k="traffic_signals" v="signal"/>
+      </node>
+    </old>
+    <new>
+      <node id="12987807229" version="4" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" lat="7.102317" lon="-73.1133377" visible="false"/>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <node id="13609913567" version="1" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629" lon="-73.1133456" lat="7.1024123">
+        <tag k="highway" v="traffic_signals"/>
+        <tag k="traffic_signals" v="signal"/>
+      </node>
+    </old>
+    <new>
+      <node id="13609913567" version="2" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" lat="7.1022852" lon="-73.1133282">
+        <tag k="highway" v="traffic_signals"/>
+        <tag k="traffic_signals" v="signal"/>
+      </node>
+    </new>
+  </action>
+  <action type="delete">
+    <old>
+      <node id="13609913568" version="1" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629" lon="-73.113426" lat="7.1022634">
+        <tag k="highway" v="traffic_signals"/>
+        <tag k="traffic_signals" v="signal"/>
+      </node>
+    </old>
+    <new>
+      <node id="13609913568" version="2" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" lat="7.1022634" lon="-73.113426" visible="false"/>
+    </new>
+  </action>
+  <action type="create">
+    <node id="13785782401" version="1" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" lat="7.1023707" lon="-73.113339"/>
+  </action>
+  <action type="create">
+    <node id="13785782402" version="1" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" lat="7.1022978" lon="-73.1134318"/>
+  </action>
+  <action type="create">
+    <node id="13785782403" version="1" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" lat="7.1023515" lon="-73.1132852"/>
+  </action>
+  <action type="create">
+    <node id="13785782404" version="1" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" lat="7.1024362" lon="-73.1133024">
+      <tag k="highway" v="traffic_signals"/>
+      <tag k="traffic_signals" v="signal"/>
+    </node>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="474943369" version="15" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629">
+        <bounds minlat="7.0996393" minlon="-73.1133377" maxlat="7.102317" maxlon="-73.1130976"/>
+        <nd ref="4686859024" lon="-73.1132732" lat="7.0996393"/>
+        <nd ref="12856656775" lon="-73.1132421" lat="7.0996892"/>
+        <nd ref="12856621997" lon="-73.1132159" lat="7.0997392"/>
+        <nd ref="847038520" lon="-73.1131832" lat="7.0998081"/>
+        <nd ref="5930026436" lon="-73.1131598" lat="7.0998703"/>
+        <nd ref="12856621998" lon="-73.1131421" lat="7.0999227"/>
+        <nd ref="12856621996" lon="-73.1131255" lat="7.0999973"/>
+        <nd ref="12856621995" lon="-73.1131114" lat="7.1000871"/>
+        <nd ref="847038231" lon="-73.1131026" lat="7.1001953"/>
+        <nd ref="5930026434" lon="-73.1130976" lat="7.1002963"/>
+        <nd ref="12856621994" lon="-73.1130986" lat="7.1004019"/>
+        <nd ref="5930026435" lon="-73.1131047" lat="7.1005054"/>
+        <nd ref="12856621993" lon="-73.1131141" lat="7.1006243"/>
+        <nd ref="847038377" lon="-73.1131285" lat="7.1007602"/>
+        <nd ref="12826201000" lon="-73.1133242" lat="7.1022342"/>
+        <nd ref="12987807229" lon="-73.1133377" lat="7.102317"/>
+        <tag k="alt_name" v="Avenida Próspero Pinzón"/>
+        <tag k="highway" v="trunk"/>
+        <tag k="lanes" v="2"/>
+        <tag k="mechanical" v="yes"/>
+        <tag k="name" v="Avenida Carrera 27"/>
+        <tag k="oneway" v="yes"/>
+        <tag k="ref" v="66"/>
+      </way>
+    </old>
+    <new>
+      <way id="474943369" version="16" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240">
+        <nd ref="4686859024" lon="-73.1132732" lat="7.0996393"/>
+        <nd ref="12856656775" lon="-73.1132421" lat="7.0996892"/>
+        <nd ref="12856621997" lon="-73.1132159" lat="7.0997392"/>
+        <nd ref="847038520" lon="-73.1131832" lat="7.0998081"/>
+        <nd ref="5930026436" lon="-73.1131598" lat="7.0998703"/>
+        <nd ref="12856621998" lon="-73.1131421" lat="7.0999227"/>
+        <nd ref="12856621996" lon="-73.1131255" lat="7.0999973"/>
+        <nd ref="12856621995" lon="-73.1131114" lat="7.1000871"/>
+        <nd ref="847038231" lon="-73.1131026" lat="7.1001953"/>
+        <nd ref="5930026434" lon="-73.1130976" lat="7.1002963"/>
+        <nd ref="12856621994" lon="-73.1130986" lat="7.1004019"/>
+        <nd ref="5930026435" lon="-73.1131047" lat="7.1005054"/>
+        <nd ref="12856621993" lon="-73.1131141" lat="7.1006243"/>
+        <nd ref="847038377" lon="-73.1131285" lat="7.1007602"/>
+        <nd ref="12826201000" lon="-73.1133242" lat="7.1022342"/>
+        <nd ref="13609913567" lon="-73.1133282" lat="7.1022852"/>
+        <tag k="alt_name" v="Avenida Próspero Pinzón"/>
+        <tag k="highway" v="trunk"/>
+        <tag k="lanes" v="2"/>
+        <tag k="mechanical" v="yes"/>
+        <tag k="name" v="Avenida Carrera 27"/>
+        <tag k="oneway" v="yes"/>
+        <tag k="ref" v="66"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="670032894" version="5" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629">
+        <bounds minlat="7.1016737" minlon="-73.1142449" maxlat="7.1022387" maxlon="-73.113503"/>
+        <nd ref="839090275" lon="-73.1142449" lat="7.1016737"/>
+        <nd ref="9772071732" lon="-73.1140826" lat="7.1017966"/>
+        <nd ref="9369115100" lon="-73.1139577" lat="7.1018912"/>
+        <nd ref="1148210581" lon="-73.1138694" lat="7.1019582"/>
+        <nd ref="1109624495" lon="-73.1137922" lat="7.1020166"/>
+        <nd ref="839094992" lon="-73.1135408" lat="7.1022086"/>
+        <nd ref="12826235904" lon="-73.113503" lat="7.1022387"/>
+        <tag k="highway" v="tertiary"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Calle 67"/>
+      </way>
+    </old>
+    <new>
+      <way id="670032894" version="6" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240">
+        <nd ref="839090275" lon="-73.1142449" lat="7.1016737"/>
+        <nd ref="9772071732" lon="-73.1140826" lat="7.1017966"/>
+        <nd ref="9369115100" lon="-73.1139577" lat="7.1018912"/>
+        <nd ref="1148210581" lon="-73.1138694" lat="7.1019582"/>
+        <nd ref="1109624495" lon="-73.1137922" lat="7.1020166"/>
+        <nd ref="839094992" lon="-73.1135408" lat="7.1022086"/>
+        <nd ref="12826235904" lon="-73.113503" lat="7.1022387"/>
+        <nd ref="13785782402" lon="-73.1134318" lat="7.1022978"/>
+        <tag k="highway" v="tertiary"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Calle 67"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="1049440530" version="6" user="Haeape1" uid="23111686" timestamp="2025-10-12T04:38:36Z" changeset="173162938">
+        <bounds minlat="7.1023428" minlon="-73.1135915" maxlat="7.1033999" maxlon="-73.1134382"/>
+        <nd ref="846907521" lon="-73.1135915" lat="7.1033999"/>
+        <nd ref="12826235906" lon="-73.1134529" lat="7.1024518"/>
+        <nd ref="649983299" lon="-73.1134382" lat="7.1023428"/>
+        <tag k="alt_name" v="Avenida Próspero Pinzón"/>
+        <tag k="highway" v="trunk"/>
+        <tag k="lanes" v="3"/>
+        <tag k="name" v="Avenida Carrera 27"/>
+        <tag k="oneway" v="yes"/>
+        <tag k="ref" v="66"/>
+      </way>
+    </old>
+    <new>
+      <way id="1049440530" version="6" user="Haeape1" uid="23111686" timestamp="2025-10-12T04:38:36Z" changeset="173162938">
+        <nd ref="846907521" lon="-73.1135915" lat="7.1033999"/>
+        <nd ref="12826235906" lon="-73.1134529" lat="7.1024518"/>
+        <nd ref="649983299" lon="-73.1134449" lat="7.102392"/>
+        <tag k="alt_name" v="Avenida Próspero Pinzón"/>
+        <tag k="highway" v="trunk"/>
+        <tag k="lanes" v="3"/>
+        <tag k="name" v="Avenida Carrera 27"/>
+        <tag k="oneway" v="yes"/>
+        <tag k="ref" v="66"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="1484343661" version="1" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629">
+        <bounds minlat="7.102317" minlon="-73.1133573" maxlat="7.1025143" maxlon="-73.1133377"/>
+        <nd ref="12987807229" lon="-73.1133377" lat="7.102317"/>
+        <nd ref="13609913567" lon="-73.1133456" lat="7.1024123"/>
+        <nd ref="12826235903" lon="-73.1133573" lat="7.1025143"/>
+        <tag k="alt_name" v="Avenida Próspero Pinzón"/>
+        <tag k="highway" v="trunk"/>
+        <tag k="lanes" v="3"/>
+        <tag k="name" v="Avenida Carrera 27"/>
+        <tag k="oneway" v="yes"/>
+        <tag k="ref" v="66"/>
+      </way>
+    </old>
+    <new>
+      <way id="1484343661" version="2" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240">
+        <nd ref="13609913567" lon="-73.1133282" lat="7.1022852"/>
+        <nd ref="13785782401" lon="-73.113339" lat="7.1023707"/>
+        <tag k="alt_name" v="Avenida Próspero Pinzón"/>
+        <tag k="highway" v="trunk"/>
+        <tag k="lanes" v="3"/>
+        <tag k="name" v="Avenida Carrera 27"/>
+        <tag k="oneway" v="yes"/>
+        <tag k="ref" v="66"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="1484343662" version="1" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629">
+        <bounds minlat="7.1021767" minlon="-73.1134382" maxlat="7.1023428" maxlon="-73.113415"/>
+        <nd ref="649983299" lon="-73.1134382" lat="7.1023428"/>
+        <nd ref="13609913568" lon="-73.113426" lat="7.1022634"/>
+        <nd ref="12826235902" lon="-73.113415" lat="7.1021767"/>
+        <tag k="alt_name" v="Avenida Próspero Pinzón"/>
+        <tag k="highway" v="trunk"/>
+        <tag k="lanes" v="3"/>
+        <tag k="name" v="Avenida Carrera 27"/>
+        <tag k="oneway" v="yes"/>
+        <tag k="ref" v="66"/>
+      </way>
+    </old>
+    <new>
+      <way id="1484343662" version="2" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240">
+        <nd ref="649983299" lon="-73.1134449" lat="7.102392"/>
+        <nd ref="13785782402" lon="-73.1134318" lat="7.1022978"/>
+        <nd ref="12826235902" lon="-73.113415" lat="7.1021767"/>
+        <tag k="alt_name" v="Avenida Próspero Pinzón"/>
+        <tag k="highway" v="trunk"/>
+        <tag k="lanes" v="3"/>
+        <tag k="name" v="Avenida Carrera 27"/>
+        <tag k="oneway" v="yes"/>
+        <tag k="ref" v="66"/>
+      </way>
+    </new>
+  </action>
+  <action type="delete">
+    <old>
+      <way id="1484343663" version="1" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629">
+        <bounds minlat="7.1022387" minlon="-73.113503" maxlat="7.1024672" maxlon="-73.1132465"/>
+        <nd ref="12826200999" lon="-73.1132465" lat="7.1024672"/>
+        <nd ref="13609913567" lon="-73.1133456" lat="7.1024123"/>
+        <nd ref="649983299" lon="-73.1134382" lat="7.1023428"/>
+        <nd ref="12826235904" lon="-73.113503" lat="7.1022387"/>
+        <tag k="alt_name" v="Avenida 67"/>
+        <tag k="highway" v="primary"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Avenida Calle 67"/>
+        <tag k="oneway" v="yes"/>
+      </way>
+    </old>
+    <new>
+      <way id="1484343663" version="2" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" visible="false"/>
+    </new>
+  </action>
+  <action type="delete">
+    <old>
+      <way id="1484343664" version="1" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629">
+        <bounds minlat="7.1022387" minlon="-73.113503" maxlat="7.102386" maxlon="-73.1132328"/>
+        <nd ref="12826235904" lon="-73.113503" lat="7.1022387"/>
+        <nd ref="13609913568" lon="-73.113426" lat="7.1022634"/>
+        <nd ref="12987807229" lon="-73.1133377" lat="7.102317"/>
+        <nd ref="12826200998" lon="-73.1132328" lat="7.102386"/>
+        <tag k="alt_name" v="Avenida 67"/>
+        <tag k="highway" v="primary"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Avenida Calle 67"/>
+        <tag k="oneway" v="yes"/>
+      </way>
+    </old>
+    <new>
+      <way id="1484343664" version="2" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" visible="false"/>
+    </new>
+  </action>
+  <action type="create">
+    <way id="1507575541" version="1" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240">
+      <nd ref="13785782401" lon="-73.113339" lat="7.1023707"/>
+      <nd ref="12826235903" lon="-73.1133573" lat="7.1025143"/>
+      <tag k="alt_name" v="Avenida Próspero Pinzón"/>
+      <tag k="highway" v="trunk"/>
+      <tag k="lanes" v="3"/>
+      <tag k="name" v="Avenida Carrera 27"/>
+      <tag k="oneway" v="yes"/>
+      <tag k="ref" v="66"/>
+    </way>
+  </action>
+  <action type="create">
+    <way id="1507575542" version="1" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240">
+      <nd ref="13785782402" lon="-73.1134318" lat="7.1022978"/>
+      <nd ref="13785782401" lon="-73.113339" lat="7.1023707"/>
+      <tag k="alt_name" v="Avenida 67"/>
+      <tag k="highway" v="primary"/>
+      <tag k="lanes" v="2"/>
+      <tag k="name" v="Avenida Calle 67"/>
+    </way>
+  </action>
+  <action type="create">
+    <way id="1507575543" version="1" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240">
+      <nd ref="12826200999" lon="-73.1132465" lat="7.1024672"/>
+      <nd ref="13785782404" lon="-73.1133024" lat="7.1024362"/>
+      <nd ref="13785782401" lon="-73.113339" lat="7.1023707"/>
+      <tag k="alt_name" v="Avenida 67"/>
+      <tag k="highway" v="primary"/>
+      <tag k="lanes" v="2"/>
+      <tag k="name" v="Avenida Calle 67"/>
+      <tag k="oneway" v="yes"/>
+    </way>
+  </action>
+  <action type="create">
+    <way id="1507575544" version="1" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240">
+      <nd ref="13785782401" lon="-73.113339" lat="7.1023707"/>
+      <nd ref="13785782403" lon="-73.1132852" lat="7.1023515"/>
+      <nd ref="12826200998" lon="-73.1132328" lat="7.102386"/>
+      <tag k="alt_name" v="Avenida 67"/>
+      <tag k="highway" v="primary"/>
+      <tag k="lanes" v="2"/>
+      <tag k="name" v="Avenida Calle 67"/>
+      <tag k="oneway" v="yes"/>
+    </way>
+  </action>
+  <action type="modify">
+    <old>
+      <relation id="9320336" version="1" user="yejota15" uid="3868352" timestamp="2019-02-12T18:32:32Z" changeset="67140590">
+        <bounds minlat="7.1016737" minlon="-73.1150292" maxlat="7.1027252" maxlon="-73.113503"/>
+        <member ref="70286662" role="from" type="way">
+          <nd lon="-73.1150292" lat="7.1027252"/>
+          <nd lon="-73.1142449" lat="7.1016737"/>
+        </member>
+        <member ref="839090275" role="via" type="node" lon="-73.1142449" lat="7.1016737"/>
+        <member ref="670032894" role="to" type="way">
+          <nd lon="-73.1142449" lat="7.1016737"/>
+          <nd lon="-73.1140826" lat="7.1017966"/>
+          <nd lon="-73.1139577" lat="7.1018912"/>
+          <nd lon="-73.1138694" lat="7.1019582"/>
+          <nd lon="-73.1137922" lat="7.1020166"/>
+          <nd lon="-73.1135408" lat="7.1022086"/>
+          <nd lon="-73.113503" lat="7.1022387"/>
+        </member>
+        <tag k="restriction" v="no_left_turn"/>
+        <tag k="type" v="restriction"/>
+      </relation>
+    </old>
+    <new>
+      <relation id="9320336" version="1" user="yejota15" uid="3868352" timestamp="2019-02-12T18:32:32Z" changeset="67140590">
+        <member ref="70286662" role="from" type="way">
+          <nd lon="-73.1150292" lat="7.1027252"/>
+          <nd lon="-73.1142449" lat="7.1016737"/>
+        </member>
+        <member ref="839090275" role="via" type="node" lon="-73.1142449" lat="7.1016737"/>
+        <member ref="670032894" role="to" type="way">
+          <nd lon="-73.1142449" lat="7.1016737"/>
+          <nd lon="-73.1140826" lat="7.1017966"/>
+          <nd lon="-73.1139577" lat="7.1018912"/>
+          <nd lon="-73.1138694" lat="7.1019582"/>
+          <nd lon="-73.1137922" lat="7.1020166"/>
+          <nd lon="-73.1135408" lat="7.1022086"/>
+          <nd lon="-73.113503" lat="7.1022387"/>
+          <nd lon="-73.1134318" lat="7.1022978"/>
+        </member>
+        <tag k="restriction" v="no_left_turn"/>
+        <tag k="type" v="restriction"/>
+      </relation>
+    </new>
+  </action>
+  <action type="delete">
+    <old>
+      <relation id="19335129" version="2" user="Haeape1" uid="23111686" timestamp="2026-03-01T18:03:38Z" changeset="179220629">
+        <bounds minlat="7.0996393" minlon="-73.1133377" maxlat="7.102317" maxlon="-73.1130976"/>
+        <member ref="474943369" role="from" type="way">
+          <nd lon="-73.1132732" lat="7.0996393"/>
+          <nd lon="-73.1132421" lat="7.0996892"/>
+          <nd lon="-73.1132159" lat="7.0997392"/>
+          <nd lon="-73.1131832" lat="7.0998081"/>
+          <nd lon="-73.1131598" lat="7.0998703"/>
+          <nd lon="-73.1131421" lat="7.0999227"/>
+          <nd lon="-73.1131255" lat="7.0999973"/>
+          <nd lon="-73.1131114" lat="7.1000871"/>
+          <nd lon="-73.1131026" lat="7.1001953"/>
+          <nd lon="-73.1130976" lat="7.1002963"/>
+          <nd lon="-73.1130986" lat="7.1004019"/>
+          <nd lon="-73.1131047" lat="7.1005054"/>
+          <nd lon="-73.1131141" lat="7.1006243"/>
+          <nd lon="-73.1131285" lat="7.1007602"/>
+          <nd lon="-73.1133242" lat="7.1022342"/>
+          <nd lon="-73.1133377" lat="7.102317"/>
+        </member>
+        <tag k="restriction" v="no_left_turn"/>
+        <tag k="type" v="restriction"/>
+      </relation>
+    </old>
+    <new>
+      <relation id="19335129" version="3" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240" visible="false"/>
+    </new>
+  </action>
+  <action type="create">
+    <relation id="20613130" version="1" timestamp="2026-05-02T00:04:08Z" uid="12906384" user="JuanMelo" changeset="182097240">
+      <member type="way" ref="1484343661" role="from">
+        <nd lon="-73.1133282" lat="7.1022852"/>
+        <nd lon="-73.113339" lat="7.1023707"/>
+      </member>
+      <member type="node" ref="13785782401" role="via" lon="-73.113339" lat="7.1023707"/>
+      <member type="way" ref="1507575542" role="to">
+        <nd lon="-73.1134318" lat="7.1022978"/>
+        <nd lon="-73.113339" lat="7.1023707"/>
+      </member>
+      <tag k="restriction" v="no_left_turn"/>
+      <tag k="type" v="restriction"/>
+    </relation>
+  </action>
+</osm>
