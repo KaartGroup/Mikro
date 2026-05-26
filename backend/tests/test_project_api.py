@@ -1,12 +1,12 @@
 import pytest
-from ..app import app
+from app import app
 from flask import g
-from ..api.database import (
+from api.database import (
     Project,
     User,
     db,
 )
-from ..api.static_variables import (
+from api.static_variables import (
     TESTING_DB,
     TESTING_ENDPOINT,
     TESTING_PASSWORD,

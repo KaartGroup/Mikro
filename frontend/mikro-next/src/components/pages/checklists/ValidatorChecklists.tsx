@@ -1,66 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, Button, Modal, Val } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
-import { useAddChecklistComment } from "@/hooks";
-import { Checklist } from "@/types";
+import { useValidatorChecklists, useConfirmChecklistItem, useAddChecklistComment, usePaymentsVisible } from "@/hooks";
 import { formatNumber, formatCurrency } from "@/lib/utils";
-import { usePaymentsVisible } from "@/hooks";
 
 export function ValidatorChecklists() {
-  const [completedChecklists, setCompletedChecklists] = useState<Checklist[]>([]);
-  const [confirmedChecklists, setConfirmedChecklists] = useState<Checklist[]>([]);
-  const [selectedChecklist, setSelectedChecklist] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"completed" | "confirmed">("completed");
-  const ROWS_PER_PAGE = 20;
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showCommentModal, setShowCommentModal] = useState(false);
-  const [commentChecklistId, setCommentChecklistId] = useState<number | null>(null);
-  const [commentText, setCommentText] = useState("");
-
+  const { data, loading, refetch } = useValidatorChecklists();
+  const { mutate: confirmItem } = useConfirmChecklistItem();
   const { mutate: addComment, loading: addingComment } = useAddChecklistComment();
   const { paymentsVisible } = usePaymentsVisible();
   const toast = useToastActions();
 
-  useEffect(() => {
-    fetchChecklists();
-  }, []);
+  const completedChecklists = data?.ready_for_confirmation || [];
+  const confirmedChecklists = data?.confirmed_and_completed || [];
 
-  const fetchChecklists = async () => {
-    try {
-      const response = await fetch("/backend/checklists/fetch_validator_checklists");
-      if (response.ok) {
-        const data = await response.json();
-        setCompletedChecklists(data.ready_for_confirmation || []);
-        setConfirmedChecklists(data.confirmed_and_completed || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch checklists:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSelectChecklist = (checklistId: number) => {
-    setSelectedChecklist(selectedChecklist === checklistId ? null : checklistId);
-  };
+  const [selectedChecklist, setSelectedChecklist] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<"completed" | "confirmed">("completed");
+  const ROWS_PER_PAGE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [commentChecklistId, setCommentChecklistId] = useState<number | null>(null);
+  const [commentText, setCommentText] = useState("");
 
   const handleConfirmItem = async (checklistId: number, itemNumber: number, userId: number) => {
     try {
-      await fetch("/backend/checklists/confirm_item", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          checklist_id: checklistId,
-          item_number: itemNumber,
-          user_id: userId,
-        }),
-      });
-      fetchChecklists();
-    } catch (error) {
-      console.error("Failed to confirm item:", error);
+      await confirmItem({ checklist_id: checklistId, item_number: itemNumber, user_id: userId });
+      refetch();
+    } catch {
+      toast.error("Failed to confirm item");
     }
   };
 
@@ -70,19 +39,19 @@ export function ValidatorChecklists() {
     setShowCommentModal(true);
   };
 
+  const closeCommentModal = () => {
+    setShowCommentModal(false);
+    setCommentChecklistId(null);
+    setCommentText("");
+  };
+
   const handleAddComment = async () => {
     if (!commentChecklistId || !commentText.trim()) return;
-
     try {
-      await addComment({
-        checklist_id: commentChecklistId,
-        comment: commentText.trim(),
-      });
+      await addComment({ checklist_id: commentChecklistId, comment: commentText.trim() });
       toast.success("Comment added successfully");
-      setShowCommentModal(false);
-      setCommentChecklistId(null);
-      setCommentText("");
-      fetchChecklists();
+      closeCommentModal();
+      refetch();
     } catch {
       toast.error("Failed to add comment");
     }
@@ -94,7 +63,7 @@ export function ValidatorChecklists() {
   const showingStart = currentChecklists.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
   const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, currentChecklists.length);
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kaart-orange" />
@@ -104,55 +73,41 @@ export function ValidatorChecklists() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Checklists to Validate</h1>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-border">
-        <button
-          onClick={() => {
-            setActiveTab("completed");
-            setSelectedChecklist(null);
-            setCurrentPage(1);
-          }}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === "completed"
-              ? "text-kaart-orange border-b-2 border-kaart-orange"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Ready for Confirmation ({formatNumber(completedChecklists.length).text})
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("confirmed");
-            setSelectedChecklist(null);
-            setCurrentPage(1);
-          }}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === "confirmed"
-              ? "text-kaart-orange border-b-2 border-kaart-orange"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Completed & Confirmed ({formatNumber(confirmedChecklists.length).text})
-        </button>
+        {(["completed", "confirmed"] as const).map((tab) => {
+          const count = tab === "completed" ? completedChecklists.length : confirmedChecklists.length;
+          const label = tab === "completed" ? "Ready for Confirmation" : "Completed & Confirmed";
+          return (
+            <button
+              key={tab}
+              onClick={() => { setActiveTab(tab); setSelectedChecklist(null); setCurrentPage(1); }}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === tab
+                  ? "text-kaart-orange border-b-2 border-kaart-orange"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label} ({formatNumber(count).text})
+            </button>
+          );
+        })}
       </div>
 
-      {/* Checklists */}
+      {/* Checklist Cards */}
       <div className="space-y-4">
         {paginatedChecklists.map((checklist) => (
           <Card
             key={checklist.id}
-            className={`transition-all ${
-              selectedChecklist === checklist.id ? "ring-2 ring-kaart-orange" : ""
-            }`}
+            className={`transition-all ${selectedChecklist === checklist.id ? "ring-2 ring-kaart-orange" : ""}`}
           >
             <CardHeader
               className="cursor-pointer"
-              onClick={() => handleSelectChecklist(checklist.id)}
+              onClick={() => setSelectedChecklist(selectedChecklist === checklist.id ? null : checklist.id)}
             >
               <div className="flex justify-between items-start">
                 <div>
@@ -184,33 +139,20 @@ export function ValidatorChecklists() {
             <CardContent>
               <div className="space-y-2">
                 {checklist.list_items?.map((item, index) => (
-                  <div
-                    key={item.id ?? index}
-                    className="flex items-center gap-3 p-2 rounded bg-muted/50"
-                  >
-                    {activeTab === "completed" && (
+                  <div key={item.id ?? index} className="flex items-center gap-3 p-2 rounded bg-muted/50">
+                    {activeTab === "completed" ? (
                       <input
                         type="checkbox"
                         checked={item.confirmed}
-                        onChange={() =>
-                          handleConfirmItem(checklist.id, item.number, checklist.assigned_user_id!)
-                        }
+                        onChange={() => handleConfirmItem(checklist.id, item.number, checklist.assigned_user_id!)}
                         className="h-4 w-4 rounded border-gray-300 text-kaart-orange focus:ring-kaart-orange"
                       />
-                    )}
-                    {activeTab === "confirmed" && (
-                      <span className="h-4 w-4 flex items-center justify-center text-green-600">
-                        ✓
-                      </span>
+                    ) : (
+                      <span className="h-4 w-4 flex items-center justify-center text-green-600">✓</span>
                     )}
                     <span className="flex-1">{item.action}</span>
                     {item.link && (
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-kaart-orange hover:underline text-sm"
-                      >
+                      <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-kaart-orange hover:underline text-sm">
                         View
                       </a>
                     )}
@@ -221,7 +163,6 @@ export function ValidatorChecklists() {
                 )}
               </div>
 
-              {/* Comments section */}
               {checklist.comments && checklist.comments.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <h4 className="text-sm font-medium mb-2">Comments</h4>
@@ -241,11 +182,7 @@ export function ValidatorChecklists() {
 
               {activeTab === "completed" && (
                 <div className="mt-4 pt-4 border-t border-border">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openCommentModal(checklist.id)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => openCommentModal(checklist.id)}>
                     Add Comment
                   </Button>
                 </div>
@@ -253,20 +190,20 @@ export function ValidatorChecklists() {
             </CardContent>
           </Card>
         ))}
+
         {currentChecklists.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             No {activeTab === "completed" ? "checklists ready for confirmation" : "confirmed checklists"}
           </div>
         )}
+
         {currentChecklists.length > ROWS_PER_PAGE && (
           <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
-            <span>Showing {showingStart}-{showingEnd} of {currentChecklists.length}</span>
+            <span>Showing {showingStart}–{showingEnd} of {currentChecklists.length}</span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => p - 1)}>Previous</Button>
+              <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>Previous</Button>
               <span className="flex items-center px-2">Page {currentPage} of {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => p + 1)}>Next</Button>
+              <Button variant="outline" size="sm" disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => p + 1)}>Next</Button>
             </div>
           </div>
         )}
@@ -275,30 +212,13 @@ export function ValidatorChecklists() {
       {/* Add Comment Modal */}
       <Modal
         isOpen={showCommentModal}
-        onClose={() => {
-          setShowCommentModal(false);
-          setCommentChecklistId(null);
-          setCommentText("");
-        }}
+        onClose={closeCommentModal}
         title="Add Comment"
         description="Add a comment to this checklist"
         footer={
           <>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCommentModal(false);
-                setCommentChecklistId(null);
-                setCommentText("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddComment}
-              isLoading={addingComment}
-              disabled={!commentText.trim()}
-            >
+            <Button variant="outline" onClick={closeCommentModal}>Cancel</Button>
+            <Button onClick={handleAddComment} isLoading={addingComment} disabled={!commentText.trim()}>
               Add Comment
             </Button>
           </>
