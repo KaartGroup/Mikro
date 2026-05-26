@@ -5,11 +5,7 @@ import { usePathname } from "next/navigation";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { SidebarClock } from "./SidebarClock";
 import { Tooltip } from "@/components/ui";
-
-interface SidebarProps {
-  role: "user" | "validator" | "team_admin" | "admin" | "super_admin";
-  paymentsVisible?: boolean;
-}
+import { useRole } from "@/contexts/RoleContext";
 
 interface NavItem {
   label: string;
@@ -19,39 +15,39 @@ interface NavItem {
 }
 
 const userNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/user/dashboard", icon: "home" },
-  { label: "Projects", href: "/user/projects", icon: "folder" },
-  { label: "Time", href: "/user/time", icon: "clock" },
-  { label: "Training", href: "/user/training", icon: "book" },
-  { label: "Checklists", href: "/user/checklists", icon: "list" },
-  { label: "Payments", href: "/user/payments", icon: "dollar" },
-  { label: "Teams", href: "/user/teams", icon: "team" },
+  { label: "Dashboard", href: "/dashboard", icon: "home" },
+  { label: "Projects", href: "/projects", icon: "folder" },
+  { label: "Time", href: "/time", icon: "clock" },
+  { label: "Training", href: "/training", icon: "book" },
+  { label: "Checklists", href: "/checklists", icon: "list" },
+  { label: "Payments", href: "/payments", icon: "dollar" },
+  { label: "Teams", href: "/teams", icon: "team" },
 ];
 
 const validatorNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/validator/dashboard", icon: "home" },
-  { label: "Projects", href: "/user/projects", icon: "folder" },
-  { label: "Time", href: "/user/time", icon: "clock" },
-  { label: "Training", href: "/user/training", icon: "book" },
-  { label: "Checklists", href: "/validator/checklists", icon: "list" },
-  { label: "Payments", href: "/user/payments", icon: "dollar" },
-  { label: "Teams", href: "/user/teams", icon: "team" },
+  { label: "Dashboard", href: "/dashboard", icon: "home" },
+  { label: "Projects", href: "/projects", icon: "folder" },
+  { label: "Time", href: "/time", icon: "clock" },
+  { label: "Training", href: "/training", icon: "book" },
+  { label: "Checklists", href: "/checklists", icon: "list" },
+  { label: "Payments", href: "/payments", icon: "dollar" },
+  { label: "Teams", href: "/teams", icon: "team" },
 ];
 
 const adminNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/admin/dashboard", icon: "home" },
-  { label: "Projects", href: "/admin/projects", icon: "folder" },
+  { label: "Dashboard", href: "/dashboard", icon: "home" },
+  { label: "Projects", href: "/projects", icon: "folder" },
   // { label: "Tasks", href: "/admin/tasks", icon: "tasks" }, // Disabled until scope is clarified with project owner
-  { label: "Time", href: "/admin/time", icon: "clock" },
-  { label: "Training", href: "/admin/training", icon: "book" },
-  { label: "Checklists", href: "/admin/checklists", icon: "list" },
-  { label: "Users", href: "/admin/users", icon: "users" },
-  { label: "Teams", href: "/admin/teams", icon: "team" },
+  { label: "Time", href: "/time", icon: "clock" },
+  { label: "Training", href: "/training", icon: "book" },
+  { label: "Checklists", href: "/checklists", icon: "list" },
+  { label: "Users", href: "/users", icon: "users" },
+  { label: "Teams", href: "/teams", icon: "team" },
   // OLD payments page hidden 2026-05-19 — kept in code for fallback;
   // route /admin/payments still works directly. Re-enable by un-commenting.
   // { label: "Payments", href: "/admin/payments", icon: "dollar" },
   { label: "Payments v2", href: "/admin/payments-v2", icon: "dollar", tooltip: "New — Payroll workspace" },
-  { label: "Reports", href: "/admin/reports", icon: "chart" },
+  { label: "Reports", href: "/reports", icon: "chart" },
   { label: "Regions", href: "/admin/regions", icon: "globe" },
   { label: "Punks List", href: "/admin/punks", icon: "shield" },
   { label: "Friends List", href: "/admin/friends", icon: "users" },
@@ -59,21 +55,23 @@ const adminNavItems: NavItem[] = [
 ];
 
 // Team Admin sees a scoped subset: their teams' surface area only.
-// Excludes org-wide admin pages (Regions, Friends, Punks, Transcribe)
-// because team_admin endpoints there are gated to Org Admin / above.
+// Excludes org-wide admin pages (Transcribe) which remain Org Admin+.
 const teamAdminNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/admin/dashboard", icon: "home" },
-  { label: "Projects", href: "/admin/projects", icon: "folder" },
-  { label: "Time", href: "/admin/time", icon: "clock" },
-  { label: "Training", href: "/admin/training", icon: "book" },
-  { label: "Checklists", href: "/admin/checklists", icon: "list" },
-  { label: "Users", href: "/admin/users", icon: "users" },
-  { label: "Teams", href: "/admin/teams", icon: "team" },
+  { label: "Dashboard", href: "/dashboard", icon: "home" },
+  { label: "Projects", href: "/projects", icon: "folder" },
+  { label: "Time", href: "/time", icon: "clock" },
+  { label: "Training", href: "/training", icon: "book" },
+  { label: "Checklists", href: "/checklists", icon: "list" },
+  { label: "Users", href: "/users", icon: "users" },
+  { label: "Teams", href: "/teams", icon: "team" },
   // OLD payments page hidden 2026-05-19 — kept in code for fallback;
   // route /admin/payments still works directly. Re-enable by un-commenting.
   // { label: "Payments", href: "/admin/payments", icon: "dollar" },
   { label: "Payments v2", href: "/admin/payments-v2", icon: "dollar", tooltip: "New — Payroll workspace" },
-  { label: "Reports", href: "/admin/reports", icon: "chart" },
+  { label: "Reports", href: "/reports", icon: "chart" },
+  { label: "Regions", href: "/admin/regions", icon: "globe" },
+  { label: "Punks List", href: "/admin/punks", icon: "shield" },
+  { label: "Friends List", href: "/admin/friends", icon: "users" },
 ];
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -157,9 +155,10 @@ const iconMap: Record<string, React.ReactNode> = {
   ),
 };
 
-export function Sidebar({ role, paymentsVisible = true }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname();
   const { user: clientUser } = useUser();
+  const { role, paymentsVisible } = useRole();
 
   const isAnyAdmin =
     role === "admin" || role === "super_admin" || role === "team_admin";
@@ -227,7 +226,7 @@ export function Sidebar({ role, paymentsVisible = true }: SidebarProps) {
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {navItems.map((item) => {
               const isExternal = item.href.startsWith("http");
-              const isActive = !isExternal && pathname === item.href;
+              const isActive = !isExternal && (pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/")));
 
               if (isExternal) {
                 return (

@@ -84,6 +84,19 @@ export function getTM4ProjectUrl(projectId: number | string): string {
 }
 
 /**
+ * Format a date string as "Month Day, Year" (e.g., "Jan 1, 2024").
+ * Returns "-" for null/undefined/empty input.
+ */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
  * Build the external URL for a project based on its source platform.
  * TM4 projects link to tasks.kaart.com, MR projects link to maproulette.org.
  */

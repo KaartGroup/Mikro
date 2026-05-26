@@ -6,6 +6,9 @@ import { AprilFools } from "@/components/layout/AprilFools";
 import { WhatsNewModal } from "@/components/layout/WhatsNewModal";
 import { AuthGuard } from "@/components/AuthGuard";
 import { syncUserWithBackend } from "@/lib/syncUser";
+import { RoleProvider } from "@/contexts/RoleContext";
+import { RolePreviewBanner } from "@/components/layout/RolePreviewBanner";
+import type { UserRole } from "@/types";
 
 export default async function AuthenticatedLayout({
   children,
@@ -62,24 +65,28 @@ export default async function AuthenticatedLayout({
   const userId = (session.user.sub as string | undefined) ?? "";
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "var(--muted)" }}>
-      <AuthGuard />
-      <AprilFools />
-      <WhatsNewModal userId={userId} role={role} />
-      <Header displayName={displayName} />
-      <Sidebar
-        role={role as "user" | "validator" | "team_admin" | "admin" | "super_admin"}
-        paymentsVisible={paymentsVisible}
-      />
-      <main
-        className="main-content"
-        style={{
-          paddingTop: 64,
-          paddingBottom: 120,
-        }}
-      >
-        <div style={{ padding: 24 }}>{children}</div>
-      </main>
-    </div>
+    <RoleProvider
+      initialRole={role as UserRole}
+      initialActualRole={role as UserRole}
+      initialPaymentsVisible={paymentsVisible}
+    >
+      <div style={{ minHeight: "100vh", backgroundColor: "var(--muted)" }}>
+        <AuthGuard />
+        <AprilFools />
+        <WhatsNewModal userId={userId} role={role} />
+        <Header displayName={displayName} />
+        <Sidebar />
+        <main
+          className="main-content"
+          style={{
+            paddingTop: 64,
+            paddingBottom: 120,
+          }}
+        >
+          <RolePreviewBanner />
+          <div style={{ padding: 24 }}>{children}</div>
+        </main>
+      </div>
+    </RoleProvider>
   );
 }

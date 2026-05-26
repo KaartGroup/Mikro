@@ -9,7 +9,7 @@ and filter options for the universal FilterBar.
 from flask.views import MethodView
 from flask import g, request
 
-from ..utils import requires_admin
+from ..utils import requires_team_admin_or_above
 from ..database import (
     db,
     Region,
@@ -85,7 +85,7 @@ class RegionAPI(MethodView):
 
     # ─── Regions ──────────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_regions(self):
         """List all regions with their countries."""
         regions = Region.query.order_by(Region.name).all()
@@ -126,7 +126,7 @@ class RegionAPI(MethodView):
             })
         return {"status": 200, "regions": result}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def create_region(self):
         """Create a new region."""
         name = (request.json.get("name") or "").strip()
@@ -144,7 +144,7 @@ class RegionAPI(MethodView):
             "region": {"id": region.id, "name": region.name},
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def update_region(self):
         """Update a region's name."""
         region_id = request.json.get("regionId")
@@ -159,7 +159,7 @@ class RegionAPI(MethodView):
         region.update(name=name)
         return {"status": 200, "message": f"Region updated to '{name}'"}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def delete_region(self):
         """Delete a region. Countries in this region will have region_id set to NULL."""
         region_id = request.json.get("regionId")
@@ -179,7 +179,7 @@ class RegionAPI(MethodView):
 
     # ─── Countries ────────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_countries(self):
         """List all countries with region info."""
         countries = Country.query.order_by(Country.name).all()
@@ -212,7 +212,7 @@ class RegionAPI(MethodView):
             })
         return {"status": 200, "countries": result}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def create_country(self):
         """Create a new country."""
         name = (request.json.get("name") or "").strip()
@@ -244,7 +244,7 @@ class RegionAPI(MethodView):
             "country": {"id": country.id, "name": country.name},
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def update_country(self):
         """Update country details."""
         country_id = request.json.get("countryId")
@@ -271,7 +271,7 @@ class RegionAPI(MethodView):
             country.update(**updates)
         return {"status": 200, "message": "Country updated"}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def delete_country(self):
         """Delete a country and its user-country associations."""
         country_id = request.json.get("countryId")
@@ -291,7 +291,7 @@ class RegionAPI(MethodView):
 
     # ─── User-Country Assignments ─────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_user_country(self):
         """Assign a user to a country."""
         user_id = request.json.get("userId")
@@ -325,7 +325,7 @@ class RegionAPI(MethodView):
 
         return {"status": 200, "message": "User assigned to country"}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_user_country(self):
         """Remove a user from a country."""
         user_id = request.json.get("userId")
@@ -351,7 +351,7 @@ class RegionAPI(MethodView):
 
     # ─── Filter Options ───────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_filter_options(self):
         """
         Return all available filter dimensions and their values.
@@ -515,21 +515,21 @@ class RegionAPI(MethodView):
 
     # ── Project locations ──
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_project_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._assign_locations(ProjectCountry, "project_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_project_location(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._unassign_location(ProjectCountry, "project_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_project_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
@@ -538,21 +538,21 @@ class RegionAPI(MethodView):
 
     # ── Training locations ──
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_training_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._assign_locations(TrainingCountry, "training_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_training_location(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._unassign_location(TrainingCountry, "training_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_training_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
@@ -561,21 +561,21 @@ class RegionAPI(MethodView):
 
     # ── Checklist locations ──
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_checklist_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._assign_locations(ChecklistCountry, "checklist_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_checklist_location(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
             return {"message": "resourceId is required", "status": 400}
         return self._unassign_location(ChecklistCountry, "checklist_id", resource_id)
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_checklist_locations(self):
         resource_id = request.json.get("resourceId")
         if not resource_id:
@@ -605,7 +605,7 @@ class RegionAPI(MethodView):
 
     # ─── Seed Defaults ────────────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def seed_defaults(self):
         """Seed default regions and countries. Idempotent — skips existing."""
         import logging
@@ -902,7 +902,7 @@ class RegionAPI(MethodView):
             "created_countries": created_countries,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def purge_all_regions(self):
         """DEV ONLY: Delete all regions, countries, and related assignments."""
         if not g.user:
