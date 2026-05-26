@@ -70,7 +70,8 @@ def parse_adiff_transitions(xml_text, tracked_keys, key_filters=None):
     for action in root.findall("action"):
         action_type = action.get("type")
         if action_type == "create":
-            new_tags = _element_tag_values(action.find("new"))
+            # osmcha places the created element directly under <action> (no <new> wrapper)
+            new_tags = _element_tag_values(action)
             for key in tracked_keys:
                 if key in new_tags:
                     record(key, None, new_tags[key])

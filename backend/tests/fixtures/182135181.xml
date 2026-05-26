@@ -1,0 +1,2512 @@
+<osm version="0.6" generator="osmcha" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="4547199198" version="1" lon="-65.1973417" lat="-24.2826764"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="4547199198" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2827644" lon="-65.1973149"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="4547199205" version="1" lon="-65.1978224" lat="-24.2828368"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="4547199205" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2829248" lon="-65.1977956"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="4547199212" version="1" lon="-65.1971877" lat="-24.2829456"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="4547199212" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2830141" lon="-65.1972199"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="4547199235" version="2" lon="-65.2018005" lat="-24.2838528"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="4547199235" version="3" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2838527" lon="-65.2018005"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814730" version="2" lon="-65.1983535" lat="-24.2819575"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814730" version="3" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2819575" lon="-65.1983535" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814732" version="1" lon="-65.1985835" lat="-24.2821145"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814732" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2821145" lon="-65.1985835" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814733" version="1" lon="-65.1986942" lat="-24.2822154"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814733" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2822154" lon="-65.1986942" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814734" version="1" lon="-65.1987176" lat="-24.2823416"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814734" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2823416" lon="-65.1987176" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814735" version="1" lon="-65.1987091" lat="-24.2825143"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814735" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2825143" lon="-65.1987091" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814736" version="1" lon="-65.1986516" lat="-24.2827898"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814736" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2827898" lon="-65.1986516" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814737" version="2" lon="-65.1986378" lat="-24.2830164"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814737" version="3" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2830164" lon="-65.1986378" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814738" version="1" lon="-65.1986878" lat="-24.2831682"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814738" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2831682" lon="-65.1986878" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814739" version="1" lon="-65.1988134" lat="-24.2833661"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814739" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2833683" lon="-65.1988104"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814740" version="1" lon="-65.1990604" lat="-24.2835757"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814740" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2835674" lon="-65.1990656"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814741" version="1" lon="-65.1992583" lat="-24.2836436"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814741" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2836411" lon="-65.1992591"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814742" version="1" lon="-65.1995692" lat="-24.2837057"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814742" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2836959" lon="-65.1995853"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814743" version="1" lon="-65.1996948" lat="-24.2837814"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814743" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2837716" lon="-65.1997109"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814744" version="1" lon="-65.1997735" lat="-24.2838978"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814744" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.283888" lon="-65.1997896"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814746" version="1" lon="-65.2000716" lat="-24.2841579"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814746" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841481" lon="-65.2000716"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814747" version="1" lon="-65.2002483" lat="-24.284185"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814747" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841752" lon="-65.2002483"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814748" version="1" lon="-65.2004441" lat="-24.2841579"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814748" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841481" lon="-65.2004441"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814753" version="1" lon="-65.20194" lat="-24.283844"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814753" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2838449" lon="-65.2019398"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814754" version="1" lon="-65.2020316" lat="-24.2838758"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814754" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.283875" lon="-65.2020321"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814755" version="1" lon="-65.2021093" lat="-24.2839744"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814755" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2839805" lon="-65.2021348"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814756" version="1" lon="-65.2022005" lat="-24.2841068"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814756" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841247" lon="-65.2022398"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814757" version="1" lon="-65.2022951" lat="-24.2841499"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814757" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841499" lon="-65.2022951" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814758" version="1" lon="-65.202481" lat="-24.284153"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814758" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.284153" lon="-65.202481" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814759" version="1" lon="-65.2027345" lat="-24.2841561"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814759" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841561" lon="-65.2027345" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814760" version="1" lon="-65.2029812" lat="-24.2841653"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814760" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841457" lon="-65.2030295"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814761" version="1" lon="-65.203113" lat="-24.2841407"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814761" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841285" lon="-65.2031371"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814762" version="1" lon="-65.2032177" lat="-24.2841037"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814762" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2840744" lon="-65.2032553"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6179814763" version="1" lon="-65.2033664" lat="-24.2841037"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814763" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2840866" lon="-65.2033798"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814764" version="1" lon="-65.2035117" lat="-24.2841469"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814764" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841469" lon="-65.2035117" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="6179814765" version="1" lon="-65.2036266" lat="-24.2841315"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6179814765" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841315" lon="-65.2036266" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="7729133406" version="1" lon="-65.1990496" lat="-24.2784718"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133406" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2784033" lon="-65.199114"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="7729133407" version="1" lon="-65.1990907" lat="-24.2786487"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133407" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2786487" lon="-65.1991443"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="7729133408" version="1" lon="-65.1991485" lat="-24.2787206"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133408" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2787206" lon="-65.1992156"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="7729133409" version="1" lon="-65.1992327" lat="-24.278735"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133409" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.278735" lon="-65.1992998"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="7729133410" version="1" lon="-65.2013847" lat="-24.2787398"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133410" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2787538" lon="-65.2014485"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="7729133411" version="1" lon="-65.2014163" lat="-24.2787734"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133411" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2787734" lon="-65.2014163" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="7729133412" version="2" lon="-65.2013945" lat="-24.280227"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133412" version="3" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2803684" lon="-65.2014269"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="7729133414" version="2" lon="-65.2013944" lat="-24.2803289"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133414" version="3" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2803289" lon="-65.2013944" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="7729133415" version="1" lon="-65.1978489" lat="-24.2802794"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133415" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2802794" lon="-65.1978489" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="7729133416" version="1" lon="-65.1976122" lat="-24.2802794"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133416" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2802794" lon="-65.1976122" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="7729133417" version="1" lon="-65.1974596" lat="-24.2802841"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="7729133417" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2802841" lon="-65.1974596" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="9557191165" version="1" lon="-65.2022226" lat="-24.2841169"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="9557191165" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841169" lon="-65.2022226" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="9557191166" version="1" lon="-65.2022398" lat="-24.2841247"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="9557191166" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841247" lon="-65.2022398" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="9557191171" version="1" lon="-65.2016173" lat="-24.2849419"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="9557191171" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2849126" lon="-65.2016709"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="9557191172" version="1" lon="-65.2016018" lat="-24.285023"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="9557191172" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2849741" lon="-65.2016447"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="9557191173" version="1" lon="-65.2020737" lat="-24.2853015"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="9557191173" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2852062" lon="-65.2019342"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="12231062472" version="1" lon="-65.202059" lat="-24.2839106"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="12231062472" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2839241" lon="-65.2021018"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="12231062478" version="1" lon="-65.1987194" lat="-24.2832179"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="12231062478" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2832223" lon="-65.1987095"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="12231062481" version="1" lon="-65.1989084" lat="-24.2834709"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="12231062481" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2834669" lon="-65.1989123"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="12231062482" version="1" lon="-65.2013919" lat="-24.282004"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="12231062482" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2820041" lon="-65.2014039"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="12231062485" version="1" lon="-65.1997157" lat="-24.2803131"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="12231062485" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2803349" lon="-65.1997152"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13787996867" version="1" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.281856" lon="-65.1959744"/>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13787996868" version="1" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2819036" lon="-65.1960911"/>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13787996869" version="1" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.282142" lon="-65.1963499"/>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13787996870" version="1" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2822374" lon="-65.1964009"/>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13787996871" version="1" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2823327" lon="-65.1965135"/>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13787996872" version="1" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2830564" lon="-65.1981336"/>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13787996873" version="1" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2831371" lon="-65.1982302"/>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13787996874" version="1" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2832031" lon="-65.1983857"/>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13787996875" version="1" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841395" lon="-65.2023339"/>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13787996876" version="1" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181" lat="-24.2841028" lon="-65.2035704"/>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="232594329" version="11" user="patodiez" uid="1856060" timestamp="2024-10-07T04:38:58Z" changeset="157564367">
+        
+        
+        <bounds minlat="-24.2845547" minlon="-65.2059038" maxlat="-24.2819575" maxlon="-65.1983535"/>
+        
+        
+        <nd ref="2470674062" lon="-65.2059038" lat="-24.2842015"/>
+        
+        
+        <nd ref="2470674022" lon="-65.205792" lat="-24.2842984"/>
+        
+        
+        <nd ref="2470674021" lon="-65.2055206" lat="-24.2844647"/>
+        
+        
+        <nd ref="2470674091" lon="-65.2052416" lat="-24.2845527"/>
+        
+        
+        <nd ref="2470674079" lon="-65.2048769" lat="-24.2845547"/>
+        
+        
+        <nd ref="2470674054" lon="-65.2045995" lat="-24.2845547"/>
+        
+        
+        <nd ref="6179814770" lon="-65.2043937" lat="-24.2844888"/>
+        
+        
+        <nd ref="6179814769" lon="-65.2041944" lat="-24.2843163"/>
+        
+        
+        <nd ref="6179814768" lon="-65.2040524" lat="-24.2841561"/>
+        
+        
+        <nd ref="9557191164" lon="-65.203978" lat="-24.2840909"/>
+        
+        
+        <nd ref="6179814767" lon="-65.2038766" lat="-24.2840787"/>
+        
+        
+        <nd ref="6179814766" lon="-65.2037652" lat="-24.2840914"/>
+        
+        
+        <nd ref="6179814765" lon="-65.2036266" lat="-24.2841315"/>
+        
+        
+        <nd ref="6179814764" lon="-65.2035117" lat="-24.2841469"/>
+        
+        
+        <nd ref="6179814763" lon="-65.2033664" lat="-24.2841037"/>
+        
+        
+        <nd ref="6179814762" lon="-65.2032177" lat="-24.2841037"/>
+        
+        
+        <nd ref="6179814761" lon="-65.203113" lat="-24.2841407"/>
+        
+        
+        <nd ref="6179814760" lon="-65.2029812" lat="-24.2841653"/>
+        
+        
+        <nd ref="6179814759" lon="-65.2027345" lat="-24.2841561"/>
+        
+        
+        <nd ref="6179814758" lon="-65.202481" lat="-24.284153"/>
+        
+        
+        <nd ref="6179814757" lon="-65.2022951" lat="-24.2841499"/>
+        
+        
+        <nd ref="9557191166" lon="-65.2022398" lat="-24.2841247"/>
+        
+        
+        <nd ref="9557191165" lon="-65.2022226" lat="-24.2841169"/>
+        
+        
+        <nd ref="6179814756" lon="-65.2022005" lat="-24.2841068"/>
+        
+        
+        <nd ref="6179814755" lon="-65.2021093" lat="-24.2839744"/>
+        
+        
+        <nd ref="12231062472" lon="-65.202059" lat="-24.2839106"/>
+        
+        
+        <nd ref="6179814754" lon="-65.2020316" lat="-24.2838758"/>
+        
+        
+        <nd ref="6179814753" lon="-65.20194" lat="-24.283844"/>
+        
+        
+        <nd ref="4547199235" lon="-65.2018005" lat="-24.2838528"/>
+        
+        
+        <nd ref="6179814752" lon="-65.2015852" lat="-24.2839289"/>
+        
+        
+        <nd ref="6179814751" lon="-65.2013021" lat="-24.2840182"/>
+        
+        
+        <nd ref="6179814750" lon="-65.2010679" lat="-24.2840298"/>
+        
+        
+        <nd ref="6179814749" lon="-65.2007549" lat="-24.2840841"/>
+        
+        
+        <nd ref="6179814748" lon="-65.2004441" lat="-24.2841579"/>
+        
+        
+        <nd ref="6179814747" lon="-65.2002483" lat="-24.284185"/>
+        
+        
+        <nd ref="6179814746" lon="-65.2000716" lat="-24.2841579"/>
+        
+        
+        <nd ref="6179814745" lon="-65.1999055" lat="-24.2840511"/>
+        
+        
+        <nd ref="6179814744" lon="-65.1997735" lat="-24.2838978"/>
+        
+        
+        <nd ref="6179814743" lon="-65.1996948" lat="-24.2837814"/>
+        
+        
+        <nd ref="6179814742" lon="-65.1995692" lat="-24.2837057"/>
+        
+        
+        <nd ref="6179814741" lon="-65.1992583" lat="-24.2836436"/>
+        
+        
+        <nd ref="6179814740" lon="-65.1990604" lat="-24.2835757"/>
+        
+        
+        <nd ref="12231062481" lon="-65.1989084" lat="-24.2834709"/>
+        
+        
+        <nd ref="6179814739" lon="-65.1988134" lat="-24.2833661"/>
+        
+        
+        <nd ref="12231062478" lon="-65.1987194" lat="-24.2832179"/>
+        
+        
+        <nd ref="6179814738" lon="-65.1986878" lat="-24.2831682"/>
+        
+        
+        <nd ref="6179814737" lon="-65.1986378" lat="-24.2830164"/>
+        
+        
+        <nd ref="6179814736" lon="-65.1986516" lat="-24.2827898"/>
+        
+        
+        <nd ref="6179814735" lon="-65.1987091" lat="-24.2825143"/>
+        
+        
+        <nd ref="6179814734" lon="-65.1987176" lat="-24.2823416"/>
+        
+        
+        <nd ref="6179814733" lon="-65.1986942" lat="-24.2822154"/>
+        
+        
+        <nd ref="6179814732" lon="-65.1985835" lat="-24.2821145"/>
+        
+        
+        <nd ref="6179814730" lon="-65.1983535" lat="-24.2819575"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+        
+        <tag k="name" v="Mar de Weddell"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="232594329" version="12" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181">
+        
+        
+        <nd ref="2470674062" lon="-65.2059038" lat="-24.2842015"/>
+        
+        
+        <nd ref="2470674022" lon="-65.205792" lat="-24.2842984"/>
+        
+        
+        <nd ref="2470674021" lon="-65.2055206" lat="-24.2844647"/>
+        
+        
+        <nd ref="2470674091" lon="-65.2052416" lat="-24.2845527"/>
+        
+        
+        <nd ref="2470674079" lon="-65.2048769" lat="-24.2845547"/>
+        
+        
+        <nd ref="2470674054" lon="-65.2045995" lat="-24.2845547"/>
+        
+        
+        <nd ref="6179814770" lon="-65.2043937" lat="-24.2844888"/>
+        
+        
+        <nd ref="6179814769" lon="-65.2041944" lat="-24.2843163"/>
+        
+        
+        <nd ref="6179814768" lon="-65.2040524" lat="-24.2841561"/>
+        
+        
+        <nd ref="9557191164" lon="-65.203978" lat="-24.2840909"/>
+        
+        
+        <nd ref="6179814767" lon="-65.2038766" lat="-24.2840787"/>
+        
+        
+        <nd ref="6179814766" lon="-65.2037652" lat="-24.2840914"/>
+        
+        
+        <nd ref="13787996876" lon="-65.2035704" lat="-24.2841028"/>
+        
+        
+        <nd ref="6179814763" lon="-65.2033798" lat="-24.2840866"/>
+        
+        
+        <nd ref="6179814762" lon="-65.2032553" lat="-24.2840744"/>
+        
+        
+        <nd ref="6179814761" lon="-65.2031371" lat="-24.2841285"/>
+        
+        
+        <nd ref="6179814760" lon="-65.2030295" lat="-24.2841457"/>
+        
+        
+        <nd ref="13787996875" lon="-65.2023339" lat="-24.2841395"/>
+        
+        
+        <nd ref="6179814756" lon="-65.2022398" lat="-24.2841247"/>
+        
+        
+        <nd ref="6179814755" lon="-65.2021348" lat="-24.2839805"/>
+        
+        
+        <nd ref="12231062472" lon="-65.2021018" lat="-24.2839241"/>
+        
+        
+        <nd ref="6179814754" lon="-65.2020321" lat="-24.283875"/>
+        
+        
+        <nd ref="6179814753" lon="-65.2019398" lat="-24.2838449"/>
+        
+        
+        <nd ref="4547199235" lon="-65.2018005" lat="-24.2838527"/>
+        
+        
+        <nd ref="6179814752" lon="-65.2015852" lat="-24.2839289"/>
+        
+        
+        <nd ref="6179814751" lon="-65.2013021" lat="-24.2840182"/>
+        
+        
+        <nd ref="6179814750" lon="-65.2010679" lat="-24.2840298"/>
+        
+        
+        <nd ref="6179814749" lon="-65.2007549" lat="-24.2840841"/>
+        
+        
+        <nd ref="6179814748" lon="-65.2004441" lat="-24.2841481"/>
+        
+        
+        <nd ref="6179814747" lon="-65.2002483" lat="-24.2841752"/>
+        
+        
+        <nd ref="6179814746" lon="-65.2000716" lat="-24.2841481"/>
+        
+        
+        <nd ref="6179814745" lon="-65.1999055" lat="-24.2840511"/>
+        
+        
+        <nd ref="6179814744" lon="-65.1997896" lat="-24.283888"/>
+        
+        
+        <nd ref="6179814743" lon="-65.1997109" lat="-24.2837716"/>
+        
+        
+        <nd ref="6179814742" lon="-65.1995853" lat="-24.2836959"/>
+        
+        
+        <nd ref="6179814741" lon="-65.1992591" lat="-24.2836411"/>
+        
+        
+        <nd ref="6179814740" lon="-65.1990656" lat="-24.2835674"/>
+        
+        
+        <nd ref="12231062481" lon="-65.1989123" lat="-24.2834669"/>
+        
+        
+        <nd ref="6179814739" lon="-65.1988104" lat="-24.2833683"/>
+        
+        
+        <nd ref="12231062478" lon="-65.1987095" lat="-24.2832223"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+        
+        <tag k="name" v="Mar de Weddell"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="232595587" version="6" user="patodiez" uid="1856060" timestamp="2020-07-19T20:25:23Z" changeset="88210948">
+        
+        
+        <bounds minlat="-24.281852" minlon="-65.1998398" maxlat="-24.2777847" maxlon="-65.195701"/>
+        
+        
+        <nd ref="2409403763" lon="-65.195701" lat="-24.281852"/>
+        
+        
+        <nd ref="6058855202" lon="-65.1957679" lat="-24.2818196"/>
+        
+        
+        <nd ref="6058855203" lon="-65.1958541" lat="-24.2817596"/>
+        
+        
+        <nd ref="6058855204" lon="-65.1959791" lat="-24.2816117"/>
+        
+        
+        <nd ref="2409403926" lon="-65.1962246" lat="-24.2813449"/>
+        
+        
+        <nd ref="2409403825" lon="-65.196853" lat="-24.2806614"/>
+        
+        
+        <nd ref="6179814719" lon="-65.197017" lat="-24.2804861"/>
+        
+        
+        <nd ref="7729133419" lon="-65.1972507" lat="-24.2802362"/>
+        
+        
+        <nd ref="2409404007" lon="-65.1975913" lat="-24.2798721"/>
+        
+        
+        <nd ref="2409403781" lon="-65.1983457" lat="-24.2791251"/>
+        
+        
+        <nd ref="2409403812" lon="-65.1988801" lat="-24.2786192"/>
+        
+        
+        <nd ref="7729133406" lon="-65.1990496" lat="-24.2784718"/>
+        
+        
+        <nd ref="1428300075" lon="-65.1998398" lat="-24.2777847"/>
+        
+        
+        <tag k="highway" v="tertiary"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="232595587" version="6" user="patodiez" uid="1856060" timestamp="2020-07-19T20:25:23Z" changeset="88210948">
+        
+        
+        <nd ref="2409403763" lon="-65.195701" lat="-24.281852"/>
+        
+        
+        <nd ref="6058855202" lon="-65.1957679" lat="-24.2818196"/>
+        
+        
+        <nd ref="6058855203" lon="-65.1958541" lat="-24.2817596"/>
+        
+        
+        <nd ref="6058855204" lon="-65.1959791" lat="-24.2816117"/>
+        
+        
+        <nd ref="2409403926" lon="-65.1962246" lat="-24.2813449"/>
+        
+        
+        <nd ref="2409403825" lon="-65.196853" lat="-24.2806614"/>
+        
+        
+        <nd ref="6179814719" lon="-65.197017" lat="-24.2804861"/>
+        
+        
+        <nd ref="7729133419" lon="-65.1972507" lat="-24.2802362"/>
+        
+        
+        <nd ref="2409404007" lon="-65.1975913" lat="-24.2798721"/>
+        
+        
+        <nd ref="2409403781" lon="-65.1983457" lat="-24.2791251"/>
+        
+        
+        <nd ref="2409403812" lon="-65.1988801" lat="-24.2786192"/>
+        
+        
+        <nd ref="7729133406" lon="-65.199114" lat="-24.2784033"/>
+        
+        
+        <nd ref="1428300075" lon="-65.1998398" lat="-24.2777847"/>
+        
+        
+        <tag k="highway" v="tertiary"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="458767308" version="1" user="agendagauchajujuy" uid="3923611" timestamp="2016-12-09T21:52:27Z" changeset="44293135">
+        
+        
+        <bounds minlat="-24.2834328" minlon="-65.1982664" maxlat="-24.2820663" maxlon="-65.1958828"/>
+        
+        
+        <nd ref="4547199178" lon="-65.1958828" lat="-24.2821339"/>
+        
+        
+        <nd ref="4547199180" lon="-65.1959489" lat="-24.2821602"/>
+        
+        
+        <nd ref="4547199182" lon="-65.1961496" lat="-24.2822963"/>
+        
+        
+        <nd ref="4547199187" lon="-65.1962571" lat="-24.2824532"/>
+        
+        
+        <nd ref="4547199199" lon="-65.1963796" lat="-24.2827025"/>
+        
+        
+        <nd ref="4547199203" lon="-65.1965726" lat="-24.2828243"/>
+        
+        
+        <nd ref="4547199208" lon="-65.1968686" lat="-24.2828825"/>
+        
+        
+        <nd ref="4547199212" lon="-65.1971877" lat="-24.2829456"/>
+        
+        
+        <nd ref="4547199216" lon="-65.1976055" lat="-24.2830691"/>
+        
+        
+        <nd ref="4547199222" lon="-65.1978764" lat="-24.283281"/>
+        
+        
+        <nd ref="4547199225" lon="-65.1980222" lat="-24.2834288"/>
+        
+        
+        <nd ref="4547199226" lon="-65.1982664" lat="-24.2834328"/>
+        
+        
+        <nd ref="4547199221" lon="-65.1982152" lat="-24.2832607"/>
+        
+        
+        <nd ref="4547199217" lon="-65.1981649" lat="-24.2831203"/>
+        
+        
+        <nd ref="4547199205" lon="-65.1978224" lat="-24.2828368"/>
+        
+        
+        <nd ref="4547199198" lon="-65.1973417" lat="-24.2826764"/>
+        
+        
+        <nd ref="4547199195" lon="-65.1969363" lat="-24.2826076"/>
+        
+        
+        <nd ref="4547199190" lon="-65.1965907" lat="-24.2825131"/>
+        
+        
+        <nd ref="4547199184" lon="-65.1963833" lat="-24.2823413"/>
+        
+        
+        <nd ref="4547199179" lon="-65.1961413" lat="-24.2821436"/>
+        
+        
+        <nd ref="4547199175" lon="-65.1959591" lat="-24.2820663"/>
+        
+        
+        <nd ref="4547199178" lon="-65.1958828" lat="-24.2821339"/>
+        
+        
+        <tag k="landuse" v="grass"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="458767308" version="1" user="agendagauchajujuy" uid="3923611" timestamp="2016-12-09T21:52:27Z" changeset="44293135">
+        
+        
+        <nd ref="4547199178" lon="-65.1958828" lat="-24.2821339"/>
+        
+        
+        <nd ref="4547199180" lon="-65.1959489" lat="-24.2821602"/>
+        
+        
+        <nd ref="4547199182" lon="-65.1961496" lat="-24.2822963"/>
+        
+        
+        <nd ref="4547199187" lon="-65.1962571" lat="-24.2824532"/>
+        
+        
+        <nd ref="4547199199" lon="-65.1963796" lat="-24.2827025"/>
+        
+        
+        <nd ref="4547199203" lon="-65.1965726" lat="-24.2828243"/>
+        
+        
+        <nd ref="4547199208" lon="-65.1968686" lat="-24.2828825"/>
+        
+        
+        <nd ref="4547199212" lon="-65.1972199" lat="-24.2830141"/>
+        
+        
+        <nd ref="4547199216" lon="-65.1976055" lat="-24.2830691"/>
+        
+        
+        <nd ref="4547199222" lon="-65.1978764" lat="-24.283281"/>
+        
+        
+        <nd ref="4547199225" lon="-65.1980222" lat="-24.2834288"/>
+        
+        
+        <nd ref="4547199226" lon="-65.1982664" lat="-24.2834328"/>
+        
+        
+        <nd ref="4547199221" lon="-65.1982152" lat="-24.2832607"/>
+        
+        
+        <nd ref="4547199217" lon="-65.1981649" lat="-24.2831203"/>
+        
+        
+        <nd ref="4547199205" lon="-65.1977956" lat="-24.2829248"/>
+        
+        
+        <nd ref="4547199198" lon="-65.1973149" lat="-24.2827644"/>
+        
+        
+        <nd ref="4547199195" lon="-65.1969363" lat="-24.2826076"/>
+        
+        
+        <nd ref="4547199190" lon="-65.1965907" lat="-24.2825131"/>
+        
+        
+        <nd ref="4547199184" lon="-65.1963833" lat="-24.2823413"/>
+        
+        
+        <nd ref="4547199179" lon="-65.1961413" lat="-24.2821436"/>
+        
+        
+        <nd ref="4547199175" lon="-65.1959591" lat="-24.2820663"/>
+        
+        
+        <nd ref="4547199178" lon="-65.1958828" lat="-24.2821339"/>
+        
+        
+        <tag k="landuse" v="grass"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="827918270" version="2" user="patodiez" uid="1856060" timestamp="2024-10-07T04:38:58Z" changeset="157564367">
+        
+        
+        <bounds minlat="-24.2832639" minlon="-65.2014352" maxlat="-24.2784718" maxlon="-65.1990496"/>
+        
+        
+        <nd ref="7729133406" lon="-65.1990496" lat="-24.2784718"/>
+        
+        
+        <nd ref="7729133407" lon="-65.1990907" lat="-24.2786487"/>
+        
+        
+        <nd ref="7729133408" lon="-65.1991485" lat="-24.2787206"/>
+        
+        
+        <nd ref="7729133409" lon="-65.1992327" lat="-24.278735"/>
+        
+        
+        <nd ref="7729133410" lon="-65.2013847" lat="-24.2787398"/>
+        
+        
+        <nd ref="7729133411" lon="-65.2014163" lat="-24.2787734"/>
+        
+        
+        <nd ref="7729133412" lon="-65.2013945" lat="-24.280227"/>
+        
+        
+        <nd ref="7729133414" lon="-65.2013944" lat="-24.2803289"/>
+        
+        
+        <nd ref="12231062482" lon="-65.2013919" lat="-24.282004"/>
+        
+        
+        <nd ref="12231062470" lon="-65.2013905" lat="-24.2829823"/>
+        
+        
+        <nd ref="12231062471" lon="-65.2014352" lat="-24.2832639"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="827918270" version="3" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181">
+        
+        
+        <nd ref="7729133406" lon="-65.199114" lat="-24.2784033"/>
+        
+        
+        <nd ref="7729133407" lon="-65.1991443" lat="-24.2786487"/>
+        
+        
+        <nd ref="7729133408" lon="-65.1992156" lat="-24.2787206"/>
+        
+        
+        <nd ref="7729133409" lon="-65.1992998" lat="-24.278735"/>
+        
+        
+        <nd ref="7729133410" lon="-65.2014485" lat="-24.2787538"/>
+        
+        
+        <nd ref="7729133412" lon="-65.2014269" lat="-24.2803684"/>
+        
+        
+        <nd ref="12231062482" lon="-65.2014039" lat="-24.2820041"/>
+        
+        
+        <nd ref="12231062470" lon="-65.2013905" lat="-24.2829823"/>
+        
+        
+        <nd ref="12231062471" lon="-65.2014352" lat="-24.2832639"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="1037476647" version="1" user="patodiez" uid="1856060" timestamp="2022-03-06T05:59:24Z" changeset="118147435">
+        
+        
+        <bounds minlat="-24.2853015" minlon="-65.2022398" maxlat="-24.2841247" maxlon="-65.2016018"/>
+        
+        
+        <nd ref="9557191166" lon="-65.2022398" lat="-24.2841247"/>
+        
+        
+        <nd ref="9557191167" lon="-65.2020621" lat="-24.2843319"/>
+        
+        
+        <nd ref="9557191168" lon="-65.202008" lat="-24.2844483"/>
+        
+        
+        <nd ref="9557191169" lon="-65.2019693" lat="-24.2845858"/>
+        
+        
+        <nd ref="9557191170" lon="-65.2018068" lat="-24.2847444"/>
+        
+        
+        <nd ref="9557191171" lon="-65.2016173" lat="-24.2849419"/>
+        
+        
+        <nd ref="9557191172" lon="-65.2016018" lat="-24.285023"/>
+        
+        
+        <nd ref="9557191173" lon="-65.2020737" lat="-24.2853015"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="1037476647" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181">
+        
+        
+        <nd ref="6179814756" lon="-65.2022398" lat="-24.2841247"/>
+        
+        
+        <nd ref="9557191167" lon="-65.2020621" lat="-24.2843319"/>
+        
+        
+        <nd ref="9557191168" lon="-65.202008" lat="-24.2844483"/>
+        
+        
+        <nd ref="9557191169" lon="-65.2019693" lat="-24.2845858"/>
+        
+        
+        <nd ref="9557191170" lon="-65.2018068" lat="-24.2847444"/>
+        
+        
+        <nd ref="9557191171" lon="-65.2016709" lat="-24.2849126"/>
+        
+        
+        <nd ref="9557191172" lon="-65.2016447" lat="-24.2849741"/>
+        
+        
+        <nd ref="9557191173" lon="-65.2019342" lat="-24.2852062"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="1321761916" version="1" user="patodiez" uid="1856060" timestamp="2024-10-07T04:38:58Z" changeset="157564367">
+        
+        
+        <bounds minlat="-24.2803289" minlon="-65.2013944" maxlat="-24.2802362" maxlon="-65.1972507"/>
+        
+        
+        <nd ref="7729133414" lon="-65.2013944" lat="-24.2803289"/>
+        
+        
+        <nd ref="12231062485" lon="-65.1997157" lat="-24.2803131"/>
+        
+        
+        <nd ref="7729133415" lon="-65.1978489" lat="-24.2802794"/>
+        
+        
+        <nd ref="7729133416" lon="-65.1976122" lat="-24.2802794"/>
+        
+        
+        <nd ref="7729133417" lon="-65.1974596" lat="-24.2802841"/>
+        
+        
+        <nd ref="7729133418" lon="-65.1973596" lat="-24.2802889"/>
+        
+        
+        <nd ref="7729133419" lon="-65.1972507" lat="-24.2802362"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="1321761916" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181">
+        
+        
+        <nd ref="7729133412" lon="-65.2014269" lat="-24.2803684"/>
+        
+        
+        <nd ref="12231062485" lon="-65.1997152" lat="-24.2803349"/>
+        
+        
+        <nd ref="7729133418" lon="-65.1973596" lat="-24.2802889"/>
+        
+        
+        <nd ref="7729133419" lon="-65.1972507" lat="-24.2802362"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="1321761917" version="1" user="patodiez" uid="1856060" timestamp="2024-10-07T04:38:58Z" changeset="157564367">
+        
+        
+        <bounds minlat="-24.2839106" minlon="-65.2022401" maxlat="-24.2832179" maxlon="-65.1987194"/>
+        
+        
+        <nd ref="12231062472" lon="-65.202059" lat="-24.2839106"/>
+        
+        
+        <nd ref="12231062473" lon="-65.2022239" lat="-24.2836419"/>
+        
+        
+        <nd ref="12231062474" lon="-65.2022401" lat="-24.2835122"/>
+        
+        
+        <nd ref="12231062475" lon="-65.2022117" lat="-24.283401"/>
+        
+        
+        <nd ref="12231062476" lon="-65.2021548" lat="-24.2833566"/>
+        
+        
+        <nd ref="12231062477" lon="-65.2020531" lat="-24.2833121"/>
+        
+        
+        <nd ref="12231062471" lon="-65.2014352" lat="-24.2832639"/>
+        
+        
+        <nd ref="12231062478" lon="-65.1987194" lat="-24.2832179"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="1321761917" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181">
+        
+        
+        <nd ref="12231062472" lon="-65.2021018" lat="-24.2839241"/>
+        
+        
+        <nd ref="12231062473" lon="-65.2022239" lat="-24.2836419"/>
+        
+        
+        <nd ref="12231062474" lon="-65.2022401" lat="-24.2835122"/>
+        
+        
+        <nd ref="12231062475" lon="-65.2022117" lat="-24.283401"/>
+        
+        
+        <nd ref="12231062476" lon="-65.2021548" lat="-24.2833566"/>
+        
+        
+        <nd ref="12231062477" lon="-65.2020531" lat="-24.2833121"/>
+        
+        
+        <nd ref="12231062471" lon="-65.2014352" lat="-24.2832639"/>
+        
+        
+        <nd ref="12231062478" lon="-65.1987095" lat="-24.2832223"/>
+        
+        
+        <nd ref="13787996874" lon="-65.1983857" lat="-24.2832031"/>
+        
+        
+        <nd ref="13787996873" lon="-65.1982302" lat="-24.2831371"/>
+        
+        
+        <nd ref="13787996872" lon="-65.1981336" lat="-24.2830564"/>
+        
+        
+        <nd ref="13787996871" lon="-65.1965135" lat="-24.2823327"/>
+        
+        
+        <nd ref="13787996870" lon="-65.1964009" lat="-24.2822374"/>
+        
+        
+        <nd ref="13787996869" lon="-65.1963499" lat="-24.282142"/>
+        
+        
+        <nd ref="12231062483" lon="-65.1962964" lat="-24.2819261"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="1321761918" version="1" user="patodiez" uid="1856060" timestamp="2024-10-07T04:38:58Z" changeset="157564367">
+        
+        
+        <bounds minlat="-24.282004" minlon="-65.2013919" maxlat="-24.2819261" maxlon="-65.1962964"/>
+        
+        
+        <nd ref="12231062482" lon="-65.2013919" lat="-24.282004"/>
+        
+        
+        <nd ref="12231062484" lon="-65.1996626" lat="-24.2819775"/>
+        
+        
+        <nd ref="6179814730" lon="-65.1983535" lat="-24.2819575"/>
+        
+        
+        <nd ref="12231062483" lon="-65.1962964" lat="-24.2819261"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="1321761918" version="2" timestamp="2026-05-02T20:54:14Z" uid="3382594" user="Josuer" changeset="182135181">
+        
+        
+        <nd ref="12231062482" lon="-65.2014039" lat="-24.2820041"/>
+        
+        
+        <nd ref="12231062484" lon="-65.1996626" lat="-24.2819775"/>
+        
+        
+        <nd ref="12231062483" lon="-65.1962964" lat="-24.2819261"/>
+        
+        
+        <nd ref="13787996868" lon="-65.1960911" lat="-24.2819036"/>
+        
+        
+        <nd ref="13787996867" lon="-65.1959744" lat="-24.281856"/>
+        
+        
+        <nd ref="6058855203" lon="-65.1958541" lat="-24.2817596"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="1321761919" version="1" user="patodiez" uid="1856060" timestamp="2024-10-07T04:38:58Z" changeset="157564367">
+        
+        
+        <bounds minlat="-24.2819775" minlon="-65.1997157" maxlat="-24.2803131" maxlon="-65.1996626"/>
+        
+        
+        <nd ref="12231062484" lon="-65.1996626" lat="-24.2819775"/>
+        
+        
+        <nd ref="12231062485" lon="-65.1997157" lat="-24.2803131"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="1321761919" version="1" user="patodiez" uid="1856060" timestamp="2024-10-07T04:38:58Z" changeset="157564367">
+        
+        
+        <nd ref="12231062484" lon="-65.1996626" lat="-24.2819775"/>
+        
+        
+        <nd ref="12231062485" lon="-65.1997152" lat="-24.2803349"/>
+        
+        
+        <tag k="highway" v="unclassified"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+
+</osm>

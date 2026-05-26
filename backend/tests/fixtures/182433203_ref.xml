@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<osm version="0.6" generator="osmcha" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
+  <action type="create">
+    <node id="13811613604" version="1" lon="123.9178567" lat="10.3882262" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811613605" version="1" lon="123.9176783" lat="10.3881048" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811613606" version="1" lon="123.9172277" lat="10.3877975" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811613607" version="1" lon="123.9171740" lat="10.3878014" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811613608" version="1" lon="123.9170453" lat="10.3879149" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811613609" version="1" lon="123.9173765" lat="10.3881668" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811613610" version="1" lon="123.9177185" lat="10.3883871" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259675" version="6" changeset="177587093" timestamp="2026-01-22T23:30:14Z" uid="23567040" user="sandstonecranium">
+        <bounds minlat="10.3878495" minlon="123.9177282" maxlat="10.3886863" maxlon="123.9187527"/>
+        <nd ref="1136908774" version="3" lon="123.9177282" lat="10.3886863"/>
+        <nd ref="1136908773" version="3" lon="123.9179778" lat="10.3884152"/>
+        <nd ref="1136908775" version="4" lon="123.9180865" lat="10.3882548"/>
+        <nd ref="1136908776" version="2" lon="123.9182644" lat="10.3880990"/>
+        <nd ref="1136908777" version="3" lon="123.9183423" lat="10.3880473"/>
+        <nd ref="1136908778" version="3" lon="123.9185765" lat="10.3879272"/>
+        <nd ref="1136908764" version="3" lon="123.9187527" lat="10.3878495"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="DECCA Homes"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259675" version="7" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3878495" minlon="123.9177282" maxlat="10.3886863" maxlon="123.9187527"/>
+        <nd ref="1136908774" version="3" lon="123.9177282" lat="10.3886863"/>
+        <nd ref="1136908773" version="3" lon="123.9179778" lat="10.3884152"/>
+        <nd ref="1136908775" version="4" lon="123.9180865" lat="10.3882548"/>
+        <nd ref="1136908776" version="2" lon="123.9182644" lat="10.3880990"/>
+        <nd ref="1136908777" version="3" lon="123.9183423" lat="10.3880473"/>
+        <nd ref="1136908778" version="3" lon="123.9185765" lat="10.3879272"/>
+        <nd ref="1136908764" version="3" lon="123.9187527" lat="10.3878495"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="162046036" version="3" changeset="177586824" timestamp="2026-01-22T23:18:10Z" uid="23567040" user="sandstonecranium">
+        <bounds minlat="10.3853967" minlon="123.9173189" maxlat="10.3858726" maxlon="123.9183441"/>
+        <nd ref="1136908845" version="5" lon="123.9173189" lat="10.3858726"/>
+        <nd ref="1739922141" version="6" lon="123.9183441" lat="10.3853967"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="VLT-D"/>
+        <tag k="note:2022" v="Local knowledge needed. Odd name string on highway."/>
+        <tag k="oneway" v="no"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="162046036" version="4" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3853967" minlon="123.9173189" maxlat="10.3858726" maxlon="123.9183441"/>
+        <nd ref="1136908845" version="5" lon="123.9173189" lat="10.3858726"/>
+        <nd ref="1739922141" version="6" lon="123.9183441" lat="10.3853967"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="note:2022" v="Local knowledge needed. Odd name string on highway."/>
+        <tag k="oneway" v="no"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="627919988" version="2" changeset="62912252" timestamp="2018-09-25T12:37:15Z" uid="24338" user="Rally">
+        <bounds minlat="10.3859065" minlon="123.9167864" maxlat="10.3861624" maxlon="123.9171881"/>
+        <nd ref="5927890801" version="2" lon="123.9167864" lat="10.3859896"/>
+        <nd ref="5927890803" version="2" lon="123.9170017" lat="10.3859065"/>
+        <nd ref="5927890805" version="2" lon="123.9170547" lat="10.3860134"/>
+        <nd ref="5927890804" version="1" lon="123.9170929" lat="10.3860681"/>
+        <nd ref="5927890808" version="2" lon="123.9171881" lat="10.3861624"/>
+        <tag k="highway" v="service"/>
+      </way>
+    </old>
+    <new>
+      <way id="627919988" version="3" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3859065" minlon="123.9167864" maxlat="10.3860681" maxlon="123.9170929"/>
+        <nd ref="5927890801" version="2" lon="123.9167864" lat="10.3859896"/>
+        <nd ref="5927890803" version="2" lon="123.9170017" lat="10.3859065"/>
+        <nd ref="5927890805" version="2" lon="123.9170547" lat="10.3860134"/>
+        <nd ref="5927890804" version="1" lon="123.9170929" lat="10.3860681"/>
+        <tag k="highway" v="service"/>
+      </way>
+    </new>
+  </action>
+  <action type="delete">
+    <old>
+      <way id="628026025" version="1" changeset="62912252" timestamp="2018-09-25T12:37:14Z" uid="24338" user="Rally">
+        <bounds minlat="10.3861624" minlon="123.9168415" maxlat="10.3863243" maxlon="123.9171881"/>
+        <nd ref="5927890808" version="2" lon="123.9171881" lat="10.3861624"/>
+        <nd ref="5927890810" version="2" lon="123.9170062" lat="10.3862474"/>
+        <nd ref="1136908859" version="2" lon="123.9168415" lat="10.3863243"/>
+        <tag k="highway" v="residential"/>
+        <tag k="source" v="Bing"/>
+      </way>
+    </old>
+    <new>
+      <way id="628026025" version="2" visible="false" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes"/>
+    </new>
+  </action>
+  <action type="create">
+    <way id="1511032707" version="1" changeset="182433203" timestamp="2026-05-09T16:37:09Z" uid="1488198" user="VMPanes">
+      <bounds minlat="10.3877975" minlon="123.9170453" maxlat="10.3883871" maxlon="123.9178567"/>
+      <nd ref="13811613610" version="1" lon="123.9177185" lat="10.3883871"/>
+      <nd ref="13811613609" version="1" lon="123.9173765" lat="10.3881668"/>
+      <nd ref="13811613608" version="1" lon="123.9170453" lat="10.3879149"/>
+      <nd ref="13811613607" version="1" lon="123.9171740" lat="10.3878014"/>
+      <nd ref="13811613606" version="1" lon="123.9172277" lat="10.3877975"/>
+      <nd ref="13811613605" version="1" lon="123.9176783" lat="10.3881048"/>
+      <nd ref="13811613604" version="1" lon="123.9178567" lat="10.3882262"/>
+      <nd ref="13811613610" version="1" lon="123.9177185" lat="10.3883871"/>
+      <tag k="addr:city" v="Cebu"/>
+      <tag k="addr:quarter" v="Bacayan"/>
+      <tag k="amenity" v="school"/>
+      <tag k="isced:level" v="0-2"/>
+      <tag k="name" v="Gopher Wood Learning Center"/>
+      <tag k="operator:type" v="private"/>
+      <tag k="ref" v="447517"/>
+    </way>
+  </action>
+</osm>

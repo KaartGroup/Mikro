@@ -97,11 +97,75 @@ Hits the OSM API concurrently via `ThreadPoolExecutor`. The inner function `_fet
 `_get_active_mapper_usernames` returns `[]` (not `None`) when a team_admin has no managed users, which causes `get_changeset_heatmap` to return the empty response immediately without hitting the OSM API.
 
 ### `element_analysis.py`
-`ElementAnalysisCache.week` is a stored `date` (week start Monday), so date bounds are passed as `.date()` objects, not datetimes. The controller converts before calling `get_element_analysis`.
 
-`_ORDERED_CATEGORIES` defines the fixed display order for the eight element categories. Any category not in this list from the DB is silently dropped — this is intentional, not a bug.
+The pipeline for a single request:
 
-`_queue_analysis_job` is the internal function for `queue_element_analysis`; the controller is thin enough that it just guards `g.user` and delegates.
+```
+fetch_element_analysis()                    ← reads g, request
+  └─ get_element_analysis(org_id, ...)      ← queries ChangesetAdiff rows
+       ├─ parse_adiff_transitions(xml, ...) ← per-changeset XML → {key: {(old,new): count}}
+       ├─ merge_transitions(...)            ← accumulates into day_key_stats
+       └─ build_category_data(day_key_stats)← pure: day stats → category response list
+```
+
+**`build_category_data(day_key_stats)`** is a pure function (no DB, no Flask) and is the right entry point for unit tests. Pass it a `{date: {key: {(old,new): count}}}` dict; get back the `categories` list ready for the HTTP response.
+
+**`_ORDERED_CATEGORIES`** defines the fixed display order for the eight categories. Category membership is driven by `_CATEGORY_KEYS` (which tracked keys belong to which category) and `_CATEGORY_KEY_FILTERS` (per-key value guards applied on top of the global `KEY_FILTERS` in `adiff_analyzer.py`).
+
+**`_queue_analysis_job`** is the internal function for `queue_element_analysis`; the controller is thin enough that it just guards `g.user` and delegates.
+
+---
+
+### adiff XML pipeline (`api/utils/adiff_analyzer.py`)
+
+**`TRACKED_KEYS`** — the nine OSM tag keys the system watches: `oneway`, `highway`, `access`, `barrier`, `ref`, `name`, `construction`, `type`, `restriction`.
+
+**`KEY_FILTERS`** — per-key callables that gate which value transitions are recorded. Currently only `highway` is filtered (only high-priority road classes: motorway, trunk, primary, secondary, tertiary and their `_link` variants pass). All other tracked keys have no filter — every transition counts.
+
+**osmcha adiff XML format** — `create` actions have the OSM element directly under `<action>` with no `<new>` wrapper. `modify` and `delete` actions use `<old>` / `<new>` containers as expected. The parser handles this: for creates it calls `_element_tag_values(action)` directly.
+
+```xml
+<!-- create — element is a direct child of <action> -->
+<action type="create">
+  <way><tag k="oneway" v="yes"/></way>
+</action>
+
+<!-- modify — wrapped in <old>/<new> -->
+<action type="modify">
+  <old><way><tag k="highway" v="secondary"/></way></old>
+  <new><way><tag k="highway" v="residential"/></way></new>
+</action>
+```
+
+**Counting rules** in `build_category_data`:
+- `old_val is None` → **added**
+- `new_val is None` → **deleted**
+- both present and different → **modified**
+
+---
+
+### Tests and fixtures (`tests/test_element_analysis.py`, `tests/fixtures/`)
+
+Tests are structured in three layers matching the pipeline:
+
+| Layer | What it tests | Mocking |
+|---|---|---|
+| `TestParseAdiffTransitions` | Raw XML → transition dicts | None — loads real fixture XML |
+| `TestBuildCategoryData` | Transition dicts → category response | None — pure function |
+| `TestGetElementAnalysis` | DB query wiring | ChangesetAdiff mocked |
+
+**Fixture files** in `tests/fixtures/` are real changesets from the DB, one per tracked-key scenario:
+
+| File | Key(s) exercised | Notable transitions |
+|---|---|---|
+| `182054401.xml` | access | add (`access=private`) via modify |
+| `182054462.xml` | name | add via create action (no `<new>` wrapper) |
+| `182135772.xml` | highway | modify `secondary→residential` (secondary passes filter) |
+| `182434007_barrier.xml` | barrier | modify `gate→lift_gate` + add |
+| `182433203_ref.xml` | ref | add |
+| `182164518_construction.xml` | construction, oneway | add for both |
+| `182436200_restriction.xml` | restriction, type | modify + add restriction; add `type=restriction` |
+| `182432384_type_multipolygon.xml` | type (negative) | `type=multipolygon` — confirms it does NOT count in Turn Restrictions |
 
 ### `mapillary_stats.py`
 `_fetch_user_images` handles Mapillary's cursor-based pagination via the `paging.next` URL. It runs in threads — same app-context caveat as changeset heatmap.

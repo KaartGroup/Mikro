@@ -1,0 +1,5218 @@
+<osm version="0.6" generator="osmcha" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2645606348" version="3" lon="-65.2130766" lat="-24.259026"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2645606348" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2590279" lon="-65.213077"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2645606350" version="2" lon="-65.2137476" lat="-24.2589076"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2645606350" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2589005" lon="-65.213746"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2645606351" version="2" lon="-65.214146" lat="-24.2588312"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2645606351" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2588246" lon="-65.2141445"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2645606353" version="2" lon="-65.2145562" lat="-24.2587525"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2645606353" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2587465" lon="-65.2145548"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2645606355" version="2" lon="-65.2148403" lat="-24.2586841"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2645606355" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2586918" lon="-65.2148421"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2645606357" version="2" lon="-65.2153284" lat="-24.2585932"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2645606357" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.258599" lon="-65.2153297"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2645606359" version="2" lon="-65.215663" lat="-24.2585308"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2645606359" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2585353" lon="-65.215664"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2645606361" version="2" lon="-65.2160855" lat="-24.2584521"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2645606361" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.258455" lon="-65.2160862"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2645606363" version="2" lon="-65.2164361" lat="-24.2583868"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2645606363" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2583883" lon="-65.2164364"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048583" version="3" lon="-65.2122956" lat="-24.2591901"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048583" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2591772" lon="-65.2122925"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048588" version="4" lon="-65.2118157" lat="-24.2592821"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048588" version="5" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2592686" lon="-65.2118126"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048591" version="3" lon="-65.2118723" lat="-24.2592711"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048591" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2592578" lon="-65.2118693"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048596" version="4" lon="-65.2114218" lat="-24.2593522"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048596" version="5" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2593434" lon="-65.2114198"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048598" version="3" lon="-65.211469" lat="-24.2593444"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048598" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2593344" lon="-65.2114667"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048603" version="3" lon="-65.2110277" lat="-24.2594246"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048603" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2594183" lon="-65.2110263"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048606" version="3" lon="-65.2110856" lat="-24.2594141"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048606" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2594073" lon="-65.211084"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048611" version="2" lon="-65.2106378" lat="-24.2594955"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048611" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2594924" lon="-65.2106371"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048613" version="2" lon="-65.2107049" lat="-24.2594834"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048613" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2594796" lon="-65.210704"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048627" version="2" lon="-65.2102684" lat="-24.2595627"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048627" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2595626" lon="-65.2102684"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048629" version="2" lon="-65.2103142" lat="-24.2595544"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048629" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2595539" lon="-65.2103141"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048631" version="3" lon="-65.2117486" lat="-24.2585411"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048631" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2585372" lon="-65.2117477"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048634" version="3" lon="-65.2115924" lat="-24.2578559"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048634" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2578539" lon="-65.2115919"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048636" version="4" lon="-65.2113589" lat="-24.258614"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048636" version="5" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2586123" lon="-65.2113585"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048639" version="3" lon="-65.2111933" lat="-24.2579308"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048639" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.257931" lon="-65.2111934"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048644" version="4" lon="-65.2109177" lat="-24.258696"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048644" version="5" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2586972" lon="-65.210918"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048646" version="3" lon="-65.2105302" lat="-24.2587699"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048646" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2587719" lon="-65.2105307"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048648" version="2" lon="-65.2101405" lat="-24.2588435"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048648" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2588469" lon="-65.2101413"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048651" version="3" lon="-65.211309" lat="-24.2586236"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048651" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2586219" lon="-65.2113086"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048652" version="3" lon="-65.2116886" lat="-24.2585502"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048652" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2585487" lon="-65.2116883"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048655" version="4" lon="-65.2121276" lat="-24.258464"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048655" version="5" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2584643" lon="-65.2121259"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048657" version="3" lon="-65.2109664" lat="-24.2586876"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048657" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2586879" lon="-65.2109665"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048660" version="3" lon="-65.2108182" lat="-24.2580021"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048660" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2580036" lon="-65.2108185"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048662" version="3" lon="-65.2105777" lat="-24.2587603"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048662" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2587627" lon="-65.2105783"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048665" version="3" lon="-65.2104287" lat="-24.2580734"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048665" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2580788" lon="-65.21043"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2646048667" version="3" lon="-65.2101834" lat="-24.2588361"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2646048667" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2588387" lon="-65.210184"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2777992538" version="4" lon="-65.2092049" lat="-24.2558021"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2777992538" version="5" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2557935" lon="-65.2092217"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="2857249088" version="4" lon="-65.2085073" lat="-24.2584236"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="2857249088" version="5" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2584077" lon="-65.2085086"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="4316637148" version="3" lon="-65.2092083" lat="-24.256036"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="4316637148" version="4" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2560506" lon="-65.209233"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="4316637149" version="1" lon="-65.2093048" lat="-24.2568664"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="4316637149" version="2" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2568712" lon="-65.2093267"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="delete">
+    
+    
+    <old>
+      
+      
+      <node id="4316637150" version="2" lon="-65.209419" lat="-24.2575303"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="4316637150" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2575303" lon="-65.209419" visible="false"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="5131289618" version="2" lon="-65.2149026" lat="-24.2586725"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="5131289618" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.25868" lon="-65.2149043"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6058866739" version="1" lon="-65.2114072" lat="-24.2578907"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6058866739" version="2" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2578897" lon="-65.211407"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <node id="6058866747" version="1" lon="-65.2109077" lat="-24.2579851"/>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <node id="6058866747" version="2" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2579863" lon="-65.210908"/>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <node id="13788157008" version="1" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035" lat="-24.2564461" lon="-65.2092671"/>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="205494908" version="18" user="Nickopotomus" uid="8392696" timestamp="2018-11-13T22:54:05Z" changeset="64460586">
+        
+        
+        <bounds minlat="-24.2582244" minlon="-65.2165005" maxlat="-24.2569093" maxlon="-65.2095656"/>
+        
+        
+        <nd ref="2857248974" lon="-65.2095656" lat="-24.2582244"/>
+        
+        
+        <nd ref="2646048670" lon="-65.2100277" lat="-24.2581567"/>
+        
+        
+        <nd ref="2646048665" lon="-65.2104287" lat="-24.2580734"/>
+        
+        
+        <nd ref="2646048660" lon="-65.2108182" lat="-24.2580021"/>
+        
+        
+        <nd ref="6058866747" lon="-65.2109077" lat="-24.2579851"/>
+        
+        
+        <nd ref="2646048639" lon="-65.2111933" lat="-24.2579308"/>
+        
+        
+        <nd ref="6058866739" lon="-65.2114072" lat="-24.2578907"/>
+        
+        
+        <nd ref="2646048634" lon="-65.2115924" lat="-24.2578559"/>
+        
+        
+        <nd ref="2646048672" lon="-65.2119662" lat="-24.2577814"/>
+        
+        
+        <nd ref="2645606320" lon="-65.2126089" lat="-24.2576468"/>
+        
+        
+        <nd ref="6058866781" lon="-65.2128052" lat="-24.2576107"/>
+        
+        
+        <nd ref="5131289631" lon="-65.213027" lat="-24.2575698"/>
+        
+        
+        <nd ref="6058866784" lon="-65.2131032" lat="-24.2575545"/>
+        
+        
+        <nd ref="6058866760" lon="-65.2138528" lat="-24.2574036"/>
+        
+        
+        <nd ref="2777992551" lon="-65.2142446" lat="-24.2573247"/>
+        
+        
+        <nd ref="2988112781" lon="-65.2145046" lat="-24.2572754"/>
+        
+        
+        <nd ref="3234520700" lon="-65.2165005" lat="-24.2569093"/>
+        
+        
+        <tag k="highway" v="secondary"/>
+        
+        
+        <tag k="name" v="Avenida Río de la Plata"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="205494908" version="18" user="Nickopotomus" uid="8392696" timestamp="2018-11-13T22:54:05Z" changeset="64460586">
+        
+        
+        <nd ref="2857248974" lon="-65.2095656" lat="-24.2582244"/>
+        
+        
+        <nd ref="2646048670" lon="-65.2100277" lat="-24.2581567"/>
+        
+        
+        <nd ref="2646048665" lon="-65.21043" lat="-24.2580788"/>
+        
+        
+        <nd ref="2646048660" lon="-65.2108185" lat="-24.2580036"/>
+        
+        
+        <nd ref="6058866747" lon="-65.210908" lat="-24.2579863"/>
+        
+        
+        <nd ref="2646048639" lon="-65.2111934" lat="-24.257931"/>
+        
+        
+        <nd ref="6058866739" lon="-65.211407" lat="-24.2578897"/>
+        
+        
+        <nd ref="2646048634" lon="-65.2115919" lat="-24.2578539"/>
+        
+        
+        <nd ref="2646048672" lon="-65.2119662" lat="-24.2577814"/>
+        
+        
+        <nd ref="2645606320" lon="-65.2126089" lat="-24.2576468"/>
+        
+        
+        <nd ref="6058866781" lon="-65.2128052" lat="-24.2576107"/>
+        
+        
+        <nd ref="5131289631" lon="-65.213027" lat="-24.2575698"/>
+        
+        
+        <nd ref="6058866784" lon="-65.2131032" lat="-24.2575545"/>
+        
+        
+        <nd ref="6058866760" lon="-65.2138528" lat="-24.2574036"/>
+        
+        
+        <nd ref="2777992551" lon="-65.2142446" lat="-24.2573247"/>
+        
+        
+        <nd ref="2988112781" lon="-65.2145046" lat="-24.2572754"/>
+        
+        
+        <nd ref="3234520700" lon="-65.2165005" lat="-24.2569093"/>
+        
+        
+        <tag k="highway" v="secondary"/>
+        
+        
+        <tag k="name" v="Avenida Río de la Plata"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259208509" version="6" user="patodiez" uid="1856060" timestamp="2020-07-20T01:56:35Z" changeset="88215631">
+        
+        
+        <bounds minlat="-24.2596561" minlon="-65.2168351" maxlat="-24.2583124" maxlon="-65.2097772"/>
+        
+        
+        <nd ref="2645606324" lon="-65.2168351" lat="-24.2583124"/>
+        
+        
+        <nd ref="2645606363" lon="-65.2164361" lat="-24.2583868"/>
+        
+        
+        <nd ref="2645606361" lon="-65.2160855" lat="-24.2584521"/>
+        
+        
+        <nd ref="2645606359" lon="-65.215663" lat="-24.2585308"/>
+        
+        
+        <nd ref="2645606357" lon="-65.2153284" lat="-24.2585932"/>
+        
+        
+        <nd ref="5131289618" lon="-65.2149026" lat="-24.2586725"/>
+        
+        
+        <nd ref="2645606355" lon="-65.2148403" lat="-24.2586841"/>
+        
+        
+        <nd ref="2645606353" lon="-65.2145562" lat="-24.2587525"/>
+        
+        
+        <nd ref="2645606351" lon="-65.214146" lat="-24.2588312"/>
+        
+        
+        <nd ref="2645606350" lon="-65.2137476" lat="-24.2589076"/>
+        
+        
+        <nd ref="2645606348" lon="-65.2130766" lat="-24.259026"/>
+        
+        
+        <nd ref="2646048583" lon="-65.2122956" lat="-24.2591901"/>
+        
+        
+        <nd ref="2646048591" lon="-65.2118723" lat="-24.2592711"/>
+        
+        
+        <nd ref="2646048588" lon="-65.2118157" lat="-24.2592821"/>
+        
+        
+        <nd ref="2646048598" lon="-65.211469" lat="-24.2593444"/>
+        
+        
+        <nd ref="2646048596" lon="-65.2114218" lat="-24.2593522"/>
+        
+        
+        <nd ref="2646048606" lon="-65.2110856" lat="-24.2594141"/>
+        
+        
+        <nd ref="2646048603" lon="-65.2110277" lat="-24.2594246"/>
+        
+        
+        <nd ref="2646048613" lon="-65.2107049" lat="-24.2594834"/>
+        
+        
+        <nd ref="2646048611" lon="-65.2106378" lat="-24.2594955"/>
+        
+        
+        <nd ref="2646048629" lon="-65.2103142" lat="-24.2595544"/>
+        
+        
+        <nd ref="2646048627" lon="-65.2102684" lat="-24.2595627"/>
+        
+        
+        <nd ref="2645606325" lon="-65.2097772" lat="-24.2596561"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Paraná"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259208509" version="6" user="patodiez" uid="1856060" timestamp="2020-07-20T01:56:35Z" changeset="88215631">
+        
+        
+        <nd ref="2645606324" lon="-65.2168351" lat="-24.2583124"/>
+        
+        
+        <nd ref="2645606363" lon="-65.2164364" lat="-24.2583883"/>
+        
+        
+        <nd ref="2645606361" lon="-65.2160862" lat="-24.258455"/>
+        
+        
+        <nd ref="2645606359" lon="-65.215664" lat="-24.2585353"/>
+        
+        
+        <nd ref="2645606357" lon="-65.2153297" lat="-24.258599"/>
+        
+        
+        <nd ref="5131289618" lon="-65.2149043" lat="-24.25868"/>
+        
+        
+        <nd ref="2645606355" lon="-65.2148421" lat="-24.2586918"/>
+        
+        
+        <nd ref="2645606353" lon="-65.2145548" lat="-24.2587465"/>
+        
+        
+        <nd ref="2645606351" lon="-65.2141445" lat="-24.2588246"/>
+        
+        
+        <nd ref="2645606350" lon="-65.213746" lat="-24.2589005"/>
+        
+        
+        <nd ref="2645606348" lon="-65.213077" lat="-24.2590279"/>
+        
+        
+        <nd ref="2646048583" lon="-65.2122925" lat="-24.2591772"/>
+        
+        
+        <nd ref="2646048591" lon="-65.2118693" lat="-24.2592578"/>
+        
+        
+        <nd ref="2646048588" lon="-65.2118126" lat="-24.2592686"/>
+        
+        
+        <nd ref="2646048598" lon="-65.2114667" lat="-24.2593344"/>
+        
+        
+        <nd ref="2646048596" lon="-65.2114198" lat="-24.2593434"/>
+        
+        
+        <nd ref="2646048606" lon="-65.211084" lat="-24.2594073"/>
+        
+        
+        <nd ref="2646048603" lon="-65.2110263" lat="-24.2594183"/>
+        
+        
+        <nd ref="2646048613" lon="-65.210704" lat="-24.2594796"/>
+        
+        
+        <nd ref="2646048611" lon="-65.2106371" lat="-24.2594924"/>
+        
+        
+        <nd ref="2646048629" lon="-65.2103141" lat="-24.2595539"/>
+        
+        
+        <nd ref="2646048627" lon="-65.2102684" lat="-24.2595626"/>
+        
+        
+        <nd ref="2645606325" lon="-65.2097772" lat="-24.2596561"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Paraná"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259208518" version="9" user="patodiez" uid="1856060" timestamp="2020-07-20T01:56:35Z" changeset="88215631">
+        
+        
+        <bounds minlat="-24.2614959" minlon="-65.2132272" maxlat="-24.259026" maxlon="-65.2128127"/>
+        
+        
+        <nd ref="2645606349" lon="-65.2132272" lat="-24.2614959"/>
+        
+        
+        <nd ref="2646834457" lon="-65.2131398" lat="-24.2611502"/>
+        
+        
+        <nd ref="2646834533" lon="-65.2131239" lat="-24.2610873"/>
+        
+        
+        <nd ref="5142000063" lon="-65.2130874" lat="-24.260943"/>
+        
+        
+        <nd ref="2859247216" lon="-65.2130816" lat="-24.2609202"/>
+        
+        
+        <nd ref="4657165189" lon="-65.2130107" lat="-24.2605745"/>
+        
+        
+        <nd ref="5141447020" lon="-65.2130106" lat="-24.2604755"/>
+        
+        
+        <nd ref="5143288418" lon="-65.2129697" lat="-24.2602994"/>
+        
+        
+        <nd ref="5141447019" lon="-65.2128752" lat="-24.2598924"/>
+        
+        
+        <nd ref="2645606333" lon="-65.2128312" lat="-24.2597959"/>
+        
+        
+        <nd ref="7729619494" lon="-65.2128127" lat="-24.2597228"/>
+        
+        
+        <nd ref="7729619495" lon="-65.2128249" lat="-24.2596635"/>
+        
+        
+        <nd ref="2645606348" lon="-65.2130766" lat="-24.259026"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Tercero"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259208518" version="9" user="patodiez" uid="1856060" timestamp="2020-07-20T01:56:35Z" changeset="88215631">
+        
+        
+        <nd ref="2645606349" lon="-65.2132272" lat="-24.2614959"/>
+        
+        
+        <nd ref="2646834457" lon="-65.2131398" lat="-24.2611502"/>
+        
+        
+        <nd ref="2646834533" lon="-65.2131239" lat="-24.2610873"/>
+        
+        
+        <nd ref="5142000063" lon="-65.2130874" lat="-24.260943"/>
+        
+        
+        <nd ref="2859247216" lon="-65.2130816" lat="-24.2609202"/>
+        
+        
+        <nd ref="4657165189" lon="-65.2130107" lat="-24.2605745"/>
+        
+        
+        <nd ref="5141447020" lon="-65.2130106" lat="-24.2604755"/>
+        
+        
+        <nd ref="5143288418" lon="-65.2129697" lat="-24.2602994"/>
+        
+        
+        <nd ref="5141447019" lon="-65.2128752" lat="-24.2598924"/>
+        
+        
+        <nd ref="2645606333" lon="-65.2128312" lat="-24.2597959"/>
+        
+        
+        <nd ref="7729619494" lon="-65.2128127" lat="-24.2597228"/>
+        
+        
+        <nd ref="7729619495" lon="-65.2128249" lat="-24.2596635"/>
+        
+        
+        <nd ref="2645606348" lon="-65.213077" lat="-24.2590279"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Tercero"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259208520" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.259891" minlon="-65.2139866" maxlat="-24.2589076" maxlon="-65.2137476"/>
+        
+        
+        <nd ref="2645606350" lon="-65.2137476" lat="-24.2589076"/>
+        
+        
+        <nd ref="2645606328" lon="-65.2139866" lat="-24.259891"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Deseado"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259208520" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2645606350" lon="-65.213746" lat="-24.2589005"/>
+        
+        
+        <nd ref="2645606328" lon="-65.2139866" lat="-24.259891"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Deseado"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259208521" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2597841" minlon="-65.2143695" maxlat="-24.2588312" maxlon="-65.214146"/>
+        
+        
+        <nd ref="2645606352" lon="-65.2143695" lat="-24.2597841"/>
+        
+        
+        <nd ref="2645606351" lon="-65.214146" lat="-24.2588312"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Santa Cruz"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259208521" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2645606352" lon="-65.2143695" lat="-24.2597841"/>
+        
+        
+        <nd ref="2645606351" lon="-65.2141445" lat="-24.2588246"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Santa Cruz"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259208523" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2596691" minlon="-65.2147756" maxlat="-24.2587525" maxlon="-65.2145562"/>
+        
+        
+        <nd ref="2645606353" lon="-65.2145562" lat="-24.2587525"/>
+        
+        
+        <nd ref="2645606354" lon="-65.2147756" lat="-24.2596691"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Luján"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259208523" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2645606353" lon="-65.2145548" lat="-24.2587465"/>
+        
+        
+        <nd ref="2645606354" lon="-65.2147756" lat="-24.2596691"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Luján"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259208524" version="6" user="patodiez" uid="1856060" timestamp="2020-07-20T01:56:35Z" changeset="88215631">
+        
+        
+        <bounds minlat="-24.2586841" minlon="-65.2148403" maxlat="-24.2572754" maxlon="-65.2145046"/>
+        
+        
+        <nd ref="2988112781" lon="-65.2145046" lat="-24.2572754"/>
+        
+        
+        <nd ref="2646834396" lon="-65.2146834" lat="-24.2579893"/>
+        
+        
+        <nd ref="2645606355" lon="-65.2148403" lat="-24.2586841"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Tunuyán"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259208524" version="6" user="patodiez" uid="1856060" timestamp="2020-07-20T01:56:35Z" changeset="88215631">
+        
+        
+        <nd ref="2988112781" lon="-65.2145046" lat="-24.2572754"/>
+        
+        
+        <nd ref="2646834396" lon="-65.2146834" lat="-24.2579893"/>
+        
+        
+        <nd ref="2645606355" lon="-65.2148421" lat="-24.2586918"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Tunuyán"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259208526" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.259443" minlon="-65.2155432" maxlat="-24.2578976" maxlon="-65.2151647"/>
+        
+        
+        <nd ref="2646834404" lon="-65.2151647" lat="-24.2578976"/>
+        
+        
+        <nd ref="2645606357" lon="-65.2153284" lat="-24.2585932"/>
+        
+        
+        <nd ref="2645606358" lon="-65.2155432" lat="-24.259443"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Carcarañá"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259208526" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646834404" lon="-65.2151647" lat="-24.2578976"/>
+        
+        
+        <nd ref="2645606357" lon="-65.2153297" lat="-24.258599"/>
+        
+        
+        <nd ref="2645606358" lon="-65.2155432" lat="-24.259443"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Carcarañá"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259208528" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2593478" minlon="-65.2158665" maxlat="-24.2578312" maxlon="-65.2155133"/>
+        
+        
+        <nd ref="2645606360" lon="-65.2158665" lat="-24.2593478"/>
+        
+        
+        <nd ref="2645606359" lon="-65.215663" lat="-24.2585308"/>
+        
+        
+        <nd ref="2646834403" lon="-65.2155133" lat="-24.2578312"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Grande"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259208528" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2645606360" lon="-65.2158665" lat="-24.2593478"/>
+        
+        
+        <nd ref="2645606359" lon="-65.215664" lat="-24.2585353"/>
+        
+        
+        <nd ref="2646834403" lon="-65.2155133" lat="-24.2578312"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Grande"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259208529" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2592328" minlon="-65.216257" maxlat="-24.2577508" maxlon="-65.215935"/>
+        
+        
+        <nd ref="2646834401" lon="-65.215935" lat="-24.2577508"/>
+        
+        
+        <nd ref="2645606361" lon="-65.2160855" lat="-24.2584521"/>
+        
+        
+        <nd ref="2645606362" lon="-65.216257" lat="-24.2592328"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Bermejo"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259208529" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646834401" lon="-65.215935" lat="-24.2577508"/>
+        
+        
+        <nd ref="2645606361" lon="-65.2160862" lat="-24.258455"/>
+        
+        
+        <nd ref="2645606362" lon="-65.216257" lat="-24.2592328"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Bermejo"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259208531" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2591302" minlon="-65.2166082" maxlat="-24.2576848" maxlon="-65.2162817"/>
+        
+        
+        <nd ref="2645606364" lon="-65.2166082" lat="-24.2591302"/>
+        
+        
+        <nd ref="2645606363" lon="-65.2164361" lat="-24.2583868"/>
+        
+        
+        <nd ref="2646834400" lon="-65.2162817" lat="-24.2576848"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Dulce"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259208531" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2645606364" lon="-65.2166082" lat="-24.2591302"/>
+        
+        
+        <nd ref="2645606363" lon="-65.2164364" lat="-24.2583883"/>
+        
+        
+        <nd ref="2646834400" lon="-65.2162817" lat="-24.2576848"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Dulce"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259250214" version="5" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2585411" minlon="-65.2117486" maxlat="-24.2578559" maxlon="-65.2115924"/>
+        
+        
+        <nd ref="2646048631" lon="-65.2117486" lat="-24.2585411"/>
+        
+        
+        <nd ref="2646048634" lon="-65.2115924" lat="-24.2578559"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Colorado"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259250214" version="5" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048631" lon="-65.2117477" lat="-24.2585372"/>
+        
+        
+        <nd ref="2646048634" lon="-65.2115919" lat="-24.2578539"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Colorado"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259250215" version="5" user="agendagauchajujuy" uid="3923611" timestamp="2017-10-01T16:10:57Z" changeset="52540655">
+        
+        
+        <bounds minlat="-24.2598709" minlon="-65.2124547" maxlat="-24.2577814" maxlon="-65.2119662"/>
+        
+        
+        <nd ref="2646048672" lon="-65.2119662" lat="-24.2577814"/>
+        
+        
+        <nd ref="2646048655" lon="-65.2121276" lat="-24.258464"/>
+        
+        
+        <nd ref="2646048583" lon="-65.2122956" lat="-24.2591901"/>
+        
+        
+        <nd ref="2646048555" lon="-65.2124547" lat="-24.2598709"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Athuel"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259250215" version="5" user="agendagauchajujuy" uid="3923611" timestamp="2017-10-01T16:10:57Z" changeset="52540655">
+        
+        
+        <nd ref="2646048672" lon="-65.2119662" lat="-24.2577814"/>
+        
+        
+        <nd ref="2646048655" lon="-65.2121259" lat="-24.2584643"/>
+        
+        
+        <nd ref="2646048583" lon="-65.2122925" lat="-24.2591772"/>
+        
+        
+        <nd ref="2646048555" lon="-65.2124547" lat="-24.2598709"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Athuel"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259250216" version="6" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.258614" minlon="-65.2113589" maxlat="-24.2579308" maxlon="-65.2111933"/>
+        
+        
+        <nd ref="2646048639" lon="-65.2111933" lat="-24.2579308"/>
+        
+        
+        <nd ref="2646048636" lon="-65.2113589" lat="-24.258614"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Lavallén"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259250216" version="6" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048639" lon="-65.2111934" lat="-24.257931"/>
+        
+        
+        <nd ref="2646048636" lon="-65.2113585" lat="-24.2586123"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Lavallén"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259250218" version="5" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2586876" minlon="-65.2109664" maxlat="-24.2580021" maxlon="-65.2108182"/>
+        
+        
+        <nd ref="2646048657" lon="-65.2109664" lat="-24.2586876"/>
+        
+        
+        <nd ref="2646048660" lon="-65.2108182" lat="-24.2580021"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Xibi Xibi"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259250218" version="5" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048657" lon="-65.2109665" lat="-24.2586879"/>
+        
+        
+        <nd ref="2646048660" lon="-65.2108185" lat="-24.2580036"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Xibi Xibi"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259250219" version="5" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2587603" minlon="-65.2105777" maxlat="-24.2580734" maxlon="-65.2104287"/>
+        
+        
+        <nd ref="2646048665" lon="-65.2104287" lat="-24.2580734"/>
+        
+        
+        <nd ref="2646048662" lon="-65.2105777" lat="-24.2587603"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Gallegos"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259250219" version="5" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048665" lon="-65.21043" lat="-24.2580788"/>
+        
+        
+        <nd ref="2646048662" lon="-65.2105783" lat="-24.2587627"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Gallegos"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259250220" version="5" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2588361" minlon="-65.2101834" maxlat="-24.2581567" maxlon="-65.2100277"/>
+        
+        
+        <nd ref="2646048667" lon="-65.2101834" lat="-24.2588361"/>
+        
+        
+        <nd ref="2646048670" lon="-65.2100277" lat="-24.2581567"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Negro"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259250220" version="5" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048667" lon="-65.210184" lat="-24.2588387"/>
+        
+        
+        <nd ref="2646048670" lon="-65.2100277" lat="-24.2581567"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Negro"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="259250221" version="4" user="Hoordinates" uid="8867106" timestamp="2020-04-17T23:16:31Z" changeset="83728660">
+        
+        
+        <bounds minlat="-24.2589376" minlon="-65.2121276" maxlat="-24.258464" maxlon="-65.2096711"/>
+        
+        
+        <nd ref="2646048641" lon="-65.2096711" lat="-24.2589376"/>
+        
+        
+        <nd ref="2646048648" lon="-65.2101405" lat="-24.2588435"/>
+        
+        
+        <nd ref="2646048667" lon="-65.2101834" lat="-24.2588361"/>
+        
+        
+        <nd ref="2646048646" lon="-65.2105302" lat="-24.2587699"/>
+        
+        
+        <nd ref="2646048662" lon="-65.2105777" lat="-24.2587603"/>
+        
+        
+        <nd ref="2646048644" lon="-65.2109177" lat="-24.258696"/>
+        
+        
+        <nd ref="2646048657" lon="-65.2109664" lat="-24.2586876"/>
+        
+        
+        <nd ref="2646048651" lon="-65.211309" lat="-24.2586236"/>
+        
+        
+        <nd ref="2646048636" lon="-65.2113589" lat="-24.258614"/>
+        
+        
+        <nd ref="2646048652" lon="-65.2116886" lat="-24.2585502"/>
+        
+        
+        <nd ref="2646048631" lon="-65.2117486" lat="-24.2585411"/>
+        
+        
+        <nd ref="2646048655" lon="-65.2121276" lat="-24.258464"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Uruguay"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="259250221" version="4" user="Hoordinates" uid="8867106" timestamp="2020-04-17T23:16:31Z" changeset="83728660">
+        
+        
+        <nd ref="2646048641" lon="-65.2096711" lat="-24.2589376"/>
+        
+        
+        <nd ref="2646048648" lon="-65.2101413" lat="-24.2588469"/>
+        
+        
+        <nd ref="2646048667" lon="-65.210184" lat="-24.2588387"/>
+        
+        
+        <nd ref="2646048646" lon="-65.2105307" lat="-24.2587719"/>
+        
+        
+        <nd ref="2646048662" lon="-65.2105783" lat="-24.2587627"/>
+        
+        
+        <nd ref="2646048644" lon="-65.210918" lat="-24.2586972"/>
+        
+        
+        <nd ref="2646048657" lon="-65.2109665" lat="-24.2586879"/>
+        
+        
+        <nd ref="2646048651" lon="-65.2113086" lat="-24.2586219"/>
+        
+        
+        <nd ref="2646048636" lon="-65.2113585" lat="-24.2586123"/>
+        
+        
+        <nd ref="2646048652" lon="-65.2116883" lat="-24.2585487"/>
+        
+        
+        <nd ref="2646048631" lon="-65.2117477" lat="-24.2585372"/>
+        
+        
+        <nd ref="2646048655" lon="-65.2121259" lat="-24.2584643"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Uruguay"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="281746578" version="6" user="Hoordinates" uid="8867106" timestamp="2020-04-17T23:16:34Z" changeset="83728660">
+        
+        
+        <bounds minlat="-24.2603347" minlon="-65.2087894" maxlat="-24.2584236" maxlon="-65.2085073"/>
+        
+        
+        <nd ref="2857248976" lon="-65.2087894" lat="-24.2603347"/>
+        
+        
+        <nd ref="3242583767" lon="-65.2087055" lat="-24.2598306"/>
+        
+        
+        <nd ref="2857248977" lon="-65.2086355" lat="-24.259383"/>
+        
+        
+        <nd ref="5424322189" lon="-65.2085754" lat="-24.2589058"/>
+        
+        
+        <nd ref="2857249088" lon="-65.2085073" lat="-24.2584236"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Cornelio Saavedra"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="source" v="Bing"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="281746578" version="6" user="Hoordinates" uid="8867106" timestamp="2020-04-17T23:16:34Z" changeset="83728660">
+        
+        
+        <nd ref="2857248976" lon="-65.2087894" lat="-24.2603347"/>
+        
+        
+        <nd ref="3242583767" lon="-65.2087055" lat="-24.2598306"/>
+        
+        
+        <nd ref="2857248977" lon="-65.2086355" lat="-24.259383"/>
+        
+        
+        <nd ref="5424322189" lon="-65.2085754" lat="-24.2589058"/>
+        
+        
+        <nd ref="2857249088" lon="-65.2085086" lat="-24.2584077"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Cornelio Saavedra"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="source" v="Bing"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="281746579" version="6" user="Nickopotomus" uid="8392696" timestamp="2018-11-14T00:42:31Z" changeset="64462060">
+        
+        
+        <bounds minlat="-24.2594862" minlon="-65.2085073" maxlat="-24.2584236" maxlon="-65.2042524"/>
+        
+        
+        <nd ref="2857249088" lon="-65.2085073" lat="-24.2584236"/>
+        
+        
+        <nd ref="2857248991" lon="-65.2072318" lat="-24.2586323"/>
+        
+        
+        <nd ref="2857249048" lon="-65.2072056" lat="-24.2586369"/>
+        
+        
+        <nd ref="2777992657" lon="-65.2070309" lat="-24.2586546"/>
+        
+        
+        <nd ref="4293429728" lon="-65.2065607" lat="-24.2587517"/>
+        
+        
+        <nd ref="2777992677" lon="-65.2059541" lat="-24.258946"/>
+        
+        
+        <nd ref="2777992674" lon="-65.2057298" lat="-24.2590178"/>
+        
+        
+        <nd ref="2857249086" lon="-65.2042524" lat="-24.2594862"/>
+        
+        
+        <tag k="highway" v="tertiary"/>
+        
+        
+        <tag k="name" v="Bernardo de Monteagudo"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="281746579" version="6" user="Nickopotomus" uid="8392696" timestamp="2018-11-14T00:42:31Z" changeset="64462060">
+        
+        
+        <nd ref="2857249088" lon="-65.2085086" lat="-24.2584077"/>
+        
+        
+        <nd ref="2857248991" lon="-65.2072318" lat="-24.2586323"/>
+        
+        
+        <nd ref="2857249048" lon="-65.2072056" lat="-24.2586369"/>
+        
+        
+        <nd ref="2777992657" lon="-65.2070309" lat="-24.2586546"/>
+        
+        
+        <nd ref="4293429728" lon="-65.2065607" lat="-24.2587517"/>
+        
+        
+        <nd ref="2777992677" lon="-65.2059541" lat="-24.258946"/>
+        
+        
+        <nd ref="2777992674" lon="-65.2057298" lat="-24.2590178"/>
+        
+        
+        <nd ref="2857249086" lon="-65.2042524" lat="-24.2594862"/>
+        
+        
+        <tag k="highway" v="tertiary"/>
+        
+        
+        <tag k="name" v="Bernardo de Monteagudo"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="281746612" version="4" user="agendagauchajujuy" uid="3923611" timestamp="2017-09-20T18:33:28Z" changeset="52220097">
+        
+        
+        <bounds minlat="-24.2594862" minlon="-65.2085073" maxlat="-24.257003" maxlon="-65.2039807"/>
+        
+        
+        <nd ref="2857249052" lon="-65.2083329" lat="-24.2571562"/>
+        
+        
+        <nd ref="5118028863" lon="-65.206905" lat="-24.2572094"/>
+        
+        
+        <nd ref="5118028861" lon="-65.2068607" lat="-24.2571894"/>
+        
+        
+        <nd ref="5118028864" lon="-65.2065971" lat="-24.2570706"/>
+        
+        
+        <nd ref="5118028862" lon="-65.2064416" lat="-24.257003"/>
+        
+        
+        <nd ref="2857249084" lon="-65.2063838" lat="-24.2570218"/>
+        
+        
+        <nd ref="2857249085" lon="-65.2039807" lat="-24.2578043"/>
+        
+        
+        <nd ref="2857249086" lon="-65.2042524" lat="-24.2594862"/>
+        
+        
+        <nd ref="4293429728" lon="-65.2065607" lat="-24.2587517"/>
+        
+        
+        <nd ref="2857249088" lon="-65.2085073" lat="-24.2584236"/>
+        
+        
+        <nd ref="2857249052" lon="-65.2083329" lat="-24.2571562"/>
+        
+        
+        <tag k="boundary" v="administrative"/>
+        
+        
+        <tag k="description" v="B° 11 de Octubre - San Cayetano"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="281746612" version="4" user="agendagauchajujuy" uid="3923611" timestamp="2017-09-20T18:33:28Z" changeset="52220097">
+        
+        
+        <nd ref="2857249052" lon="-65.2083329" lat="-24.2571562"/>
+        
+        
+        <nd ref="5118028863" lon="-65.206905" lat="-24.2572094"/>
+        
+        
+        <nd ref="5118028861" lon="-65.2068607" lat="-24.2571894"/>
+        
+        
+        <nd ref="5118028864" lon="-65.2065971" lat="-24.2570706"/>
+        
+        
+        <nd ref="5118028862" lon="-65.2064416" lat="-24.257003"/>
+        
+        
+        <nd ref="2857249084" lon="-65.2063838" lat="-24.2570218"/>
+        
+        
+        <nd ref="2857249085" lon="-65.2039807" lat="-24.2578043"/>
+        
+        
+        <nd ref="2857249086" lon="-65.2042524" lat="-24.2594862"/>
+        
+        
+        <nd ref="4293429728" lon="-65.2065607" lat="-24.2587517"/>
+        
+        
+        <nd ref="2857249088" lon="-65.2085086" lat="-24.2584077"/>
+        
+        
+        <nd ref="2857249052" lon="-65.2083329" lat="-24.2571562"/>
+        
+        
+        <tag k="boundary" v="administrative"/>
+        
+        
+        <tag k="description" v="B° 11 de Octubre - San Cayetano"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="317923208" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2595544" minlon="-65.2103142" maxlat="-24.2588435" maxlon="-65.2101405"/>
+        
+        
+        <nd ref="2646048629" lon="-65.2103142" lat="-24.2595544"/>
+        
+        
+        <nd ref="2646048648" lon="-65.2101405" lat="-24.2588435"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Negro"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="317923208" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048629" lon="-65.2103141" lat="-24.2595539"/>
+        
+        
+        <nd ref="2646048648" lon="-65.2101413" lat="-24.2588469"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Negro"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="317923209" version="4" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2602882" minlon="-65.2104301" maxlat="-24.2595627" maxlon="-65.2102684"/>
+        
+        
+        <nd ref="2646048624" lon="-65.2104301" lat="-24.2602882"/>
+        
+        
+        <nd ref="2646048627" lon="-65.2102684" lat="-24.2595627"/>
+        
+        
+        <tag k="highway" v="service"/>
+        
+        
+        <tag k="name" v="Río Negro"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="service" v="parking_aisle"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="317923209" version="4" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048624" lon="-65.2104301" lat="-24.2602882"/>
+        
+        
+        <nd ref="2646048627" lon="-65.2102684" lat="-24.2595626"/>
+        
+        
+        <tag k="highway" v="service"/>
+        
+        
+        <tag k="name" v="Río Negro"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="service" v="parking_aisle"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="317923212" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2592711" minlon="-65.2118723" maxlat="-24.2585502" maxlon="-65.2116886"/>
+        
+        
+        <nd ref="2646048591" lon="-65.2118723" lat="-24.2592711"/>
+        
+        
+        <nd ref="2646048652" lon="-65.2116886" lat="-24.2585502"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Colorado"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="317923212" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048591" lon="-65.2118693" lat="-24.2592578"/>
+        
+        
+        <nd ref="2646048652" lon="-65.2116883" lat="-24.2585487"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Colorado"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="317923213" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.259969" minlon="-65.2119705" maxlat="-24.2592821" maxlon="-65.2118157"/>
+        
+        
+        <nd ref="2646048586" lon="-65.2119705" lat="-24.259969"/>
+        
+        
+        <nd ref="2646048588" lon="-65.2118157" lat="-24.2592821"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Colorado"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="317923213" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048586" lon="-65.2119705" lat="-24.259969"/>
+        
+        
+        <nd ref="2646048588" lon="-65.2118126" lat="-24.2592686"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Colorado"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="317923215" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2602103" minlon="-65.2108115" maxlat="-24.2594955" maxlon="-65.2106378"/>
+        
+        
+        <nd ref="2646048611" lon="-65.2106378" lat="-24.2594955"/>
+        
+        
+        <nd ref="2646048608" lon="-65.2108115" lat="-24.2602103"/>
+        
+        
+        <tag k="highway" v="service"/>
+        
+        
+        <tag k="name" v="Río Gallegos"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="service" v="parking_aisle"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="317923215" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048611" lon="-65.2106371" lat="-24.2594924"/>
+        
+        
+        <nd ref="2646048608" lon="-65.2108115" lat="-24.2602103"/>
+        
+        
+        <tag k="highway" v="service"/>
+        
+        
+        <tag k="name" v="Río Gallegos"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="service" v="parking_aisle"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="317923218" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2594834" minlon="-65.2107049" maxlat="-24.2587699" maxlon="-65.2105302"/>
+        
+        
+        <nd ref="2646048646" lon="-65.2105302" lat="-24.2587699"/>
+        
+        
+        <nd ref="2646048613" lon="-65.2107049" lat="-24.2594834"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Gallegos"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="317923218" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048646" lon="-65.2105307" lat="-24.2587719"/>
+        
+        
+        <nd ref="2646048613" lon="-65.210704" lat="-24.2594796"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Gallegos"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="317923219" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2593444" minlon="-65.211469" maxlat="-24.2586236" maxlon="-65.211309"/>
+        
+        
+        <nd ref="2646048651" lon="-65.211309" lat="-24.2586236"/>
+        
+        
+        <nd ref="2646048598" lon="-65.211469" lat="-24.2593444"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Lavallén"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="317923219" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048651" lon="-65.2113086" lat="-24.2586219"/>
+        
+        
+        <nd ref="2646048598" lon="-65.2114667" lat="-24.2593344"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Lavallén"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="317923220" version="3" user="agendagauchajujuy" uid="3923611" timestamp="2017-10-01T16:27:20Z" changeset="52541143">
+        
+        
+        <bounds minlat="-24.2600474" minlon="-65.2115818" maxlat="-24.2593522" maxlon="-65.2114218"/>
+        
+        
+        <nd ref="2646048596" lon="-65.2114218" lat="-24.2593522"/>
+        
+        
+        <nd ref="2646048593" lon="-65.2115818" lat="-24.2600474"/>
+        
+        
+        <tag k="highway" v="service"/>
+        
+        
+        <tag k="name" v="Río Lavallén"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="service" v="parking_aisle"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="317923220" version="3" user="agendagauchajujuy" uid="3923611" timestamp="2017-10-01T16:27:20Z" changeset="52541143">
+        
+        
+        <nd ref="2646048596" lon="-65.2114198" lat="-24.2593434"/>
+        
+        
+        <nd ref="2646048593" lon="-65.2115818" lat="-24.2600474"/>
+        
+        
+        <tag k="highway" v="service"/>
+        
+        
+        <tag k="name" v="Río Lavallén"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="service" v="parking_aisle"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="317923222" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2601272" minlon="-65.2111905" maxlat="-24.2594246" maxlon="-65.2110277"/>
+        
+        
+        <nd ref="2646048601" lon="-65.2111905" lat="-24.2601272"/>
+        
+        
+        <nd ref="2646048603" lon="-65.2110277" lat="-24.2594246"/>
+        
+        
+        <tag k="highway" v="service"/>
+        
+        
+        <tag k="name" v="Río Xibi Xibi"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="service" v="parking_aisle"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="317923222" version="3" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048601" lon="-65.2111905" lat="-24.2601272"/>
+        
+        
+        <nd ref="2646048603" lon="-65.2110263" lat="-24.2594183"/>
+        
+        
+        <tag k="highway" v="service"/>
+        
+        
+        <tag k="name" v="Río Xibi Xibi"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="service" v="parking_aisle"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="317923224" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2594141" minlon="-65.2110856" maxlat="-24.258696" maxlon="-65.2109177"/>
+        
+        
+        <nd ref="2646048606" lon="-65.2110856" lat="-24.2594141"/>
+        
+        
+        <nd ref="2646048644" lon="-65.2109177" lat="-24.258696"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Xibi Xibi"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="317923224" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2646048606" lon="-65.211084" lat="-24.2594073"/>
+        
+        
+        <nd ref="2646048644" lon="-65.210918" lat="-24.2586972"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Xibi Xibi"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="405213046" version="4" user="agendagauchajujuy" uid="3923611" timestamp="2017-09-26T00:24:35Z" changeset="52370183">
+        
+        
+        <bounds minlat="-24.2584236" minlon="-65.2085073" maxlat="-24.2562954" maxlon="-65.2081892"/>
+        
+        
+        <nd ref="2154584328" lon="-65.2081892" lat="-24.2562954"/>
+        
+        
+        <nd ref="2857249052" lon="-65.2083329" lat="-24.2571562"/>
+        
+        
+        <nd ref="4316679047" lon="-65.2083513" lat="-24.2572705"/>
+        
+        
+        <nd ref="2777992659" lon="-65.2084397" lat="-24.2578457"/>
+        
+        
+        <nd ref="2857249088" lon="-65.2085073" lat="-24.2584236"/>
+        
+        
+        <tag k="highway" v="secondary"/>
+        
+        
+        <tag k="name" v="Avenida Luciano Catalano"/>
+        
+        
+        <tag k="source" v="Bing"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="405213046" version="4" user="agendagauchajujuy" uid="3923611" timestamp="2017-09-26T00:24:35Z" changeset="52370183">
+        
+        
+        <nd ref="2154584328" lon="-65.2081892" lat="-24.2562954"/>
+        
+        
+        <nd ref="2857249052" lon="-65.2083329" lat="-24.2571562"/>
+        
+        
+        <nd ref="4316679047" lon="-65.2083513" lat="-24.2572705"/>
+        
+        
+        <nd ref="2777992659" lon="-65.2084397" lat="-24.2578457"/>
+        
+        
+        <nd ref="2857249088" lon="-65.2085086" lat="-24.2584077"/>
+        
+        
+        <tag k="highway" v="secondary"/>
+        
+        
+        <tag k="name" v="Avenida Luciano Catalano"/>
+        
+        
+        <tag k="source" v="Bing"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="432717182" version="3" user="Hoordinates" uid="8867106" timestamp="2020-04-17T23:16:35Z" changeset="83728660">
+        
+        
+        <bounds minlat="-24.256036" minlon="-65.2092083" maxlat="-24.2558021" maxlon="-65.2092049"/>
+        
+        
+        <nd ref="4316637148" lon="-65.2092083" lat="-24.256036"/>
+        
+        
+        <nd ref="2777992538" lon="-65.2092049" lat="-24.2558021"/>
+        
+        
+        <tag k="bridge" v="viaduct"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="layer" v="1"/>
+        
+        
+        <tag k="name" v="Chacho Peñaloza"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="432717182" version="3" user="Hoordinates" uid="8867106" timestamp="2020-04-17T23:16:35Z" changeset="83728660">
+        
+        
+        <nd ref="4316637148" lon="-65.209233" lat="-24.2560506"/>
+        
+        
+        <nd ref="2777992538" lon="-65.2092217" lat="-24.2557935"/>
+        
+        
+        <tag k="bridge" v="viaduct"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="layer" v="1"/>
+        
+        
+        <tag k="name" v="Chacho Peñaloza"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="432717183" version="2" user="Hoordinates" uid="8867106" timestamp="2020-04-17T23:16:36Z" changeset="83728660">
+        
+        
+        <bounds minlat="-24.2582244" minlon="-65.2095656" maxlat="-24.256036" maxlon="-65.2092083"/>
+        
+        
+        <nd ref="2857248974" lon="-65.2095656" lat="-24.2582244"/>
+        
+        
+        <nd ref="4316637150" lon="-65.209419" lat="-24.2575303"/>
+        
+        
+        <nd ref="4316637149" lon="-65.2093048" lat="-24.2568664"/>
+        
+        
+        <nd ref="4316637148" lon="-65.2092083" lat="-24.256036"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Chacho Peñaloza"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="432717183" version="3" timestamp="2026-05-02T21:26:11Z" uid="3382594" user="Josuer" changeset="182136035">
+        
+        
+        <nd ref="2857248974" lon="-65.2095656" lat="-24.2582244"/>
+        
+        
+        <nd ref="4316637149" lon="-65.2093267" lat="-24.2568712"/>
+        
+        
+        <nd ref="13788157008" lon="-65.2092671" lat="-24.2564461"/>
+        
+        
+        <nd ref="4316637148" lon="-65.209233" lat="-24.2560506"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Chacho Peñaloza"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="643973026" version="1" user="Nickopotomus" uid="8392696" timestamp="2018-11-13T22:54:05Z" changeset="64460586">
+        
+        
+        <bounds minlat="-24.2579851" minlon="-65.2114072" maxlat="-24.2575749" maxlon="-65.2108969"/>
+        
+        
+        <nd ref="6058866747" lon="-65.2109077" lat="-24.2579851"/>
+        
+        
+        <nd ref="6058866746" lon="-65.2108969" lat="-24.2577883"/>
+        
+        
+        <nd ref="6058866736" lon="-65.2108976" lat="-24.257721"/>
+        
+        
+        <nd ref="6058866737" lon="-65.2109022" lat="-24.2576752"/>
+        
+        
+        <nd ref="6058866745" lon="-65.2109136" lat="-24.2576501"/>
+        
+        
+        <nd ref="6058866738" lon="-65.2109445" lat="-24.2576275"/>
+        
+        
+        <nd ref="6058866744" lon="-65.2109867" lat="-24.2576141"/>
+        
+        
+        <nd ref="6058866743" lon="-65.2112208" lat="-24.2575749"/>
+        
+        
+        <nd ref="6058866735" lon="-65.2112596" lat="-24.2575774"/>
+        
+        
+        <nd ref="6058866734" lon="-65.2112952" lat="-24.2575866"/>
+        
+        
+        <nd ref="6058866742" lon="-65.2113227" lat="-24.2576031"/>
+        
+        
+        <nd ref="6058866733" lon="-65.2113415" lat="-24.2576196"/>
+        
+        
+        <nd ref="6058866741" lon="-65.2113529" lat="-24.2576446"/>
+        
+        
+        <nd ref="6058866732" lon="-65.211371" lat="-24.2577229"/>
+        
+        
+        <nd ref="6058866740" lon="-65.2113797" lat="-24.2577602"/>
+        
+        
+        <nd ref="6058866739" lon="-65.2114072" lat="-24.2578907"/>
+        
+        
+        <tag k="highway" v="service"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="643973026" version="1" user="Nickopotomus" uid="8392696" timestamp="2018-11-13T22:54:05Z" changeset="64460586">
+        
+        
+        <nd ref="6058866747" lon="-65.210908" lat="-24.2579863"/>
+        
+        
+        <nd ref="6058866746" lon="-65.2108969" lat="-24.2577883"/>
+        
+        
+        <nd ref="6058866736" lon="-65.2108976" lat="-24.257721"/>
+        
+        
+        <nd ref="6058866737" lon="-65.2109022" lat="-24.2576752"/>
+        
+        
+        <nd ref="6058866745" lon="-65.2109136" lat="-24.2576501"/>
+        
+        
+        <nd ref="6058866738" lon="-65.2109445" lat="-24.2576275"/>
+        
+        
+        <nd ref="6058866744" lon="-65.2109867" lat="-24.2576141"/>
+        
+        
+        <nd ref="6058866743" lon="-65.2112208" lat="-24.2575749"/>
+        
+        
+        <nd ref="6058866735" lon="-65.2112596" lat="-24.2575774"/>
+        
+        
+        <nd ref="6058866734" lon="-65.2112952" lat="-24.2575866"/>
+        
+        
+        <nd ref="6058866742" lon="-65.2113227" lat="-24.2576031"/>
+        
+        
+        <nd ref="6058866733" lon="-65.2113415" lat="-24.2576196"/>
+        
+        
+        <nd ref="6058866741" lon="-65.2113529" lat="-24.2576446"/>
+        
+        
+        <nd ref="6058866732" lon="-65.211371" lat="-24.2577229"/>
+        
+        
+        <nd ref="6058866740" lon="-65.2113797" lat="-24.2577602"/>
+        
+        
+        <nd ref="6058866739" lon="-65.211407" lat="-24.2578897"/>
+        
+        
+        <tag k="highway" v="service"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="644030527" version="1" user="Nickopotomus" uid="8392696" timestamp="2018-11-14T00:42:30Z" changeset="64462060">
+        
+        
+        <bounds minlat="-24.2584236" minlon="-65.2095656" maxlat="-24.2582244" maxlon="-65.2085073"/>
+        
+        
+        <nd ref="2857248974" lon="-65.2095656" lat="-24.2582244"/>
+        
+        
+        <nd ref="2857249088" lon="-65.2085073" lat="-24.2584236"/>
+        
+        
+        <tag k="highway" v="secondary"/>
+        
+        
+        <tag k="name" v="Bernardo de Monteagudo"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="644030527" version="1" user="Nickopotomus" uid="8392696" timestamp="2018-11-14T00:42:30Z" changeset="64462060">
+        
+        
+        <nd ref="2857248974" lon="-65.2095656" lat="-24.2582244"/>
+        
+        
+        <nd ref="2857249088" lon="-65.2085086" lat="-24.2584077"/>
+        
+        
+        <tag k="highway" v="secondary"/>
+        
+        
+        <tag k="name" v="Bernardo de Monteagudo"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="793077250" version="1" user="Hoordinates" uid="8867106" timestamp="2020-04-17T23:16:24Z" changeset="83728660">
+        
+        
+        <bounds minlat="-24.2558021" minlon="-65.2092049" maxlat="-24.2544445" maxlon="-65.2090909"/>
+        
+        
+        <nd ref="2777992538" lon="-65.2092049" lat="-24.2558021"/>
+        
+        
+        <nd ref="2777992520" lon="-65.209186" lat="-24.2550858"/>
+        
+        
+        <nd ref="2668910646" lon="-65.2090909" lat="-24.2544445"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Chacho Peñaloza"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="793077250" version="1" user="Hoordinates" uid="8867106" timestamp="2020-04-17T23:16:24Z" changeset="83728660">
+        
+        
+        <nd ref="2777992538" lon="-65.2092217" lat="-24.2557935"/>
+        
+        
+        <nd ref="2777992520" lon="-65.209186" lat="-24.2550858"/>
+        
+        
+        <nd ref="2668910646" lon="-65.2090909" lat="-24.2544445"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Chacho Peñaloza"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="827972923" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <bounds minlat="-24.2595658" minlon="-65.2151264" maxlat="-24.2586725" maxlon="-65.2149026"/>
+        
+        
+        <nd ref="2645606356" lon="-65.2151264" lat="-24.2595658"/>
+        
+        
+        <nd ref="5131289618" lon="-65.2149026" lat="-24.2586725"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Tunuyán"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="827972923" version="2" user="JP Duran" uid="20229491" timestamp="2024-12-30T22:30:41Z" changeset="160812750">
+        
+        
+        <nd ref="2645606356" lon="-65.2151264" lat="-24.2595658"/>
+        
+        
+        <nd ref="5131289618" lon="-65.2149043" lat="-24.25868"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Río Tunuyán"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <relation id="3749509" version="3" user="muralito" uid="755114" timestamp="2016-09-23T15:19:37Z" changeset="42377005">
+        
+        
+        <bounds minlat="-24.2594862" minlon="-65.2085073" maxlat="-24.257003" maxlon="-65.2039807"/>
+        
+        
+        <member ref="281746612" role="outer" type="way">
+          
+          
+          <nd lon="-65.2083329" lat="-24.2571562"/>
+          
+          
+          <nd lon="-65.206905" lat="-24.2572094"/>
+          
+          
+          <nd lon="-65.2068607" lat="-24.2571894"/>
+          
+          
+          <nd lon="-65.2065971" lat="-24.2570706"/>
+          
+          
+          <nd lon="-65.2064416" lat="-24.257003"/>
+          
+          
+          <nd lon="-65.2063838" lat="-24.2570218"/>
+          
+          
+          <nd lon="-65.2039807" lat="-24.2578043"/>
+          
+          
+          <nd lon="-65.2042524" lat="-24.2594862"/>
+          
+          
+          <nd lon="-65.2065607" lat="-24.2587517"/>
+          
+          
+          <nd lon="-65.2085073" lat="-24.2584236"/>
+          
+          
+          <nd lon="-65.2083329" lat="-24.2571562"/>
+          
+        
+        </member>
+        
+        
+        <member ref="2864058987" role="label" type="node" lon="-65.205993" lat="-24.2580328"/>
+        
+        
+        <tag k="admin_level" v="9"/>
+        
+        
+        <tag k="boundary" v="administrative"/>
+        
+        
+        <tag k="name" v="11 de Octubre"/>
+        
+        
+        <tag k="type" v="boundary"/>
+        
+      
+      </relation>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <relation id="3749509" version="3" user="muralito" uid="755114" timestamp="2016-09-23T15:19:37Z" changeset="42377005">
+        
+        
+        <member ref="281746612" role="outer" type="way">
+          
+          
+          <nd lon="-65.2083329" lat="-24.2571562"/>
+          
+          
+          <nd lon="-65.206905" lat="-24.2572094"/>
+          
+          
+          <nd lon="-65.2068607" lat="-24.2571894"/>
+          
+          
+          <nd lon="-65.2065971" lat="-24.2570706"/>
+          
+          
+          <nd lon="-65.2064416" lat="-24.257003"/>
+          
+          
+          <nd lon="-65.2063838" lat="-24.2570218"/>
+          
+          
+          <nd lon="-65.2039807" lat="-24.2578043"/>
+          
+          
+          <nd lon="-65.2042524" lat="-24.2594862"/>
+          
+          
+          <nd lon="-65.2065607" lat="-24.2587517"/>
+          
+          
+          <nd lon="-65.2085086" lat="-24.2584077"/>
+          
+          
+          <nd lon="-65.2083329" lat="-24.2571562"/>
+          
+        
+        </member>
+        
+        
+        <member ref="2864058987" role="label" type="node" lon="-65.205993" lat="-24.2580328"/>
+        
+        
+        <tag k="admin_level" v="9"/>
+        
+        
+        <tag k="boundary" v="administrative"/>
+        
+        
+        <tag k="name" v="11 de Octubre"/>
+        
+        
+        <tag k="type" v="boundary"/>
+        
+      
+      </relation>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <relation id="3749510" version="7" user="Nickopotomus" uid="8392696" timestamp="2018-11-14T00:42:34Z" changeset="64462060">
+        
+        
+        <bounds minlat="-24.2611182" minlon="-65.2098545" maxlat="-24.2582244" maxlon="-65.2042524"/>
+        
+        
+        <member ref="403996540" role="outer" type="way">
+          
+          
+          <nd lon="-65.2098545" lat="-24.2601514"/>
+          
+          
+          <nd lon="-65.2097772" lat="-24.2596561"/>
+          
+          
+          <nd lon="-65.2097074" lat="-24.2591686"/>
+          
+          
+          <nd lon="-65.2096711" lat="-24.2589376"/>
+          
+          
+          <nd lon="-65.209637" lat="-24.2587234"/>
+          
+          
+          <nd lon="-65.2095656" lat="-24.2582244"/>
+          
+        
+        </member>
+        
+        
+        <member ref="644030527" role="outer" type="way">
+          
+          
+          <nd lon="-65.2095656" lat="-24.2582244"/>
+          
+          
+          <nd lon="-65.2085073" lat="-24.2584236"/>
+          
+        
+        </member>
+        
+        
+        <member ref="281746579" role="outer" type="way">
+          
+          
+          <nd lon="-65.2085073" lat="-24.2584236"/>
+          
+          
+          <nd lon="-65.2072318" lat="-24.2586323"/>
+          
+          
+          <nd lon="-65.2072056" lat="-24.2586369"/>
+          
+          
+          <nd lon="-65.2070309" lat="-24.2586546"/>
+          
+          
+          <nd lon="-65.2065607" lat="-24.2587517"/>
+          
+          
+          <nd lon="-65.2059541" lat="-24.258946"/>
+          
+          
+          <nd lon="-65.2057298" lat="-24.2590178"/>
+          
+          
+          <nd lon="-65.2042524" lat="-24.2594862"/>
+          
+        
+        </member>
+        
+        
+        <member ref="431988436" role="outer" type="way">
+          
+          
+          <nd lon="-65.2042524" lat="-24.2594862"/>
+          
+          
+          <nd lon="-65.2042969" lat="-24.2597477"/>
+          
+          
+          <nd lon="-65.2043552" lat="-24.2601715"/>
+          
+          
+          <nd lon="-65.2044208" lat="-24.2606394"/>
+          
+          
+          <nd lon="-65.2044823" lat="-24.2610112"/>
+          
+          
+          <nd lon="-65.204539" lat="-24.2611182"/>
+          
+        
+        </member>
+        
+        
+        <member ref="259250226" role="outer" type="way">
+          
+          
+          <nd lon="-65.2098545" lat="-24.2601514"/>
+          
+          
+          <nd lon="-65.2087894" lat="-24.2603347"/>
+          
+          
+          <nd lon="-65.2075304" lat="-24.2605579"/>
+          
+          
+          <nd lon="-65.2063514" lat="-24.260771"/>
+          
+          
+          <nd lon="-65.2063376" lat="-24.2607734"/>
+          
+          
+          <nd lon="-65.2051638" lat="-24.2609947"/>
+          
+          
+          <nd lon="-65.204539" lat="-24.2611182"/>
+          
+        
+        </member>
+        
+        
+        <member ref="2864058986" role="label" type="node" lon="-65.2069586" lat="-24.2597446"/>
+        
+        
+        <tag k="admin_level" v="9"/>
+        
+        
+        <tag k="boundary" v="administrative"/>
+        
+        
+        <tag k="name" v="9 de Julio"/>
+        
+        
+        <tag k="type" v="boundary"/>
+        
+      
+      </relation>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <relation id="3749510" version="7" user="Nickopotomus" uid="8392696" timestamp="2018-11-14T00:42:34Z" changeset="64462060">
+        
+        
+        <member ref="403996540" role="outer" type="way">
+          
+          
+          <nd lon="-65.2098545" lat="-24.2601514"/>
+          
+          
+          <nd lon="-65.2097772" lat="-24.2596561"/>
+          
+          
+          <nd lon="-65.2097074" lat="-24.2591686"/>
+          
+          
+          <nd lon="-65.2096711" lat="-24.2589376"/>
+          
+          
+          <nd lon="-65.209637" lat="-24.2587234"/>
+          
+          
+          <nd lon="-65.2095656" lat="-24.2582244"/>
+          
+        
+        </member>
+        
+        
+        <member ref="644030527" role="outer" type="way">
+          
+          
+          <nd lon="-65.2095656" lat="-24.2582244"/>
+          
+          
+          <nd lon="-65.2085086" lat="-24.2584077"/>
+          
+        
+        </member>
+        
+        
+        <member ref="281746579" role="outer" type="way">
+          
+          
+          <nd lon="-65.2085086" lat="-24.2584077"/>
+          
+          
+          <nd lon="-65.2072318" lat="-24.2586323"/>
+          
+          
+          <nd lon="-65.2072056" lat="-24.2586369"/>
+          
+          
+          <nd lon="-65.2070309" lat="-24.2586546"/>
+          
+          
+          <nd lon="-65.2065607" lat="-24.2587517"/>
+          
+          
+          <nd lon="-65.2059541" lat="-24.258946"/>
+          
+          
+          <nd lon="-65.2057298" lat="-24.2590178"/>
+          
+          
+          <nd lon="-65.2042524" lat="-24.2594862"/>
+          
+        
+        </member>
+        
+        
+        <member ref="431988436" role="outer" type="way">
+          
+          
+          <nd lon="-65.2042524" lat="-24.2594862"/>
+          
+          
+          <nd lon="-65.2042969" lat="-24.2597477"/>
+          
+          
+          <nd lon="-65.2043552" lat="-24.2601715"/>
+          
+          
+          <nd lon="-65.2044208" lat="-24.2606394"/>
+          
+          
+          <nd lon="-65.2044823" lat="-24.2610112"/>
+          
+          
+          <nd lon="-65.204539" lat="-24.2611182"/>
+          
+        
+        </member>
+        
+        
+        <member ref="259250226" role="outer" type="way">
+          
+          
+          <nd lon="-65.2098545" lat="-24.2601514"/>
+          
+          
+          <nd lon="-65.2087894" lat="-24.2603347"/>
+          
+          
+          <nd lon="-65.2075304" lat="-24.2605579"/>
+          
+          
+          <nd lon="-65.2063514" lat="-24.260771"/>
+          
+          
+          <nd lon="-65.2063376" lat="-24.2607734"/>
+          
+          
+          <nd lon="-65.2051638" lat="-24.2609947"/>
+          
+          
+          <nd lon="-65.204539" lat="-24.2611182"/>
+          
+        
+        </member>
+        
+        
+        <member ref="2864058986" role="label" type="node" lon="-65.2069586" lat="-24.2597446"/>
+        
+        
+        <tag k="admin_level" v="9"/>
+        
+        
+        <tag k="boundary" v="administrative"/>
+        
+        
+        <tag k="name" v="9 de Julio"/>
+        
+        
+        <tag k="type" v="boundary"/>
+        
+      
+      </relation>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <relation id="3764659" version="9" user="agendagauchajujuy" uid="3923611" timestamp="2017-09-28T20:56:18Z" changeset="52458026">
+        
+        
+        <bounds minlat="-24.2630342" minlon="-65.2170014" maxlat="-24.2569093" maxlon="-65.2095656"/>
+        
+        
+        <member ref="259208504" role="outer" type="way">
+          
+          
+          <nd lon="-65.2170014" lat="-24.2590084"/>
+          
+          
+          <nd lon="-65.2168351" lat="-24.2583124"/>
+          
+          
+          <nd lon="-65.2168194" lat="-24.2582456"/>
+          
+          
+          <nd lon="-65.2166758" lat="-24.2576097"/>
+          
+          
+          <nd lon="-65.2165005" lat="-24.2569093"/>
+          
+        
+        </member>
+        
+        
+        <member ref="205494908" role="outer" type="way">
+          
+          
+          <nd lon="-65.2095656" lat="-24.2582244"/>
+          
+          
+          <nd lon="-65.2100277" lat="-24.2581567"/>
+          
+          
+          <nd lon="-65.2104287" lat="-24.2580734"/>
+          
+          
+          <nd lon="-65.2108182" lat="-24.2580021"/>
+          
+          
+          <nd lon="-65.2109077" lat="-24.2579851"/>
+          
+          
+          <nd lon="-65.2111933" lat="-24.2579308"/>
+          
+          
+          <nd lon="-65.2114072" lat="-24.2578907"/>
+          
+          
+          <nd lon="-65.2115924" lat="-24.2578559"/>
+          
+          
+          <nd lon="-65.2119662" lat="-24.2577814"/>
+          
+          
+          <nd lon="-65.2126089" lat="-24.2576468"/>
+          
+          
+          <nd lon="-65.2128052" lat="-24.2576107"/>
+          
+          
+          <nd lon="-65.213027" lat="-24.2575698"/>
+          
+          
+          <nd lon="-65.2131032" lat="-24.2575545"/>
+          
+          
+          <nd lon="-65.2138528" lat="-24.2574036"/>
+          
+          
+          <nd lon="-65.2142446" lat="-24.2573247"/>
+          
+          
+          <nd lon="-65.2145046" lat="-24.2572754"/>
+          
+          
+          <nd lon="-65.2165005" lat="-24.2569093"/>
+          
+        
+        </member>
+        
+        
+        <member ref="403996540" role="outer" type="way">
+          
+          
+          <nd lon="-65.2098545" lat="-24.2601514"/>
+          
+          
+          <nd lon="-65.2097772" lat="-24.2596561"/>
+          
+          
+          <nd lon="-65.2097074" lat="-24.2591686"/>
+          
+          
+          <nd lon="-65.2096711" lat="-24.2589376"/>
+          
+          
+          <nd lon="-65.209637" lat="-24.2587234"/>
+          
+          
+          <nd lon="-65.2095656" lat="-24.2582244"/>
+          
+        
+        </member>
+        
+        
+        <member ref="281967728" role="outer" type="way">
+          
+          
+          <nd lon="-65.2100948" lat="-24.2615219"/>
+          
+          
+          <nd lon="-65.2100244" lat="-24.2611382"/>
+          
+          
+          <nd lon="-65.2099711" lat="-24.2608371"/>
+          
+          
+          <nd lon="-65.2098929" lat="-24.2603953"/>
+          
+          
+          <nd lon="-65.2098545" lat="-24.2601514"/>
+          
+        
+        </member>
+        
+        
+        <member ref="437199493" role="outer" type="way">
+          
+          
+          <nd lon="-65.2101588" lat="-24.2619417"/>
+          
+          
+          <nd lon="-65.2100948" lat="-24.2615219"/>
+          
+        
+        </member>
+        
+        
+        <member ref="437199494" role="outer" type="way">
+          
+          
+          <nd lon="-65.2104709" lat="-24.2630342"/>
+          
+          
+          <nd lon="-65.2103808" lat="-24.2628537"/>
+          
+          
+          <nd lon="-65.2102621" lat="-24.2625324"/>
+          
+          
+          <nd lon="-65.210208" lat="-24.2622712"/>
+          
+          
+          <nd lon="-65.2101588" lat="-24.2619417"/>
+          
+        
+        </member>
+        
+        
+        <member ref="405213544" role="outer" type="way">
+          
+          
+          <nd lon="-65.2107469" lat="-24.2629747"/>
+          
+          
+          <nd lon="-65.2104709" lat="-24.2630342"/>
+          
+        
+        </member>
+        
+        
+        <member ref="431495706" role="outer" type="way">
+          
+          
+          <nd lon="-65.2107469" lat="-24.2629747"/>
+          
+          
+          <nd lon="-65.2105995" lat="-24.2625262"/>
+          
+        
+        </member>
+        
+        
+        <member ref="272890079" role="outer" type="way">
+          
+          
+          <nd lon="-65.2105995" lat="-24.2625262"/>
+          
+          
+          <nd lon="-65.2106511" lat="-24.2624625"/>
+          
+          
+          <nd lon="-65.2107316" lat="-24.2624339"/>
+          
+          
+          <nd lon="-65.2115549" lat="-24.2622522"/>
+          
+          
+          <nd lon="-65.2125122" lat="-24.262041"/>
+          
+        
+        </member>
+        
+        
+        <member ref="405213548" role="outer" type="way">
+          
+          
+          <nd lon="-65.2125437" lat="-24.2616694"/>
+          
+          
+          <nd lon="-65.2125449" lat="-24.2616985"/>
+          
+          
+          <nd lon="-65.2125501" lat="-24.2618383"/>
+          
+          
+          <nd lon="-65.212576" lat="-24.261999"/>
+          
+          
+          <nd lon="-65.2125122" lat="-24.262041"/>
+          
+        
+        </member>
+        
+        
+        <member ref="528550306" role="outer" type="way">
+          
+          
+          <nd lon="-65.2125523" lat="-24.2615312"/>
+          
+          
+          <nd lon="-65.2125437" lat="-24.2616694"/>
+          
+        
+        </member>
+        
+        
+        <member ref="437199872" role="outer" type="way">
+          
+          
+          <nd lon="-65.2125551" lat="-24.2614878"/>
+          
+          
+          <nd lon="-65.2125523" lat="-24.2615312"/>
+          
+        
+        </member>
+        
+        
+        <member ref="405213543" role="outer" type="way">
+          
+          
+          <nd lon="-65.2152258" lat="-24.2621272"/>
+          
+          
+          <nd lon="-65.2148384" lat="-24.2622594"/>
+          
+          
+          <nd lon="-65.2137811" lat="-24.2618016"/>
+          
+          
+          <nd lon="-65.2136955" lat="-24.2617178"/>
+          
+          
+          <nd lon="-65.2132272" lat="-24.2614959"/>
+          
+          
+          <nd lon="-65.2131363" lat="-24.2614679"/>
+          
+          
+          <nd lon="-65.2129121" lat="-24.2614602"/>
+          
+          
+          <nd lon="-65.2125551" lat="-24.2614878"/>
+          
+        
+        </member>
+        
+        
+        <member ref="259299146" role="outer" type="way">
+          
+          
+          <nd lon="-65.2146657" lat="-24.2597014"/>
+          
+          
+          <nd lon="-65.2147533" lat="-24.260039"/>
+          
+          
+          <nd lon="-65.2147835" lat="-24.2601667"/>
+          
+          
+          <nd lon="-65.2148131" lat="-24.260299"/>
+          
+          
+          <nd lon="-65.2148915" lat="-24.2606485"/>
+          
+          
+          <nd lon="-65.2152258" lat="-24.2621272"/>
+          
+        
+        </member>
+        
+        
+        <member ref="405213546" role="outer" type="way">
+          
+          
+          <nd lon="-65.2170014" lat="-24.2590084"/>
+          
+          
+          <nd lon="-65.2166082" lat="-24.2591302"/>
+          
+          
+          <nd lon="-65.216257" lat="-24.2592328"/>
+          
+          
+          <nd lon="-65.2160288" lat="-24.2593"/>
+          
+          
+          <nd lon="-65.2158665" lat="-24.2593478"/>
+          
+          
+          <nd lon="-65.2155432" lat="-24.259443"/>
+          
+          
+          <nd lon="-65.2151264" lat="-24.2595658"/>
+          
+          
+          <nd lon="-65.2147756" lat="-24.2596691"/>
+          
+          
+          <nd lon="-65.2146657" lat="-24.2597014"/>
+          
+        
+        </member>
+        
+        
+        <member ref="2859247224" role="label" type="node" lon="-65.2134059" lat="-24.2595529"/>
+        
+        
+        <tag k="admin_level" v="9"/>
+        
+        
+        <tag k="boundary" v="administrative"/>
+        
+        
+        <tag k="name" v="San Ignacio de Loyola"/>
+        
+        
+        <tag k="type" v="boundary"/>
+        
+      
+      </relation>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <relation id="3764659" version="9" user="agendagauchajujuy" uid="3923611" timestamp="2017-09-28T20:56:18Z" changeset="52458026">
+        
+        
+        <member ref="259208504" role="outer" type="way">
+          
+          
+          <nd lon="-65.2170014" lat="-24.2590084"/>
+          
+          
+          <nd lon="-65.2168351" lat="-24.2583124"/>
+          
+          
+          <nd lon="-65.2168194" lat="-24.2582456"/>
+          
+          
+          <nd lon="-65.2166758" lat="-24.2576097"/>
+          
+          
+          <nd lon="-65.2165005" lat="-24.2569093"/>
+          
+        
+        </member>
+        
+        
+        <member ref="205494908" role="outer" type="way">
+          
+          
+          <nd lon="-65.2095656" lat="-24.2582244"/>
+          
+          
+          <nd lon="-65.2100277" lat="-24.2581567"/>
+          
+          
+          <nd lon="-65.21043" lat="-24.2580788"/>
+          
+          
+          <nd lon="-65.2108185" lat="-24.2580036"/>
+          
+          
+          <nd lon="-65.210908" lat="-24.2579863"/>
+          
+          
+          <nd lon="-65.2111934" lat="-24.257931"/>
+          
+          
+          <nd lon="-65.211407" lat="-24.2578897"/>
+          
+          
+          <nd lon="-65.2115919" lat="-24.2578539"/>
+          
+          
+          <nd lon="-65.2119662" lat="-24.2577814"/>
+          
+          
+          <nd lon="-65.2126089" lat="-24.2576468"/>
+          
+          
+          <nd lon="-65.2128052" lat="-24.2576107"/>
+          
+          
+          <nd lon="-65.213027" lat="-24.2575698"/>
+          
+          
+          <nd lon="-65.2131032" lat="-24.2575545"/>
+          
+          
+          <nd lon="-65.2138528" lat="-24.2574036"/>
+          
+          
+          <nd lon="-65.2142446" lat="-24.2573247"/>
+          
+          
+          <nd lon="-65.2145046" lat="-24.2572754"/>
+          
+          
+          <nd lon="-65.2165005" lat="-24.2569093"/>
+          
+        
+        </member>
+        
+        
+        <member ref="403996540" role="outer" type="way">
+          
+          
+          <nd lon="-65.2098545" lat="-24.2601514"/>
+          
+          
+          <nd lon="-65.2097772" lat="-24.2596561"/>
+          
+          
+          <nd lon="-65.2097074" lat="-24.2591686"/>
+          
+          
+          <nd lon="-65.2096711" lat="-24.2589376"/>
+          
+          
+          <nd lon="-65.209637" lat="-24.2587234"/>
+          
+          
+          <nd lon="-65.2095656" lat="-24.2582244"/>
+          
+        
+        </member>
+        
+        
+        <member ref="281967728" role="outer" type="way">
+          
+          
+          <nd lon="-65.2100948" lat="-24.2615219"/>
+          
+          
+          <nd lon="-65.2100244" lat="-24.2611382"/>
+          
+          
+          <nd lon="-65.2099711" lat="-24.2608371"/>
+          
+          
+          <nd lon="-65.2098929" lat="-24.2603953"/>
+          
+          
+          <nd lon="-65.2098545" lat="-24.2601514"/>
+          
+        
+        </member>
+        
+        
+        <member ref="437199493" role="outer" type="way">
+          
+          
+          <nd lon="-65.2101588" lat="-24.2619417"/>
+          
+          
+          <nd lon="-65.2100948" lat="-24.2615219"/>
+          
+        
+        </member>
+        
+        
+        <member ref="437199494" role="outer" type="way">
+          
+          
+          <nd lon="-65.2104709" lat="-24.2630342"/>
+          
+          
+          <nd lon="-65.2103808" lat="-24.2628537"/>
+          
+          
+          <nd lon="-65.2102621" lat="-24.2625324"/>
+          
+          
+          <nd lon="-65.210208" lat="-24.2622712"/>
+          
+          
+          <nd lon="-65.2101588" lat="-24.2619417"/>
+          
+        
+        </member>
+        
+        
+        <member ref="405213544" role="outer" type="way">
+          
+          
+          <nd lon="-65.2107469" lat="-24.2629747"/>
+          
+          
+          <nd lon="-65.2104709" lat="-24.2630342"/>
+          
+        
+        </member>
+        
+        
+        <member ref="431495706" role="outer" type="way">
+          
+          
+          <nd lon="-65.2107469" lat="-24.2629747"/>
+          
+          
+          <nd lon="-65.2105995" lat="-24.2625262"/>
+          
+        
+        </member>
+        
+        
+        <member ref="272890079" role="outer" type="way">
+          
+          
+          <nd lon="-65.2105995" lat="-24.2625262"/>
+          
+          
+          <nd lon="-65.2106511" lat="-24.2624625"/>
+          
+          
+          <nd lon="-65.2107316" lat="-24.2624339"/>
+          
+          
+          <nd lon="-65.2115549" lat="-24.2622522"/>
+          
+          
+          <nd lon="-65.2125122" lat="-24.262041"/>
+          
+        
+        </member>
+        
+        
+        <member ref="405213548" role="outer" type="way">
+          
+          
+          <nd lon="-65.2125437" lat="-24.2616694"/>
+          
+          
+          <nd lon="-65.2125449" lat="-24.2616985"/>
+          
+          
+          <nd lon="-65.2125501" lat="-24.2618383"/>
+          
+          
+          <nd lon="-65.212576" lat="-24.261999"/>
+          
+          
+          <nd lon="-65.2125122" lat="-24.262041"/>
+          
+        
+        </member>
+        
+        
+        <member ref="528550306" role="outer" type="way">
+          
+          
+          <nd lon="-65.2125523" lat="-24.2615312"/>
+          
+          
+          <nd lon="-65.2125437" lat="-24.2616694"/>
+          
+        
+        </member>
+        
+        
+        <member ref="437199872" role="outer" type="way">
+          
+          
+          <nd lon="-65.2125551" lat="-24.2614878"/>
+          
+          
+          <nd lon="-65.2125523" lat="-24.2615312"/>
+          
+        
+        </member>
+        
+        
+        <member ref="405213543" role="outer" type="way">
+          
+          
+          <nd lon="-65.2152258" lat="-24.2621272"/>
+          
+          
+          <nd lon="-65.2148384" lat="-24.2622594"/>
+          
+          
+          <nd lon="-65.2137811" lat="-24.2618016"/>
+          
+          
+          <nd lon="-65.2136955" lat="-24.2617178"/>
+          
+          
+          <nd lon="-65.2132272" lat="-24.2614959"/>
+          
+          
+          <nd lon="-65.2131363" lat="-24.2614679"/>
+          
+          
+          <nd lon="-65.2129121" lat="-24.2614602"/>
+          
+          
+          <nd lon="-65.2125551" lat="-24.2614878"/>
+          
+        
+        </member>
+        
+        
+        <member ref="259299146" role="outer" type="way">
+          
+          
+          <nd lon="-65.2146657" lat="-24.2597014"/>
+          
+          
+          <nd lon="-65.2147533" lat="-24.260039"/>
+          
+          
+          <nd lon="-65.2147835" lat="-24.2601667"/>
+          
+          
+          <nd lon="-65.2148131" lat="-24.260299"/>
+          
+          
+          <nd lon="-65.2148915" lat="-24.2606485"/>
+          
+          
+          <nd lon="-65.2152258" lat="-24.2621272"/>
+          
+        
+        </member>
+        
+        
+        <member ref="405213546" role="outer" type="way">
+          
+          
+          <nd lon="-65.2170014" lat="-24.2590084"/>
+          
+          
+          <nd lon="-65.2166082" lat="-24.2591302"/>
+          
+          
+          <nd lon="-65.216257" lat="-24.2592328"/>
+          
+          
+          <nd lon="-65.2160288" lat="-24.2593"/>
+          
+          
+          <nd lon="-65.2158665" lat="-24.2593478"/>
+          
+          
+          <nd lon="-65.2155432" lat="-24.259443"/>
+          
+          
+          <nd lon="-65.2151264" lat="-24.2595658"/>
+          
+          
+          <nd lon="-65.2147756" lat="-24.2596691"/>
+          
+          
+          <nd lon="-65.2146657" lat="-24.2597014"/>
+          
+        
+        </member>
+        
+        
+        <member ref="2859247224" role="label" type="node" lon="-65.2134059" lat="-24.2595529"/>
+        
+        
+        <tag k="admin_level" v="9"/>
+        
+        
+        <tag k="boundary" v="administrative"/>
+        
+        
+        <tag k="name" v="San Ignacio de Loyola"/>
+        
+        
+        <tag k="type" v="boundary"/>
+        
+      
+      </relation>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+
+</osm>

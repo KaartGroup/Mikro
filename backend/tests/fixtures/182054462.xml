@@ -1,0 +1,133 @@
+<osm version="0.6" generator="osmcha" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
+  
+  
+  <action type="modify">
+    
+    
+    <old>
+      
+      
+      <way id="282980673" version="7" user="apgosm" uid="22723753" timestamp="2025-06-27T07:51:51Z" changeset="168171744">
+        
+        
+        <bounds minlat="-38.7437043" minlon="-62.2692117" maxlat="-38.7388755" maxlon="-62.2633468"/>
+        
+        
+        <nd ref="298307387" lon="-62.2692117" lat="-38.7437043"/>
+        
+        
+        <nd ref="298307386" lon="-62.2681575" lat="-38.7428695"/>
+        
+        
+        <nd ref="298307385" lon="-62.2676212" lat="-38.7424351"/>
+        
+        
+        <nd ref="297817741" lon="-62.2670104" lat="-38.7419719"/>
+        
+        
+        <nd ref="297817820" lon="-62.2660064" lat="-38.7410093"/>
+        
+        
+        <nd ref="298307384" lon="-62.2648881" lat="-38.7401121"/>
+        
+        
+        <nd ref="298307383" lon="-62.2637498" lat="-38.7391988"/>
+        
+        
+        <nd ref="298307382" lon="-62.2633468" lat="-38.7388755"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Neuquén"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="surface" v="asphalt"/>
+        
+      
+      </way>
+      
+    
+    </old>
+    
+    
+    <new>
+      
+      
+      <way id="282980673" version="8" timestamp="2026-05-01T00:30:17Z" uid="3382594" user="Josuer" changeset="182054462">
+        
+        
+        <nd ref="298307387" lon="-62.2692117" lat="-38.7437043"/>
+        
+        
+        <nd ref="298307386" lon="-62.2681575" lat="-38.7428695"/>
+        
+        
+        <nd ref="298307385" lon="-62.2676212" lat="-38.7424351"/>
+        
+        
+        <nd ref="297817741" lon="-62.2670104" lat="-38.7419719"/>
+        
+        
+        <nd ref="297817820" lon="-62.2660064" lat="-38.7410093"/>
+        
+        
+        <nd ref="298307384" lon="-62.2648881" lat="-38.7401121"/>
+        
+        
+        <nd ref="298307383" lon="-62.2637498" lat="-38.7391988"/>
+        
+        
+        <tag k="highway" v="residential"/>
+        
+        
+        <tag k="name" v="Neuquén"/>
+        
+        
+        <tag k="oneway" v="yes"/>
+        
+        
+        <tag k="surface" v="asphalt"/>
+        
+      
+      </way>
+      
+    
+    </new>
+    
+  
+  </action>
+  
+  
+  <action type="create">
+    
+    
+    <way id="1507337644" version="1" timestamp="2026-05-01T00:30:17Z" uid="3382594" user="Josuer" changeset="182054462">
+      
+      
+      <nd ref="298307383" lon="-62.2637498" lat="-38.7391988"/>
+      
+      
+      <nd ref="298307382" lon="-62.2633468" lat="-38.7388755"/>
+      
+      
+      <tag k="highway" v="residential"/>
+      
+      
+      <tag k="name" v="Neuquén"/>
+      
+      
+      <tag k="surface" v="asphalt"/>
+      
+    
+    </way>
+    
+  
+  </action>
+  
+
+</osm>

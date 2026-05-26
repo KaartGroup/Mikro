@@ -83,33 +83,13 @@ _CATEGORY_KEY_FILTERS = {
 }
 
 
-def get_element_analysis(org_id, team_ids, start_date, end_date):
-    """Queries ChangesetAdiff for the given teams and date range, processes each stored adiff XML,
-    and returns per-day added/modified/deleted counts grouped into categories. No Flask context required."""
-    
-    query = ChangesetAdiff.query.filter(
-        ChangesetAdiff.org_id == org_id,
-        ChangesetAdiff.created_at >= start_date,
-        ChangesetAdiff.created_at <= end_date,
-        ChangesetAdiff.adiff_xml.isnot(None),
-    )
-    if team_ids:
-        query = query.filter(ChangesetAdiff.team_id.in_(team_ids))
-    rows = query.order_by(ChangesetAdiff.created_at).all()
+def build_category_data(day_key_stats):
+    """Pure function: day_key_stats -> list of category dicts with per-day add/modify/delete counts.
 
-    # day -> key -> {(old_val, new_val): count}
-    day_key_stats = defaultdict(lambda: {key: {} for key in TRACKED_KEYS})
-    last_updated = None
-
-    for row in rows:
-        day = row.created_at.date()
-        cs_stats = parse_adiff_transitions(row.adiff_xml, TRACKED_KEYS, KEY_FILTERS)
-        merge_transitions(day_key_stats[day], cs_stats)
-        if last_updated is None or row.created_at > last_updated:
-            last_updated = row.created_at
-
+    day_key_stats: {date: {key: {(old_val, new_val): count}}}
+    Returns the same structure used in the 'categories' field of get_element_analysis.
+    """
     all_days = sorted(day_key_stats.keys())
-
     categories = []
     for cat_name in _ORDERED_CATEGORIES:
         keys = _CATEGORY_KEYS.get(cat_name, [])
@@ -135,10 +115,37 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
                 "deleted": deleted,
             })
         categories.append({"title": cat_name, "data": data})
+    return categories
+
+
+def get_element_analysis(org_id, team_ids, start_date, end_date):
+    """Queries ChangesetAdiff for the given teams and date range, processes each stored adiff XML,
+    and returns per-day added/modified/deleted counts grouped into categories. No Flask context required."""
+
+    query = ChangesetAdiff.query.filter(
+        ChangesetAdiff.org_id == org_id,
+        ChangesetAdiff.created_at >= start_date,
+        ChangesetAdiff.created_at <= end_date,
+        ChangesetAdiff.adiff_xml.isnot(None),
+    )
+    if team_ids:
+        query = query.filter(ChangesetAdiff.team_id.in_(team_ids))
+    rows = query.order_by(ChangesetAdiff.created_at).all()
+
+    # day -> key -> {(old_val, new_val): count}
+    day_key_stats = defaultdict(lambda: {key: {} for key in TRACKED_KEYS})
+    last_updated = None
+
+    for row in rows:
+        day = row.created_at.date()
+        cs_stats = parse_adiff_transitions(row.adiff_xml, TRACKED_KEYS, KEY_FILTERS)
+        merge_transitions(day_key_stats[day], cs_stats)
+        if last_updated is None or row.created_at > last_updated:
+            last_updated = row.created_at
 
     return {
         "status": 200,
-        "categories": categories,
+        "categories": build_category_data(day_key_stats),
         "lastUpdated": last_updated.isoformat() + "Z" if last_updated else None,
     }
 

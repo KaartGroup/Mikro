@@ -1,0 +1,1172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<osm version="0.6" generator="osmcha" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
+  <action type="modify">
+    <old>
+      <node id="947680258" version="3" lon="123.9143398" lat="10.3739164"/>
+    </old>
+    <new>
+      <node id="947680258" version="4" lon="123.9143445" lat="10.3739395" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <node id="2195237383" version="3" lon="123.9152579" lat="10.3756957"/>
+    </old>
+    <new>
+      <node id="2195237383" version="4" lon="123.9152847" lat="10.3756812" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <node id="12811125004" version="1" lon="123.9161311" lat="10.3768401" changeset="165830710" timestamp="2025-05-05T07:19:32Z" uid="17424607" user="FiBoss">
+        <tag k="amenity" v="hospital"/>
+        <tag k="healthcare" v="hospital"/>
+      </node>
+    </old>
+    <new>
+      <node id="12811125004" version="2" lon="123.9162903" lat="10.3770570" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <node id="12811125005" version="1" lon="123.9161364" lat="10.3768397"/>
+    </old>
+    <new>
+      <node id="12811125005" version="2" lon="123.9162538" lat="10.3769982" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <node id="12811125006" version="1" lon="123.9161641" lat="10.3768785"/>
+    </old>
+    <new>
+      <node id="12811125006" version="2" lon="123.9162817" lat="10.3770326" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <node id="12811125007" version="1" lon="123.9161939" lat="10.3768464"/>
+    </old>
+    <new>
+      <node id="12811125007" version="2" lon="123.9163177" lat="10.3770042" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <node id="12811125008" version="1" lon="123.9161466" lat="10.3767792"/>
+    </old>
+    <new>
+      <node id="12811125008" version="2" lon="123.9162629" lat="10.3769369" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <node id="12811125009" version="1" lon="123.9161051" lat="10.3768085"/>
+    </old>
+    <new>
+      <node id="12811125009" version="2" lon="123.9162269" lat="10.3769652" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <node id="13501035766" version="1" lon="123.9142593" lat="10.3739497" changeset="177731850" timestamp="2026-01-26T18:23:58Z" uid="4240913" user="Corban8">
+        <tag k="access" v="private"/>
+        <tag k="barrier" v="gate"/>
+      </node>
+    </old>
+    <new>
+      <node id="13501035766" version="2" lon="123.9141755" lat="10.3740038" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <tag k="access" v="private"/>
+        <tag k="barrier" v="lift_gate"/>
+      </node>
+    </new>
+  </action>
+  <action type="create">
+    <node id="13811583895" version="1" lon="123.9153022" lat="10.3757339" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811583896" version="1" lon="123.9152885" lat="10.3757132" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811583897" version="1" lon="123.9152756" lat="10.3757215" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811583898" version="1" lon="123.9152893" lat="10.3757421" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811583899" version="1" lon="123.9138883" lat="10.3776203" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811583900" version="1" lon="123.9141163" lat="10.3774804" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664601" version="1" lon="123.9140788" lat="10.3774118" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664602" version="1" lon="123.9145428" lat="10.3771375" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664603" version="1" lon="123.9144824" lat="10.3770346" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664604" version="1" lon="123.9143926" lat="10.3768624" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664605" version="1" lon="123.9142893" lat="10.3766349" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664606" version="1" lon="123.9140251" lat="10.3766494" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664607" version="1" lon="123.9137033" lat="10.3766810" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664608" version="1" lon="123.9135638" lat="10.3767997" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664609" version="1" lon="123.9131856" lat="10.3771506" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664610" version="1" lon="123.9131427" lat="10.3772667" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664611" version="1" lon="123.9134873" lat="10.3777179" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664612" version="1" lon="123.9148499" lat="10.3759185" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664613" version="1" lon="123.9145361" lat="10.3753170" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664614" version="1" lon="123.9141968" lat="10.3754845" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664615" version="1" lon="123.9143564" lat="10.3758222" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664616" version="1" lon="123.9142773" lat="10.3758710" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664617" version="1" lon="123.9143617" lat="10.3760228" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664618" version="1" lon="123.9144382" lat="10.3759885" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664619" version="1" lon="123.9145012" lat="10.3761072" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664620" version="1" lon="123.9153059" lat="10.3776295" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664621" version="1" lon="123.9161387" lat="10.3770346" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664622" version="1" lon="123.9158785" lat="10.3767034" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664623" version="1" lon="123.9151892" lat="10.3771955" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664624" version="1" lon="123.9151061" lat="10.3770794" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664625" version="1" lon="123.9147493" lat="10.3773512" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664626" version="1" lon="123.9149210" lat="10.3775649" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664627" version="1" lon="123.9149237" lat="10.3776757" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664628" version="1" lon="123.9150538" lat="10.3778379" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664629" version="1" lon="123.9158906" lat="10.3765372" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664630" version="1" lon="123.9140815" lat="10.3740161" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="create">
+    <node id="13811664631" version="1" lon="123.9141505" lat="10.3739450" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+      <tag k="access" v="permissive"/>
+      <tag k="barrier" v="lift_gate"/>
+    </node>
+  </action>
+  <action type="create">
+    <node id="13811664632" version="1" lon="123.9143287" lat="10.3738849" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes"/>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259863" version="11" changeset="178740876" timestamp="2026-02-18T19:46:13Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3737695" minlon="123.9170747" maxlat="10.3752257" maxlon="123.9180130"/>
+        <nd ref="1136909103" version="5" lon="123.9170747" lat="10.3737695"/>
+        <nd ref="12376294243" version="2" lon="123.9171025" lat="10.3738126"/>
+        <nd ref="5930254047" version="2" lon="123.9173220" lat="10.3741534"/>
+        <nd ref="12373599838" version="2" lon="123.9174656" lat="10.3743763"/>
+        <nd ref="2212907690" version="4" lon="123.9175771" lat="10.3745494"/>
+        <nd ref="12373584880" version="2" lon="123.9176665" lat="10.3746898"/>
+        <nd ref="1136909097" version="4" lon="123.9177177" lat="10.3747702"/>
+        <nd ref="12373584882" version="2" lon="123.9177516" lat="10.3748225"/>
+        <nd ref="1136909104" version="6" lon="123.9180130" lat="10.3752257"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Heliconia"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259863" version="12" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3737695" minlon="123.9170747" maxlat="10.3752257" maxlon="123.9180130"/>
+        <nd ref="1136909103" version="5" lon="123.9170747" lat="10.3737695"/>
+        <nd ref="12376294243" version="2" lon="123.9171025" lat="10.3738126"/>
+        <nd ref="5930254047" version="2" lon="123.9173220" lat="10.3741534"/>
+        <nd ref="12373599838" version="2" lon="123.9174656" lat="10.3743763"/>
+        <nd ref="2212907690" version="4" lon="123.9175771" lat="10.3745494"/>
+        <nd ref="12373584880" version="2" lon="123.9176665" lat="10.3746898"/>
+        <nd ref="1136909097" version="4" lon="123.9177177" lat="10.3747702"/>
+        <nd ref="12373584882" version="2" lon="123.9177516" lat="10.3748225"/>
+        <nd ref="1136909104" version="6" lon="123.9180130" lat="10.3752257"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Heliconia Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259864" version="10" changeset="178740876" timestamp="2026-02-18T19:46:13Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3751795" minlon="123.9170052" maxlat="10.3759013" maxlon="123.9181200"/>
+        <nd ref="1136909105" version="4" lon="123.9181200" lat="10.3751795"/>
+        <nd ref="9888502922" version="1" lon="123.9180867" lat="10.3751862"/>
+        <nd ref="1136909104" version="6" lon="123.9180130" lat="10.3752257"/>
+        <nd ref="1136909106" version="4" lon="123.9172868" lat="10.3756880"/>
+        <nd ref="9888483074" version="1" lon="123.9170250" lat="10.3758666"/>
+        <nd ref="1136909107" version="3" lon="123.9170052" lat="10.3759013"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Hibiscus"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259864" version="11" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3751795" minlon="123.9170052" maxlat="10.3759013" maxlon="123.9181200"/>
+        <nd ref="1136909105" version="4" lon="123.9181200" lat="10.3751795"/>
+        <nd ref="9888502922" version="1" lon="123.9180867" lat="10.3751862"/>
+        <nd ref="1136909104" version="6" lon="123.9180130" lat="10.3752257"/>
+        <nd ref="1136909106" version="4" lon="123.9172868" lat="10.3756880"/>
+        <nd ref="9888483074" version="1" lon="123.9170250" lat="10.3758666"/>
+        <nd ref="1136909107" version="3" lon="123.9170052" lat="10.3759013"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Hibiscus Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259867" version="7" changeset="178740876" timestamp="2026-02-18T19:46:14Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3760558" minlon="123.9167275" maxlat="10.3763690" maxlon="123.9170061"/>
+        <nd ref="1136909112" version="2" lon="123.9167275" lat="10.3760558"/>
+        <nd ref="1136909113" version="2" lon="123.9169370" lat="10.3762860"/>
+        <nd ref="1136909114" version="2" lon="123.9170061" lat="10.3763690"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Oncidium"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259867" version="8" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3760558" minlon="123.9167275" maxlat="10.3763690" maxlon="123.9170061"/>
+        <nd ref="1136909112" version="2" lon="123.9167275" lat="10.3760558"/>
+        <nd ref="1136909113" version="2" lon="123.9169370" lat="10.3762860"/>
+        <nd ref="1136909114" version="2" lon="123.9170061" lat="10.3763690"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Oncidium Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259868" version="7" changeset="178740876" timestamp="2026-02-18T19:46:14Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3762860" minlon="123.9165325" maxlat="10.3765859" maxlon="123.9169370"/>
+        <nd ref="1136909113" version="2" lon="123.9169370" lat="10.3762860"/>
+        <nd ref="1136909115" version="3" lon="123.9166037" lat="10.3765360"/>
+        <nd ref="1136909116" version="1" lon="123.9165325" lat="10.3765859"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Oncidium"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259868" version="8" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3762860" minlon="123.9165325" maxlat="10.3765859" maxlon="123.9169370"/>
+        <nd ref="1136909113" version="2" lon="123.9169370" lat="10.3762860"/>
+        <nd ref="1136909115" version="3" lon="123.9166037" lat="10.3765360"/>
+        <nd ref="1136909116" version="1" lon="123.9165325" lat="10.3765859"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Oncidium Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259872" version="12" changeset="178740876" timestamp="2026-02-18T19:46:14Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3741357" minlon="123.9146458" maxlat="10.3745091" maxlon="123.9153520"/>
+        <nd ref="2202780294" version="6" lon="123.9146458" lat="10.3745091"/>
+        <nd ref="1136909119" version="3" lon="123.9148096" lat="10.3744131"/>
+        <nd ref="12361743021" version="1" lon="123.9150590" lat="10.3742725"/>
+        <nd ref="1136909117" version="4" lon="123.9150921" lat="10.3742538"/>
+        <nd ref="5927020291" version="1" lon="123.9152630" lat="10.3741594"/>
+        <nd ref="1136909120" version="2" lon="123.9153520" lat="10.3741357"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Vanda"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259872" version="13" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3741357" minlon="123.9146458" maxlat="10.3745091" maxlon="123.9153520"/>
+        <nd ref="2202780294" version="6" lon="123.9146458" lat="10.3745091"/>
+        <nd ref="1136909119" version="3" lon="123.9148096" lat="10.3744131"/>
+        <nd ref="12361743021" version="1" lon="123.9150590" lat="10.3742725"/>
+        <nd ref="1136909117" version="4" lon="123.9150921" lat="10.3742538"/>
+        <nd ref="5927020291" version="1" lon="123.9152630" lat="10.3741594"/>
+        <nd ref="1136909120" version="2" lon="123.9153520" lat="10.3741357"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Vanda Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259876" version="10" changeset="178740876" timestamp="2026-02-18T19:46:14Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3744131" minlon="123.9148096" maxlat="10.3760807" maxlon="123.9157766"/>
+        <nd ref="1136909119" version="3" lon="123.9148096" lat="10.3744131"/>
+        <nd ref="12361696449" version="1" lon="123.9148468" lat="10.3744797"/>
+        <nd ref="5927806077" version="1" lon="123.9152871" lat="10.3752682"/>
+        <nd ref="1136909101" version="3" lon="123.9157766" lat="10.3760807"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Cattleya"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259876" version="11" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3744131" minlon="123.9148096" maxlat="10.3760807" maxlon="123.9157766"/>
+        <nd ref="1136909119" version="3" lon="123.9148096" lat="10.3744131"/>
+        <nd ref="12361696449" version="1" lon="123.9148468" lat="10.3744797"/>
+        <nd ref="5927806077" version="1" lon="123.9152871" lat="10.3752682"/>
+        <nd ref="1136909101" version="3" lon="123.9157766" lat="10.3760807"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Cattleya Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259878" version="8" changeset="178740876" timestamp="2026-02-18T19:46:14Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3736702" minlon="123.9160589" maxlat="10.3743718" maxlon="123.9172511"/>
+        <nd ref="1136909121" version="3" lon="123.9172511" lat="10.3736702"/>
+        <nd ref="1136909103" version="5" lon="123.9170747" lat="10.3737695"/>
+        <nd ref="12376294244" version="1" lon="123.9170150" lat="10.3738086"/>
+        <nd ref="1136909122" version="6" lon="123.9160589" lat="10.3743718"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Lilac"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259878" version="9" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3736702" minlon="123.9160589" maxlat="10.3743718" maxlon="123.9172511"/>
+        <nd ref="1136909121" version="3" lon="123.9172511" lat="10.3736702"/>
+        <nd ref="1136909103" version="5" lon="123.9170747" lat="10.3737695"/>
+        <nd ref="12376294244" version="1" lon="123.9170150" lat="10.3738086"/>
+        <nd ref="1136909122" version="6" lon="123.9160589" lat="10.3743718"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Lilac Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259889" version="6" changeset="178740876" timestamp="2026-02-18T19:46:14Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3738685" minlon="123.9157826" maxlat="10.3740057" maxlon="123.9160891"/>
+        <nd ref="1136909139" version="5" lon="123.9160891" lat="10.3738685"/>
+        <nd ref="1136909123" version="5" lon="123.9157826" lat="10.3740057"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="name" v="Vanda"/>
+        <tag k="source" v="Bing"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259889" version="7" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3738685" minlon="123.9157826" maxlat="10.3740057" maxlon="123.9160891"/>
+        <nd ref="1136909139" version="5" lon="123.9160891" lat="10.3738685"/>
+        <nd ref="1136909123" version="5" lon="123.9157826" lat="10.3740057"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="name" v="Vanda Street"/>
+        <tag k="source" v="Bing"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259893" version="11" changeset="178740876" timestamp="2026-02-18T19:46:14Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3730388" minlon="123.9167965" maxlat="10.3741528" maxlon="123.9175945"/>
+        <nd ref="1136909146" version="4" lon="123.9167965" lat="10.3730434"/>
+        <nd ref="9298278762" version="1" lon="123.9168190" lat="10.3730388"/>
+        <nd ref="9298278761" version="1" lon="123.9168334" lat="10.3730440"/>
+        <nd ref="1136909147" version="4" lon="123.9168461" lat="10.3730536"/>
+        <nd ref="1136909140" version="4" lon="123.9169628" lat="10.3732145"/>
+        <nd ref="12364995500" version="1" lon="123.9170623" lat="10.3733557"/>
+        <nd ref="1136909148" version="4" lon="123.9170936" lat="10.3734002"/>
+        <nd ref="1136909149" version="2" lon="123.9171361" lat="10.3734637"/>
+        <nd ref="1136909121" version="3" lon="123.9172511" lat="10.3736702"/>
+        <nd ref="1136909151" version="4" lon="123.9175945" lat="10.3741528"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Dahlia"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259893" version="12" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3730388" minlon="123.9167965" maxlat="10.3741528" maxlon="123.9175945"/>
+        <nd ref="1136909146" version="4" lon="123.9167965" lat="10.3730434"/>
+        <nd ref="9298278762" version="1" lon="123.9168190" lat="10.3730388"/>
+        <nd ref="9298278761" version="1" lon="123.9168334" lat="10.3730440"/>
+        <nd ref="1136909147" version="4" lon="123.9168461" lat="10.3730536"/>
+        <nd ref="1136909140" version="4" lon="123.9169628" lat="10.3732145"/>
+        <nd ref="12364995500" version="1" lon="123.9170623" lat="10.3733557"/>
+        <nd ref="1136909148" version="4" lon="123.9170936" lat="10.3734002"/>
+        <nd ref="1136909149" version="2" lon="123.9171361" lat="10.3734637"/>
+        <nd ref="1136909121" version="3" lon="123.9172511" lat="10.3736702"/>
+        <nd ref="1136909151" version="4" lon="123.9175945" lat="10.3741528"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Dahlia Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259894" version="7" changeset="178740876" timestamp="2026-02-18T19:46:14Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3731728" minlon="123.9170936" maxlat="10.3734002" maxlon="123.9175357"/>
+        <nd ref="1136909154" version="3" lon="123.9175357" lat="10.3731728"/>
+        <nd ref="1136909148" version="4" lon="123.9170936" lat="10.3734002"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Mimosa"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259894" version="8" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3731728" minlon="123.9170936" maxlat="10.3734002" maxlon="123.9175357"/>
+        <nd ref="1136909154" version="3" lon="123.9175357" lat="10.3731728"/>
+        <nd ref="1136909148" version="4" lon="123.9170936" lat="10.3734002"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Mimosa Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="98259895" version="9" changeset="178740876" timestamp="2026-02-18T19:46:14Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3734637" minlon="123.9164391" maxlat="10.3737795" maxlon="123.9171361"/>
+        <nd ref="1136909149" version="2" lon="123.9171361" lat="10.3734637"/>
+        <nd ref="1136909155" version="3" lon="123.9167762" lat="10.3736415"/>
+        <nd ref="5930228150" version="1" lon="123.9164391" lat="10.3737795"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Tulip"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="98259895" version="10" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3734637" minlon="123.9164391" maxlat="10.3737795" maxlon="123.9171361"/>
+        <nd ref="1136909149" version="2" lon="123.9171361" lat="10.3734637"/>
+        <nd ref="1136909155" version="3" lon="123.9167762" lat="10.3736415"/>
+        <nd ref="5930228150" version="1" lon="123.9164391" lat="10.3737795"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Tulip Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="209298548" version="6" changeset="165824312" timestamp="2025-05-05T01:58:35Z" uid="6591426" user="uᴉʍOꓨ">
+        <bounds minlat="10.3735129" minlon="123.9145425" maxlat="10.3769003" maxlon="123.9185017"/>
+        <nd ref="5930265173" version="2" lon="123.9151782" lat="10.3735129"/>
+        <nd ref="2195237380" version="2" lon="123.9154037" lat="10.3738696"/>
+        <nd ref="2195237381" version="1" lon="123.9145425" lat="10.3743080"/>
+        <nd ref="2202780294" version="6" lon="123.9146458" lat="10.3745091"/>
+        <nd ref="2195237383" version="3" lon="123.9152579" lat="10.3756957"/>
+        <nd ref="5927020138" version="1" lon="123.9154011" lat="10.3759086"/>
+        <nd ref="2195237384" version="3" lon="123.9157797" lat="10.3763923"/>
+        <nd ref="2195237364" version="2" lon="123.9159946" lat="10.3762270"/>
+        <nd ref="2202780295" version="1" lon="123.9165295" lat="10.3769003"/>
+        <nd ref="2195237365" version="1" lon="123.9169940" lat="10.3765093"/>
+        <nd ref="2195237366" version="1" lon="123.9184834" lat="10.3756806"/>
+        <nd ref="2195237367" version="1" lon="123.9180059" lat="10.3748462"/>
+        <nd ref="2195237368" version="3" lon="123.9185017" lat="10.3744879"/>
+        <tag k="source" v="Bing"/>
+      </way>
+    </old>
+    <new>
+      <way id="209298548" version="6" changeset="165824312" timestamp="2025-05-05T01:58:35Z" uid="6591426" user="uᴉʍOꓨ">
+        <bounds minlat="10.3735129" minlon="123.9145425" maxlat="10.3769003" maxlon="123.9185017"/>
+        <nd ref="5930265173" version="2" lon="123.9151782" lat="10.3735129"/>
+        <nd ref="2195237380" version="2" lon="123.9154037" lat="10.3738696"/>
+        <nd ref="2195237381" version="1" lon="123.9145425" lat="10.3743080"/>
+        <nd ref="2202780294" version="6" lon="123.9146458" lat="10.3745091"/>
+        <nd ref="2195237383" version="4" lon="123.9152847" lat="10.3756812"/>
+        <nd ref="5927020138" version="1" lon="123.9154011" lat="10.3759086"/>
+        <nd ref="2195237384" version="3" lon="123.9157797" lat="10.3763923"/>
+        <nd ref="2195237364" version="2" lon="123.9159946" lat="10.3762270"/>
+        <nd ref="2202780295" version="1" lon="123.9165295" lat="10.3769003"/>
+        <nd ref="2195237365" version="1" lon="123.9169940" lat="10.3765093"/>
+        <nd ref="2195237366" version="1" lon="123.9184834" lat="10.3756806"/>
+        <nd ref="2195237367" version="1" lon="123.9180059" lat="10.3748462"/>
+        <nd ref="2195237368" version="3" lon="123.9185017" lat="10.3744879"/>
+        <tag k="source" v="Bing"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="627811062" version="7" changeset="177571393" timestamp="2026-01-22T16:15:34Z" uid="23567040" user="sandstonecranium">
+        <bounds minlat="10.3727365" minlon="123.9138757" maxlat="10.3777462" maxlon="123.9166128"/>
+        <nd ref="1136909075" version="8" lon="123.9166128" lat="10.3777462"/>
+        <nd ref="947680251" version="5" lon="123.9166035" lat="10.3776061"/>
+        <nd ref="1136909460" version="5" lon="123.9165885" lat="10.3775403"/>
+        <nd ref="947680252" version="4" lon="123.9165077" lat="10.3773377"/>
+        <nd ref="5927020137" version="1" lon="123.9164150" lat="10.3772364"/>
+        <nd ref="5927020317" version="2" lon="123.9162497" lat="10.3770584"/>
+        <nd ref="947680254" version="6" lon="123.9162271" lat="10.3770385"/>
+        <nd ref="1136909445" version="6" lon="123.9161613" lat="10.3769516"/>
+        <nd ref="1136909102" version="5" lon="123.9155991" lat="10.3762473"/>
+        <nd ref="5926869449" version="4" lon="123.9154320" lat="10.3760505"/>
+        <nd ref="5927890791" version="1" lon="123.9153166" lat="10.3758882"/>
+        <nd ref="947680255" version="9" lon="123.9152328" lat="10.3757508"/>
+        <nd ref="5927020140" version="3" lon="123.9151524" lat="10.3756052"/>
+        <nd ref="5926927317" version="3" lon="123.9149572" lat="10.3752115"/>
+        <nd ref="1136910743" version="7" lon="123.9147100" lat="10.3747331"/>
+        <nd ref="1136909118" version="6" lon="123.9146133" lat="10.3745343"/>
+        <nd ref="5926927316" version="3" lon="123.9144838" lat="10.3743038"/>
+        <nd ref="947680257" version="6" lon="123.9144155" lat="10.3741477"/>
+        <nd ref="947680258" version="3" lon="123.9143398" lat="10.3739164"/>
+        <nd ref="12810840430" version="1" lon="123.9143048" lat="10.3738173"/>
+        <nd ref="1136909223" version="2" lon="123.9141768" lat="10.3734541"/>
+        <nd ref="947680259" version="2" lon="123.9140649" lat="10.3732080"/>
+        <nd ref="12810840466" version="1" lon="123.9139433" lat="10.3729405"/>
+        <nd ref="12810840465" version="1" lon="123.9139071" lat="10.3728495"/>
+        <nd ref="12810840464" version="1" lon="123.9138810" lat="10.3727861"/>
+        <nd ref="1095977799" version="6" lon="123.9138757" lat="10.3727365"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Lorenza C. Borces Street"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="627811062" version="8" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3727365" minlon="123.9138757" maxlat="10.3777462" maxlon="123.9166128"/>
+        <nd ref="1136909075" version="8" lon="123.9166128" lat="10.3777462"/>
+        <nd ref="947680251" version="5" lon="123.9166035" lat="10.3776061"/>
+        <nd ref="1136909460" version="5" lon="123.9165885" lat="10.3775403"/>
+        <nd ref="947680252" version="4" lon="123.9165077" lat="10.3773377"/>
+        <nd ref="5927020137" version="1" lon="123.9164150" lat="10.3772364"/>
+        <nd ref="5927020317" version="2" lon="123.9162497" lat="10.3770584"/>
+        <nd ref="947680254" version="6" lon="123.9162271" lat="10.3770385"/>
+        <nd ref="1136909445" version="6" lon="123.9161613" lat="10.3769516"/>
+        <nd ref="1136909102" version="5" lon="123.9155991" lat="10.3762473"/>
+        <nd ref="5926869449" version="4" lon="123.9154320" lat="10.3760505"/>
+        <nd ref="5927890791" version="1" lon="123.9153166" lat="10.3758882"/>
+        <nd ref="947680255" version="9" lon="123.9152328" lat="10.3757508"/>
+        <nd ref="5927020140" version="3" lon="123.9151524" lat="10.3756052"/>
+        <nd ref="5926927317" version="3" lon="123.9149572" lat="10.3752115"/>
+        <nd ref="1136910743" version="7" lon="123.9147100" lat="10.3747331"/>
+        <nd ref="1136909118" version="6" lon="123.9146133" lat="10.3745343"/>
+        <nd ref="5926927316" version="3" lon="123.9144838" lat="10.3743038"/>
+        <nd ref="947680257" version="6" lon="123.9144155" lat="10.3741477"/>
+        <nd ref="947680258" version="4" lon="123.9143445" lat="10.3739395"/>
+        <nd ref="13811664632" version="1" lon="123.9143287" lat="10.3738849"/>
+        <nd ref="12810840430" version="1" lon="123.9143048" lat="10.3738173"/>
+        <nd ref="1136909223" version="2" lon="123.9141768" lat="10.3734541"/>
+        <nd ref="947680259" version="2" lon="123.9140649" lat="10.3732080"/>
+        <nd ref="12810840466" version="1" lon="123.9139433" lat="10.3729405"/>
+        <nd ref="12810840465" version="1" lon="123.9139071" lat="10.3728495"/>
+        <nd ref="12810840464" version="1" lon="123.9138810" lat="10.3727861"/>
+        <nd ref="1095977799" version="6" lon="123.9138757" lat="10.3727365"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Lorenza C. Borces Street"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="627919984" version="7" changeset="178740876" timestamp="2026-02-18T19:46:39Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3759013" minlon="123.9170052" maxlat="10.3761726" maxlon="123.9172028"/>
+        <nd ref="1136909107" version="3" lon="123.9170052" lat="10.3759013"/>
+        <nd ref="9888483073" version="1" lon="123.9170187" lat="10.3759451"/>
+        <nd ref="1136909108" version="3" lon="123.9172028" lat="10.3761726"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Periwinkle"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="627919984" version="8" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3759013" minlon="123.9170052" maxlat="10.3761726" maxlon="123.9172028"/>
+        <nd ref="1136909107" version="3" lon="123.9170052" lat="10.3759013"/>
+        <nd ref="9888483073" version="1" lon="123.9170187" lat="10.3759451"/>
+        <nd ref="1136909108" version="3" lon="123.9172028" lat="10.3761726"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Periwinkle Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="628155880" version="7" changeset="178740876" timestamp="2026-02-18T19:46:40Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3741534" minlon="123.9170547" maxlat="10.3743052" maxlon="123.9173220"/>
+        <nd ref="5930254048" version="1" lon="123.9170547" lat="10.3743052"/>
+        <nd ref="5930254047" version="2" lon="123.9173220" lat="10.3741534"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Gladiola"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="628155880" version="8" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3741534" minlon="123.9170547" maxlat="10.3743052" maxlon="123.9173220"/>
+        <nd ref="5930254048" version="1" lon="123.9170547" lat="10.3743052"/>
+        <nd ref="5930254047" version="2" lon="123.9173220" lat="10.3741534"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Gladiola Street"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="628155881" version="7" changeset="178740876" timestamp="2026-02-18T19:46:40Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3748104" minlon="123.9170493" maxlat="10.3750760" maxlon="123.9172209"/>
+        <nd ref="5930254050" version="1" lon="123.9172209" lat="10.3750760"/>
+        <nd ref="5930254049" version="1" lon="123.9170493" lat="10.3748104"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Petunia"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="628155881" version="8" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3748104" minlon="123.9170493" maxlat="10.3750760" maxlon="123.9172209"/>
+        <nd ref="5930254050" version="1" lon="123.9172209" lat="10.3750760"/>
+        <nd ref="5930254049" version="1" lon="123.9170493" lat="10.3748104"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="lanes" v="2"/>
+        <tag k="name" v="Petunia Street"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="894878111" version="6" changeset="178740876" timestamp="2026-02-18T19:46:45Z" uid="3778777" user="Baconcrisp">
+        <bounds minlat="10.3740057" minlon="123.9153520" maxlat="10.3741357" maxlon="123.9157826"/>
+        <nd ref="1136909120" version="2" lon="123.9153520" lat="10.3741357"/>
+        <nd ref="8318195520" version="2" lon="123.9154400" lat="10.3741086"/>
+        <nd ref="1136909123" version="5" lon="123.9157826" lat="10.3740057"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="name" v="Vanda"/>
+        <tag k="source" v="bing"/>
+        <tag k="surface" v="unpaved"/>
+      </way>
+    </old>
+    <new>
+      <way id="894878111" version="7" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3740057" minlon="123.9153520" maxlat="10.3741357" maxlon="123.9157826"/>
+        <nd ref="1136909120" version="2" lon="123.9153520" lat="10.3741357"/>
+        <nd ref="8318195520" version="2" lon="123.9154400" lat="10.3741086"/>
+        <nd ref="1136909123" version="5" lon="123.9157826" lat="10.3740057"/>
+        <tag k="access" v="destination"/>
+        <tag k="highway" v="residential"/>
+        <tag k="name" v="Vanda Street"/>
+        <tag k="source" v="bing"/>
+        <tag k="surface" v="unpaved"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="1176082694" version="4" changeset="177731850" timestamp="2026-01-26T18:23:58Z" uid="4240913" user="Corban8">
+        <bounds minlat="10.3745091" minlon="123.9146133" maxlat="10.3745343" maxlon="123.9146458"/>
+        <nd ref="1136909118" version="6" lon="123.9146133" lat="10.3745343"/>
+        <nd ref="2202780294" version="6" lon="123.9146458" lat="10.3745091"/>
+        <tag k="highway" v="residential"/>
+        <tag k="name" v="Vanda"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="1176082694" version="5" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3745091" minlon="123.9146133" maxlat="10.3745343" maxlon="123.9146458"/>
+        <nd ref="1136909118" version="6" lon="123.9146133" lat="10.3745343"/>
+        <nd ref="2202780294" version="6" lon="123.9146458" lat="10.3745091"/>
+        <tag k="highway" v="residential"/>
+        <tag k="name" v="Vanda Street"/>
+        <tag k="source" v="Bing"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="1247992728" version="1" changeset="147242168" timestamp="2024-02-09T05:57:06Z" uid="116306" user="Totor">
+        <bounds minlat="10.3729372" minlon="123.9123126" maxlat="10.3752062" maxlon="123.9146259"/>
+        <nd ref="11601329776" version="1" lon="123.9138776" lat="10.3729372"/>
+        <nd ref="11601329775" version="1" lon="123.9133438" lat="10.3732907"/>
+        <nd ref="11601329774" version="1" lon="123.9132714" lat="10.3732142"/>
+        <nd ref="11601329773" version="1" lon="123.9126706" lat="10.3735678"/>
+        <nd ref="11601329772" version="1" lon="123.9128932" lat="10.3739213"/>
+        <nd ref="11601329771" version="2" lon="123.9123126" lat="10.3742149"/>
+        <nd ref="11601329770" version="2" lon="123.9127631" lat="10.3750960"/>
+        <nd ref="11601329769" version="1" lon="123.9129603" lat="10.3750004"/>
+        <nd ref="11601310968" version="1" lon="123.9132285" lat="10.3750241"/>
+        <nd ref="11601310967" version="1" lon="123.9133197" lat="10.3752062"/>
+        <nd ref="11601310966" version="1" lon="123.9140573" lat="10.3751561"/>
+        <nd ref="11601310965" version="1" lon="123.9143363" lat="10.3750030"/>
+        <nd ref="11601310964" version="1" lon="123.9146259" lat="10.3747445"/>
+        <nd ref="11601310963" version="1" lon="123.9143926" lat="10.3742458"/>
+        <nd ref="11601310962" version="1" lon="123.9141726" lat="10.3735598"/>
+        <nd ref="11601329776" version="1" lon="123.9138776" lat="10.3729372"/>
+        <tag k="landuse" v="residential"/>
+      </way>
+    </old>
+    <new>
+      <way id="1247992728" version="2" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3729372" minlon="123.9123126" maxlat="10.3752062" maxlon="123.9146259"/>
+        <nd ref="11601329776" version="1" lon="123.9138776" lat="10.3729372"/>
+        <nd ref="11601329775" version="1" lon="123.9133438" lat="10.3732907"/>
+        <nd ref="11601329774" version="1" lon="123.9132714" lat="10.3732142"/>
+        <nd ref="11601329773" version="1" lon="123.9126706" lat="10.3735678"/>
+        <nd ref="11601329772" version="1" lon="123.9128932" lat="10.3739213"/>
+        <nd ref="11601329771" version="2" lon="123.9123126" lat="10.3742149"/>
+        <nd ref="11601329770" version="2" lon="123.9127631" lat="10.3750960"/>
+        <nd ref="11601329769" version="1" lon="123.9129603" lat="10.3750004"/>
+        <nd ref="11601310968" version="1" lon="123.9132285" lat="10.3750241"/>
+        <nd ref="11601310967" version="1" lon="123.9133197" lat="10.3752062"/>
+        <nd ref="11601310966" version="1" lon="123.9140573" lat="10.3751561"/>
+        <nd ref="11601310965" version="1" lon="123.9143363" lat="10.3750030"/>
+        <nd ref="11601310964" version="1" lon="123.9146259" lat="10.3747445"/>
+        <nd ref="11601310963" version="1" lon="123.9143926" lat="10.3742458"/>
+        <nd ref="11601310962" version="1" lon="123.9141726" lat="10.3735598"/>
+        <nd ref="11601329776" version="1" lon="123.9138776" lat="10.3729372"/>
+        <tag k="landuse" v="residential"/>
+        <tag k="name" v="Acropolis"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="1247992740" version="3" changeset="177731850" timestamp="2026-01-26T18:23:58Z" uid="4240913" user="Corban8">
+        <bounds minlat="10.3739164" minlon="123.9142593" maxlat="10.3739497" maxlon="123.9143398"/>
+        <nd ref="947680258" version="3" lon="123.9143398" lat="10.3739164"/>
+        <nd ref="13501035766" version="1" lon="123.9142593" lat="10.3739497"/>
+        <tag k="highway" v="residential"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="1247992740" version="3" changeset="177731850" timestamp="2026-01-26T18:23:58Z" uid="4240913" user="Corban8">
+        <bounds minlat="10.3739395" minlon="123.9141755" maxlat="10.3740038" maxlon="123.9143445"/>
+        <nd ref="947680258" version="4" lon="123.9143445" lat="10.3739395"/>
+        <nd ref="13501035766" version="2" lon="123.9141755" lat="10.3740038"/>
+        <tag k="highway" v="residential"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="1383703640" version="1" changeset="165830710" timestamp="2025-05-05T07:19:32Z" uid="17424607" user="FiBoss">
+        <bounds minlat="10.3767792" minlon="123.9161051" maxlat="10.3768785" maxlon="123.9161939"/>
+        <nd ref="12811125005" version="1" lon="123.9161364" lat="10.3768397"/>
+        <nd ref="12811125006" version="1" lon="123.9161641" lat="10.3768785"/>
+        <nd ref="12811125007" version="1" lon="123.9161939" lat="10.3768464"/>
+        <nd ref="12811125008" version="1" lon="123.9161466" lat="10.3767792"/>
+        <nd ref="12811125009" version="1" lon="123.9161051" lat="10.3768085"/>
+        <nd ref="12811125005" version="1" lon="123.9161364" lat="10.3768397"/>
+        <tag k="building" v="residential"/>
+        <tag k="building:levels" v="2"/>
+        <tag k="name" v="St. Josephine Vannini Home for the Aged"/>
+      </way>
+    </old>
+    <new>
+      <way id="1383703640" version="1" changeset="165830710" timestamp="2025-05-05T07:19:32Z" uid="17424607" user="FiBoss">
+        <bounds minlat="10.3769369" minlon="123.9162269" maxlat="10.3770326" maxlon="123.9163177"/>
+        <nd ref="12811125005" version="2" lon="123.9162538" lat="10.3769982"/>
+        <nd ref="12811125006" version="2" lon="123.9162817" lat="10.3770326"/>
+        <nd ref="12811125007" version="2" lon="123.9163177" lat="10.3770042"/>
+        <nd ref="12811125008" version="2" lon="123.9162629" lat="10.3769369"/>
+        <nd ref="12811125009" version="2" lon="123.9162269" lat="10.3769652"/>
+        <nd ref="12811125005" version="2" lon="123.9162538" lat="10.3769982"/>
+        <tag k="building" v="residential"/>
+        <tag k="building:levels" v="2"/>
+        <tag k="name" v="St. Josephine Vannini Home for the Aged"/>
+      </way>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <way id="1471144305" version="1" changeset="177731850" timestamp="2026-01-26T18:23:58Z" uid="4240913" user="Corban8">
+        <bounds minlat="10.3739497" minlon="123.9139347" maxlat="10.3740838" maxlon="123.9142593"/>
+        <nd ref="13501035766" version="1" lon="123.9142593" lat="10.3739497"/>
+        <nd ref="11601329826" version="2" lon="123.9139347" lat="10.3740838"/>
+        <tag k="access" v="private"/>
+        <tag k="highway" v="residential"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </old>
+    <new>
+      <way id="1471144305" version="2" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+        <bounds minlat="10.3740038" minlon="123.9140815" maxlat="10.3740161" maxlon="123.9141755"/>
+        <nd ref="13501035766" version="2" lon="123.9141755" lat="10.3740038"/>
+        <nd ref="13811664630" version="1" lon="123.9140815" lat="10.3740161"/>
+        <tag k="access" v="private"/>
+        <tag k="highway" v="residential"/>
+        <tag k="surface" v="concrete"/>
+      </way>
+    </new>
+  </action>
+  <action type="create">
+    <way id="1511038481" version="1" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+      <bounds minlat="10.3757132" minlon="123.9152756" maxlat="10.3757421" maxlon="123.9153022"/>
+      <nd ref="13811583898" version="1" lon="123.9152893" lat="10.3757421"/>
+      <nd ref="13811583897" version="1" lon="123.9152756" lat="10.3757215"/>
+      <nd ref="13811583896" version="1" lon="123.9152885" lat="10.3757132"/>
+      <nd ref="13811583895" version="1" lon="123.9153022" lat="10.3757339"/>
+      <nd ref="13811583898" version="1" lon="123.9152893" lat="10.3757421"/>
+      <tag k="building" v="guardhouse"/>
+      <tag k="name" v="Barangay San Jose Tanod Outpost"/>
+    </way>
+  </action>
+  <action type="create">
+    <way id="1511038482" version="1" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+      <bounds minlat="10.3766349" minlon="123.9131427" maxlat="10.3777179" maxlon="123.9145428"/>
+      <nd ref="13811664611" version="1" lon="123.9134873" lat="10.3777179"/>
+      <nd ref="13811664610" version="1" lon="123.9131427" lat="10.3772667"/>
+      <nd ref="13811664609" version="1" lon="123.9131856" lat="10.3771506"/>
+      <nd ref="13811664608" version="1" lon="123.9135638" lat="10.3767997"/>
+      <nd ref="13811664607" version="1" lon="123.9137033" lat="10.3766810"/>
+      <nd ref="13811664606" version="1" lon="123.9140251" lat="10.3766494"/>
+      <nd ref="13811664605" version="1" lon="123.9142893" lat="10.3766349"/>
+      <nd ref="13811664604" version="1" lon="123.9143926" lat="10.3768624"/>
+      <nd ref="13811664603" version="1" lon="123.9144824" lat="10.3770346"/>
+      <nd ref="13811664602" version="1" lon="123.9145428" lat="10.3771375"/>
+      <nd ref="13811664601" version="1" lon="123.9140788" lat="10.3774118"/>
+      <nd ref="13811583900" version="1" lon="123.9141163" lat="10.3774804"/>
+      <nd ref="13811583899" version="1" lon="123.9138883" lat="10.3776203"/>
+      <nd ref="13811664611" version="1" lon="123.9134873" lat="10.3777179"/>
+      <tag k="amenity" v="social_facility"/>
+      <tag k="name" v="Maria Josefa Recio Therapeutic Center"/>
+      <tag k="operator" v="Hospitaller Sisters of the Sacred Heart of Jesus"/>
+      <tag k="social_facility" v="nursing_home"/>
+      <tag k="social_facility:for" v="mental_health"/>
+      <tag k="website" v="https://josefahospitallerfoundation.wordpress.com/our-centers/maria-josefa-recio-therapeutic-center/"/>
+    </way>
+  </action>
+  <action type="create">
+    <way id="1511038483" version="1" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+      <bounds minlat="10.3753170" minlon="123.9141968" maxlat="10.3761072" maxlon="123.9148499"/>
+      <nd ref="13811664619" version="1" lon="123.9145012" lat="10.3761072"/>
+      <nd ref="13811664618" version="1" lon="123.9144382" lat="10.3759885"/>
+      <nd ref="13811664617" version="1" lon="123.9143617" lat="10.3760228"/>
+      <nd ref="13811664616" version="1" lon="123.9142773" lat="10.3758710"/>
+      <nd ref="13811664615" version="1" lon="123.9143564" lat="10.3758222"/>
+      <nd ref="13811664614" version="1" lon="123.9141968" lat="10.3754845"/>
+      <nd ref="13811664613" version="1" lon="123.9145361" lat="10.3753170"/>
+      <nd ref="13811664612" version="1" lon="123.9148499" lat="10.3759185"/>
+      <nd ref="13811664619" version="1" lon="123.9145012" lat="10.3761072"/>
+      <tag k="amenity" v="language_school"/>
+      <tag k="name" v="Jung Jun English School"/>
+    </way>
+  </action>
+  <action type="create">
+    <way id="1511038484" version="1" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+      <bounds minlat="10.3767034" minlon="123.9147493" maxlat="10.3778379" maxlon="123.9161387"/>
+      <nd ref="13811664628" version="1" lon="123.9150538" lat="10.3778379"/>
+      <nd ref="13811664627" version="1" lon="123.9149237" lat="10.3776757"/>
+      <nd ref="13811664626" version="1" lon="123.9149210" lat="10.3775649"/>
+      <nd ref="13811664625" version="1" lon="123.9147493" lat="10.3773512"/>
+      <nd ref="13811664624" version="1" lon="123.9151061" lat="10.3770794"/>
+      <nd ref="13811664623" version="1" lon="123.9151892" lat="10.3771955"/>
+      <nd ref="13811664622" version="1" lon="123.9158785" lat="10.3767034"/>
+      <nd ref="13811664621" version="1" lon="123.9161387" lat="10.3770346"/>
+      <nd ref="13811664620" version="1" lon="123.9153059" lat="10.3776295"/>
+      <nd ref="13811664628" version="1" lon="123.9150538" lat="10.3778379"/>
+      <tag k="landuse" v="religious"/>
+      <tag k="operator" v="Daughters of Saint Camillus"/>
+    </way>
+  </action>
+  <action type="create">
+    <way id="1511038485" version="1" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+      <bounds minlat="10.3762270" minlon="123.9157797" maxlat="10.3770570" maxlon="123.9165295"/>
+      <nd ref="12811125004" version="2" lon="123.9162903" lat="10.3770570"/>
+      <nd ref="13811664629" version="1" lon="123.9158906" lat="10.3765372"/>
+      <nd ref="2195237384" version="3" lon="123.9157797" lat="10.3763923"/>
+      <nd ref="2195237364" version="2" lon="123.9159946" lat="10.3762270"/>
+      <nd ref="2202780295" version="1" lon="123.9165295" lat="10.3769003"/>
+      <nd ref="12811125004" version="2" lon="123.9162903" lat="10.3770570"/>
+      <tag k="amenity" v="social_facility"/>
+      <tag k="contact:facebook" v="SJVHomefortheAged"/>
+      <tag k="name" v="Saint Josephine Vannini Home for the Aged"/>
+      <tag k="operator" v="Daughters of Saint Camillus Inc."/>
+      <tag k="social_facility" v="nursing_home"/>
+      <tag k="social_facility:for" v="senior"/>
+    </way>
+  </action>
+  <action type="create">
+    <way id="1511038486" version="1" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+      <bounds minlat="10.3740161" minlon="123.9139347" maxlat="10.3740838" maxlon="123.9140815"/>
+      <nd ref="13811664630" version="1" lon="123.9140815" lat="10.3740161"/>
+      <nd ref="11601329826" version="2" lon="123.9139347" lat="10.3740838"/>
+      <tag k="access" v="private"/>
+      <tag k="highway" v="residential"/>
+      <tag k="surface" v="concrete"/>
+    </way>
+  </action>
+  <action type="create">
+    <way id="1511038487" version="1" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+      <bounds minlat="10.3739450" minlon="123.9140815" maxlat="10.3740161" maxlon="123.9141505"/>
+      <nd ref="13811664631" version="1" lon="123.9141505" lat="10.3739450"/>
+      <nd ref="13811664630" version="1" lon="123.9140815" lat="10.3740161"/>
+      <tag k="highway" v="residential"/>
+      <tag k="surface" v="concrete"/>
+    </way>
+  </action>
+  <action type="create">
+    <way id="1511038488" version="1" changeset="182434007" timestamp="2026-05-09T16:56:18Z" uid="1488198" user="VMPanes">
+      <bounds minlat="10.3738849" minlon="123.9141505" maxlat="10.3739450" maxlon="123.9143287"/>
+      <nd ref="13811664632" version="1" lon="123.9143287" lat="10.3738849"/>
+      <nd ref="13811664631" version="1" lon="123.9141505" lat="10.3739450"/>
+      <tag k="highway" v="residential"/>
+      <tag k="surface" v="concrete"/>
+    </way>
+  </action>
+  <action type="modify">
+    <old>
+      <relation id="18866875" version="3" changeset="170271421" timestamp="2025-08-11T03:36:51Z" uid="6591426" user="uᴉʍOꓨ">
+        <bounds minlat="10.3723933" minlon="123.9145425" maxlat="10.3769003" maxlon="123.9188386"/>
+        <member type="way" ref="1369540651" role="outer">
+          <nd ref="2195237368" version="3" lon="123.9185017" lat="10.3744879"/>
+          <nd ref="2195237369" version="3" lon="123.9188386" lat="10.3742381"/>
+        </member>
+        <member type="way" ref="1383668985" role="outer">
+          <nd ref="2195237369" version="3" lon="123.9188386" lat="10.3742381"/>
+          <nd ref="2195237370" version="3" lon="123.9185665" lat="10.3737226"/>
+          <nd ref="2195237371" version="2" lon="123.9180862" lat="10.3739328"/>
+          <nd ref="2195237372" version="1" lon="123.9176039" lat="10.3731189"/>
+          <nd ref="2195237373" version="3" lon="123.9173712" lat="10.3727099"/>
+          <nd ref="2195237374" version="2" lon="123.9168576" lat="10.3729829"/>
+          <nd ref="2195237375" version="2" lon="123.9166379" lat="10.3726587"/>
+          <nd ref="2195237376" version="3" lon="123.9164508" lat="10.3723933"/>
+          <nd ref="2195237377" version="2" lon="123.9160998" lat="10.3726476"/>
+          <nd ref="2195237378" version="1" lon="123.9153122" lat="10.3731659"/>
+          <nd ref="2195237379" version="1" lon="123.9150582" lat="10.3733406"/>
+        </member>
+        <member type="way" ref="1383668987" role="outer">
+          <nd ref="5930265173" version="2" lon="123.9151782" lat="10.3735129"/>
+          <nd ref="2195237379" version="1" lon="123.9150582" lat="10.3733406"/>
+        </member>
+        <member type="way" ref="209298548" role="outer">
+          <nd ref="5930265173" version="2" lon="123.9151782" lat="10.3735129"/>
+          <nd ref="2195237380" version="2" lon="123.9154037" lat="10.3738696"/>
+          <nd ref="2195237381" version="1" lon="123.9145425" lat="10.3743080"/>
+          <nd ref="2202780294" version="6" lon="123.9146458" lat="10.3745091"/>
+          <nd ref="2195237383" version="3" lon="123.9152579" lat="10.3756957"/>
+          <nd ref="5927020138" version="1" lon="123.9154011" lat="10.3759086"/>
+          <nd ref="2195237384" version="3" lon="123.9157797" lat="10.3763923"/>
+          <nd ref="2195237364" version="2" lon="123.9159946" lat="10.3762270"/>
+          <nd ref="2202780295" version="1" lon="123.9165295" lat="10.3769003"/>
+          <nd ref="2195237365" version="1" lon="123.9169940" lat="10.3765093"/>
+          <nd ref="2195237366" version="1" lon="123.9184834" lat="10.3756806"/>
+          <nd ref="2195237367" version="1" lon="123.9180059" lat="10.3748462"/>
+          <nd ref="2195237368" version="3" lon="123.9185017" lat="10.3744879"/>
+        </member>
+        <tag k="landuse" v="residential"/>
+        <tag k="name" v="Mary Ville"/>
+        <tag k="place" v="neighbourhood"/>
+        <tag k="residential" v="detached"/>
+        <tag k="type" v="multipolygon"/>
+      </relation>
+    </old>
+    <new>
+      <relation id="18866875" version="3" changeset="170271421" timestamp="2025-08-11T03:36:51Z" uid="6591426" user="uᴉʍOꓨ">
+        <bounds minlat="10.3723933" minlon="123.9145425" maxlat="10.3769003" maxlon="123.9188386"/>
+        <member type="way" ref="1369540651" role="outer">
+          <nd ref="2195237368" version="3" lon="123.9185017" lat="10.3744879"/>
+          <nd ref="2195237369" version="3" lon="123.9188386" lat="10.3742381"/>
+        </member>
+        <member type="way" ref="1383668985" role="outer">
+          <nd ref="2195237369" version="3" lon="123.9188386" lat="10.3742381"/>
+          <nd ref="2195237370" version="3" lon="123.9185665" lat="10.3737226"/>
+          <nd ref="2195237371" version="2" lon="123.9180862" lat="10.3739328"/>
+          <nd ref="2195237372" version="1" lon="123.9176039" lat="10.3731189"/>
+          <nd ref="2195237373" version="3" lon="123.9173712" lat="10.3727099"/>
+          <nd ref="2195237374" version="2" lon="123.9168576" lat="10.3729829"/>
+          <nd ref="2195237375" version="2" lon="123.9166379" lat="10.3726587"/>
+          <nd ref="2195237376" version="3" lon="123.9164508" lat="10.3723933"/>
+          <nd ref="2195237377" version="2" lon="123.9160998" lat="10.3726476"/>
+          <nd ref="2195237378" version="1" lon="123.9153122" lat="10.3731659"/>
+          <nd ref="2195237379" version="1" lon="123.9150582" lat="10.3733406"/>
+        </member>
+        <member type="way" ref="1383668987" role="outer">
+          <nd ref="5930265173" version="2" lon="123.9151782" lat="10.3735129"/>
+          <nd ref="2195237379" version="1" lon="123.9150582" lat="10.3733406"/>
+        </member>
+        <member type="way" ref="209298548" role="outer">
+          <nd ref="5930265173" version="2" lon="123.9151782" lat="10.3735129"/>
+          <nd ref="2195237380" version="2" lon="123.9154037" lat="10.3738696"/>
+          <nd ref="2195237381" version="1" lon="123.9145425" lat="10.3743080"/>
+          <nd ref="2202780294" version="6" lon="123.9146458" lat="10.3745091"/>
+          <nd ref="2195237383" version="4" lon="123.9152847" lat="10.3756812"/>
+          <nd ref="5927020138" version="1" lon="123.9154011" lat="10.3759086"/>
+          <nd ref="2195237384" version="3" lon="123.9157797" lat="10.3763923"/>
+          <nd ref="2195237364" version="2" lon="123.9159946" lat="10.3762270"/>
+          <nd ref="2202780295" version="1" lon="123.9165295" lat="10.3769003"/>
+          <nd ref="2195237365" version="1" lon="123.9169940" lat="10.3765093"/>
+          <nd ref="2195237366" version="1" lon="123.9184834" lat="10.3756806"/>
+          <nd ref="2195237367" version="1" lon="123.9180059" lat="10.3748462"/>
+          <nd ref="2195237368" version="3" lon="123.9185017" lat="10.3744879"/>
+        </member>
+        <tag k="landuse" v="residential"/>
+        <tag k="name" v="Mary Ville"/>
+        <tag k="place" v="neighbourhood"/>
+        <tag k="residential" v="detached"/>
+        <tag k="type" v="multipolygon"/>
+      </relation>
+    </new>
+  </action>
+  <action type="modify">
+    <old>
+      <relation id="19084059" version="1" changeset="165830710" timestamp="2025-05-05T07:19:32Z" uid="17424607" user="FiBoss">
+        <bounds minlat="10.3767792" minlon="123.9161051" maxlat="10.3768785" maxlon="123.9161939"/>
+        <member type="way" ref="1383703640" role="">
+          <nd ref="12811125005" version="1" lon="123.9161364" lat="10.3768397"/>
+          <nd ref="12811125006" version="1" lon="123.9161641" lat="10.3768785"/>
+          <nd ref="12811125007" version="1" lon="123.9161939" lat="10.3768464"/>
+          <nd ref="12811125008" version="1" lon="123.9161466" lat="10.3767792"/>
+          <nd ref="12811125009" version="1" lon="123.9161051" lat="10.3768085"/>
+          <nd ref="12811125005" version="1" lon="123.9161364" lat="10.3768397"/>
+        </member>
+        <tag k="route" v="road"/>
+        <tag k="type" v="route"/>
+      </relation>
+    </old>
+    <new>
+      <relation id="19084059" version="1" changeset="165830710" timestamp="2025-05-05T07:19:32Z" uid="17424607" user="FiBoss">
+        <bounds minlat="10.3769369" minlon="123.9162269" maxlat="10.3770326" maxlon="123.9163177"/>
+        <member type="way" ref="1383703640" role="">
+          <nd ref="12811125005" version="2" lon="123.9162538" lat="10.3769982"/>
+          <nd ref="12811125006" version="2" lon="123.9162817" lat="10.3770326"/>
+          <nd ref="12811125007" version="2" lon="123.9163177" lat="10.3770042"/>
+          <nd ref="12811125008" version="2" lon="123.9162629" lat="10.3769369"/>
+          <nd ref="12811125009" version="2" lon="123.9162269" lat="10.3769652"/>
+          <nd ref="12811125005" version="2" lon="123.9162538" lat="10.3769982"/>
+        </member>
+        <tag k="route" v="road"/>
+        <tag k="type" v="route"/>
+      </relation>
+    </new>
+  </action>
+</osm>
