@@ -79,7 +79,9 @@ def run_element_analysis_job(job):
         total = len(changesets)
         analyzer = AdiffAnalyzer()
 
-        for cs in changesets:
+        _BATCH_SIZE = 50
+
+        for i, cs in enumerate(changesets):
             cs_id = cs["id"]
             adiff_xml = analyzer.fetch_adiff_xml(cs_id)
             osm_user = cs.get("user")
@@ -110,6 +112,9 @@ def run_element_analysis_job(job):
                     osm_user=osm_user,
                     adiff_xml=adiff_xml,
                 ))
+
+            if (i + 1) % _BATCH_SIZE == 0:
+                db.session.commit()
 
         db.session.commit()
 
