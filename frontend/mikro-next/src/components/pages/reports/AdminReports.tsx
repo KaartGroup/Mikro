@@ -331,13 +331,9 @@ export function AdminReports() {
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setCompareEnabled((prev) => !prev)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  compareEnabled
-                    ? "bg-blue-600 text-white"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
               >
-                {compareEnabled ? "Compare ON" : "Compare"}
+                {compareEnabled ? "Compare ON" : "Compare OFF"}
               </button>
               {compareEnabled && (
                 <>
