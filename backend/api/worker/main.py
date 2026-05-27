@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 from .jobs.sync import run_sync_job
 from .sync_queue import SyncJobQueue
-from .jobs.project_sync import run_project_sync_job
 from .jobs.element_analysis import run_element_analysis_job
 from .jobs.mr_backfill import run_mr_metadata_backfill
 from .jobs.transcription import (
@@ -115,12 +114,10 @@ def poll_for_jobs(app):
             logger.info(f"Processing job {job.id} (type={job.job_type}) for org {job.org_id}")
             if job.job_type == "element_analysis":
                 run_element_analysis_job(job)
-            elif job.job_type == "project_sync":
-                run_project_sync_job(job)
             elif job.job_type == "mr_metadata_backfill":
                 run_mr_metadata_backfill(app, job)
             else:
-                run_sync_job(app, job)
+                run_sync_job(job)
 
         except Exception as e:
             logger.error(f"Error polling for jobs: {e}")
