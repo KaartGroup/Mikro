@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
 
-_MAX_WINDOW_DAYS = 3
+_MAX_WINDOW_DAYS = 5
 
 
 def run_element_analysis_job(job):
