@@ -267,6 +267,81 @@ class TestBuildCategoryData:
             "Turn Restrictions", "Names", "Construction", "Classifications",
         ]
 
+    # --- pure inline tests (no fixture files) ---
+
+    def _one_day(self, **key_transitions):
+        """Build a single day_key_stats dict from {key: [(old, new, count)]}."""
+        day_entry = {key: {} for key in TRACKED_KEYS}
+        for key, triples in key_transitions.items():
+            for old_val, new_val, count in triples:
+                day_entry[key][(old_val, new_val)] = count
+        return defaultdict(lambda: {key: {} for key in TRACKED_KEYS},
+                           {date(2024, 1, 1): day_entry})
+
+    def test_delete_counted_in_deleted_field(self):
+        cats = build_category_data(self._one_day(oneway=[("yes", None, 1)]))
+        assert _d0(cats, "Oneways") == {"day": "2024-01-01", "added": 0, "modified": 0, "deleted": 1}
+
+    def test_modify_counted_in_modified_field(self):
+        cats = build_category_data(self._one_day(oneway=[("yes", "no", 1)]))
+        assert _d0(cats, "Oneways") == {"day": "2024-01-01", "added": 0, "modified": 1, "deleted": 0}
+
+    def test_transition_count_greater_than_one_accumulates(self):
+        cats = build_category_data(self._one_day(oneway=[(None, "yes", 7)]))
+        assert _d0(cats, "Oneways")["added"] == 7
+
+    def test_add_modify_delete_all_counted_in_one_day(self):
+        cats = build_category_data(self._one_day(oneway=[
+            (None, "yes", 2),
+            ("yes", "no", 1),
+            ("no", None, 3),
+        ]))
+        assert _d0(cats, "Oneways") == {"day": "2024-01-01", "added": 2, "modified": 1, "deleted": 3}
+
+    def test_multi_key_category_sums_both_keys_inline(self):
+        # Access & Barriers: access add + barrier delete
+        cats = build_category_data(self._one_day(
+            access=[(None, "private", 1)],
+            barrier=[("gate", None, 2)],
+        ))
+        d = _d0(cats, "Access & Barriers")
+        assert d["added"] == 1
+        assert d["deleted"] == 2
+        assert d["modified"] == 0
+
+    def test_classifications_includes_all_type_values(self):
+        # "Classifications" maps ["type"] with no filter — type=multipolygon counts
+        cats = build_category_data(self._one_day(type=[(None, "multipolygon", 3)]))
+        assert _d0(cats, "Classifications")["added"] == 3
+
+    def test_type_restriction_lands_in_both_turn_restrictions_and_classifications(self):
+        # type=restriction passes the Turn Restrictions filter AND the unfiltered Classifications
+        cats = build_category_data(self._one_day(type=[(None, "restriction", 2)]))
+        assert _d0(cats, "Turn Restrictions")["added"] == 2
+        assert _d0(cats, "Classifications")["added"] == 2
+
+    def test_type_non_restriction_excluded_from_turn_restrictions_inline(self):
+        cats = build_category_data(self._one_day(type=[(None, "multipolygon", 5)]))
+        assert _d0(cats, "Turn Restrictions")["added"] == 0
+
+    def test_keys_do_not_bleed_across_categories(self):
+        # oneway data must not affect Highways or any other category
+        cats = build_category_data(self._one_day(oneway=[(None, "yes", 4)]))
+        for title in ["Highways", "Access & Barriers", "Refs", "Turn Restrictions",
+                      "Names", "Construction", "Classifications"]:
+            d = _d0(cats, title)
+            assert d["added"] == 0 and d["modified"] == 0 and d["deleted"] == 0
+
+    def test_days_appear_in_ascending_order(self):
+        d1, d2, d3 = date(2024, 3, 1), date(2024, 1, 1), date(2024, 2, 1)
+        stats = defaultdict(lambda: {key: {} for key in TRACKED_KEYS}, {
+            d1: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 1}},
+            d2: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 2}},
+            d3: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 3}},
+        })
+        days = [d["day"] for d in _cat(build_category_data(stats), "Oneways")["data"]]
+        assert days == ["2024-01-01", "2024-02-01", "2024-03-01"]
+
 
 # ---------------------------------------------------------------------------
 # 3. get_element_analysis — DB wiring
