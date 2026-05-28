@@ -106,7 +106,7 @@ def run_sync_job(job):
             job.started_at = datetime.now(timezone.utc)
         job.progress = "Starting sync..."
         db.session.commit()
-        job_start = job.started_at
+        job_start = job.started_at.replace(tzinfo=timezone.utc)
 
         if job.job_type == "project_sync":
             project = Project.query.filter_by(id=job.target_id).first()
