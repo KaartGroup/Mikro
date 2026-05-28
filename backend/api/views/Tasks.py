@@ -223,122 +223,109 @@ class TaskAPI(MethodView):
         """
         Check for invalidated tasks for a user's mapped tasks.
 
-        Queries TM4 API for individual task status.
+        Queries TM4 API for individual task status. Uses a single JOIN
+        query to fetch only non-invalidated tasks for this user in this
+        project, avoiding the previous N+1 DB-query-per-task pattern.
         """
-        user_tasks = UserTasks.query.filter_by(user_id=user.id).all()
-        # UserTasks.task_id is a FK to Task.id (internal DB ID)
-        internal_task_ids = [relation.task_id for relation in user_tasks]
         headers = self._get_tm4_headers()
         base_url = self._get_tm4_base_url()
         target_project = Project.query.filter_by(id=project_id).first()
 
-        current_app.logger.info(
-            f"get_invalidated_TM4_tasks: user={user.id}, project={project_id}, "
-            f"user_tasks_count={len(user_tasks)}, internal_task_ids={internal_task_ids}"
-        )
-
         if not target_project:
             return {"response": "project not found"}
 
-        tasks_checked = 0
-        tasks_in_project = 0
-        for internal_task_id in internal_task_ids:
-            target_user = User.query.filter_by(id=user.id).first()
-            # Query by internal Task.id, not Task.task_id (TM4 ID)
-            target_task = Task.query.filter_by(id=internal_task_id).first()
-
-            if not target_task:
-                current_app.logger.warning(f"Task with internal id {internal_task_id} not found in DB")
-                continue
-
-            if target_task.project_id != project_id:
-                continue  # Skip tasks from other projects
-
-            tasks_in_project += 1
-            current_app.logger.info(
-                f"Checking task: internal_id={internal_task_id}, tm4_id={target_task.task_id}, "
-                f"project={target_task.project_id}, validated={target_task.validated}, "
-                f"invalidated={target_task.invalidated}"
+        tasks_to_check = (
+            Task.query
+            .join(UserTasks, UserTasks.task_id == Task.id)
+            .filter(
+                UserTasks.user_id == user.id,
+                Task.project_id == project_id,
+                Task.invalidated.isnot(True),
             )
+            .all()
+        )
 
-            if not target_task.invalidated:
-                tasks_checked += 1
-                # Use Task.task_id (TM4 ID) for API call
-                tm4_task_id = target_task.task_id
-                invalid_tasks_url = f"{base_url}/projects/{project_id}/tasks/{tm4_task_id}/"
+        tasks_checked = len(tasks_to_check)
+        current_app.logger.info(
+            f"get_invalidated_TM4_tasks: user={user.id}, project={project_id}, "
+            f"tasks_to_check={tasks_checked}"
+        )
 
-                try:
-                    tasks_invalidated_call = requests.get(
-                        invalid_tasks_url, headers=headers, timeout=30
-                    )
+        for target_task in tasks_to_check:
+            tm4_task_id = target_task.task_id
+            invalid_tasks_url = f"{base_url}/projects/{project_id}/tasks/{tm4_task_id}/"
 
-                    if tasks_invalidated_call.ok:
-                        task_data = tasks_invalidated_call.json()
-                        task_status = task_data.get("taskStatus")
-                        task_history = task_data.get("taskHistory", [])
+            try:
+                tasks_invalidated_call = requests.get(
+                    invalid_tasks_url, headers=headers, timeout=30
+                )
 
-                        # Track parent_task_id for split tasks
-                        parent_task_id = task_data.get("parentTaskId")
-                        if parent_task_id and target_task.parent_task_id != parent_task_id:
-                            # TM4 always splits into exactly 4 children
-                            target_task.update(parent_task_id=parent_task_id, sibling_count=4)
+                if tasks_invalidated_call.ok:
+                    task_data = tasks_invalidated_call.json()
+                    task_status = task_data.get("taskStatus")
+                    task_history = task_data.get("taskHistory", [])
 
-                        # Find invalidation actions in history for validator info
-                        invalidation_actions = [
+                    # Track parent_task_id for split tasks
+                    parent_task_id = task_data.get("parentTaskId")
+                    if parent_task_id and target_task.parent_task_id != parent_task_id:
+                        # TM4 always splits into exactly 4 children
+                        target_task.update(parent_task_id=parent_task_id, sibling_count=4)
+
+                    # Find invalidation actions in history for validator info.
+                    # Sorted descending by actionDate so [0] is the most recent.
+                    invalidation_actions = sorted(
+                        [
                             h for h in task_history
                             if h.get("action") == "STATE_CHANGE" and h.get("actionText") == "INVALIDATED"
-                        ]
+                        ],
+                        key=lambda h: h.get("actionDate", ""),
+                        reverse=True,
+                    )
 
-                        # Log task status for debugging
-                        current_app.logger.info(
-                            f"TM4 task {tm4_task_id}: status={task_status}, "
-                            f"history_count={len(task_history)}, "
-                            f"invalidation_actions={len(invalidation_actions)}"
+                    current_app.logger.info(
+                        f"TM4 task {tm4_task_id}: status={task_status}, "
+                        f"history_count={len(task_history)}, "
+                        f"invalidation_actions={len(invalidation_actions)}"
+                    )
+
+                    # Only mark as invalidated if CURRENT status is INVALIDATED.
+                    # Do NOT use historical invalidations — a task that was
+                    # invalidated then re-mapped and re-validated is currently valid.
+                    if task_status == "INVALIDATED":
+                        validator_username = None
+                        if invalidation_actions:
+                            validator_username = invalidation_actions[0].get("actionBy")
+                        elif task_history:
+                            validator_username = task_history[0].get("actionBy")
+
+                        if validator_username:
+                            target_task.update(validated_by=validator_username)
+
+                        target_task.update(
+                            invalidated=True,
+                            validated=False,
+                            date_validated=func.now(),
                         )
 
-                        # Only mark as invalidated if CURRENT status is INVALIDATED
-                        # Do NOT use historical invalidations — a task that was
-                        # invalidated then re-mapped and re-validated is currently valid
-                        if task_status == "INVALIDATED":
-                            # Get validator info from the invalidation action
-                            validator_username = None
-                            if invalidation_actions:
-                                # Use the most recent invalidation action
-                                validator_username = invalidation_actions[0].get("actionBy")
-                            elif task_history:
-                                # Fallback to first history entry
-                                validator_username = task_history[0].get("actionBy")
-
-                            if validator_username:
-                                target_task.update(validated_by=validator_username)
-
-                            # Update task status (always mark as invalidated)
-                            target_task.update(
-                                invalidated=True,
-                                validated=False,
-                                date_validated=func.now(),
-                            )
-
-                            # For split tasks, only update stats when ALL siblings are invalidated
-                            if not self._should_count_invalidation(target_task):
-                                current_app.logger.info(
-                                    f"Split task {tm4_task_id} invalidated but not all siblings invalidated yet - deferring stats update"
-                                )
-                                continue
-
+                        if not self._should_count_invalidation(target_task):
                             current_app.logger.info(
-                                f"Marked task {tm4_task_id} as INVALIDATED for user {target_user.id}"
+                                f"Split task {tm4_task_id} invalidated but not all siblings invalidated yet - deferring stats update"
                             )
-                    else:
-                        current_app.logger.warning(
-                            f"TM4 task status call failed for task {tm4_task_id}: {tasks_invalidated_call.status_code}"
+                            continue
+
+                        current_app.logger.info(
+                            f"Marked task {tm4_task_id} as INVALIDATED for user {user.id}"
                         )
-                except requests.RequestException as e:
-                    current_app.logger.error(f"TM4 API error for task {tm4_task_id}: {e}")
+                else:
+                    current_app.logger.warning(
+                        f"TM4 task status call failed for task {tm4_task_id}: {tasks_invalidated_call.status_code}"
+                    )
+            except requests.RequestException as e:
+                current_app.logger.error(f"TM4 API error for task {tm4_task_id}: {e}")
 
         current_app.logger.info(
             f"get_invalidated_TM4_tasks complete: project={project_id}, "
-            f"tasks_in_project={tasks_in_project}, tasks_checked={tasks_checked}"
+            f"tasks_checked={tasks_checked}"
         )
         return {"response": "complete"}
 
@@ -411,6 +398,34 @@ class TaskAPI(MethodView):
                             f"internal_id={new_task.id}"
                         )
                         target_task = new_task
+
+                        # Only fetch parent_task_id for newly created tasks — checking
+                        # existing tasks on every sync causes N+1 API calls on large projects.
+                        if not target_task.parent_task_id:
+                            try:
+                                tm4_base_url = self._get_tm4_base_url()
+                                headers = self._get_tm4_headers()
+                                task_detail_url = f"{tm4_base_url}/projects/{project_id}/tasks/{task}/"
+                                task_detail_call = requests.get(task_detail_url, headers=headers, timeout=10)
+                                if task_detail_call.ok:
+                                    task_data = task_detail_call.json()
+                                    parent_task_id = task_data.get("parentTaskId")
+                                    if parent_task_id:
+                                        # TM4 always splits into exactly 4 children
+                                        target_task.update(
+                                            parent_task_id=parent_task_id,
+                                            sibling_count=4
+                                        )
+                                        current_app.logger.info(
+                                            f"Task {task} is a split child of parent task {parent_task_id} (sibling_count=4)"
+                                        )
+                                else:
+                                    current_app.logger.warning(
+                                        f"TM4 task detail call failed for task {task}: "
+                                        f"status={task_detail_call.status_code}"
+                                    )
+                            except requests.RequestException as e:
+                                current_app.logger.warning(f"Could not fetch task details for {task}: {e}")
                     else:
                         tasks_skipped += 1
                         # Update mapped_by if task was reassigned in TM4
@@ -428,34 +443,29 @@ class TaskAPI(MethodView):
                             current_app.logger.info(
                                 f"Created missing UserTasks link for existing task {task}"
                             )
-                        target_task = task_exists
-
-                    # Fetch individual task details from TM4 to get parent_task_id (for split tasks)
-                    if target_task and not target_task.parent_task_id:
-                        try:
-                            tm4_base_url = self._get_tm4_base_url()
-                            headers = self._get_tm4_headers()
-                            task_detail_url = f"{tm4_base_url}/projects/{project_id}/tasks/{task}/"
-                            task_detail_call = requests.get(task_detail_url, headers=headers, timeout=10)
-                            if task_detail_call.ok:
-                                task_data = task_detail_call.json()
-                                parent_task_id = task_data.get("parentTaskId")
-                                if parent_task_id:
-                                    # TM4 always splits into exactly 4 children
-                                    target_task.update(
-                                        parent_task_id=parent_task_id,
-                                        sibling_count=4
+                        # Backfill parent_task_id for existing split tasks created before
+                        # this field was tracked. Guard prevents N+1 once populated.
+                        if not task_exists.parent_task_id:
+                            try:
+                                tm4_base_url = self._get_tm4_base_url()
+                                headers = self._get_tm4_headers()
+                                task_detail_url = f"{tm4_base_url}/projects/{project_id}/tasks/{task}/"
+                                task_detail_call = requests.get(task_detail_url, headers=headers, timeout=10)
+                                if task_detail_call.ok:
+                                    task_data = task_detail_call.json()
+                                    parent_task_id = task_data.get("parentTaskId")
+                                    if parent_task_id:
+                                        task_exists.update(parent_task_id=parent_task_id, sibling_count=4)
+                                        current_app.logger.info(
+                                            f"Backfilled parent_task_id={parent_task_id} for existing task {task}"
+                                        )
+                                else:
+                                    current_app.logger.warning(
+                                        f"TM4 task detail call failed for task {task}: "
+                                        f"status={task_detail_call.status_code}"
                                     )
-                                    current_app.logger.info(
-                                        f"Task {task} is a split child of parent task {parent_task_id} (sibling_count=4)"
-                                    )
-                            else:
-                                current_app.logger.warning(
-                                    f"TM4 task detail call failed for task {task}: "
-                                    f"status={task_detail_call.status_code}"
-                                )
-                        except requests.RequestException as e:
-                            current_app.logger.warning(f"Could not fetch task details for {task}: {e}")
+                            except requests.RequestException as e:
+                                current_app.logger.warning(f"Could not fetch task details for {task}: {e}")
 
         current_app.logger.info(
             f"get_mapped_TM4_tasks complete: project={project_id}, "

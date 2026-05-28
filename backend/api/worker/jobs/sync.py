@@ -1,7 +1,9 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
+
+_MAX_SYNC_JOB_DURATION = timedelta(hours=2)
 
 
 def sync_project(project, org_id, target_user_id=None):
@@ -100,9 +102,11 @@ def run_sync_job(job):
             target_user_id = job.progress.split(":", 1)[1]
 
         job.status = "running"
-        job.started_at = datetime.now(timezone.utc)
+        if not job.started_at:
+            job.started_at = datetime.now(timezone.utc)
         job.progress = "Starting sync..."
         db.session.commit()
+        job_start = job.started_at
 
         if job.job_type == "project_sync":
             project = Project.query.filter_by(id=job.target_id).first()
@@ -121,9 +125,32 @@ def run_sync_job(job):
 
         total = len(projects)
         for k, project in enumerate(projects, 1):
+            elapsed = datetime.now(timezone.utc) - job_start
+            if elapsed > _MAX_SYNC_JOB_DURATION:
+                logger.warning(
+                    f"Sync job {job.id} exceeded {_MAX_SYNC_JOB_DURATION} wall time "
+                    f"after {k - 1}/{total} projects — aborting"
+                )
+                db.session.refresh(job)
+                if job.status == "running":
+                    job.status = "failed"
+                    job.error = f"Timed out after {elapsed} — completed {k - 1}/{total} projects"
+                    job.completed_at = datetime.now(timezone.utc)
+                    db.session.commit()
+                return
+
             job.progress = f"Project {k}/{total}: {project.name}"
             db.session.commit()
             sync_project(project, job.org_id, target_user_id)
+
+        # Re-fetch to guard against the stale-timeout having already marked this failed
+        # while it was running in a background thread.
+        db.session.refresh(job)
+        if job.status != "running":
+            logger.warning(
+                f"Job {job.id} was externally set to {job.status!r} — skipping completion update"
+            )
+            return
 
         job.status = "completed"
         job.completed_at = datetime.now(timezone.utc)

@@ -22,6 +22,9 @@ from ..database import db, SyncJob, TranscriptionJob, User
 _STALE_JOB_TIMEOUT = timedelta(minutes=15)
 _SHUTDOWN_MARKER = "/tmp/mikro_worker_clean_shutdown"
 
+# Tracks threads actively running sync jobs so orphan detection works after restart.
+_running_sync_threads: dict[int, threading.Thread] = {}
+
 
 def configure_logging():
     logging.basicConfig(
@@ -72,6 +75,9 @@ def _expire_stale_sync_job(db, job):
     age = datetime.now(timezone.utc) - job.started_at.replace(tzinfo=timezone.utc)
     if age <= _STALE_JOB_TIMEOUT:
         return False
+    db.session.refresh(job)
+    if job.status != "running":
+        return True  # Already finished — no need to expire
     logger.warning(f"Marking stale job {job.id} as failed (running for {age})")
     job.status = "failed"
     job.error = "Timed out (stale after 15 minutes)"
@@ -96,6 +102,40 @@ def schedule_nightly_jobs(app):
                     logger.info(f"Auto-scheduled nightly {job_type} for org {org_id}")
 
 
+def _dispatch_sync_job(app, job):
+    """Start a sync job in a daemon thread and return it.
+
+    Running jobs in a thread keeps the polling loop free so the stale-job
+    timeout can fire even while a job is in progress.
+    """
+    job_id = job.id
+    job_type = job.job_type
+
+    def _run():
+        try:
+            with app.app_context():
+                j = SyncJob.query.get(job_id)
+                if not j:
+                    logger.error(f"Job {job_id} not found in dispatch thread")
+                    return
+                try:
+                    if job_type == "element_analysis":
+                        run_element_analysis_job(j)
+                    elif job_type == "mr_metadata_backfill":
+                        run_mr_metadata_backfill(app, j)
+                    else:
+                        run_sync_job(j)
+                except Exception as e:
+                    logger.error(f"Job {job_id} thread fatal error: {e}\n{traceback.format_exc()}")
+        finally:
+            _running_sync_threads.pop(job_id, None)
+
+    t = threading.Thread(target=_run, daemon=True, name=f"sync-job-{job_id}")
+    _running_sync_threads[job_id] = t
+    t.start()
+    return t
+
+
 def poll_for_jobs(app):
     """Check for a queued sync job and dispatch it if no job is already running for that org."""
     with app.app_context():
@@ -105,19 +145,31 @@ def poll_for_jobs(app):
                 return
 
             running = SyncJob.query.filter_by(org_id=job.org_id, status="running").first()
-            if running and not _expire_stale_sync_job(db, running):
-                logger.debug(
-                    f"Job {job.id} waiting — job {running.id} still running for org {job.org_id}"
-                )
-                return
+            if running:
+                thread = _running_sync_threads.get(running.id)
+                if thread and thread.is_alive():
+                    # Job is actively running in a thread — enforce the stale timeout.
+                    if not _expire_stale_sync_job(db, running):
+                        logger.debug(
+                            f"Job {job.id} waiting — job {running.id} still running for org {job.org_id}"
+                        )
+                        return
+                    # Stale check expired it — fall through and start the queued job.
+                else:
+                    # DB shows running but no live thread — orphan from a prior worker crash.
+                    logger.warning(
+                        f"Job {running.id} stuck in running state with no live thread — expiring as orphan"
+                    )
+                    running.status = "failed"
+                    running.error = "Orphaned (worker restarted mid-job)"
+                    running.completed_at = datetime.now(timezone.utc)
+                    db.session.commit()
 
-            logger.info(f"Processing job {job.id} (type={job.job_type}) for org {job.org_id}")
-            if job.job_type == "element_analysis":
-                run_element_analysis_job(job)
-            elif job.job_type == "mr_metadata_backfill":
-                run_mr_metadata_backfill(app, job)
-            else:
-                run_sync_job(job)
+            job.status = "running"
+            job.started_at = datetime.now(timezone.utc)
+            db.session.commit()
+            logger.info(f"Dispatching job {job.id} (type={job.job_type}) for org {job.org_id}")
+            _dispatch_sync_job(app, job)
 
         except Exception as e:
             logger.error(f"Error polling for jobs: {e}")
