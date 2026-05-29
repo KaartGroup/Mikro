@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 from .jobs.sync import run_sync_job
 from .sync_queue import SyncJobQueue
-from .jobs.element_analysis import run_element_analysis_job
+from .jobs.element_analysis import run_element_analysis_job, run_element_analysis_backfill_job
 from .jobs.mr_backfill import run_mr_metadata_backfill
 from .jobs.transcription import (
     run_transcription_job,
@@ -121,6 +121,8 @@ def _dispatch_sync_job(app, job):
                 try:
                     if job_type == "element_analysis":
                         run_element_analysis_job(j)
+                    elif job_type == "element_analysis_backfill":
+                        run_element_analysis_backfill_job(j)
                     elif job_type == "mr_metadata_backfill":
                         run_mr_metadata_backfill(app, j)
                     else:

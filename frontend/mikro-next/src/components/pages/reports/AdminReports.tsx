@@ -15,6 +15,8 @@ import {
   useFetchElementAnalysis,
   useQueueElementAnalysis,
   useCheckElementAnalysisStatus,
+  useQueueElementAnalysisBackfill,
+  useCheckElementAnalysisBackfillStatus,
   useFetchMapillaryStats,
 } from "@/hooks/useApi";
 import { useFilters, useCurrentUserRole, useManagedTeams } from "@/hooks";
@@ -106,6 +108,7 @@ export function AdminReports() {
   const [elementRefreshing, setElementRefreshing] = useState(false);
   const [elementProgress, setElementProgress] = useState<string | null>(null);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
+  const [showBackfillModal, setShowBackfillModal] = useState(false);
   const elementPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reportContentRef = useRef<HTMLDivElement>(null);
 
@@ -125,6 +128,8 @@ export function AdminReports() {
   const { mutate: fetchElementAnalysis } = useFetchElementAnalysis();
   const { mutate: queueElementAnalysis } = useQueueElementAnalysis();
   const { mutate: checkElementAnalysisStatus } = useCheckElementAnalysisStatus();
+  const { mutate: queueElementAnalysisBackfill } = useQueueElementAnalysisBackfill();
+  const { mutate: checkElementAnalysisBackfillStatus } = useCheckElementAnalysisBackfillStatus();
   const { mutate: fetchMapillaryStats } = useFetchMapillaryStats();
 
   // ── Data fetching ────────────────────────────────────────────
@@ -247,6 +252,40 @@ export function AdminReports() {
     customStart,
     customEnd,
   ]);
+
+  const handleStartBackfill = useCallback(async () => {
+    setShowBackfillModal(false);
+    setElementRefreshing(true);
+    setElementProgress("Queuing backfill...");
+    try {
+      const queueRes = await queueElementAnalysisBackfill({});
+      if (queueRes?.status === 200 && queueRes.job_id) {
+        if (elementPollRef.current) clearInterval(elementPollRef.current);
+        elementPollRef.current = setInterval(async () => {
+          try {
+            const statusRes = await checkElementAnalysisBackfillStatus({});
+            if (statusRes?.status === 200) {
+              setElementProgress(statusRes.progress || "Processing...");
+              if (statusRes.sync_status === "completed" || statusRes.sync_status === "failed") {
+                if (elementPollRef.current) clearInterval(elementPollRef.current);
+                elementPollRef.current = null;
+                setElementRefreshing(false);
+                setElementProgress(null);
+              }
+            }
+          } catch {
+            if (elementPollRef.current) clearInterval(elementPollRef.current);
+            elementPollRef.current = null;
+            setElementRefreshing(false);
+            setElementProgress(null);
+          }
+        }, 5000);
+      }
+    } catch {
+      setElementRefreshing(false);
+      setElementProgress(null);
+    }
+  }, [queueElementAnalysisBackfill, checkElementAnalysisBackfillStatus]);
 
   // ── Derived data ─────────────────────────────────────────────
   const overallProgress = useMemo(() => {
@@ -500,7 +539,10 @@ export function AdminReports() {
               elementProgress={elementProgress}
               showRefreshModal={showRefreshModal}
               setShowRefreshModal={setShowRefreshModal}
+              showBackfillModal={showBackfillModal}
+              setShowBackfillModal={setShowBackfillModal}
               onStartAnalysis={handleStartAnalysis}
+              onStartBackfill={handleStartBackfill}
               granularity={timekeepingGranularity}
             />
           </div>

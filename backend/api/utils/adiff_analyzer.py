@@ -157,7 +157,7 @@ class AdiffAnalyzer:
         """
         url = f"https://adiffs.osmcha.org/changesets/{changeset_id}.adiff"
         try:
-            resp = self.session.get(url, timeout=30)
+            resp = self.session.get(url, timeout=120)
             if resp.status_code == 404:
                 logger.debug("No adiff for changeset %s", changeset_id)
                 return None
@@ -169,7 +169,7 @@ class AdiffAnalyzer:
 
     def _fetch_adiff(self, changeset_id):
         url = f"https://adiffs.osmcha.org/changesets/{changeset_id}.adiff"
-        resp = self.session.get(url, timeout=30)
+        resp = self.session.get(url, timeout=120)
         if resp.status_code == 404:
             print(f"  [no diff] changeset {changeset_id}")
             return {key: {} for key in self.tracked_keys}

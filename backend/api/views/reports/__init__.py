@@ -15,6 +15,8 @@ from .element_analysis import (
     fetch_element_analysis,
     queue_element_analysis,
     check_element_analysis_status,
+    queue_element_analysis_backfill,
+    check_element_analysis_backfill_status,
 )
 from .mapillary_stats import fetch_mapillary_stats
 
@@ -37,6 +39,10 @@ class ReportsAPI(MethodView):
             return self.queue_element_analysis()
         elif path == "check_element_analysis_status":
             return self.check_element_analysis_status()
+        elif path == "queue_element_analysis_backfill":
+            return self.queue_element_analysis_backfill()
+        elif path == "check_element_analysis_backfill_status":
+            return self.check_element_analysis_backfill_status()
         elif path == "fetch_mapillary_stats":
             return self.fetch_mapillary_stats()
         return {"message": "Unknown path", "status": 404}
@@ -64,6 +70,14 @@ class ReportsAPI(MethodView):
     @requires_team_admin_or_above
     def check_element_analysis_status(self):
         return check_element_analysis_status()
+
+    @requires_team_admin_or_above
+    def queue_element_analysis_backfill(self):
+        return queue_element_analysis_backfill()
+
+    @requires_team_admin_or_above
+    def check_element_analysis_backfill_status(self):
+        return check_element_analysis_backfill_status()
 
     @requires_team_admin_or_above
     def fetch_mapillary_stats(self):

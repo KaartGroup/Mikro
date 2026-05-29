@@ -9,6 +9,49 @@ logger = logging.getLogger(__name__)
 
 _MAX_WINDOW_DAYS = 2
 _BATCH_SIZE = 50
+_BACKFILL_START = datetime(2026, 5, 1, tzinfo=timezone.utc)
+
+
+def _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, fallback_dt):
+    """Insert new changesets into ChangesetAdiff, skipping any that already exist. Returns count stored."""
+    incoming_ids = [cs["id"] for cs in changesets]
+    existing_ids = {
+        row.changeset_id
+        for row in ChangesetAdiff.query.filter(
+            ChangesetAdiff.org_id == org_id,
+            ChangesetAdiff.changeset_id.in_(incoming_ids),
+        ).with_entities(ChangesetAdiff.changeset_id).all()
+    }
+    new_changesets = [cs for cs in changesets if cs["id"] not in existing_ids]
+    logger.info(f"  [{org_id}] {len(new_changesets)} new / {len(existing_ids)} already exist")
+
+    analyzer = AdiffAnalyzer()
+    stored = 0
+    for i, cs in enumerate(new_changesets):
+        cs_id = cs["id"]
+        adiff_xml = analyzer.fetch_adiff_xml(cs_id)
+        osm_user = cs.get("user")
+        uid = osm_to_user_id.get(osm_user)
+        try:
+            cs_created_at = datetime.fromisoformat(cs["created_at"])
+        except (KeyError, ValueError, AttributeError):
+            cs_created_at = fallback_dt
+
+        db.session.add(ChangesetAdiff(
+            org_id=org_id,
+            changeset_id=cs_id,
+            created_at=cs_created_at,
+            user_id=uid,
+            team_id=user_id_to_team_id.get(uid),
+            osm_user=osm_user,
+            adiff_xml=adiff_xml,
+        ))
+        stored += 1
+        if (i + 1) % _BATCH_SIZE == 0:
+            db.session.commit()
+            logger.info(f"  [{org_id}] batch committed: {stored}/{len(new_changesets)} changesets")
+    db.session.commit()
+    return stored
 
 
 def run_element_analysis_job(job):
@@ -81,45 +124,7 @@ def run_element_analysis_job(job):
         # Sort oldest-first so partial failures (timeout mid-batch) only drop
         # the newest changesets, which the next job will re-fetch via max(created_at).
         changesets.sort(key=lambda cs: cs.get("created_at", ""))
-        total = len(changesets)
-        analyzer = AdiffAnalyzer()
-
-        for i, cs in enumerate(changesets):
-            cs_id = cs["id"]
-            adiff_xml = analyzer.fetch_adiff_xml(cs_id)
-            osm_user = cs.get("user")
-            uid = osm_to_user_id.get(osm_user)
-
-            try:
-                cs_created_at = datetime.fromisoformat(cs["created_at"])
-            except (KeyError, ValueError, AttributeError):
-                cs_created_at = since
-
-            existing = ChangesetAdiff.query.filter_by(
-                org_id=org_id, changeset_id=cs_id
-            ).first()
-
-            if existing:
-                existing.created_at = cs_created_at
-                existing.user_id = uid
-                existing.team_id = user_id_to_team_id.get(uid)
-                existing.osm_user = osm_user
-                existing.adiff_xml = adiff_xml
-            else:
-                db.session.add(ChangesetAdiff(
-                    org_id=org_id,
-                    changeset_id=cs_id,
-                    created_at=cs_created_at,
-                    user_id=uid,
-                    team_id=user_id_to_team_id.get(uid),
-                    osm_user=osm_user,
-                    adiff_xml=adiff_xml,
-                ))
-
-            if (i + 1) % _BATCH_SIZE == 0:
-                db.session.commit()
-
-        db.session.commit()
+        total = _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, since)
 
         job.status = "completed"
         job.completed_at = datetime.now(timezone.utc)
@@ -141,6 +146,97 @@ def run_element_analysis_job(job):
             db.session.commit()
         except Exception:
             logger.error(f"Failed to update job {job.id} error status")
+            db.session.rollback()
+
+
+def run_element_analysis_backfill_job(job):
+    """
+    Backfill element analysis from _BACKFILL_START up to max(created_at) already in the DB.
+
+    Iterates in _MAX_WINDOW_DAYS chunks so each window stays within the same
+    time/memory budget as the normal incremental job.
+    """
+    try:
+        job.status = "running"
+        job.started_at = datetime.now(timezone.utc)
+        job.progress = "Starting backfill..."
+        db.session.commit()
+
+        org_id = job.org_id
+
+        latest = (
+            db.session.query(db.func.max(ChangesetAdiff.created_at))
+            .filter(ChangesetAdiff.org_id == org_id)
+            .scalar()
+        )
+        backfill_until = latest if latest is not None else datetime.now(timezone.utc)
+
+        users = User.query.filter(
+            User.org_id == org_id,
+            User.osm_username != None,
+        ).all()
+        if not users:
+            job.status = "completed"
+            job.completed_at = datetime.now(timezone.utc)
+            job.progress = "No users found for org"
+            db.session.commit()
+            return
+
+        osm_to_user_id = {u.osm_username: u.id for u in users}
+        user_id_to_team_id = {
+            tu.user_id: tu.team_id
+            for tu in TeamUser.query.filter(
+                TeamUser.user_id.in_(list(osm_to_user_id.values()))
+            ).all()
+        }
+
+        total_stored = 0
+        window_num = 0
+        window_start = _BACKFILL_START
+
+        while window_start < backfill_until:
+            window_end = min(window_start + timedelta(days=_MAX_WINDOW_DAYS), backfill_until)
+            window_num += 1
+            job.progress = (
+                f"Window {window_num}: {window_start.date()} → {window_end.date()} "
+                f"({total_stored} stored so far)"
+            )
+            db.session.commit()
+            logger.info(
+                f"Backfill job {job.id}: window {window_num} "
+                f"{window_start.date()} → {window_end.date()}"
+            )
+
+            osm_usernames = list(osm_to_user_id.keys())
+            changesets = ChangesetFetcher().fetch(osm_usernames, window_start, window_end)
+            changesets.sort(key=lambda c: c.get("created_at", ""))
+            total_stored += _upsert_changesets(
+                org_id, osm_to_user_id, user_id_to_team_id, changesets, window_start
+            )
+            window_start = window_end
+
+        job.status = "completed"
+        job.completed_at = datetime.now(timezone.utc)
+        job.progress = (
+            f"Backfill done: {total_stored} changesets across {window_num} windows "
+            f"({_BACKFILL_START.date()} → {backfill_until.date()})"
+        )
+        db.session.commit()
+        logger.info(
+            f"Backfill job {job.id} completed: {total_stored} changesets, "
+            f"{window_num} windows"
+        )
+
+    except Exception as e:
+        logger.error(f"Backfill job {job.id} failed: {e}")
+        db.session.rollback()
+        try:
+            job.status = "failed"
+            job.error = str(e)[:2000]
+            job.completed_at = datetime.now(timezone.utc)
+            db.session.commit()
+        except Exception:
+            logger.error(f"Failed to update backfill job {job.id} error status")
             db.session.rollback()
 
 

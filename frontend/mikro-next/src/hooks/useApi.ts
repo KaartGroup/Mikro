@@ -505,6 +505,27 @@ export function useCheckElementAnalysisStatus() {
   }>("/reports/check_element_analysis_status");
 }
 
+export function useQueueElementAnalysisBackfill() {
+  return useApiMutation<{
+    status: number;
+    job_id?: number;
+    message?: string;
+  }>("/reports/queue_element_analysis_backfill");
+}
+
+export function useCheckElementAnalysisBackfillStatus() {
+  return useApiMutation<{
+    status: number;
+    job_id?: number;
+    sync_status?: string;
+    progress?: string;
+    started_at?: string;
+    completed_at?: string;
+    error?: string;
+    message?: string;
+  }>("/reports/check_element_analysis_backfill_status");
+}
+
 export function useFetchMapillaryStats() {
   return useApiMutation<MapillaryStatsResponse>("/reports/fetch_mapillary_stats");
 }

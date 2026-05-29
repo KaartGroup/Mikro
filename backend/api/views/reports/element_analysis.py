@@ -46,6 +46,22 @@ def queue_element_analysis():
     return _queue_analysis_job(g.user.org_id)
 
 
+def queue_element_analysis_backfill():
+    """Reads Flask context and queues a backfill element analysis job."""
+    if not g.user:
+        return {"message": "Missing user info", "status": 304}
+    job, created = SyncJobQueue.enqueue_element_analysis_backfill(g.user.org_id)
+    msg = "Backfill job queued" if created else "Backfill job already in progress"
+    return {"status": 200, "job_id": job.id, "message": msg}
+
+
+def check_element_analysis_backfill_status():
+    """Reads Flask context and returns status of the latest backfill job."""
+    if not g.user:
+        return {"message": "Missing user info", "status": 304}
+    return get_element_analysis_status(g.user.org_id, job_type="element_analysis_backfill")
+
+
 def check_element_analysis_status():
     """Reads Flask context and delegates to get_element_analysis_status."""
     if not g.user:
@@ -160,10 +176,10 @@ def _queue_analysis_job(org_id):
     return {"status": 200, "job_id": job.id, "message": msg}
 
 
-def get_element_analysis_status(org_id):
-    """Returns the status of the latest element_analysis SyncJob. No Flask context required."""
+def get_element_analysis_status(org_id, job_type="element_analysis"):
+    """Returns the status of the latest SyncJob of the given type. No Flask context required."""
     job = (
-        SyncJob.query.filter_by(org_id=org_id, job_type="element_analysis")
+        SyncJob.query.filter_by(org_id=org_id, job_type=job_type)
         .order_by(SyncJob.id.desc())
         .first()
     )

@@ -59,5 +59,9 @@ class SyncJobQueue:
         return cls.enqueue(org_id, "element_analysis")
 
     @classmethod
+    def enqueue_element_analysis_backfill(cls, org_id):
+        return cls.enqueue(org_id, "element_analysis_backfill")
+
+    @classmethod
     def enqueue_mr_backfill(cls, org_id, project_id):
         return cls.enqueue(org_id, "mr_metadata_backfill", target_id=project_id)
