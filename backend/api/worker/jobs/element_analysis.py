@@ -1,9 +1,14 @@
 import logging
 from datetime import datetime, timezone, timedelta
 
+from api.utils.changeset_fetcher import ChangesetFetcher
+from api.utils.adiff_analyzer import AdiffAnalyzer
+from api.database import db, User, TeamUser, ChangesetAdiff
+
 logger = logging.getLogger(__name__)
 
-_MAX_WINDOW_DAYS = 5
+_MAX_WINDOW_DAYS = 2
+_BATCH_SIZE = 50
 
 
 def run_element_analysis_job(job):
@@ -13,9 +18,6 @@ def run_element_analysis_job(job):
     Fetches changesets for all org mappers and stores the raw osmcha adiff XML
     per changeset in changeset_adiff_cache for later reprocessing.
     """
-    from api.utils.changeset_fetcher import ChangesetFetcher
-    from api.utils.adiff_analyzer import AdiffAnalyzer
-    from api.database import db, User, TeamUser, ChangesetAdiff
 
     try:
         job.status = "running"
@@ -76,10 +78,11 @@ def run_element_analysis_job(job):
             logger.info(f"Element analysis job {job.id}: no changesets since {since}")
             return
 
+        # Sort oldest-first so partial failures (timeout mid-batch) only drop
+        # the newest changesets, which the next job will re-fetch via max(created_at).
+        changesets.sort(key=lambda cs: cs.get("created_at", ""))
         total = len(changesets)
         analyzer = AdiffAnalyzer()
-
-        _BATCH_SIZE = 50
 
         for i, cs in enumerate(changesets):
             cs_id = cs["id"]

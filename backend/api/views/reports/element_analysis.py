@@ -1,10 +1,12 @@
 from collections import defaultdict
 
+from datetime import timezone
+
 from flask import g, request
 
 from ...database import db, ChangesetAdiff, SyncJob, TeamUser
 from ...worker.sync_queue import SyncJobQueue
-from ...utils.tz import parse_date_range
+from ...utils.tz import parse_filter_datetime, ORG_TIMEZONE
 from ...utils.adiff_analyzer import TRACKED_KEYS, KEY_FILTERS, parse_adiff_transitions, merge_transitions
 
 
@@ -22,8 +24,9 @@ def fetch_element_analysis():
     if not start_date_str or not end_date_str:
         return {"message": "startDate and endDate required", "status": 400}
 
-    start_date, end_date = parse_date_range(start_date_str, end_date_str)
-    if start_date is None or end_date is None:
+    start_dt, _ = parse_filter_datetime(start_date_str)
+    end_dt, _ = parse_filter_datetime(end_date_str)
+    if start_dt is None or end_dt is None:
         return {"message": "Invalid startDate or endDate", "status": 400}
 
     team_ids = request.json.get("teamIds")
@@ -33,7 +36,7 @@ def fetch_element_analysis():
             for tu in TeamUser.query.filter_by(user_id=g.user.id).all()
         ] or None  # None signals org-wide query when user has no team
 
-    return get_element_analysis(g.user.org_id, team_ids, start_date, end_date)
+    return get_element_analysis(g.user.org_id, team_ids, start_dt, end_dt)
 
 
 def queue_element_analysis():
@@ -125,7 +128,7 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
     query = ChangesetAdiff.query.filter(
         ChangesetAdiff.org_id == org_id,
         ChangesetAdiff.created_at >= start_date,
-        ChangesetAdiff.created_at <= end_date,
+        ChangesetAdiff.created_at < end_date,
         ChangesetAdiff.adiff_xml.isnot(None),
     )
     if team_ids:
@@ -137,7 +140,7 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
     last_updated = None
 
     for row in rows:
-        day = row.created_at.date()
+        day = row.created_at.replace(tzinfo=timezone.utc).astimezone(ORG_TIMEZONE).date()
         cs_stats = parse_adiff_transitions(row.adiff_xml, TRACKED_KEYS, KEY_FILTERS)
         merge_transitions(day_key_stats[day], cs_stats)
         if last_updated is None or row.created_at > last_updated:

@@ -19,7 +19,7 @@ from .jobs.transcription import (
 )
 from ..database import db, SyncJob, TranscriptionJob, User
 
-_STALE_JOB_TIMEOUT = timedelta(minutes=15)
+_STALE_JOB_TIMEOUT = timedelta(hours=1)
 _SHUTDOWN_MARKER = "/tmp/mikro_worker_clean_shutdown"
 
 # Tracks threads actively running sync jobs so orphan detection works after restart.
@@ -69,7 +69,7 @@ def _write_shutdown_marker(signum):
 
 
 def _expire_stale_sync_job(db, job):
-    """Mark a running sync job failed if it has been running >15 minutes. Returns True if expired."""
+    """Mark a running sync job failed if it has been running >1 hour. Returns True if expired."""
     if not job.started_at:
         return False
     age = datetime.now(timezone.utc) - job.started_at.replace(tzinfo=timezone.utc)
@@ -80,7 +80,7 @@ def _expire_stale_sync_job(db, job):
         return True  # Already finished — no need to expire
     logger.warning(f"Marking stale job {job.id} as failed (running for {age})")
     job.status = "failed"
-    job.error = "Timed out (stale after 15 minutes)"
+    job.error = "Timed out (stale after 1 hour)"
     job.completed_at = datetime.now(timezone.utc)
     db.session.commit()
     return True

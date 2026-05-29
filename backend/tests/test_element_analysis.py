@@ -355,6 +355,7 @@ class _MockColumn:
     def __eq__(self, _): return MagicMock()
     def __ge__(self, _): return MagicMock()
     def __le__(self, _): return MagicMock()
+    def __lt__(self, _): return MagicMock()
     def isnot(self, _): return MagicMock()
     def in_(self, _): return MagicMock()
     def __hash__(self): return id(self)
