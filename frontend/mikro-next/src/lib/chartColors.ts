@@ -27,9 +27,17 @@ export const COLORS = {
   review: "#6366f1",
   training: "#f59e0b",
   other: "#9ca3af",
-  deleted: "#ef4444",
+  deleted: "#ffffff",
   added: "#f97316",
-  modified: "#3b82f6",
+  modified: "#93c5fd",
+};
+
+/** High Priority Roads chart colors. */
+export const HPR_COLORS = {
+  upgraded: "#93c5fd",
+  downgraded: "#f97316",
+  links: "#fde047",
+  construction: "#ffffff",
 };
 
 /** MapRoulette task-status colors. */

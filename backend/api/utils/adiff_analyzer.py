@@ -27,7 +27,7 @@ _HIGH_PRIORITY_HIGHWAY = {
 }
 
 KEY_FILTERS = {
-    "highway": lambda old, new: old in _HIGH_PRIORITY_HIGHWAY or new in _HIGH_PRIORITY_HIGHWAY,
+    # "highway": lambda old, new: old in _HIGH_PRIORITY_HIGHWAY or new in _HIGH_PRIORITY_HIGHWAY,
 }
 
 

@@ -1115,10 +1115,19 @@ export interface ChangesetHeatmapResponse {
   };
 }
 
-export interface ElementAnalysisCategory {
+export interface StandardAnalysisCategory {
   title: string;
-  data: Array<{ day: string; deleted: number; added: number; modified: number }>;
+  type: "standard";
+  data: Array<{ day: string; added: number; modified: number; deleted: number }>;
 }
+
+export interface HprAnalysisCategory {
+  title: string;
+  type: "hpr";
+  data: Array<{ day: string; upgraded: number; downgraded: number; links: number; construction: number }>;
+}
+
+export type ElementAnalysisCategory = StandardAnalysisCategory | HprAnalysisCategory;
 
 export interface ElementAnalysisResponse {
   status: number;

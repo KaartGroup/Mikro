@@ -105,14 +105,132 @@ fetch_element_analysis()                    ← reads g, request
   └─ get_element_analysis(org_id, ...)      ← queries ChangesetAdiff rows
        ├─ parse_adiff_transitions(xml, ...) ← per-changeset XML → {key: {(old,new): count}}
        ├─ merge_transitions(...)            ← accumulates into day_key_stats
-       └─ build_category_data(day_key_stats)← pure: day stats → category response list
+       ├─ build_category_data(day_key_stats)← pure: day stats → standard category list
+       └─ build_hpr_category_data(...)      ← pure: highway stats → HPR category
 ```
 
-**`build_category_data(day_key_stats)`** is a pure function (no DB, no Flask) and is the right entry point for unit tests. Pass it a `{date: {key: {(old,new): count}}}` dict; get back the `categories` list ready for the HTTP response.
+**`build_category_data`** and **`build_hpr_category_data`** are pure functions (no DB, no Flask) and are the right entry points for unit tests.
 
-**`_ORDERED_CATEGORIES`** defines the fixed display order for the eight categories. Category membership is driven by `_CATEGORY_KEYS` (which tracked keys belong to which category) and `_CATEGORY_KEY_FILTERS` (per-key value guards applied on top of the global `KEY_FILTERS` in `adiff_analyzer.py`).
+**`_ORDERED_CATEGORIES`** defines the fixed display order for the nine output categories (eight standard + "High Priority Roads" injected after "Highways").
 
-**`_queue_analysis_job`** is the internal function for `queue_element_analysis`; the controller is thin enough that it just guards `g.user` and delegates.
+---
+
+### Charts — Standard (metrics: added / modified / deleted)
+
+Each standard chart counts tag-level transitions. A single OSM element change produces one count per tracked key that changed on it.
+
+**Counting rules:**
+- Tag appeared on an element (`old = None`) → **added**
+- Tag was removed from an element (`new = None`) → **deleted**
+- Tag value changed → **modified**
+
+---
+
+#### Oneways
+**OSM key:** `oneway`
+
+Counts any change to the `oneway` tag on any element type. No value filter — `yes`, `no`, `-1`, and any other value all count equally.
+
+| What happened | Counted as |
+|---|---|
+| `oneway=yes` added to a way | added |
+| `oneway=yes` removed | deleted |
+| `oneway=yes → oneway=-1` | modified |
+
+---
+
+#### Access & Barriers
+**OSM keys:** `access`, `barrier`
+
+Counts changes to either key. Both keys are summed together, so a day total reflects total access-or-barrier changes, not a split between the two. No value filter.
+
+`access` typically appears on ways and relations (road access restrictions). `barrier` typically appears on nodes (gates, bollards, bollards). They rarely change on the same element, so double-counting is uncommon in practice.
+
+| What happened | Counted as |
+|---|---|
+| `access=private` added | added |
+| `barrier=gate → barrier=lift_gate` | modified |
+| `access=yes` removed | deleted |
+
+---
+
+#### Highways
+**OSM key:** `highway`
+
+Counts all `highway` tag changes regardless of road class. No value filter is currently applied — every road type from `motorway` to `footway` to `track` counts.
+
+> Note: The high-priority-only filter (`_HIGH_PRIORITY_HIGHWAY`) exists in `adiff_analyzer.py` but is currently commented out. If re-enabled, this chart would only count changes where at least one side of the transition is motorway/trunk/primary/secondary/tertiary or a `_link` variant.
+
+---
+
+#### High Priority Roads
+**OSM key:** `highway` (subset)
+
+A breakdown of changes specifically involving the HPR network. Uses the same raw `highway` transitions as the Highways chart but classifies them into four buckets instead of add/modify/delete.
+
+HPR core types and their rank (1 = highest priority):
+
+| Value | Rank |
+|---|---|
+| motorway | 1 |
+| trunk | 2 |
+| primary | 3 |
+| secondary | 4 |
+| tertiary | 5 |
+
+HPR link types (tracked separately): `motorway_link`, `trunk_link`, `primary_link`, `secondary_link`, `tertiary_link`
+
+**Buckets:**
+
+| Bucket | What counts |
+|---|---|
+| **Upgraded** | `highway` value moves to a higher-rank type — e.g. `tertiary → primary` or `residential → trunk`. Non-HPR types are treated as rank 999, so any road reclassified *into* the HPR network counts as an upgrade. |
+| **Downgraded** | `highway` value moves to a lower-rank type — e.g. `primary → secondary` or `motorway → residential`. Any HPR road reclassified out of the network counts as a downgrade. |
+| **Links** | Either the old or new `highway` value is a `*_link` type. Covers creating, deleting, or reclassifying link roads. |
+| **Construction** | One side of the transition is an HPR core type and the other is `highway=construction` — e.g. `primary → construction` (road closed for works) or `construction → trunk` (road opens). New or deleted `construction` roads with no known HPR target/source are excluded since the road class cannot be determined from the `highway` key alone. |
+
+Creates (old = None) and deletes (new = None) are excluded from Upgraded/Downgraded — there is no reclassification when a road is first added or fully removed. They are included for Links and Construction where the direction is clear.
+
+---
+
+#### Refs
+**OSM key:** `ref`
+
+Counts any change to the `ref` tag. No value filter. Covers road reference numbers, route numbers, and any other element that carries a `ref`.
+
+---
+
+#### Turn Restrictions
+**OSM key:** `restriction`
+
+Counts changes to the `restriction` tag. This key only appears on OSM restriction relations (e.g. `restriction=no_right_turn`), so no filter is needed — every transition is a turn restriction change.
+
+One count per restriction changed. Previously both `type` and `restriction` were tracked, which caused each change to count twice. Now only `restriction` is used.
+
+Creates and deletes of restriction relations are included (tag appearing/disappearing = added/deleted).
+
+---
+
+#### Names
+**OSM key:** `name`
+
+Counts any change to the `name` tag on any element type. No value filter.
+
+---
+
+#### Construction
+**OSM key:** `construction`
+
+Counts changes to the `construction` tag. In OSM, this tag holds the *intended* road class when a road is under construction (e.g. `construction=primary` on an element with `highway=construction`). No value filter.
+
+Note: this is distinct from HPR construction transitions, which are detected via the `highway` key changing to/from `construction`.
+
+---
+
+#### Classifications
+**OSM key:** `type`
+
+Counts changes to the `type` tag on any element. No value filter. The `type` key is used across many relation types — routes, multipolygons, restrictions, boundaries, etc. — so this chart reflects broad relation-type changes across the whole dataset.
 
 ---
 
@@ -120,7 +238,7 @@ fetch_element_analysis()                    ← reads g, request
 
 **`TRACKED_KEYS`** — the nine OSM tag keys the system watches: `oneway`, `highway`, `access`, `barrier`, `ref`, `name`, `construction`, `type`, `restriction`.
 
-**`KEY_FILTERS`** — per-key callables that gate which value transitions are recorded. Currently only `highway` is filtered (only high-priority road classes: motorway, trunk, primary, secondary, tertiary and their `_link` variants pass). All other tracked keys have no filter — every transition counts.
+**`KEY_FILTERS`** — per-key callables that gate which value transitions are recorded at parse time. Currently empty (no filters active). The `highway` high-priority filter is present but commented out.
 
 **osmcha adiff XML format** — `create` actions have the OSM element directly under `<action>` with no `<new>` wrapper. `modify` and `delete` actions use `<old>` / `<new>` containers as expected. The parser handles this: for creates it calls `_element_tag_values(action)` directly.
 
@@ -136,11 +254,6 @@ fetch_element_analysis()                    ← reads g, request
   <new><way><tag k="highway" v="residential"/></way></new>
 </action>
 ```
-
-**Counting rules** in `build_category_data`:
-- `old_val is None` → **added**
-- `new_val is None` → **deleted**
-- both present and different → **modified**
 
 ---
 

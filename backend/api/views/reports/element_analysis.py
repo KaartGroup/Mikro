@@ -75,7 +75,7 @@ def check_element_analysis_status():
 
 _ORDERED_CATEGORIES = [
     "Oneways", "Access & Barriers", "Highways", "Refs",
-    "Turn Restrictions", "Names", "Construction", "Classifications",
+    "Turn Restrictions", "Names", "Construction",
 ]
 
 _CATEGORY_KEYS = {
@@ -83,23 +83,52 @@ _CATEGORY_KEYS = {
     "Highways": ["highway"],
     "Access & Barriers": ["access", "barrier"],
     "Refs": ["ref"],
-    "Turn Restrictions": ["type", "restriction"],
+    "Turn Restrictions": ["restriction"],
     "Names": ["name"],
     "Construction": ["construction"],
-    "Classifications": ["type"],
 }
 
 # Per-key value filters within a category: {cat_name: {key: callable(old, new) -> bool}}.
 # A key with no entry here passes all transitions through.
-_CATEGORY_KEY_FILTERS = {
-    # "type" needs guarding because it's used for routes, boundaries, etc. too.
-    # "restriction" needs no guard — that key only appears on restriction relations.
-    "Turn Restrictions": {
-        "type": lambda old, new: (
-            (old or "").startswith("restriction") or (new or "").startswith("restriction")
-        ),
-    },
-}
+_CATEGORY_KEY_FILTERS = {}
+
+_HPR_CORE = {"motorway", "trunk", "primary", "secondary", "tertiary"}
+_HPR_LINKS = {"motorway_link", "trunk_link", "primary_link", "secondary_link", "tertiary_link"}
+_HPR_RANK = {"motorway": 1, "trunk": 2, "primary": 3, "secondary": 4, "tertiary": 5}
+
+
+def _classify_hpr_transition(old_val, new_val):
+    """Returns 'upgrade', 'downgrade', 'links', 'construction', or None."""
+    if old_val in _HPR_LINKS or new_val in _HPR_LINKS:
+        return "links"
+    if (old_val in _HPR_CORE and new_val == "construction") or \
+       (old_val == "construction" and new_val in _HPR_CORE):
+        return "construction"
+    if old_val is None or new_val is None:
+        return None
+    old_rank = _HPR_RANK.get(old_val, 999)
+    new_rank = _HPR_RANK.get(new_val, 999)
+    if old_rank == 999 and new_rank == 999:
+        return None
+    if new_rank < old_rank:
+        return "upgraded"
+    if new_rank > old_rank:
+        return "downgraded"
+    return None
+
+
+def build_hpr_category_data(day_key_stats):
+    """Builds the High Priority Roads category with upgrade/downgrade/links/construction counts."""
+    all_days = sorted(day_key_stats.keys())
+    data = []
+    for day in all_days:
+        counts = {"upgraded": 0, "downgraded": 0, "links": 0, "construction": 0}
+        for (old_val, new_val), count in day_key_stats[day]["highway"].items():
+            bucket = _classify_hpr_transition(old_val, new_val)
+            if bucket:
+                counts[bucket] += count
+        data.append({"day": day.strftime("%Y-%m-%d"), **counts})
+    return {"title": "High Priority Roads", "type": "hpr", "data": data}
 
 
 def build_category_data(day_key_stats):
@@ -133,7 +162,7 @@ def build_category_data(day_key_stats):
                 "modified": modified,
                 "deleted": deleted,
             })
-        categories.append({"title": cat_name, "data": data})
+        categories.append({"title": cat_name, "type": "standard", "data": data})
     return categories
 
 
@@ -162,9 +191,17 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
         if last_updated is None or row.created_at > last_updated:
             last_updated = row.created_at
 
+    standard = build_category_data(day_key_stats)
+    hpr = build_hpr_category_data(day_key_stats)
+    categories = []
+    for cat in standard:
+        categories.append(cat)
+        if cat["title"] == "Highways":
+            categories.append(hpr)
+
     return {
         "status": 200,
-        "categories": build_category_data(day_key_stats),
+        "categories": categories,
         "lastUpdated": last_updated.isoformat() + "Z" if last_updated else None,
     }
 

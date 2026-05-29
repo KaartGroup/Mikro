@@ -97,7 +97,9 @@ export function exportReportAsCsv(
     for (const cat of elementCategories) {
       for (const d of cat.data) {
         if (!dayMap[d.day]) dayMap[d.day] = {};
-        dayMap[d.day][cat.title] = d.added + d.modified + d.deleted;
+        dayMap[d.day][cat.title] = "added" in d
+          ? d.added + d.modified + d.deleted
+          : d.upgraded + d.downgraded + d.links + d.construction;
       }
     }
 

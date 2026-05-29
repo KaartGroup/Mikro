@@ -15,7 +15,6 @@ from .jobs.mr_backfill import run_mr_metadata_backfill
 from .jobs.transcription import (
     run_transcription_job,
     abandon_orphan_transcriptions,
-    preload_whisper_model,
 )
 from ..database import db, SyncJob, TranscriptionJob, User
 
@@ -270,7 +269,7 @@ def main():
 
     abandon_orphan_transcriptions(app)
 
-    threading.Thread(target=preload_whisper_model, daemon=True).start()
+    # threading.Thread(target=preload_whisper_model, daemon=True).start()
 
     for label, poll_fn in [
         ("SYNC-THREAD", lambda: poll_for_jobs(app)),

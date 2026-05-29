@@ -61,6 +61,7 @@ import type {
   ReimbursementMutationResponse,
   ReimbursementUploadUrlResponse,
   ReimbursementAttachmentUrlResponse,
+  ElementAnalysisResponse,
 } from "@/types";
 
 /**
@@ -474,14 +475,7 @@ export function useCheckSyncStatus() {
 
 // Element analysis - background worker-powered OSM tag analysis
 export function useFetchElementAnalysis() {
-  return useApiMutation<{
-    status: number;
-    categories: Array<{
-      title: string;
-      data: Array<{ day: string; deleted: number; added: number; modified: number }>;
-    }>;
-    lastUpdated: string | null;
-  }>("/reports/fetch_element_analysis");
+  return useApiMutation<ElementAnalysisResponse>("/reports/fetch_element_analysis");
 }
 
 export function useQueueElementAnalysis() {

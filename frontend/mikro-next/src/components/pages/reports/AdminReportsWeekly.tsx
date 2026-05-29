@@ -769,8 +769,8 @@ export function AdminReportsWeekly() {
               </div>
             ) : elementCategories.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {elementCategories.map((cat) => (
-                  <MiniActivityChart key={cat.title} title={cat.title} data={cat.data} />
+                {elementCategories.filter((c) => c.type === "standard").map((cat) => (
+                  <MiniActivityChart key={cat.title} title={cat.title} data={cat.data as { day: string; deleted: number; added: number; modified: number }[]} />
                 ))}
               </div>
             ) : elemFetched ? (
