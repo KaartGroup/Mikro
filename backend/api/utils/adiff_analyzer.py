@@ -1,8 +1,11 @@
 import logging
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
 import requests
+
+_STRIP_TAGS_RE = re.compile(r'<(?:nd|bounds)\b[^>]*/>|</?member\b[^>]*>')
 
 logger = logging.getLogger(__name__)
 
@@ -150,20 +153,46 @@ class AdiffAnalyzer:
         return AnalysisResult(total, changes_count, tag_stats, active_changesets)
 
     def fetch_adiff_xml(self, changeset_id):
-        """Fetch the raw adiff XML string for a single changeset.
+        """Fetch adiff XML for a single changeset, stripping <nd> and <bounds> lines while streaming.
 
-        Returns the XML string, or None if osmcha has no diff or returns an error.
-        Use this when storing for later reprocessing.
+        Processes the response line by line so the full file is never held in memory.
+        Returns the stripped XML string, or None if osmcha has no diff or returns an error.
         """
         url = f"https://adiffs.osmcha.org/changesets/{changeset_id}.adiff"
         try:
-            resp = self.session.get(url, timeout=120)
+            resp = self.session.get(url, timeout=120, stream=True)
             if resp.status_code == 404:
-                logger.debug("No adiff for changeset %s", changeset_id)
+                logger.debug("No adiff for changeset %s (404)", changeset_id)
                 return None
-            resp.raise_for_status()
-            return resp.text
-        except requests.RequestException as e:
+            if resp.status_code != 200:
+                logger.warning(
+                    "Unexpected status %s for changeset %s — skipping",
+                    resp.status_code, changeset_id,
+                )
+                resp.raise_for_status()
+            encoding = resp.encoding or 'utf-8'
+            lines = []
+            for raw in resp.iter_lines():
+                line = raw.decode(encoding) if isinstance(raw, bytes) else raw
+                if not _STRIP_TAGS_RE.search(line):
+                    lines.append(line)
+            result = '\n'.join(lines)
+            assert result.strip(), (
+                f"Empty adiff body for changeset {changeset_id} "
+                f"(status={resp.status_code} encoding={encoding})"
+            )
+            assert '<osm' in result, (
+                f"Response for changeset {changeset_id} has no <osm> root — got: {result[:200]!r}"
+            )
+            assert '<action' in result, (
+                f"Adiff for changeset {changeset_id} has no <action> elements — got: {result[:200]!r}"
+            )
+            logger.debug(
+                "Fetched adiff for changeset %s: %d lines, %d bytes",
+                changeset_id, len(lines), len(result),
+            )
+            return result
+        except (requests.RequestException, UnicodeDecodeError) as e:
             logger.warning("Failed to fetch adiff for changeset %s: %s", changeset_id, e)
             return None
 

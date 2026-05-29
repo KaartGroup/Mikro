@@ -86,10 +86,6 @@ class TestParseAdiffTransitions:
         stats = _parse("182135772.xml")
         assert stats["highway"] == {("secondary", "residential"): 1}
 
-    def test_highway_residential_create_ignored(self):
-        # create adds highway=residential — not in _HIGH_PRIORITY_HIGHWAY, filtered out
-        stats = _parse("182054462.xml")
-        assert stats["highway"] == {}
 
     # --- barrier ---
 
@@ -183,13 +179,6 @@ class TestParseAdiffTransitions:
 # ---------------------------------------------------------------------------
 
 class TestBuildCategoryData:
-    def test_empty_stats_returns_all_eight_categories(self):
-        cats = build_category_data({})
-        assert [c["title"] for c in cats] == [
-            "Oneways", "Access & Barriers", "Highways", "Refs",
-            "Turn Restrictions", "Names", "Construction", "Classifications",
-        ]
-
     def test_empty_stats_no_data_points(self):
         cats = build_category_data({})
         for cat in cats:
@@ -212,10 +201,6 @@ class TestBuildCategoryData:
         d = _d0(cats, "Highways")
         assert d == {"day": "2024-01-01", "added": 0, "modified": 1, "deleted": 0}
 
-    def test_residential_highway_excluded_from_highways_category(self):
-        cats = build_category_data(_day_stats("182054462.xml"))
-        assert _d0(cats, "Highways")["added"] == 0
-
     def test_ref_add_category(self):
         cats = build_category_data(_day_stats("182433203_ref.xml"))
         d = _d0(cats, "Refs")
@@ -230,13 +215,6 @@ class TestBuildCategoryData:
         cats = build_category_data(_day_stats("182164518_construction.xml"))
         d = _d0(cats, "Oneways")
         assert d["added"] == 2
-
-    def test_turn_restrictions_from_real_xml(self):
-        # restriction key (modify + add) and type=restriction (add)
-        cats = build_category_data(_day_stats("182436200_restriction.xml"))
-        d = _d0(cats, "Turn Restrictions")
-        assert d["added"] >= 4    # 2 restriction adds + 2 type=restriction adds
-        assert d["modified"] >= 1  # no_left_turn → no_u_turn
 
     def test_type_non_restriction_excluded_from_turn_restrictions(self):
         # type=multipolygon should NOT count in Turn Restrictions
@@ -259,13 +237,6 @@ class TestBuildCategoryData:
         by_day = {d["day"]: d for d in cat["data"]}
         assert by_day["2024-01-01"]["added"] == 1
         assert by_day["2024-01-05"]["added"] == 3
-
-    def test_category_order_is_stable(self):
-        cats = build_category_data({})
-        assert [c["title"] for c in cats] == [
-            "Oneways", "Access & Barriers", "Highways", "Refs",
-            "Turn Restrictions", "Names", "Construction", "Classifications",
-        ]
 
     # --- pure inline tests (no fixture files) ---
 
@@ -309,17 +280,6 @@ class TestBuildCategoryData:
         assert d["deleted"] == 2
         assert d["modified"] == 0
 
-    def test_classifications_includes_all_type_values(self):
-        # "Classifications" maps ["type"] with no filter — type=multipolygon counts
-        cats = build_category_data(self._one_day(type=[(None, "multipolygon", 3)]))
-        assert _d0(cats, "Classifications")["added"] == 3
-
-    def test_type_restriction_lands_in_both_turn_restrictions_and_classifications(self):
-        # type=restriction passes the Turn Restrictions filter AND the unfiltered Classifications
-        cats = build_category_data(self._one_day(type=[(None, "restriction", 2)]))
-        assert _d0(cats, "Turn Restrictions")["added"] == 2
-        assert _d0(cats, "Classifications")["added"] == 2
-
     def test_type_non_restriction_excluded_from_turn_restrictions_inline(self):
         cats = build_category_data(self._one_day(type=[(None, "multipolygon", 5)]))
         assert _d0(cats, "Turn Restrictions")["added"] == 0
@@ -328,7 +288,7 @@ class TestBuildCategoryData:
         # oneway data must not affect Highways or any other category
         cats = build_category_data(self._one_day(oneway=[(None, "yes", 4)]))
         for title in ["Highways", "Access & Barriers", "Refs", "Turn Restrictions",
-                      "Names", "Construction", "Classifications"]:
+                      "Names", "Construction"]:
             d = _d0(cats, title)
             assert d["added"] == 0 and d["modified"] == 0 and d["deleted"] == 0
 

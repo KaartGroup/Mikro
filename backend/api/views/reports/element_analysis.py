@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 
 from datetime import timezone
@@ -8,6 +9,8 @@ from ...database import db, ChangesetAdiff, SyncJob, TeamUser
 from ...worker.sync_queue import SyncJobQueue
 from ...utils.tz import parse_filter_datetime, ORG_TIMEZONE
 from ...utils.adiff_analyzer import TRACKED_KEYS, KEY_FILTERS, parse_adiff_transitions, merge_transitions
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -29,12 +32,22 @@ def fetch_element_analysis():
     if start_dt is None or end_dt is None:
         return {"message": "Invalid startDate or endDate", "status": 400}
 
+    logger.debug(
+        "element_analysis request: raw startDate=%s endDate=%s | parsed start_dt=%s end_dt=%s",
+        start_date_str, end_date_str, start_dt, end_dt,
+    )
+
     team_ids = request.json.get("teamIds")
     if not team_ids:
         team_ids = [
             tu.team_id
             for tu in TeamUser.query.filter_by(user_id=g.user.id).all()
         ] or None  # None signals org-wide query when user has no team
+
+    logger.debug(
+        "element_analysis request: org_id=%s team_ids=%s",
+        g.user.org_id, team_ids,
+    )
 
     return get_element_analysis(g.user.org_id, team_ids, start_dt, end_dt)
 
@@ -170,6 +183,11 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
     """Queries ChangesetAdiff for the given teams and date range, processes each stored adiff XML,
     and returns per-day added/modified/deleted counts grouped into categories. No Flask context required."""
 
+    logger.debug(
+        "get_element_analysis: org_id=%s team_ids=%s start_date=%s end_date=%s",
+        org_id, team_ids, start_date, end_date,
+    )
+
     query = ChangesetAdiff.query.filter(
         ChangesetAdiff.org_id == org_id,
         ChangesetAdiff.created_at >= start_date,
@@ -180,12 +198,26 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
         query = query.filter(ChangesetAdiff.team_id.in_(team_ids))
     rows = query.order_by(ChangesetAdiff.created_at).all()
 
+    logger.debug(
+        "get_element_analysis: found %d changeset rows in window [%s, %s)",
+        len(rows), start_date, end_date,
+    )
+    if rows:
+        logger.debug(
+            "get_element_analysis: earliest created_at=%s  latest created_at=%s",
+            rows[0].created_at, rows[-1].created_at,
+        )
+
     # day -> key -> {(old_val, new_val): count}
     day_key_stats = defaultdict(lambda: {key: {} for key in TRACKED_KEYS})
     last_updated = None
 
     for row in rows:
         day = row.created_at.replace(tzinfo=timezone.utc).astimezone(ORG_TIMEZONE).date()
+        logger.debug(
+            "get_element_analysis: processing changeset_id=%s created_at=%s -> local day=%s",
+            row.changeset_id, row.created_at, day,
+        )
         cs_stats = parse_adiff_transitions(row.adiff_xml, TRACKED_KEYS, KEY_FILTERS)
         merge_transitions(day_key_stats[day], cs_stats)
         if last_updated is None or row.created_at > last_updated:

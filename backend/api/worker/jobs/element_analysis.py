@@ -13,7 +13,14 @@ _BACKFILL_START = datetime(2026, 5, 1, tzinfo=timezone.utc)
 
 
 def _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, fallback_dt):
-    """Insert new changesets into ChangesetAdiff, skipping any that already exist. Returns count stored."""
+    """Insert new changesets into ChangesetAdiff, skipping any that already exist.
+
+    Stops at the first changeset whose adiff is not yet available (None from osmcha).
+    Changesets must be sorted oldest-first so that a 404 means everything after it
+    is also unprocessed by osmcha.
+
+    Returns (stored, stopped_early) where stopped_early is True if we hit a missing adiff.
+    """
     incoming_ids = [cs["id"] for cs in changesets]
     existing_ids = {
         row.changeset_id
@@ -22,14 +29,26 @@ def _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, f
             ChangesetAdiff.changeset_id.in_(incoming_ids),
         ).with_entities(ChangesetAdiff.changeset_id).all()
     }
-    new_changesets = [cs for cs in changesets if cs["id"] not in existing_ids]
+    new_changesets = sorted(
+        (cs for cs in changesets if cs["id"] not in existing_ids),
+        key=lambda cs: cs.get("created_at", ""),
+    )
     logger.info(f"  [{org_id}] {len(new_changesets)} new / {len(existing_ids)} already exist")
 
     analyzer = AdiffAnalyzer()
     stored = 0
+    stopped_early = False
     for i, cs in enumerate(new_changesets):
         cs_id = cs["id"]
         adiff_xml = analyzer.fetch_adiff_xml(cs_id)
+        if adiff_xml is None:
+            logger.info(
+                f"  [{org_id}] no adiff for changeset {cs_id} — stopping early "
+                f"({stored} stored, {len(new_changesets) - i} remaining skipped)"
+            )
+            stopped_early = True
+            break
+
         osm_user = cs.get("user")
         uid = osm_to_user_id.get(osm_user)
         try:
@@ -47,11 +66,13 @@ def _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, f
             adiff_xml=adiff_xml,
         ))
         stored += 1
-        if (i + 1) % _BATCH_SIZE == 0:
+        if stored % _BATCH_SIZE == 0:
             db.session.commit()
             logger.info(f"  [{org_id}] batch committed: {stored}/{len(new_changesets)} changesets")
-    db.session.commit()
-    return stored
+
+    if stored % _BATCH_SIZE != 0:
+        db.session.commit()
+    return stored, stopped_early
 
 
 def run_element_analysis_job(job):
@@ -87,7 +108,9 @@ def run_element_analysis_job(job):
         
 
         logger.info(
-            f"Element analysis job {job.id}: fetching from {since} to {until}"
+            f"Element analysis job {job.id}: last_processed={last_processed} "
+            f"fetching window [{since}, {until}] "
+            f"(span={(until - since).total_seconds() / 3600:.1f}h)"
         )
 
         users = User.query.filter(
@@ -122,19 +145,19 @@ def run_element_analysis_job(job):
             logger.info(f"Element analysis job {job.id}: no changesets since {since}")
             return
 
-        # Sort oldest-first so partial failures (timeout mid-batch) only drop
-        # the newest changesets, which the next job will re-fetch via max(created_at).
-        changesets.sort(key=lambda cs: cs.get("created_at", ""))
-        total = _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, since)
+        total, stopped_early = _upsert_changesets(
+            org_id, osm_to_user_id, user_id_to_team_id, changesets, since
+        )
 
+        suffix = " (stopped early — osmcha not yet caught up)" if stopped_early else ""
         job.status = "completed"
         job.completed_at = datetime.now(timezone.utc)
-        job.progress = f"Done: {total} changesets stored (since {since})"
+        job.progress = f"Done: {total} changesets stored (since {since}){suffix}"
         db.session.commit()
 
         logger.info(
             f"Element analysis job {job.id} completed for org {org_id} "
-            f"({total} changesets stored since {since})"
+            f"({total} changesets stored since {since}){suffix}"
         )
 
     except Exception as e:
@@ -211,11 +234,14 @@ def run_element_analysis_backfill_job(job):
 
             osm_usernames = list(osm_to_user_id.keys())
             changesets = ChangesetFetcher().fetch(osm_usernames, window_start, window_end)
-            changesets.sort(key=lambda c: c.get("created_at", ""))
-            total_stored += _upsert_changesets(
+            stored, stopped_early = _upsert_changesets(
                 org_id, osm_to_user_id, user_id_to_team_id, changesets, window_start
             )
+            total_stored += stored
             window_start = window_end
+            if stopped_early:
+                logger.info(f"Backfill job {job.id}: stopped early at window {window_num}")
+                break
 
         job.status = "completed"
         job.completed_at = datetime.now(timezone.utc)

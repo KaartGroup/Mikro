@@ -288,6 +288,7 @@ def main():
         now_utc = datetime.now(timezone.utc)
         if (now_utc.hour - 7) % 24 == 0 and now_utc.minute < 5 and last_nightly_date != now_utc.date():
             last_nightly_date = now_utc.date()
+            logger.info(f"[NIGHTLY] Triggering scheduled jobs at {now_utc.isoformat()}")
             try:
                 schedule_nightly_jobs(app)
             except Exception as e:
