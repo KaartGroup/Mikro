@@ -63,6 +63,7 @@ def run_element_analysis_job(job):
     """
 
     try:
+        job_id = job.id
         job.status = "running"
         job.started_at = datetime.now(timezone.utc)
         job.progress = "Starting element analysis..."
@@ -137,7 +138,7 @@ def run_element_analysis_job(job):
         )
 
     except Exception as e:
-        logger.error(f"Element analysis job {job.id} failed: {e}")
+        logger.error(f"Element analysis job {job_id} failed: {e}")
         db.session.rollback()
         try:
             job.status = "failed"
@@ -145,7 +146,7 @@ def run_element_analysis_job(job):
             job.completed_at = datetime.now(timezone.utc)
             db.session.commit()
         except Exception:
-            logger.error(f"Failed to update job {job.id} error status")
+            logger.error(f"Failed to update job {job_id} error status")
             db.session.rollback()
 
 
@@ -157,6 +158,7 @@ def run_element_analysis_backfill_job(job):
     time/memory budget as the normal incremental job.
     """
     try:
+        job_id = job.id
         job.status = "running"
         job.started_at = datetime.now(timezone.utc)
         job.progress = "Starting backfill..."
@@ -228,7 +230,7 @@ def run_element_analysis_backfill_job(job):
         )
 
     except Exception as e:
-        logger.error(f"Backfill job {job.id} failed: {e}")
+        logger.error(f"Backfill job {job_id} failed: {e}")
         db.session.rollback()
         try:
             job.status = "failed"
@@ -236,7 +238,7 @@ def run_element_analysis_backfill_job(job):
             job.completed_at = datetime.now(timezone.utc)
             db.session.commit()
         except Exception:
-            logger.error(f"Failed to update backfill job {job.id} error status")
+            logger.error(f"Failed to update backfill job {job_id} error status")
             db.session.rollback()
 
 
