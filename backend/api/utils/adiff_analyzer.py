@@ -131,27 +131,6 @@ class AdiffAnalyzer:
         self.key_filters = key_filters or {}
         self.session = session or requests.Session()
 
-    def analyze(self, changesets):
-        """Fetch and analyze adiffs for each changeset. Returns AnalysisResult."""
-        tag_stats = {key: {} for key in self.tracked_keys}
-        active_changesets = []
-        changes_count = sum(cs.get("changes_count", 0) for cs in changesets)
-        total = len(changesets)
-
-        print(f"Analyzing {total} changesets...")
-        for i, cs in enumerate(changesets, 1):
-            print(f"  [{i}/{total}] changeset {cs['id']}...")
-            cs_stats = self._fetch_adiff(cs["id"])
-            merge_transitions(tag_stats, cs_stats)
-            if any(cs_stats[k] for k in self.tracked_keys):
-                active_changesets.append({**cs, "tag_stats": cs_stats})
-                for key, transitions in cs_stats.items():
-                    if transitions:
-                        print(f"    ^ {key}: {transitions}")
-
-        print(f"Analysis done: {changes_count} changes, {len(active_changesets)} changesets had activity")
-        return AnalysisResult(total, changes_count, tag_stats, active_changesets)
-
     def fetch_adiff_xml(self, changeset_id):
         """Fetch adiff XML for a single changeset, stripping <nd> and <bounds> lines while streaming.
 
@@ -187,7 +166,7 @@ class AdiffAnalyzer:
             assert '<action' in result, (
                 f"Adiff for changeset {changeset_id} has no <action> elements — got: {result[:200]!r}"
             )
-            logger.debug(
+            logger.info(
                 "Fetched adiff for changeset %s: %d lines, %d bytes",
                 changeset_id, len(lines), len(result),
             )
@@ -196,11 +175,3 @@ class AdiffAnalyzer:
             logger.warning("Failed to fetch adiff for changeset %s: %s", changeset_id, e)
             return None
 
-    def _fetch_adiff(self, changeset_id):
-        url = f"https://adiffs.osmcha.org/changesets/{changeset_id}.adiff"
-        resp = self.session.get(url, timeout=120)
-        if resp.status_code == 404:
-            print(f"  [no diff] changeset {changeset_id}")
-            return {key: {} for key in self.tracked_keys}
-        resp.raise_for_status()
-        return parse_adiff_transitions(resp.text, self.tracked_keys, self.key_filters)
