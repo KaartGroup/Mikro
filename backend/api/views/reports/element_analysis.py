@@ -188,40 +188,57 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
         org_id, team_ids, start_date, end_date,
     )
 
-    query = ChangesetAdiff.query.filter(
-        ChangesetAdiff.org_id == org_id,
-        ChangesetAdiff.created_at >= start_date,
-        ChangesetAdiff.created_at < end_date,
-        ChangesetAdiff.adiff_xml.isnot(None),
+    meta_query = (
+        ChangesetAdiff.query
+        .with_entities(ChangesetAdiff.changeset_id, ChangesetAdiff.created_at)
+        .filter(
+            ChangesetAdiff.org_id == org_id,
+            ChangesetAdiff.created_at >= start_date,
+            ChangesetAdiff.created_at < end_date,
+            ChangesetAdiff.adiff_xml.isnot(None),
+        )
+        .order_by(ChangesetAdiff.created_at)
     )
     if team_ids:
-        query = query.filter(ChangesetAdiff.team_id.in_(team_ids))
-    rows = query.order_by(ChangesetAdiff.created_at).all()
+        meta_query = meta_query.filter(ChangesetAdiff.team_id.in_(team_ids))
+    changeset_meta = meta_query.all()
 
-    logger.debug(
-        "get_element_analysis: found %d changeset rows in window [%s, %s)",
-        len(rows), start_date, end_date,
+    logger.info(
+        "get_element_analysis: found %d changesets in window [%s, %s)",
+        len(changeset_meta), start_date, end_date,
     )
-    if rows:
-        logger.debug(
-            "get_element_analysis: earliest created_at=%s  latest created_at=%s",
-            rows[0].created_at, rows[-1].created_at,
-        )
 
     # day -> key -> {(old_val, new_val): count}
     day_key_stats = defaultdict(lambda: {key: {} for key in TRACKED_KEYS})
     last_updated = None
 
-    for row in rows:
-        day = row.created_at.replace(tzinfo=timezone.utc).astimezone(ORG_TIMEZONE).date()
-        logger.debug(
-            "get_element_analysis: processing changeset_id=%s created_at=%s -> local day=%s",
-            row.changeset_id, row.created_at, day,
+    for changeset_id, created_at in changeset_meta:
+        adiff_xml = (
+            ChangesetAdiff.query
+            .with_entities(ChangesetAdiff.adiff_xml)
+            .filter_by(changeset_id=changeset_id, org_id=org_id)
+            .scalar()
         )
-        cs_stats = parse_adiff_transitions(row.adiff_xml, TRACKED_KEYS, KEY_FILTERS)
-        merge_transitions(day_key_stats[day], cs_stats)
-        if last_updated is None or row.created_at > last_updated:
-            last_updated = row.created_at
+        if not adiff_xml:
+            continue
+
+        day = created_at.replace(tzinfo=timezone.utc).astimezone(ORG_TIMEZONE).date()
+        logger.info(
+            "get_element_analysis: processing changeset_id=%s -> local day=%s",
+            changeset_id, day,
+        )
+        try:
+            cs_stats = parse_adiff_transitions(adiff_xml, TRACKED_KEYS, KEY_FILTERS)
+            merge_transitions(day_key_stats[day], cs_stats)
+        except Exception:
+            logger.exception(
+                "get_element_analysis: failed to parse changeset_id=%s, skipping",
+                changeset_id,
+            )
+            continue
+
+        if last_updated is None or created_at > last_updated:
+            last_updated = created_at
 
     standard = build_category_data(day_key_stats)
     hpr = build_hpr_category_data(day_key_stats)

@@ -321,24 +321,42 @@ class _MockColumn:
     def __hash__(self): return id(self)
 
 
+def _db_row(filename, created_at, changeset_id="cs1"):
+    """Return a (changeset_id, created_at, adiff_xml) triple for use with _db_run."""
+    return (changeset_id, created_at, _load(filename))
+
+
 def _db_run(rows, team_ids=None):
+    """
+    rows: list of (changeset_id, created_at, adiff_xml) triples produced by _db_row.
+
+    Wires up two query shapes to match the production code:
+      1. with_entities(changeset_id, created_at).filter(...).order_by(...)[.filter(...)].all()
+         → [(changeset_id, created_at), ...]
+      2. per-row: with_entities(adiff_xml).filter_by(...).scalar() → adiff_xml string
+    """
+    meta_tuples = [(r[0], r[1]) for r in rows]
+    xml_values = [r[2] for r in rows]
+
     with patch(_PATCH_TARGET) as MockAdiff:
         MockAdiff.org_id = _MockColumn()
         MockAdiff.created_at = _MockColumn()
         MockAdiff.adiff_xml = _MockColumn()
         MockAdiff.team_id = _MockColumn()
-        mock_q = MagicMock()
-        MockAdiff.query.filter.return_value = mock_q
-        mock_q.filter.return_value = mock_q
-        mock_q.order_by.return_value.all.return_value = rows
+        MockAdiff.changeset_id = _MockColumn()
+
+        meta_q = MagicMock()
+        meta_q.filter.return_value = meta_q
+        meta_q.order_by.return_value = meta_q
+        meta_q.all.return_value = meta_tuples
+
+        xml_q = MagicMock()
+        xml_q.filter_by.return_value = xml_q
+        xml_q.scalar.side_effect = xml_values
+
+        MockAdiff.query.with_entities.side_effect = [meta_q] + [xml_q] * len(rows)
+
         return get_element_analysis(ORG, team_ids, START, END)
-
-
-def _db_row(filename, created_at):
-    row = MagicMock()
-    row.adiff_xml = _load(filename)
-    row.created_at = created_at
-    return row
 
 
 class TestGetElementAnalysis:
@@ -366,11 +384,14 @@ class TestGetElementAnalysis:
             MockAdiff.created_at = _MockColumn()
             MockAdiff.adiff_xml = _MockColumn()
             MockAdiff.team_id = _MockColumn()
-            mock_q = MagicMock()
-            MockAdiff.query.filter.return_value = mock_q
-            mock_q.order_by.return_value.all.return_value = []
+            MockAdiff.changeset_id = _MockColumn()
+            meta_q = MagicMock()
+            meta_q.filter.return_value = meta_q
+            meta_q.order_by.return_value = meta_q
+            meta_q.all.return_value = []
+            MockAdiff.query.with_entities.return_value = meta_q
             get_element_analysis(ORG, None, START, END)
-            mock_q.filter.assert_not_called()
+            assert meta_q.filter.call_count == 1  # initial conditions only, no team filter
 
     def test_team_ids_provided_applies_team_filter(self):
         with patch(_PATCH_TARGET) as MockAdiff:
@@ -378,9 +399,11 @@ class TestGetElementAnalysis:
             MockAdiff.created_at = _MockColumn()
             MockAdiff.adiff_xml = _MockColumn()
             MockAdiff.team_id = _MockColumn()
-            mock_q = MagicMock()
-            MockAdiff.query.filter.return_value = mock_q
-            mock_q.filter.return_value = mock_q
-            mock_q.order_by.return_value.all.return_value = []
+            MockAdiff.changeset_id = _MockColumn()
+            meta_q = MagicMock()
+            meta_q.filter.return_value = meta_q
+            meta_q.order_by.return_value = meta_q
+            meta_q.all.return_value = []
+            MockAdiff.query.with_entities.return_value = meta_q
             get_element_analysis(ORG, [1, 2], START, END)
-            mock_q.filter.assert_called_once()
+            assert meta_q.filter.call_count == 2  # initial conditions + team filter
