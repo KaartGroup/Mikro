@@ -1024,7 +1024,7 @@ class PaymentsAPI(MethodView):
                 "clock_in": s.clock_in.isoformat() if s.clock_in else None,
                 "clock_out": s.clock_out.isoformat() if s.clock_out else None,
                 "duration_seconds": s.duration_seconds or 0,
-                "category": s.category,
+                "category": s.subcategory_name,
                 "project_id": s.project_id,
                 "task_name": s.task_name,
                 "user_notes": s.user_notes,
