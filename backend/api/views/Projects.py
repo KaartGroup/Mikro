@@ -241,12 +241,13 @@ class ProjectAPI(MethodView):
         if not g.user:
             return {"message": "Missing user info", "status": 304}
 
-        # Check if required data is provided
+        # Check if required data is provided. Rates are intentionally NOT in
+        # this list: a project with payments disabled sends rate 0, and a
+        # blanket truthy check would reject 0 as "missing". Rates are validated
+        # conditionally further down (only required when payments_enabled).
         required_args = [
             "url",
             "rate_type",
-            "mapping_rate",
-            "validation_rate",
             "max_editors",
             "visibility",
             "max_validators",
@@ -266,8 +267,11 @@ class ProjectAPI(MethodView):
 
         # --- TM4 path (unchanged) ---
         rate_type = request.json.get("rate_type")
-        mapping_rate = float(request.json.get("mapping_rate"))
-        validation_rate = float(request.json.get("validation_rate"))
+        # Missing/None rate coerces to 0, which is valid when payments are
+        # disabled. When payments are enabled the $0.01-minimum check below
+        # rejects a 0 rate with a clearer message.
+        mapping_rate = float(request.json.get("mapping_rate") or 0)
+        validation_rate = float(request.json.get("validation_rate") or 0)
         max_editors = request.json.get("max_editors")
         max_validators = request.json.get("max_validators")
         # New projects are visible by default — only hidden if the admin
@@ -378,8 +382,11 @@ class ProjectAPI(MethodView):
         """
         url = request.json.get("url")
         rate_type = request.json.get("rate_type")
-        mapping_rate = float(request.json.get("mapping_rate"))
-        validation_rate = float(request.json.get("validation_rate"))
+        # Missing/None rate coerces to 0, which is valid when payments are
+        # disabled. When payments are enabled the $0.01-minimum check below
+        # rejects a 0 rate with a clearer message.
+        mapping_rate = float(request.json.get("mapping_rate") or 0)
+        validation_rate = float(request.json.get("validation_rate") or 0)
         max_editors = request.json.get("max_editors")
         max_validators = request.json.get("max_validators")
         # New projects are visible by default (see TM4 path note above).
@@ -471,16 +478,21 @@ class ProjectAPI(MethodView):
         project_id = request.json.get("project_id")
         difficulty = request.json.get("difficulty")
         rate_type = request.json.get("rate_type")
-        mapping_rate = float(request.json.get("mapping_rate"))
-        validation_rate = float(request.json.get("validation_rate"))
+        # Missing/None rate coerces to 0, which is valid when payments are
+        # disabled. When payments are enabled the $0.01-minimum check below
+        # rejects a 0 rate with a clearer message.
+        mapping_rate = float(request.json.get("mapping_rate") or 0)
+        validation_rate = float(request.json.get("validation_rate") or 0)
         max_editors = request.json.get("max_editors")
         max_validators = request.json.get("max_validators")
         visibility = request.json.get("visibility")
         project_status = request.json.get("project_status")
+        # Rates are intentionally NOT required here — a project with payments
+        # disabled sends rate 0, and a blanket truthy check would reject 0 as
+        # "missing", blocking the disable-payments edit. The rate-persist block
+        # below already skips writing 0 rates.
         required_args = [
             "difficulty",
-            "validation_rate",
-            "mapping_rate",
             "max_editors",
             "max_validators",
             "project_id",
