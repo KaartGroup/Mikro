@@ -44,7 +44,7 @@ import {
   useCurrentUserRole,
   useManagedTeams,
 } from "@/hooks";
-import { isOrgAdminOrAbove } from "@/types";
+import { isOrgAdminOrAbove, isAnyAdmin } from "@/types";
 import type { Team, TeamMemberItem, TeamTrainingItem } from "@/types";
 
 export function AdminTeams() {
@@ -110,10 +110,18 @@ export function AdminTeams() {
   );
 
   const orgUsers = usersData?.users ?? [];
-  const leadOptions = orgUsers.map((u) => ({
-    value: u.id,
-    label: u.name || u.email,
-  }));
+  // Only users who already hold an admin role (super_admin / admin / team_admin)
+  // may be assigned as a team lead. Assigning a plain mapper as lead leaves them
+  // in a broken half-state — lead of a team, but without the admin permissions to
+  // act on it. Any user already assigned as a lead is kept selectable so the Edit
+  // modal can still display (and let you remove) someone whose role changed after
+  // they were assigned.
+  const leadOptions = orgUsers
+    .filter((u) => isAnyAdmin(u.role) || formLeadIds.includes(u.id))
+    .map((u) => ({
+      value: u.id,
+      label: u.name || u.email,
+    }));
 
   // Create handlers
   const openCreateModal = () => {
@@ -587,13 +595,21 @@ export function AdminTeams() {
               onChange={(e) => setFormDescription(e.target.value)}
             />
           </div>
-          <MultiSelect
-            label="Team Leads"
-            value={formLeadIds}
-            onChange={setFormLeadIds}
-            options={leadOptions}
-            placeholder="Select one or more leads"
-          />
+          <div>
+            <MultiSelect
+              label="Team Leads"
+              value={formLeadIds}
+              onChange={setFormLeadIds}
+              options={leadOptions}
+              placeholder="Select one or more leads"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Only users with an admin role (Super Admin, Org Admin, or Team
+              Admin) appear here. A team lead needs admin permissions to manage
+              the team — assign someone an admin role on the Users page first to
+              make them eligible.
+            </p>
+          </div>
         </div>
       </Modal>
 
@@ -631,13 +647,21 @@ export function AdminTeams() {
               onChange={(e) => setFormDescription(e.target.value)}
             />
           </div>
-          <MultiSelect
-            label="Team Leads"
-            value={formLeadIds}
-            onChange={setFormLeadIds}
-            options={leadOptions}
-            placeholder="Select one or more leads"
-          />
+          <div>
+            <MultiSelect
+              label="Team Leads"
+              value={formLeadIds}
+              onChange={setFormLeadIds}
+              options={leadOptions}
+              placeholder="Select one or more leads"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Only users with an admin role (Super Admin, Org Admin, or Team
+              Admin) appear here. A team lead needs admin permissions to manage
+              the team — assign someone an admin role on the Users page first to
+              make them eligible.
+            </p>
+          </div>
         </div>
       </Modal>
 
