@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 _MAX_WINDOW_DAYS = 2
 _BATCH_SIZE = 50
-_BACKFILL_START = datetime(2026, 5, 1, tzinfo=timezone.utc)
 
 
 def _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, fallback_dt):
@@ -19,22 +18,29 @@ def _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, f
     Returns count of rows stored.
     """
     incoming_ids = [cs["id"] for cs in changesets]
-    existing_ids = {
-        row.changeset_id
+    existing_rows = {
+        row.changeset_id: row
         for row in ChangesetAdiff.query.filter(
             ChangesetAdiff.org_id == org_id,
             ChangesetAdiff.changeset_id.in_(incoming_ids),
-        ).with_entities(ChangesetAdiff.changeset_id).all()
+        ).all()
     }
-    new_changesets = sorted(
-        (cs for cs in changesets if cs["id"] not in existing_ids),
+    # Rows with adiff_xml already populated are skipped; empty rows get retried.
+    skip_ids = {cid for cid, row in existing_rows.items() if row.adiff_xml}
+    empty_rows = {cid: row for cid, row in existing_rows.items() if not row.adiff_xml}
+
+    candidates = sorted(
+        (cs for cs in changesets if cs["id"] not in skip_ids),
         key=lambda cs: cs.get("created_at", ""),
     )
-    logger.info(f"  [{org_id}] {len(new_changesets)} new / {len(existing_ids)} already exist")
+    logger.info(
+        f"  [{org_id}] {len(candidates) - len(empty_rows)} new / "
+        f"{len(empty_rows)} empty (retrying) / {len(skip_ids)} already complete"
+    )
 
     analyzer = AdiffAnalyzer()
     stored = 0
-    for cs in new_changesets:
+    for cs in candidates:
         cs_id = cs["id"]
         adiff_xml = analyzer.fetch_adiff_xml(cs_id)
         if adiff_xml is None:
@@ -48,19 +54,22 @@ def _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, f
         except (KeyError, ValueError, AttributeError):
             cs_created_at = fallback_dt
 
-        db.session.add(ChangesetAdiff(
-            org_id=org_id,
-            changeset_id=cs_id,
-            created_at=cs_created_at,
-            user_id=uid,
-            team_id=user_id_to_team_id.get(uid),
-            osm_user=osm_user,
-            adiff_xml=adiff_xml,
-        ))
+        if cs_id in empty_rows:
+            empty_rows[cs_id].adiff_xml = adiff_xml
+        else:
+            db.session.add(ChangesetAdiff(
+                org_id=org_id,
+                changeset_id=cs_id,
+                created_at=cs_created_at,
+                user_id=uid,
+                team_id=user_id_to_team_id.get(uid),
+                osm_user=osm_user,
+                adiff_xml=adiff_xml,
+            ))
         stored += 1
         if stored % _BATCH_SIZE == 0:
             db.session.commit()
-            logger.info(f"  [{org_id}] batch committed: {stored}/{len(new_changesets)} changesets")
+            logger.info(f"  [{org_id}] batch committed: {stored}/{len(candidates)} changesets")
 
     if stored % _BATCH_SIZE != 0:
         db.session.commit()
@@ -178,13 +187,9 @@ def run_element_analysis_backfill_job(job):
         db.session.commit()
 
         org_id = job.org_id
-
-        latest = (
-            db.session.query(db.func.max(ChangesetAdiff.created_at))
-            .filter(ChangesetAdiff.org_id == org_id)
-            .scalar()
-        )
-        backfill_until = latest if latest is not None else datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        backfill_start = now - timedelta(weeks=2)
+        backfill_until = now
 
         users = User.query.filter(
             User.org_id == org_id,
@@ -207,7 +212,7 @@ def run_element_analysis_backfill_job(job):
 
         total_stored = 0
         window_num = 0
-        window_start = _BACKFILL_START
+        window_start = backfill_start
 
         while window_start < backfill_until:
             window_end = min(window_start + timedelta(days=_MAX_WINDOW_DAYS), backfill_until)
@@ -233,7 +238,7 @@ def run_element_analysis_backfill_job(job):
         job.completed_at = datetime.now(timezone.utc)
         job.progress = (
             f"Backfill done: {total_stored} changesets across {window_num} windows "
-            f"({_BACKFILL_START.date()} → {backfill_until.date()})"
+            f"({backfill_start.date()} → {backfill_until.date()})"
         )
         db.session.commit()
         logger.info(
