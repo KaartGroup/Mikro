@@ -19,7 +19,12 @@ export {
   TableCell,
   TableCaption,
 } from "./Table";
-export { Modal, ConfirmDialog, type ModalProps, type ConfirmDialogProps } from "./Modal";
+export {
+  Modal,
+  ConfirmDialog,
+  type ModalProps,
+  type ConfirmDialogProps,
+} from "./Modal";
 export { Select, type SelectProps, type SelectOption } from "./Select";
 export {
   Spinner,
@@ -29,12 +34,7 @@ export {
   TableSkeleton,
   CardSkeleton,
 } from "./Loading";
-export {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "./Tabs";
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";
 export {
   ToastProvider,
   useToast,

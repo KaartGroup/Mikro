@@ -94,7 +94,9 @@ export async function zoomToChangeset(changeset: Changeset): Promise<boolean> {
  *
  * Returns true on success, false on any early bail.
  */
-export async function openChangesetInJosm(changeset: Changeset): Promise<boolean> {
+export async function openChangesetInJosm(
+  changeset: Changeset,
+): Promise<boolean> {
   const version = await probeJosm();
   if (version === null) return false;
 

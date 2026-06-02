@@ -25,7 +25,12 @@ interface StatCardLinkProps {
   className?: string;
 }
 
-export function StatCardLink({ href, label, children, className }: StatCardLinkProps) {
+export function StatCardLink({
+  href,
+  label,
+  children,
+  className,
+}: StatCardLinkProps) {
   return (
     <Link
       href={href}

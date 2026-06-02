@@ -30,11 +30,15 @@ const alphaCompare = <T extends ProjectLike>(a: T, b: T): number =>
     numeric: true,
   });
 
-export function sortProjectsAlphabetical<T extends ProjectLike>(projects: T[]): T[] {
+export function sortProjectsAlphabetical<T extends ProjectLike>(
+  projects: T[],
+): T[] {
   return projects.slice().sort(alphaCompare);
 }
 
-export function sortProjectsRecentPinned<T extends ProjectLike>(projects: T[]): T[] {
+export function sortProjectsRecentPinned<T extends ProjectLike>(
+  projects: T[],
+): T[] {
   if (projects.length === 0) return [];
 
   // Find the single project with the latest last_worked_on (ignoring nulls).

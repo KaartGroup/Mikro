@@ -26,33 +26,46 @@ export interface CursorHistoryResult {
  *   history.loadMore();                          // call from Next button
  */
 export function useCursorHistory(endpoint: string): CursorHistoryResult {
-  const { mutate: fetchHistoryPage } = useApiMutation<TimeTrackingHistoryResponse>(endpoint);
+  const { mutate: fetchHistoryPage } =
+    useApiMutation<TimeTrackingHistoryResponse>(endpoint);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [nextCursor, setNextCursor] = useState<Cursor | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const lastFiltersRef = useRef<Record<string, unknown>>({});
 
-  const fetchPage = useCallback(async (filters: Record<string, unknown> = {}) => {
-    lastFiltersRef.current = filters;
-    setLoading(true);
-    try {
-      const result = await fetchHistoryPage(filters);
-      setEntries(result?.entries ?? []);
-      setNextCursor(result?.nextCursor ?? null);
-    } catch { /* surfaced by mutation */ }
-    finally { setLoading(false); }
-  }, [fetchHistoryPage]);
+  const fetchPage = useCallback(
+    async (filters: Record<string, unknown> = {}) => {
+      lastFiltersRef.current = filters;
+      setLoading(true);
+      try {
+        const result = await fetchHistoryPage(filters);
+        setEntries(result?.entries ?? []);
+        setNextCursor(result?.nextCursor ?? null);
+      } catch {
+        /* surfaced by mutation */
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchHistoryPage],
+  );
 
   const loadMore = useCallback(async () => {
     if (!nextCursor) return;
     setLoadingMore(true);
     try {
-      const result = await fetchHistoryPage({ ...lastFiltersRef.current, cursor: nextCursor });
+      const result = await fetchHistoryPage({
+        ...lastFiltersRef.current,
+        cursor: nextCursor,
+      });
       setEntries((prev) => [...prev, ...(result?.entries ?? [])]);
       setNextCursor(result?.nextCursor ?? null);
-    } catch { /* surfaced by mutation */ }
-    finally { setLoadingMore(false); }
+    } catch {
+      /* surfaced by mutation */
+    } finally {
+      setLoadingMore(false);
+    }
   }, [fetchHistoryPage, nextCursor]);
 
   return { entries, nextCursor, loading, loadingMore, fetchPage, loadMore };

@@ -56,7 +56,9 @@ export async function exportChartAsPng(
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
 
   const svgMarkup = new XMLSerializer().serializeToString(clone);
-  const svgBlob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
+  const svgBlob = new Blob([svgMarkup], {
+    type: "image/svg+xml;charset=utf-8",
+  });
   const svgUrl = URL.createObjectURL(svgBlob);
 
   try {
@@ -94,7 +96,9 @@ export async function exportChartAsPng(
       console.warn("[chartExport] canvas.toBlob returned null");
       return false;
     }
-    const safeFilename = filename.endsWith(".png") ? filename : `${filename}.png`;
+    const safeFilename = filename.endsWith(".png")
+      ? filename
+      : `${filename}.png`;
     triggerDownload(blob, safeFilename);
     return true;
   } catch (err) {

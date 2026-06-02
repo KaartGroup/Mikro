@@ -5,7 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { useCursorHistory, useRequestTimeAdjustment, useUpdateMyNotes } from "@/hooks";
+import {
+  useCursorHistory,
+  useRequestTimeAdjustment,
+  useUpdateMyNotes,
+} from "@/hooks";
 import { NotesButton } from "./NotesButton";
 import { formatDurationHM } from "@/lib/timeTracking";
 
@@ -28,12 +32,17 @@ function formatDateShort(iso: string): string {
 
 export function UserTimeHistory() {
   const [showFullHistory, setShowFullHistory] = useState(false);
-  const [adjustmentEntryId, setAdjustmentEntryId] = useState<number | null>(null);
+  const [adjustmentEntryId, setAdjustmentEntryId] = useState<number | null>(
+    null,
+  );
   const [adjustmentReason, setAdjustmentReason] = useState("");
-  const [adjustmentSuccess, setAdjustmentSuccess] = useState<string | null>(null);
+  const [adjustmentSuccess, setAdjustmentSuccess] = useState<string | null>(
+    null,
+  );
 
   const history = useCursorHistory("/timetracking/my_history");
-  const { mutate: requestAdjustment, loading: submitting } = useRequestTimeAdjustment();
+  const { mutate: requestAdjustment, loading: submitting } =
+    useRequestTimeAdjustment();
   const { mutate: updateMyNotes } = useUpdateMyNotes();
 
   useEffect(() => {
@@ -57,7 +66,9 @@ export function UserTimeHistory() {
         entry_id: adjustmentEntryId,
         reason: adjustmentReason.trim(),
       });
-      setAdjustmentSuccess("Adjustment request submitted. An admin will review it.");
+      setAdjustmentSuccess(
+        "Adjustment request submitted. An admin will review it.",
+      );
       setAdjustmentEntryId(null);
       setAdjustmentReason("");
       await history.fetchPage();
@@ -120,13 +131,27 @@ export function UserTimeHistory() {
               <table className="w-full text-sm" style={{ minWidth: 500 }}>
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Date</th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Project</th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Category</th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Subcategory</th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Duration</th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Status</th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Notes</th>
+                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                      Date
+                    </th>
+                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                      Project
+                    </th>
+                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                      Category
+                    </th>
+                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                      Subcategory
+                    </th>
+                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                      Duration
+                    </th>
+                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                      Notes
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -148,7 +173,9 @@ export function UserTimeHistory() {
                         {entry.subcategoryName || "—"}
                       </td>
                       <td className="py-2 px-2">
-                        <span className="font-mono">{formatDurationHM(entry.durationSeconds)}</span>
+                        <span className="font-mono">
+                          {formatDurationHM(entry.durationSeconds)}
+                        </span>
                       </td>
                       <td className="py-2 px-2">
                         <Badge
@@ -156,8 +183,8 @@ export function UserTimeHistory() {
                             entry.status === "completed"
                               ? "success"
                               : entry.status === "voided"
-                              ? "destructive"
-                              : "warning"
+                                ? "destructive"
+                                : "warning"
                           }
                         >
                           {entry.status}
@@ -198,7 +225,9 @@ export function UserTimeHistory() {
       >
         {adjustmentSuccess && (
           <div className="mb-4 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-3">
-            <p className="text-sm text-green-700 dark:text-green-300">{adjustmentSuccess}</p>
+            <p className="text-sm text-green-700 dark:text-green-300">
+              {adjustmentSuccess}
+            </p>
           </div>
         )}
 
@@ -207,15 +236,33 @@ export function UserTimeHistory() {
             <table className="w-full text-sm" style={{ minWidth: 500 }}>
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Project</th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Category</th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Subcategory</th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Clock In</th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Clock Out</th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Duration</th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Notes</th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                    Project
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                    Category
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                    Subcategory
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                    Clock In
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                    Clock Out
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                    Duration
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                    Status
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                    Notes
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -240,7 +287,9 @@ export function UserTimeHistory() {
                       {entry.clockOut ? formatDateTime(entry.clockOut) : "—"}
                     </td>
                     <td className="py-3 px-3">
-                      <span className="font-mono">{formatDurationHM(entry.durationSeconds)}</span>
+                      <span className="font-mono">
+                        {formatDurationHM(entry.durationSeconds)}
+                      </span>
                     </td>
                     <td className="py-3 px-3">
                       <Badge
@@ -248,14 +297,16 @@ export function UserTimeHistory() {
                           entry.status === "completed"
                             ? "success"
                             : entry.status === "voided"
-                            ? "destructive"
-                            : "warning"
+                              ? "destructive"
+                              : "warning"
                         }
                       >
                         {entry.status}
                       </Badge>
                       {entry.notes?.startsWith("[ADJUSTMENT REQUESTED]") && (
-                        <Badge variant="warning" className="ml-1">adjustment pending</Badge>
+                        <Badge variant="warning" className="ml-1">
+                          adjustment pending
+                        </Badge>
                       )}
                     </td>
                     <td className="py-3 px-3">
@@ -267,19 +318,20 @@ export function UserTimeHistory() {
                       />
                     </td>
                     <td className="py-3 px-3">
-                      {entry.status === "completed" && !entry.notes?.startsWith("[ADJUSTMENT REQUESTED]") && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="whitespace-nowrap"
-                          onClick={() => {
-                            setAdjustmentEntryId(entry.id);
-                            setAdjustmentReason("");
-                          }}
-                        >
-                          Request Adjustment
-                        </Button>
-                      )}
+                      {entry.status === "completed" &&
+                        !entry.notes?.startsWith("[ADJUSTMENT REQUESTED]") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="whitespace-nowrap"
+                            onClick={() => {
+                              setAdjustmentEntryId(entry.id);
+                              setAdjustmentReason("");
+                            }}
+                          >
+                            Request Adjustment
+                          </Button>
+                        )}
                     </td>
                   </tr>
                 ))}
@@ -299,7 +351,8 @@ export function UserTimeHistory() {
               Request Adjustment for Entry #{adjustmentEntryId}
             </h4>
             <p className="text-xs text-muted-foreground mb-3">
-              Describe what needs to be corrected. An admin will review and edit the entry.
+              Describe what needs to be corrected. An admin will review and edit
+              the entry.
             </p>
             <textarea
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"

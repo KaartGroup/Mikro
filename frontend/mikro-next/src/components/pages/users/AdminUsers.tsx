@@ -2,10 +2,25 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle, Button, Modal, useToastActions, Skeleton, TableSkeleton } from "@/components/ui";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Modal,
+  useToastActions,
+  Skeleton,
+  TableSkeleton,
+} from "@/components/ui";
 import { StandaloneFilter } from "@/components/admin/StandaloneFilter";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
-import { useFetchFilterOptions, useFetchCountries, useCurrentUserRole, useManagedTeams } from "@/hooks";
+import {
+  useFetchFilterOptions,
+  useFetchCountries,
+  useCurrentUserRole,
+  useManagedTeams,
+} from "@/hooks";
 import { formatNumber, formatCurrency, displayRole } from "@/lib/utils";
 import { Val } from "@/components/ui";
 import { User, isOrgAdminOrAbove, roleLabel } from "@/types";
@@ -48,7 +63,9 @@ export function AdminUsers() {
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeUsersTab, setActiveUsersTab] = useState<"active" | "deactivated">("active");
+  const [activeUsersTab, setActiveUsersTab] = useState<
+    "active" | "deactivated"
+  >("active");
   // Standalone filter dropdowns — each null = "All …" (no filter).
   // Each writes a single-element values array into the request's
   // filters body; resolve_filtered_user_ids handles the rest.
@@ -69,7 +86,8 @@ export function AdminUsers() {
   // - super_admin: can promote any user including to super_admin.
   // - admin (Org Admin): can promote up to admin (NOT super_admin).
   const { role: viewerRole } = useCurrentUserRole();
-  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const { teams: managedTeams, loading: managedTeamsLoading } =
+    useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
   const canEditRole = isOrgAdminOrAbove(viewerRole); // org_admin / super_admin
   const canImportOrPurge = isOrgAdminOrAbove(viewerRole);
@@ -184,13 +202,21 @@ export function AdminUsers() {
       (u) =>
         (u.name || "").toLowerCase().includes(search) ||
         (u.osm_username || "").toLowerCase().includes(search) ||
-        (u.email || "").toLowerCase().includes(search)
+        (u.email || "").toLowerCase().includes(search),
     );
   };
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [userSearch, activeUsersTab, filterRegionId, filterCountryId, filterTeamId, filterRole, filterTimezone]);
+  }, [
+    userSearch,
+    activeUsersTab,
+    filterRegionId,
+    filterCountryId,
+    filterTeamId,
+    filterRole,
+    filterTimezone,
+  ]);
 
   useEffect(() => {
     fetchUsers();
@@ -225,7 +251,13 @@ export function AdminUsers() {
   useEffect(() => {
     if (!isLoading) fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterRegionId, filterCountryId, filterTeamId, filterRole, filterTimezone]);
+  }, [
+    filterRegionId,
+    filterCountryId,
+    filterTeamId,
+    filterRole,
+    filterTimezone,
+  ]);
 
   const handleSelectUser = (userId: string) => {
     setSelectedUser(selectedUser === userId ? null : userId);
@@ -356,7 +388,9 @@ export function AdminUsers() {
         const text = event.target?.result as string;
         const lines = text.trim().split("\n");
         if (lines.length < 2) {
-          setImportError("CSV file must have a header row and at least one data row");
+          setImportError(
+            "CSV file must have a header row and at least one data row",
+          );
           return;
         }
 
@@ -377,15 +411,18 @@ export function AdminUsers() {
         for (let i = 1; i < lines.length; i++) {
           const values = lines[i].split(",").map((v) => v.trim());
           if (values[emailIdx]) {
-            const firstName = firstNameIdx !== -1 ? values[firstNameIdx] || "" : "";
-            const lastName = lastNameIdx !== -1 ? values[lastNameIdx] || "" : "";
+            const firstName =
+              firstNameIdx !== -1 ? values[firstNameIdx] || "" : "";
+            const lastName =
+              lastNameIdx !== -1 ? values[lastNameIdx] || "" : "";
             const name = nameIdx !== -1 ? values[nameIdx] || "" : "";
             parsed.push({
               email: values[emailIdx],
               name: name,
               first_name: firstName,
               last_name: lastName,
-              osm_username: osmUsernameIdx !== -1 ? values[osmUsernameIdx] || "" : "",
+              osm_username:
+                osmUsernameIdx !== -1 ? values[osmUsernameIdx] || "" : "",
               role: roleIdx !== -1 ? values[roleIdx] || "user" : "user",
             });
           }
@@ -428,8 +465,14 @@ export function AdminUsers() {
           fetchUsers();
         }
         if (failedItems.length > 0) {
-          const errorDetails = failedItems.map((f: { email: string; error: string }) => `${f.email}: ${f.error}`).join("\n");
-          setImportError(`${failedItems.length} user(s) failed to import:\n${errorDetails}`);
+          const errorDetails = failedItems
+            .map(
+              (f: { email: string; error: string }) => `${f.email}: ${f.error}`,
+            )
+            .join("\n");
+          setImportError(
+            `${failedItems.length} user(s) failed to import:\n${errorDetails}`,
+          );
           if (successCount === 0) {
             // Keep modal open to show errors
           }
@@ -455,7 +498,9 @@ export function AdminUsers() {
       });
       const data = await response.json();
       if (response.ok && data.status === 200) {
-        toast.success(`Purged ${data.users_deleted} users. Your admin account was preserved.`);
+        toast.success(
+          `Purged ${data.users_deleted} users. Your admin account was preserved.`,
+        );
         setShowPurgeModal(false);
         fetchUsers();
       } else {
@@ -469,7 +514,7 @@ export function AdminUsers() {
     }
   };
 
-  if (isLoading ) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -483,11 +528,7 @@ export function AdminUsers() {
   }
 
   // Team admin with zero managed teams → empty state, no table.
-  if (
-    isTeamAdmin &&
-    !managedTeamsLoading &&
-    managedTeams.length === 0
-  ) {
+  if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-foreground">Users</h1>
@@ -498,15 +539,20 @@ export function AdminUsers() {
 
   const activeUsersAll = users.filter((u) => u.is_active !== false);
   const deactivatedUsersAll = users.filter((u) => u.is_active === false);
-  const tabUsers = activeUsersTab === "deactivated" ? deactivatedUsersAll : activeUsersAll;
+  const tabUsers =
+    activeUsersTab === "deactivated" ? deactivatedUsersAll : activeUsersAll;
   const filteredUsers = sortUsers(filterUsersBySearch(tabUsers));
   const totalPages = Math.ceil(filteredUsers.length / ROWS_PER_PAGE);
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * ROWS_PER_PAGE,
-    currentPage * ROWS_PER_PAGE
+    currentPage * ROWS_PER_PAGE,
   );
-  const showingStart = filteredUsers.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
-  const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, filteredUsers.length);
+  const showingStart =
+    filteredUsers.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
+  const showingEnd = Math.min(
+    currentPage * ROWS_PER_PAGE,
+    filteredUsers.length,
+  );
 
   return (
     <div className="space-y-8">
@@ -532,7 +578,9 @@ export function AdminUsers() {
             </Button>
           )}
           {canImportOrPurge && (
-            <Button variant="outline" onClick={handleImportClick}>Import CSV</Button>
+            <Button variant="outline" onClick={handleImportClick}>
+              Import CSV
+            </Button>
           )}
         </div>
       </div>
@@ -556,12 +604,11 @@ export function AdminUsers() {
           <StandaloneFilter
             label="Region"
             allLabel="All regions"
-            options={(filterOptions?.dimensions?.region ?? [])
-              .map((v) =>
-                typeof v === "string"
-                  ? { value: v, label: v }
-                  : { value: String(v.id ?? v.name), label: v.name },
-              )}
+            options={(filterOptions?.dimensions?.region ?? []).map((v) =>
+              typeof v === "string"
+                ? { value: v, label: v }
+                : { value: String(v.id ?? v.name), label: v.name },
+            )}
             value={filterRegionId}
             onChange={setFilterRegionId}
           />
@@ -570,12 +617,11 @@ export function AdminUsers() {
           <StandaloneFilter
             label="Country"
             allLabel="All countries"
-            options={(filterOptions?.dimensions?.country ?? [])
-              .map((v) =>
-                typeof v === "string"
-                  ? { value: v, label: v }
-                  : { value: String(v.id ?? v.name), label: v.name },
-              )}
+            options={(filterOptions?.dimensions?.country ?? []).map((v) =>
+              typeof v === "string"
+                ? { value: v, label: v }
+                : { value: String(v.id ?? v.name), label: v.name },
+            )}
             value={filterCountryId}
             onChange={setFilterCountryId}
           />
@@ -584,12 +630,11 @@ export function AdminUsers() {
           <StandaloneFilter
             label="Team"
             allLabel="All teams"
-            options={(filterOptions?.dimensions?.team ?? [])
-              .map((v) =>
-                typeof v === "string"
-                  ? { value: v, label: v }
-                  : { value: String(v.id ?? v.name), label: v.name },
-              )}
+            options={(filterOptions?.dimensions?.team ?? []).map((v) =>
+              typeof v === "string"
+                ? { value: v, label: v }
+                : { value: String(v.id ?? v.name), label: v.name },
+            )}
             value={filterTeamId}
             onChange={setFilterTeamId}
           />
@@ -598,12 +643,11 @@ export function AdminUsers() {
           <StandaloneFilter
             label="Role"
             allLabel="All roles"
-            options={(filterOptions?.dimensions?.role ?? [])
-              .map((v) =>
-                typeof v === "string"
-                  ? { value: v, label: v.charAt(0).toUpperCase() + v.slice(1) }
-                  : { value: String(v.id ?? v.name), label: v.name },
-              )}
+            options={(filterOptions?.dimensions?.role ?? []).map((v) =>
+              typeof v === "string"
+                ? { value: v, label: v.charAt(0).toUpperCase() + v.slice(1) }
+                : { value: String(v.id ?? v.name), label: v.name },
+            )}
             value={filterRole}
             onChange={setFilterRole}
           />
@@ -612,12 +656,11 @@ export function AdminUsers() {
           <StandaloneFilter
             label="Timezone"
             allLabel="All timezones"
-            options={(filterOptions?.dimensions?.timezone ?? [])
-              .map((v) =>
-                typeof v === "string"
-                  ? { value: v, label: v }
-                  : { value: String(v.id ?? v.name), label: v.name },
-              )}
+            options={(filterOptions?.dimensions?.timezone ?? []).map((v) =>
+              typeof v === "string"
+                ? { value: v, label: v }
+                : { value: String(v.id ?? v.name), label: v.name },
+            )}
             value={filterTimezone}
             onChange={setFilterTimezone}
           />
@@ -630,7 +673,9 @@ export function AdminUsers() {
       <div className="flex items-center gap-1 border-b border-border">
         {(["active", "deactivated"] as const).map((tab) => {
           const count =
-            tab === "active" ? activeUsersAll.length : deactivatedUsersAll.length;
+            tab === "active"
+              ? activeUsersAll.length
+              : deactivatedUsersAll.length;
           const label = tab === "active" ? "Active users" : "Deactivated";
           const selected = activeUsersTab === tab;
           return (
@@ -687,9 +732,22 @@ export function AdminUsers() {
                       <span className="inline-flex items-center gap-1">
                         {col.label}
                         {col.key && sortKey === col.key && (
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                              d={sortDir === "asc" ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+                          <svg
+                            className="w-3 h-3"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d={
+                                sortDir === "asc"
+                                  ? "M5 15l7-7 7 7"
+                                  : "M19 9l-7 7-7-7"
+                              }
+                            />
                           </svg>
                         )}
                       </span>
@@ -718,7 +776,12 @@ export function AdminUsers() {
                         {user.name?.trim() || user.email || "Unknown"}
                       </Link>
                     </td>
-                    <td className="px-2 py-1.5 text-sm text-foreground max-w-[120px] truncate" title={user.osm_username || ""}>{user.osm_username || "\u2014"}</td>
+                    <td
+                      className="px-2 py-1.5 text-sm text-foreground max-w-[120px] truncate"
+                      title={user.osm_username || ""}
+                    >
+                      {user.osm_username || "\u2014"}
+                    </td>
                     <td className="px-2 py-1.5">
                       <div className="flex items-center gap-1.5">
                         <span
@@ -726,12 +789,12 @@ export function AdminUsers() {
                             user.role === "super_admin"
                               ? "bg-pink-100 text-pink-800"
                               : user.role === "admin"
-                              ? "bg-purple-100 text-purple-800"
-                              : user.role === "team_admin"
-                              ? "bg-indigo-100 text-indigo-800"
-                              : user.role === "validator"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-green-100 text-green-800"
+                                ? "bg-purple-100 text-purple-800"
+                                : user.role === "team_admin"
+                                  ? "bg-indigo-100 text-indigo-800"
+                                  : user.role === "validator"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-green-100 text-green-800"
                           }`}
                         >
                           {roleLabel(user.role)}
@@ -740,18 +803,39 @@ export function AdminUsers() {
                     </td>
                     <td className="px-2 py-1.5">
                       {user.micropayments_visible ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Yes</span>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Yes
+                        </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">No</span>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                          No
+                        </span>
                       )}
                     </td>
-                    <td className="px-2 py-1.5 text-foreground max-w-[120px] truncate" title={user.country_name || ""}>{user.country_name || "\u2014"}</td>
-                    <td className="px-2 py-1.5 text-foreground">{user.region_name || "\u2014"}</td>
-                    <td className="px-2 py-1.5 text-foreground">{user.timezone || "\u2014"}</td>
-                    <td className="px-2 py-1.5 text-foreground"><Val>{formatNumber(user.assigned_projects)}</Val></td>
-                    <td className="px-2 py-1.5 text-foreground"><Val>{formatNumber(user.total_tasks_mapped)}</Val></td>
-                    <td className="px-2 py-1.5 text-foreground"><Val>{formatNumber(user.total_tasks_validated)}</Val></td>
-                    <td className="px-2 py-1.5 text-foreground"><Val>{formatNumber(user.total_tasks_invalidated)}</Val></td>
+                    <td
+                      className="px-2 py-1.5 text-foreground max-w-[120px] truncate"
+                      title={user.country_name || ""}
+                    >
+                      {user.country_name || "\u2014"}
+                    </td>
+                    <td className="px-2 py-1.5 text-foreground">
+                      {user.region_name || "\u2014"}
+                    </td>
+                    <td className="px-2 py-1.5 text-foreground">
+                      {user.timezone || "\u2014"}
+                    </td>
+                    <td className="px-2 py-1.5 text-foreground">
+                      <Val>{formatNumber(user.assigned_projects)}</Val>
+                    </td>
+                    <td className="px-2 py-1.5 text-foreground">
+                      <Val>{formatNumber(user.total_tasks_mapped)}</Val>
+                    </td>
+                    <td className="px-2 py-1.5 text-foreground">
+                      <Val>{formatNumber(user.total_tasks_validated)}</Val>
+                    </td>
+                    <td className="px-2 py-1.5 text-foreground">
+                      <Val>{formatNumber(user.total_tasks_invalidated)}</Val>
+                    </td>
                     <td className="px-2 py-1.5 text-foreground">
                       <Val>{formatCurrency(user.awaiting_payment)}</Val>
                     </td>
@@ -762,7 +846,10 @@ export function AdminUsers() {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">
+                    <td
+                      colSpan={13}
+                      className="px-4 py-8 text-center text-muted-foreground"
+                    >
                       No users found
                     </td>
                   </tr>
@@ -810,12 +897,14 @@ export function AdminUsers() {
       {isTeamAdmin && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Search org users by email</CardTitle>
+            <CardTitle className="text-base">
+              Search org users by email
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-3">
-              Find users across your organization by email to invite or add
-              to one of your managed teams.
+              Find users across your organization by email to invite or add to
+              one of your managed teams.
             </p>
             <div className="flex gap-2">
               <input
@@ -864,10 +953,19 @@ export function AdminUsers() {
       )}
 
       {/* Add User Modal */}
-      <Modal isOpen={showAddModal} onClose={() => { setShowAddModal(false); setInviteEmail(""); }} title="Invite User">
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => {
+          setShowAddModal(false);
+          setInviteEmail("");
+        }}
+        title="Invite User"
+      >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Email Address</label>
+            <label className="block text-sm font-medium mb-1">
+              Email Address
+            </label>
             <input
               type="email"
               className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
@@ -877,16 +975,27 @@ export function AdminUsers() {
             />
           </div>
           <p className="text-sm text-muted-foreground">
-            The user will receive an email to set their password and complete registration.
+            The user will receive an email to set their password and complete
+            registration.
           </p>
           <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-            If this user already has a Kaart login, they can use those same credentials to log into Mikro directly — no password change needed.
+            If this user already has a Kaart login, they can use those same
+            credentials to log into Mikro directly — no password change needed.
           </div>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => { setShowAddModal(false); setInviteEmail(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddModal(false);
+                setInviteEmail("");
+              }}
+            >
               Cancel
             </Button>
-            <Button onClick={handleInviteUser} disabled={isSaving || !inviteEmail}>
+            <Button
+              onClick={handleInviteUser}
+              disabled={isSaving || !inviteEmail}
+            >
               {isSaving ? "Sending..." : "Send Invite"}
             </Button>
           </div>
@@ -894,11 +1003,18 @@ export function AdminUsers() {
       </Modal>
 
       {/* Edit User Modal */}
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit User" size="lg">
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit User"
+        size="lg"
+      >
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">First Name</label>
+              <label className="block text-sm font-medium mb-1">
+                First Name
+              </label>
               <input
                 type="text"
                 className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
@@ -908,7 +1024,9 @@ export function AdminUsers() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Last Name</label>
+              <label className="block text-sm font-medium mb-1">
+                Last Name
+              </label>
               <input
                 type="text"
                 className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
@@ -930,7 +1048,9 @@ export function AdminUsers() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">OSM Username</label>
+              <label className="block text-sm font-medium mb-1">
+                OSM Username
+              </label>
               <input
                 type="text"
                 className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
@@ -940,7 +1060,9 @@ export function AdminUsers() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Mapillary Username</label>
+              <label className="block text-sm font-medium mb-1">
+                Mapillary Username
+              </label>
               <input
                 type="text"
                 className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
@@ -964,7 +1086,9 @@ export function AdminUsers() {
                   <option value="team_admin">{roleLabel("team_admin")}</option>
                   <option value="admin">{roleLabel("admin")}</option>
                   {viewerRole === "super_admin" && (
-                    <option value="super_admin">{roleLabel("super_admin")}</option>
+                    <option value="super_admin">
+                      {roleLabel("super_admin")}
+                    </option>
                   )}
                 </select>
               ) : (
@@ -996,13 +1120,20 @@ export function AdminUsers() {
             <select
               className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
               value={editCountryId ?? ""}
-              onChange={(e) => setEditCountryId(e.target.value ? parseInt(e.target.value) : null)}
+              onChange={(e) =>
+                setEditCountryId(
+                  e.target.value ? parseInt(e.target.value) : null,
+                )
+              }
             >
               <option value="">
-                {users.find((u) => u.id === selectedUser)?.country_name || "— Select country —"}
+                {users.find((u) => u.id === selectedUser)?.country_name ||
+                  "— Select country —"}
               </option>
               {countries.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
             </select>
           </div>
@@ -1018,9 +1149,18 @@ export function AdminUsers() {
             }}
           >
             <div>
-              <p style={{ fontWeight: 500, fontSize: 14 }}>Show Micropayments</p>
-              <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
-                Allow this user to see micropayment rates, earnings, and request payouts
+              <p style={{ fontWeight: 500, fontSize: 14 }}>
+                Show Micropayments
+              </p>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "var(--muted-foreground)",
+                  marginTop: 2,
+                }}
+              >
+                Allow this user to see micropayment rates, earnings, and request
+                payouts
               </p>
             </div>
             <button
@@ -1047,13 +1187,17 @@ export function AdminUsers() {
                   borderRadius: "50%",
                   backgroundColor: "white",
                   transition: "transform 0.2s",
-                  transform: editPaymentsVisible ? "translateX(24px)" : "translateX(4px)",
+                  transform: editPaymentsVisible
+                    ? "translateX(24px)"
+                    : "translateX(4px)",
                 }}
               />
             </button>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Hourly Rate</label>
+            <label className="block text-sm font-medium mb-1">
+              Hourly Rate
+            </label>
             <input
               type="number"
               step="0.01"
@@ -1076,20 +1220,34 @@ export function AdminUsers() {
       </Modal>
 
       {/* Delete User Modal */}
-      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Delete User">
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete User"
+      >
         <div className="space-y-4">
           <p className="text-muted-foreground">
             Are you sure you want to remove{" "}
             <span className="font-semibold text-foreground">
-              {users.find((u) => u.id === selectedUser)?.name || users.find((u) => u.id === selectedUser)?.email || "this user"}
+              {users.find((u) => u.id === selectedUser)?.name ||
+                users.find((u) => u.id === selectedUser)?.email ||
+                "this user"}
             </span>
             ? This action cannot be undone.
           </p>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowDeleteModal(false)} disabled={isSaving}>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteModal(false)}
+              disabled={isSaving}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteUser} disabled={isSaving}>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={isSaving}
+            >
               {isSaving ? "Deleting..." : "Delete"}
             </Button>
           </div>
@@ -1106,7 +1264,15 @@ export function AdminUsers() {
       />
 
       {/* Import CSV Modal */}
-      <Modal isOpen={showImportModal} onClose={() => { setShowImportModal(false); setCsvUsers([]); }} title="Import Users from CSV" size="2xl">
+      <Modal
+        isOpen={showImportModal}
+        onClose={() => {
+          setShowImportModal(false);
+          setCsvUsers([]);
+        }}
+        title="Import Users from CSV"
+        size="2xl"
+      >
         <div className="space-y-4">
           {importError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -1114,16 +1280,21 @@ export function AdminUsers() {
             </div>
           )}
           <p className="text-sm text-muted-foreground">
-            The following {csvUsers.length} user(s) will be invited. Each will receive an email to set their password.
+            The following {csvUsers.length} user(s) will be invited. Each will
+            receive an email to set their password.
           </p>
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-muted">
                 <tr>
                   <th className="px-4 py-2 text-left font-medium">Email</th>
-                  <th className="px-4 py-2 text-left font-medium">First Name</th>
+                  <th className="px-4 py-2 text-left font-medium">
+                    First Name
+                  </th>
                   <th className="px-4 py-2 text-left font-medium">Last Name</th>
-                  <th className="px-4 py-2 text-left font-medium">OSM Username</th>
+                  <th className="px-4 py-2 text-left font-medium">
+                    OSM Username
+                  </th>
                   <th className="px-4 py-2 text-left font-medium">Role</th>
                 </tr>
               </thead>
@@ -1131,21 +1302,29 @@ export function AdminUsers() {
                 {csvUsers.map((user, idx) => (
                   <tr key={idx}>
                     <td className="px-4 py-2">{user.email}</td>
-                    <td className="px-4 py-2">{user.first_name || user.name?.split(" ")[0] || "-"}</td>
-                    <td className="px-4 py-2">{user.last_name || user.name?.split(" ").slice(1).join(" ") || "-"}</td>
+                    <td className="px-4 py-2">
+                      {user.first_name || user.name?.split(" ")[0] || "-"}
+                    </td>
+                    <td className="px-4 py-2">
+                      {user.last_name ||
+                        user.name?.split(" ").slice(1).join(" ") ||
+                        "-"}
+                    </td>
                     <td className="px-4 py-2">{user.osm_username || "-"}</td>
                     <td className="px-4 py-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        user.role === "super_admin"
-                          ? "bg-pink-100 text-pink-800"
-                          : user.role === "admin"
-                          ? "bg-purple-100 text-purple-800"
-                          : user.role === "team_admin"
-                          ? "bg-indigo-100 text-indigo-800"
-                          : user.role === "validator"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-green-100 text-green-800"
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          user.role === "super_admin"
+                            ? "bg-pink-100 text-pink-800"
+                            : user.role === "admin"
+                              ? "bg-purple-100 text-purple-800"
+                              : user.role === "team_admin"
+                                ? "bg-indigo-100 text-indigo-800"
+                                : user.role === "validator"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-green-100 text-green-800"
+                        }`}
+                      >
                         {roleLabel(user.role)}
                       </span>
                     </td>
@@ -1155,7 +1334,13 @@ export function AdminUsers() {
             </table>
           </div>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => { setShowImportModal(false); setCsvUsers([]); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowImportModal(false);
+                setCsvUsers([]);
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={handleImportUsers} disabled={isSaving}>
@@ -1166,20 +1351,33 @@ export function AdminUsers() {
       </Modal>
 
       {/* Purge Users Modal */}
-      <Modal isOpen={showPurgeModal} onClose={() => setShowPurgeModal(false)} title="Purge All Users">
+      <Modal
+        isOpen={showPurgeModal}
+        onClose={() => setShowPurgeModal(false)}
+        title="Purge All Users"
+      >
         <div className="space-y-4">
           <p className="text-muted-foreground">
-            This will permanently delete ALL users in the organization except your own admin account.
-            All related data (task assignments, checklists, trainings, payments) will also be deleted.
+            This will permanently delete ALL users in the organization except
+            your own admin account. All related data (task assignments,
+            checklists, trainings, payments) will also be deleted.
           </p>
           <p className="text-red-600 font-semibold">
             This action cannot be undone!
           </p>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowPurgeModal(false)} disabled={isPurging}>
+            <Button
+              variant="outline"
+              onClick={() => setShowPurgeModal(false)}
+              disabled={isPurging}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handlePurgeUsers} disabled={isPurging}>
+            <Button
+              variant="destructive"
+              onClick={handlePurgeUsers}
+              disabled={isPurging}
+            >
               {isPurging ? "Purging..." : "Purge All Users"}
             </Button>
           </div>

@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { MultiSelect, type MultiSelectOption } from "@/components/ui/MultiSelect";
+import {
+  MultiSelect,
+  type MultiSelectOption,
+} from "@/components/ui/MultiSelect";
 import { FilterChip } from "./FilterChip";
 
 export interface FilterDimension {
@@ -94,16 +97,16 @@ export function FilterBar({
         setEditingDimension(null);
       }
     },
-    [activeFilters, onChange, editingDimension]
+    [activeFilters, onChange, editingDimension],
   );
 
   const handleFilterValuesChange = useCallback(
     (key: string, values: string[]) => {
       onChange(
-        activeFilters.map((f) => (f.key === key ? { ...f, values } : f))
+        activeFilters.map((f) => (f.key === key ? { ...f, values } : f)),
       );
     },
-    [activeFilters, onChange]
+    [activeFilters, onChange],
   );
 
   const handleChipClick = (key: string) => {
@@ -171,7 +174,7 @@ export function FilterBar({
             className={cn(
               "inline-flex items-center gap-1 rounded-full border border-dashed border-input px-3 py-1 text-sm text-muted-foreground",
               "transition-colors hover:border-foreground/30 hover:text-foreground",
-              "disabled:cursor-not-allowed disabled:opacity-50"
+              "disabled:cursor-not-allowed disabled:opacity-50",
             )}
           >
             <svg
@@ -202,7 +205,7 @@ export function FilterBar({
                     onClick={() => handleAddDimension(dim.key)}
                     className={cn(
                       "flex w-full items-center px-3 py-2 text-sm",
-                      "hover:bg-accent hover:text-accent-foreground"
+                      "hover:bg-accent hover:text-accent-foreground",
                     )}
                   >
                     {dim.label}

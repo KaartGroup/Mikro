@@ -16,7 +16,12 @@ import {
   Val,
 } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
-import { useCursorHistory, useRequestTimeAdjustment, useUpdateMyNotes, useUserProjects } from "@/hooks";
+import {
+  useCursorHistory,
+  useRequestTimeAdjustment,
+  useUpdateMyNotes,
+  useUserProjects,
+} from "@/hooks";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import {
   formatDurationHM,
@@ -56,17 +61,26 @@ const DATE_PRESET_LABELS: Record<DatePreset, string> = {
 // Calendar-aligned semantics — same spec as /time. See that file's
 // `getDateRange` for the full prose. Week starts Sunday; "Last 3 Months"
 // excludes the current (incomplete) calendar month.
-function getDateRange(preset: DatePreset): { startDate: string | null; endDate: string | null } {
+function getDateRange(preset: DatePreset): {
+  startDate: string | null;
+  endDate: string | null;
+} {
   switch (preset) {
     case "this_week":
-      return { startDate: localWeekStartIsoUtc(), endDate: localWeekEndIsoUtc() };
+      return {
+        startDate: localWeekStartIsoUtc(),
+        endDate: localWeekEndIsoUtc(),
+      };
     case "last_week":
       return {
         startDate: localWeekStartAgoIsoUtc(1),
         endDate: localWeekStartIsoUtc(),
       };
     case "this_month":
-      return { startDate: localMonthStartIsoUtc(), endDate: localDayEndIsoUtc() };
+      return {
+        startDate: localMonthStartIsoUtc(),
+        endDate: localDayEndIsoUtc(),
+      };
     case "last_month":
       return {
         startDate: localMonthStartAgoIsoUtc(1),
@@ -131,12 +145,15 @@ export function UserTime() {
   const [page, setPage] = useState(0);
 
   // Adjustment request state
-  const [adjustmentEntryId, setAdjustmentEntryId] = useState<number | null>(null);
+  const [adjustmentEntryId, setAdjustmentEntryId] = useState<number | null>(
+    null,
+  );
   const [adjustmentReason, setAdjustmentReason] = useState("");
 
   // Data fetching
   const history = useCursorHistory("/timetracking/my_history");
-  const { mutate: requestAdjustment, loading: submitting } = useRequestTimeAdjustment();
+  const { mutate: requestAdjustment, loading: submitting } =
+    useRequestTimeAdjustment();
   const { mutate: updateMyNotes } = useUpdateMyNotes();
 
   const handleSaveNotes = async (entryId: number, value: string | null) => {
@@ -181,7 +198,9 @@ export function UserTime() {
     const { startDate, endDate } = getDateRange(datePreset);
     if (startDate) {
       const start = new Date(startDate);
-      entries = entries.filter((e) => e.clockIn && new Date(e.clockIn) >= start);
+      entries = entries.filter(
+        (e) => e.clockIn && new Date(e.clockIn) >= start,
+      );
     }
     if (endDate) {
       const end = new Date(endDate);
@@ -191,7 +210,9 @@ export function UserTime() {
     // Client-side category filtering (fallback)
     const filterKey = resolveCategoryKey(category);
     if (filterKey) {
-      entries = entries.filter((e) => resolveCategoryKey(e.category) === filterKey);
+      entries = entries.filter(
+        (e) => resolveCategoryKey(e.category) === filterKey,
+      );
     }
 
     return entries;
@@ -201,7 +222,7 @@ export function UserTime() {
   const stats = useMemo(() => {
     const totalSeconds = history.entries.reduce(
       (sum, e) => sum + (e.durationSeconds ?? 0),
-      0
+      0,
     );
 
     const now = new Date();
@@ -210,8 +231,8 @@ export function UserTime() {
       .filter((e) => e.clockIn && new Date(e.clockIn) >= monthStart)
       .reduce((sum, e) => sum + (e.durationSeconds ?? 0), 0);
 
-    const pendingAdjustments = history.entries.filter(
-      (e) => e.notes?.startsWith("[ADJUSTMENT REQUESTED]")
+    const pendingAdjustments = history.entries.filter((e) =>
+      e.notes?.startsWith("[ADJUSTMENT REQUESTED]"),
     ).length;
 
     return {
@@ -226,7 +247,7 @@ export function UserTime() {
   const totalPages = Math.max(1, Math.ceil(totalEntries / PAGE_SIZE));
   const pagedEntries = filteredEntries.slice(
     page * PAGE_SIZE,
-    (page + 1) * PAGE_SIZE
+    (page + 1) * PAGE_SIZE,
   );
   const showingFrom = totalEntries === 0 ? 0 : page * PAGE_SIZE + 1;
   const showingTo = Math.min((page + 1) * PAGE_SIZE, totalEntries);
@@ -277,15 +298,37 @@ export function UserTime() {
       {/* Clock Widget */}
       <div style={{ maxWidth: 320 }}>
         <TimeTrackingWidget
-          projects={projects?.user_projects?.map((p: { id: number; name: string; short_name?: string; last_worked_on?: string | null }) => ({ id: p.id, name: p.name, short_name: p.short_name, last_worked_on: p.last_worked_on ?? null })) ?? []}
+          projects={
+            projects?.user_projects?.map(
+              (p: {
+                id: number;
+                name: string;
+                short_name?: string;
+                last_worked_on?: string | null;
+              }) => ({
+                id: p.id,
+                name: p.name,
+                short_name: p.short_name,
+                last_worked_on: p.last_worked_on ?? null,
+              }),
+            ) ?? []
+          }
         />
       </div>
 
       {/* Stat Cards */}
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(3, 1fr)" }}>
+      <div
+        style={{
+          display: "grid",
+          gap: 16,
+          gridTemplateColumns: "repeat(3, 1fr)",
+        }}
+      >
         <Card style={{ padding: 0 }}>
           <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Hours</p>
+            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+              Hours
+            </p>
             <div style={{ fontSize: 20, fontWeight: 700, color: "#ff6b35" }}>
               {formatNumber(stats.totalHours).text}h
             </div>
@@ -297,33 +340,57 @@ export function UserTime() {
 
         <Card style={{ padding: 0 }}>
           <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>This Month</p>
+            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+              This Month
+            </p>
             <div style={{ fontSize: 20, fontWeight: 700, color: "#2563eb" }}>
               {formatNumber(stats.thisMonthHours).text}h
             </div>
             <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-              {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              {new Date().toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
             </p>
           </div>
         </Card>
 
         <Card style={{ padding: 0 }}>
           <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Pending Adjustments</p>
-            <div style={{ fontSize: 20, fontWeight: 700, color: stats.pendingAdjustments > 0 ? "#ca8a04" : "#16a34a" }}>
+            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+              Pending Adjustments
+            </p>
+            <div
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: stats.pendingAdjustments > 0 ? "#ca8a04" : "#16a34a",
+              }}
+            >
               <Val>{formatNumber(stats.pendingAdjustments)}</Val>
             </div>
             <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-              {stats.pendingAdjustments > 0 ? "Awaiting review" : "No pending requests"}
+              {stats.pendingAdjustments > 0
+                ? "Awaiting review"
+                : "No pending requests"}
             </p>
           </div>
         </Card>
       </div>
 
       {/* Filters */}
-      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 16,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <label className="text-sm font-medium text-muted-foreground">Date Range:</label>
+          <label className="text-sm font-medium text-muted-foreground">
+            Date Range:
+          </label>
           <select
             className="rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             value={datePreset}
@@ -338,7 +405,9 @@ export function UserTime() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <label className="text-sm font-medium text-muted-foreground">Category:</label>
+          <label className="text-sm font-medium text-muted-foreground">
+            Category:
+          </label>
           <select
             className="rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             value={category}
@@ -374,7 +443,9 @@ export function UserTime() {
             <TableBody>
               {pagedEntries.map((entry) => {
                 const isVoided = entry.status === "voided";
-                const hasPendingAdjustment = entry.notes?.startsWith("[ADJUSTMENT REQUESTED]");
+                const hasPendingAdjustment = entry.notes?.startsWith(
+                  "[ADJUSTMENT REQUESTED]",
+                );
                 const canRequestAdjustment =
                   entry.status === "completed" && !hasPendingAdjustment;
 
@@ -383,26 +454,38 @@ export function UserTime() {
                     key={entry.id}
                     className={isVoided ? "opacity-50" : ""}
                   >
-                    <TableCell className={`whitespace-nowrap ${isVoided ? "line-through" : ""}`}>
+                    <TableCell
+                      className={`whitespace-nowrap ${isVoided ? "line-through" : ""}`}
+                    >
                       {entry.clockIn ? formatDateDisplay(entry.clockIn) : "--"}
                     </TableCell>
-                    <TableCell className={`max-w-[120px] truncate ${isVoided ? "line-through" : ""}`}>
+                    <TableCell
+                      className={`max-w-[120px] truncate ${isVoided ? "line-through" : ""}`}
+                    >
                       <Val fallback="--">{entry.projectName}</Val>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary"><Val fallback="--">{entry.category}</Val></Badge>
+                      <Badge variant="secondary">
+                        <Val fallback="--">{entry.category}</Val>
+                      </Badge>
                     </TableCell>
                     <TableCell className="max-w-[120px] truncate text-muted-foreground">
                       <Val>{entry.taskName}</Val>
                     </TableCell>
-                    <TableCell className={`whitespace-nowrap text-muted-foreground ${isVoided ? "line-through" : ""}`}>
+                    <TableCell
+                      className={`whitespace-nowrap text-muted-foreground ${isVoided ? "line-through" : ""}`}
+                    >
                       {entry.clockIn ? formatTime(entry.clockIn) : "--"}
                     </TableCell>
-                    <TableCell className={`whitespace-nowrap text-muted-foreground ${isVoided ? "line-through" : ""}`}>
+                    <TableCell
+                      className={`whitespace-nowrap text-muted-foreground ${isVoided ? "line-through" : ""}`}
+                    >
                       {entry.clockOut ? formatTime(entry.clockOut) : "--"}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      <span className={`font-mono ${isVoided ? "line-through" : ""}`}>
+                      <span
+                        className={`font-mono ${isVoided ? "line-through" : ""}`}
+                      >
                         {formatDuration(entry.durationSeconds)}
                       </span>
                     </TableCell>
@@ -412,8 +495,8 @@ export function UserTime() {
                           entry.status === "completed"
                             ? "success"
                             : entry.status === "voided"
-                            ? "destructive"
-                            : "warning"
+                              ? "destructive"
+                              : "warning"
                         }
                       >
                         {entry.status}
@@ -452,55 +535,61 @@ export function UserTime() {
               })}
 
               {/* Inline adjustment form row */}
-              {adjustmentEntryId && pagedEntries.some((e) => e.id === adjustmentEntryId) && (
-                <TableRow>
-                  <TableCell colSpan={9} style={{ padding: 0 }}>
-                    <div className="border-t border-border p-4 bg-muted/50">
-                      <h4 className="text-sm font-medium mb-2">
-                        Request Adjustment for Entry #{adjustmentEntryId}
-                      </h4>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Describe what needs to be corrected. An admin will review and edit the entry.
-                      </p>
-                      <textarea
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                        rows={3}
-                        placeholder="e.g., Forgot to clock out -- actual end time was 5:30 PM"
-                        value={adjustmentReason}
-                        onChange={(e) => setAdjustmentReason(e.target.value)}
-                      />
-                      <div className="flex gap-2 mt-2 justify-end">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setAdjustmentEntryId(null);
-                            setAdjustmentReason("");
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={handleRequestAdjustment}
-                          disabled={!adjustmentReason.trim() || submitting}
-                          isLoading={submitting}
-                        >
-                          Submit Request
-                        </Button>
+              {adjustmentEntryId &&
+                pagedEntries.some((e) => e.id === adjustmentEntryId) && (
+                  <TableRow>
+                    <TableCell colSpan={9} style={{ padding: 0 }}>
+                      <div className="border-t border-border p-4 bg-muted/50">
+                        <h4 className="text-sm font-medium mb-2">
+                          Request Adjustment for Entry #{adjustmentEntryId}
+                        </h4>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Describe what needs to be corrected. An admin will
+                          review and edit the entry.
+                        </p>
+                        <textarea
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                          rows={3}
+                          placeholder="e.g., Forgot to clock out -- actual end time was 5:30 PM"
+                          value={adjustmentReason}
+                          onChange={(e) => setAdjustmentReason(e.target.value)}
+                        />
+                        <div className="flex gap-2 mt-2 justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setAdjustmentEntryId(null);
+                              setAdjustmentReason("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleRequestAdjustment}
+                            disabled={!adjustmentReason.trim() || submitting}
+                            isLoading={submitting}
+                          >
+                            Submit Request
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
+                    </TableCell>
+                  </TableRow>
+                )}
 
               {/* Empty state */}
               {pagedEntries.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={9}
-                    style={{ textAlign: "center", padding: "32px 16px", color: "#6b7280" }}
+                    style={{
+                      textAlign: "center",
+                      padding: "32px 16px",
+                      color: "#6b7280",
+                    }}
                   >
                     No time entries found
                   </TableCell>
@@ -513,10 +602,16 @@ export function UserTime() {
 
       {/* Pagination */}
       {totalEntries > 0 && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <p className="text-sm text-muted-foreground">
-            Showing {formatNumber(showingFrom).text}-{formatNumber(showingTo).text} of{" "}
-            {formatNumber(totalEntries).text}
+            Showing {formatNumber(showingFrom).text}-
+            {formatNumber(showingTo).text} of {formatNumber(totalEntries).text}
           </p>
           <div style={{ display: "flex", gap: 8 }}>
             <Button

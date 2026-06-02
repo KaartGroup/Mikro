@@ -21,7 +21,8 @@ interface TeamActivityCardProps {
 }
 
 export function TeamActivityCard({ data, granularity }: TeamActivityCardProps) {
-  const activityData = granularity === "daily" ? data.daily_activity : data.weekly_activity;
+  const activityData =
+    granularity === "daily" ? data.daily_activity : data.weekly_activity;
   const dataKey = granularity === "daily" ? "day" : "week";
 
   return (
@@ -45,7 +46,11 @@ export function TeamActivityCard({ data, granularity }: TeamActivityCardProps) {
                     })
                   }
                 />
-                <YAxis yAxisId="left" tick={{ fontSize: 10 }} tickFormatter={chartNumberFmt} />
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={chartNumberFmt}
+                />
                 <YAxis
                   yAxisId="right"
                   orientation="right"
@@ -54,11 +59,14 @@ export function TeamActivityCard({ data, granularity }: TeamActivityCardProps) {
                 />
                 <Tooltip
                   labelFormatter={(v) =>
-                    new Date(String(v) + "T00:00:00").toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
+                    new Date(String(v) + "T00:00:00").toLocaleDateString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    )
                   }
                   formatter={chartTooltipFmt}
                 />

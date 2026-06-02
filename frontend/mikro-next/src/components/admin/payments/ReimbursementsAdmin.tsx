@@ -46,7 +46,6 @@ import {
 import type { ReimbursementRequest, ReimbursementStatus } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 
-
 const STATUS_BADGE: Record<
   ReimbursementStatus,
   "warning" | "success" | "destructive" | "secondary"
@@ -57,21 +56,20 @@ const STATUS_BADGE: Record<
   withdrawn: "secondary",
 };
 
-
 function formatDate(s: string | null): string {
   if (!s) return "—";
   const d = new Date(s);
   return d.toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
-
 
 function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-
 
 // ─── Small summary widget (lives on the Payments tab) ─────────────
 
@@ -127,7 +125,6 @@ export function ReimbursementsAdminSummary({ onNavigate }: SummaryProps) {
   );
 }
 
-
 // ─── Full panel (lives on the Reimbursements tab) ────────────────
 
 const STATUS_FILTER_OPTIONS = [
@@ -138,7 +135,6 @@ const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "All" },
 ];
 
-
 interface ApproveModalState {
   request: ReimbursementRequest;
 }
@@ -147,25 +143,32 @@ interface RejectModalState {
   request: ReimbursementRequest;
 }
 
-
 export function ReimbursementsAdminPanel() {
   const toast = useToastActions();
   const { mutate: fetchPending, loading } = usePendingReimbursements();
-  const { mutate: approveRequest, loading: approving } = useApproveReimbursementRequest();
-  const { mutate: rejectRequest, loading: rejecting } = useRejectReimbursementRequest();
+  const { mutate: approveRequest, loading: approving } =
+    useApproveReimbursementRequest();
+  const { mutate: rejectRequest, loading: rejecting } =
+    useRejectReimbursementRequest();
   const { mutate: fetchAttachmentUrl } = useReimbursementAttachmentUrl();
 
   const [rows, setRows] = useState<ReimbursementRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
-  const [approveTarget, setApproveTarget] = useState<ApproveModalState | null>(null);
-  const [rejectTarget, setRejectTarget] = useState<RejectModalState | null>(null);
+  const [approveTarget, setApproveTarget] = useState<ApproveModalState | null>(
+    null,
+  );
+  const [rejectTarget, setRejectTarget] = useState<RejectModalState | null>(
+    null,
+  );
 
   const reload = useCallback(async () => {
     try {
       const res = await fetchPending({ status: statusFilter });
       setRows(res?.requests ?? []);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load reimbursements");
+      toast.error(
+        e instanceof Error ? e.message : "Failed to load reimbursements",
+      );
       setRows([]);
     }
   }, [statusFilter, fetchPending, toast]);
@@ -197,9 +200,9 @@ export function ReimbursementsAdminPanel() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
         <p className="text-muted-foreground max-w-2xl">
-          Editor-submitted reimbursement requests. Approve to add the
-          amount to the editor&apos;s next payout as an adjustment.
-          Reject with a reviewer note so the editor sees the reason.
+          Editor-submitted reimbursement requests. Approve to add the amount to
+          the editor&apos;s next payout as an adjustment. Reject with a reviewer
+          note so the editor sees the reason.
         </p>
         <div className="min-w-[200px]">
           <Select
@@ -236,30 +239,58 @@ export function ReimbursementsAdminPanel() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Editor</th>
-                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Submitted</th>
-                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Amount</th>
-                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Description</th>
-                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Receipt</th>
-                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Status</th>
-                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Reviewer note</th>
-                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Actions</th>
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                      Editor
+                    </th>
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                      Submitted
+                    </th>
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                      Amount
+                    </th>
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                      Description
+                    </th>
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                      Receipt
+                    </th>
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                      Reviewer note
+                    </th>
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => (
-                    <tr key={row.id} className="border-b border-border last:border-0">
+                    <tr
+                      key={row.id}
+                      className="border-b border-border last:border-0"
+                    >
                       <td className="py-2 px-2">
-                        <div className="font-medium">{row.user_name || row.user_id}</div>
+                        <div className="font-medium">
+                          {row.user_name || row.user_id}
+                        </div>
                         {row.user_osm_username && (
                           <div className="text-xs text-muted-foreground">
                             {row.user_osm_username}
                           </div>
                         )}
                       </td>
-                      <td className="py-2 px-2 text-muted-foreground">{formatDate(row.submitted_at)}</td>
-                      <td className="py-2 px-2 font-mono">{formatCurrency(row.amount).text}</td>
-                      <td className="py-2 px-2 max-w-md truncate" title={row.description}>
+                      <td className="py-2 px-2 text-muted-foreground">
+                        {formatDate(row.submitted_at)}
+                      </td>
+                      <td className="py-2 px-2 font-mono">
+                        {formatCurrency(row.amount).text}
+                      </td>
+                      <td
+                        className="py-2 px-2 max-w-md truncate"
+                        title={row.description}
+                      >
                         {row.description}
                       </td>
                       <td className="py-2 px-2">
@@ -276,15 +307,23 @@ export function ReimbursementsAdminPanel() {
                         )}
                       </td>
                       <td className="py-2 px-2">
-                        <Badge variant={STATUS_BADGE[row.status]}>{row.status}</Badge>
+                        <Badge variant={STATUS_BADGE[row.status]}>
+                          {row.status}
+                        </Badge>
                       </td>
-                      <td className="py-2 px-2 text-muted-foreground max-w-xs truncate" title={row.reviewer_note ?? undefined}>
+                      <td
+                        className="py-2 px-2 text-muted-foreground max-w-xs truncate"
+                        title={row.reviewer_note ?? undefined}
+                      >
                         {row.reviewer_note || "—"}
                       </td>
                       <td className="py-2 px-2 space-x-2">
                         {row.status === "pending" ? (
                           <>
-                            <Button size="sm" onClick={() => setApproveTarget({ request: row })}>
+                            <Button
+                              size="sm"
+                              onClick={() => setApproveTarget({ request: row })}
+                            >
                               Approve
                             </Button>
                             <Button
@@ -296,7 +335,9 @@ export function ReimbursementsAdminPanel() {
                             </Button>
                           </>
                         ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
+                          <span className="text-muted-foreground text-xs">
+                            —
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -341,7 +382,6 @@ export function ReimbursementsAdminPanel() {
   );
 }
 
-
 // ─── Approve modal ───────────────────────────────────────────────
 
 interface ApproveModalProps {
@@ -358,9 +398,13 @@ interface ApproveModalProps {
   }) => Promise<unknown>;
 }
 
-
 function ApproveModal({
-  request, isOpen, onClose, onApproved, submitting, approveFn,
+  request,
+  isOpen,
+  onClose,
+  onApproved,
+  submitting,
+  approveFn,
 }: ApproveModalProps) {
   const toast = useToastActions();
   const [cycleStart, setCycleStart] = useState(todayIso());
@@ -383,7 +427,9 @@ function ApproveModal({
         cycle_end: cycleEnd,
         reviewer_note: reviewerNote.trim() || undefined,
       });
-      toast.success(`Approved ${formatCurrency(request.amount).text} for ${request.user_name || request.user_id}`);
+      toast.success(
+        `Approved ${formatCurrency(request.amount).text} for ${request.user_name || request.user_id}`,
+      );
       onApproved();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to approve");
@@ -413,11 +459,13 @@ function ApproveModal({
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          Pick the payroll cycle this reimbursement should land in. The
-          editor didn&apos;t specify one at submission time.
+          Pick the payroll cycle this reimbursement should land in. The editor
+          didn&apos;t specify one at submission time.
         </p>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium">Reviewer note (optional)</label>
+          <label className="text-sm font-medium">
+            Reviewer note (optional)
+          </label>
           <textarea
             className="w-full rounded border border-border bg-background px-2 py-1 text-sm"
             rows={3}
@@ -439,7 +487,6 @@ function ApproveModal({
   );
 }
 
-
 // ─── Reject modal ────────────────────────────────────────────────
 
 interface RejectModalProps {
@@ -448,12 +495,19 @@ interface RejectModalProps {
   onClose: () => void;
   onRejected: () => void;
   submitting: boolean;
-  rejectFn: (body: { request_id: number; reviewer_note: string }) => Promise<unknown>;
+  rejectFn: (body: {
+    request_id: number;
+    reviewer_note: string;
+  }) => Promise<unknown>;
 }
 
-
 function RejectModal({
-  request, isOpen, onClose, onRejected, submitting, rejectFn,
+  request,
+  isOpen,
+  onClose,
+  onRejected,
+  submitting,
+  rejectFn,
 }: RejectModalProps) {
   const toast = useToastActions();
   const [reviewerNote, setReviewerNote] = useState("");
@@ -501,7 +555,11 @@ function RejectModal({
           <Button variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={handleReject} disabled={submitting}>
+          <Button
+            variant="destructive"
+            onClick={handleReject}
+            disabled={submitting}
+          >
             {submitting ? "Rejecting…" : "Reject"}
           </Button>
         </div>

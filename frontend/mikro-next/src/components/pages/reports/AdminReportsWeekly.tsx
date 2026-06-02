@@ -187,9 +187,24 @@ function MiniActivityChart({
               <YAxis tick={{ fontSize: 9 }} width={35} />
               <Tooltip contentStyle={{ fontSize: 11 }} />
               <Legend wrapperStyle={{ fontSize: 9 }} iconSize={8} />
-              <Bar dataKey="deleted" name="Deleted" fill={COLORS.deleted} stackId="a" />
-              <Bar dataKey="added" name="Added" fill={COLORS.added} stackId="a" />
-              <Bar dataKey="modified" name="Modified" fill={COLORS.modified} stackId="a" />
+              <Bar
+                dataKey="deleted"
+                name="Deleted"
+                fill={COLORS.deleted}
+                stackId="a"
+              />
+              <Bar
+                dataKey="added"
+                name="Added"
+                fill={COLORS.added}
+                stackId="a"
+              />
+              <Bar
+                dataKey="modified"
+                name="Modified"
+                fill={COLORS.modified}
+                stackId="a"
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -217,7 +232,7 @@ function EditableTable({
 
   const updateCell = (rowIdx: number, key: string, value: string) => {
     const updated = rows.map((r, i) =>
-      i === rowIdx ? { ...r, [key]: value } : r
+      i === rowIdx ? { ...r, [key]: value } : r,
     );
     onChange(updated);
   };
@@ -251,7 +266,9 @@ function EditableTable({
                     <input
                       type="text"
                       value={row[c.key] || ""}
-                      onChange={(e) => updateCell(rowIdx, c.key, e.target.value)}
+                      onChange={(e) =>
+                        updateCell(rowIdx, c.key, e.target.value)
+                      }
                       className="w-full px-2 py-1 text-sm bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-kaart-orange"
                     />
                   </td>
@@ -350,8 +367,11 @@ export function AdminReportsWeekly() {
   const [title, setTitle] = useState("Weekly Report");
   const [startDate, setStartDate] = useState(toDateStr(defaultStart));
   const [endDate, setEndDate] = useState(toDateStr(defaultEnd));
-  const [sections, setSections] = useState<ReportSection[]>(getDefaultSections());
-  const [collapsedSections, setCollapsedSections] = useState<Set<SectionType>>(new Set());
+  const [sections, setSections] =
+    useState<ReportSection[]>(getDefaultSections());
+  const [collapsedSections, setCollapsedSections] = useState<Set<SectionType>>(
+    new Set(),
+  );
   const [draftId, setDraftId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [showDraftsList, setShowDraftsList] = useState(false);
@@ -365,16 +385,21 @@ export function AdminReportsWeekly() {
   const { data: draftsData, refetch: refetchDrafts } = useFetchWeeklyDrafts();
 
   // Data hooks for auto-populated sections
-  const { mutate: fetchTimekeeping, loading: tkLoading } = useFetchTimekeepingStats();
-  const { mutate: fetchElements, loading: elemLoading } = useFetchElementAnalysis();
+  const { mutate: fetchTimekeeping, loading: tkLoading } =
+    useFetchTimekeepingStats();
+  const { mutate: fetchElements, loading: elemLoading } =
+    useFetchElementAnalysis();
   const { data: projectsData } = useOrgProjects();
   const { data: teamsData } = useFetchTeams();
   const { mutate: syncSheet, loading: syncLoading } = useSyncCommunitySheet();
   const { mutate: fetchCommunityEntries } = useFetchCommunityEntries();
 
   // Auto-fetched data storage
-  const [timekeepingData, setTimekeepingData] = useState<TimekeepingStatsResponse | null>(null);
-  const [elementCategories, setElementCategories] = useState<ElementAnalysisCategory[]>([]);
+  const [timekeepingData, setTimekeepingData] =
+    useState<TimekeepingStatsResponse | null>(null);
+  const [elementCategories, setElementCategories] = useState<
+    ElementAnalysisCategory[]
+  >([]);
   const [tkFetched, setTkFetched] = useState(false);
   const [elemFetched, setElemFetched] = useState(false);
 
@@ -391,10 +416,15 @@ export function AdminReportsWeekly() {
     const startIso = dateInputToLocalStartIsoUtc(startDate);
     const endIso = dateInputToLocalEndIsoUtc(endDate);
     try {
-      const tkParams: Record<string, unknown> = { startDate: startIso, endDate: endIso };
+      const tkParams: Record<string, unknown> = {
+        startDate: startIso,
+        endDate: endIso,
+      };
       if (selectedTeamId) tkParams.teamId = selectedTeamId;
       if (compareEnabled && prevDraft) {
-        tkParams.compareStartDate = dateInputToLocalStartIsoUtc(prevDraft.start_date);
+        tkParams.compareStartDate = dateInputToLocalStartIsoUtc(
+          prevDraft.start_date,
+        );
         tkParams.compareEndDate = dateInputToLocalEndIsoUtc(prevDraft.end_date);
       }
       const tkResult = await fetchTimekeeping(tkParams);
@@ -405,7 +435,10 @@ export function AdminReportsWeekly() {
     }
 
     try {
-      const elemParams: Record<string, unknown> = { startDate: startIso, endDate: endIso };
+      const elemParams: Record<string, unknown> = {
+        startDate: startIso,
+        endDate: endIso,
+      };
       if (selectedTeamId) elemParams.teamIds = [selectedTeamId];
       const elemResult = await fetchElements(elemParams);
       setElementCategories(elemResult?.categories ?? []);
@@ -413,7 +446,15 @@ export function AdminReportsWeekly() {
     } catch {
       setElemFetched(true);
     }
-  }, [startDate, endDate, selectedTeamId, compareEnabled, prevDraft, fetchTimekeeping, fetchElements]);
+  }, [
+    startDate,
+    endDate,
+    selectedTeamId,
+    compareEnabled,
+    prevDraft,
+    fetchTimekeeping,
+    fetchElements,
+  ]);
 
   useEffect(() => {
     fetchAutoData();
@@ -423,13 +464,15 @@ export function AdminReportsWeekly() {
   useEffect(() => {
     const id = searchParams.get("id");
     if (id) {
-      fetchDraft({ id: parseInt(id) }).then((result) => {
-        if (result?.draft) {
-          hydrateDraft(result.draft);
-        }
-      }).catch(() => {
-        toast.error("Failed to load draft");
-      });
+      fetchDraft({ id: parseInt(id) })
+        .then((result) => {
+          if (result?.draft) {
+            hydrateDraft(result.draft);
+          }
+        })
+        .catch(() => {
+          toast.error("Failed to load draft");
+        });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -460,7 +503,9 @@ export function AdminReportsWeekly() {
       if (sectionData && Array.isArray(sectionData)) {
         const defaults = getDefaultSections();
         const merged = defaults.map((def) => {
-          const saved = sectionData!.find((s: ReportSection) => s.type === def.type);
+          const saved = sectionData!.find(
+            (s: ReportSection) => s.type === def.type,
+          );
           return saved ? { ...def, ...saved } : def;
         });
         setSections(merged);
@@ -514,12 +559,22 @@ export function AdminReportsWeekly() {
   };
 
   // ── Pull community data from Google Sheet ──
-  const handlePullCommunityData = async (sectionType: "community_outreach" | "community_discussions" | "investigations") => {
+  const handlePullCommunityData = async (
+    sectionType:
+      | "community_outreach"
+      | "community_discussions"
+      | "investigations",
+  ) => {
     try {
       const result = await fetchCommunityEntries({
         startDate: dateInputToLocalStartIsoUtc(startDate),
         endDate: dateInputToLocalEndIsoUtc(endDate),
-        entryType: sectionType === "community_outreach" ? "outreach" : sectionType === "community_discussions" ? "discussion" : "investigation",
+        entryType:
+          sectionType === "community_outreach"
+            ? "outreach"
+            : sectionType === "community_discussions"
+              ? "discussion"
+              : "investigation",
       });
       if (result?.entries && result.entries.length > 0) {
         const rows = result.entries.map((entry: CommunityEntry) => {
@@ -545,7 +600,9 @@ export function AdminReportsWeekly() {
     try {
       const result = await syncSheet({});
       if (result?.synced !== undefined) {
-        toast.success(`Synced ${result.synced} new entries (${result.skipped} already imported)`);
+        toast.success(
+          `Synced ${result.synced} new entries (${result.skipped} already imported)`,
+        );
       }
     } catch {
       toast.error("Failed to sync from Google Sheet");
@@ -555,13 +612,15 @@ export function AdminReportsWeekly() {
   // ── Section helpers ──
   const updateSection = (type: SectionType, data: Record<string, unknown>) => {
     setSections((prev) =>
-      prev.map((s) => (s.type === type ? { ...s, data: { ...s.data, ...data } } : s))
+      prev.map((s) =>
+        s.type === type ? { ...s, data: { ...s.data, ...data } } : s,
+      ),
     );
   };
 
   const toggleSection = (type: SectionType) => {
     setSections((prev) =>
-      prev.map((s) => (s.type === type ? { ...s, enabled: !s.enabled } : s))
+      prev.map((s) => (s.type === type ? { ...s, enabled: !s.enabled } : s)),
     );
   };
 
@@ -605,7 +664,9 @@ export function AdminReportsWeekly() {
               <input
                 type="text"
                 value={(section.data.teamName as string) || ""}
-                onChange={(e) => updateSection("cover", { teamName: e.target.value })}
+                onChange={(e) =>
+                  updateSection("cover", { teamName: e.target.value })
+                }
                 className="w-full mt-1 px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-kaart-orange"
               />
             </div>
@@ -616,11 +677,14 @@ export function AdminReportsWeekly() {
         return (
           <div>
             <label className="text-xs text-muted-foreground">
-              Summary (reimbursement notices, quarterly goals, atlas check updates)
+              Summary (reimbursement notices, quarterly goals, atlas check
+              updates)
             </label>
             <textarea
               value={(section.data.content as string) || ""}
-              onChange={(e) => updateSection("summary", { content: e.target.value })}
+              onChange={(e) =>
+                updateSection("summary", { content: e.target.value })
+              }
               rows={6}
               className="w-full mt-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-kaart-orange resize-y"
               placeholder="Enter summary content..."
@@ -637,19 +701,50 @@ export function AdminReportsWeekly() {
             {compareEnabled && comparison && currentSummary && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { label: "Total Hours", current: currentSummary.total_hours, prior: comparison.total_hours },
-                  { label: "Changesets", current: currentSummary.total_changesets, prior: comparison.total_changesets },
-                  { label: "Changes", current: currentSummary.total_changes, prior: comparison.total_changes },
-                  { label: "Active Users", current: currentSummary.active_users, prior: comparison.active_users },
+                  {
+                    label: "Total Hours",
+                    current: currentSummary.total_hours,
+                    prior: comparison.total_hours,
+                  },
+                  {
+                    label: "Changesets",
+                    current: currentSummary.total_changesets,
+                    prior: comparison.total_changesets,
+                  },
+                  {
+                    label: "Changes",
+                    current: currentSummary.total_changes,
+                    prior: comparison.total_changes,
+                  },
+                  {
+                    label: "Active Users",
+                    current: currentSummary.active_users,
+                    prior: comparison.active_users,
+                  },
                 ].map(({ label, current, prior }) => {
-                  const delta = prior > 0 ? ((current - prior) / prior) * 100 : null;
+                  const delta =
+                    prior > 0 ? ((current - prior) / prior) * 100 : null;
                   return (
-                    <div key={label} className="border border-border rounded-lg p-3 text-center">
+                    <div
+                      key={label}
+                      className="border border-border rounded-lg p-3 text-center"
+                    >
                       <p className="text-xs text-muted-foreground">{label}</p>
-                      <p className="text-lg font-bold">{typeof current === "number" ? <Val>{formatNumber(Math.round(current * 10) / 10)}</Val> : current}</p>
+                      <p className="text-lg font-bold">
+                        {typeof current === "number" ? (
+                          <Val>
+                            {formatNumber(Math.round(current * 10) / 10)}
+                          </Val>
+                        ) : (
+                          current
+                        )}
+                      </p>
                       {delta !== null && (
-                        <p className={`text-xs font-medium ${delta >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          {delta >= 0 ? "\u25B2" : "\u25BC"} {Math.abs(delta).toFixed(1)}% vs prior
+                        <p
+                          className={`text-xs font-medium ${delta >= 0 ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {delta >= 0 ? "\u25B2" : "\u25BC"}{" "}
+                          {Math.abs(delta).toFixed(1)}% vs prior
                         </p>
                       )}
                     </div>
@@ -667,19 +762,47 @@ export function AdminReportsWeekly() {
                 {/* Weekly Team Activity */}
                 {weeklyActivity.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold mb-2">Weekly Team Activity</p>
+                    <p className="text-xs font-semibold mb-2">
+                      Weekly Team Activity
+                    </p>
                     <div style={{ width: "100%", height: 250 }}>
                       <ResponsiveContainer>
                         <ComposedChart data={weeklyActivity}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="week" tick={{ fontSize: 10 }} />
                           <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
-                          <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
+                          <YAxis
+                            yAxisId="right"
+                            orientation="right"
+                            tick={{ fontSize: 10 }}
+                          />
                           <Tooltip contentStyle={{ fontSize: 11 }} />
                           <Legend wrapperStyle={{ fontSize: 10 }} />
-                          <Bar yAxisId="left" dataKey="hours" name="Hours" fill={COLORS.hours} barSize={20} />
-                          <Line yAxisId="right" type="monotone" dataKey="changes_per_hour" name="Changes/Hr" stroke={COLORS.mapped} strokeWidth={2} dot={false} />
-                          <Line yAxisId="right" type="monotone" dataKey="changes_per_changeset" name="Changes/Changeset" stroke={COLORS.validated} strokeWidth={2} dot={false} />
+                          <Bar
+                            yAxisId="left"
+                            dataKey="hours"
+                            name="Hours"
+                            fill={COLORS.hours}
+                            barSize={20}
+                          />
+                          <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="changes_per_hour"
+                            name="Changes/Hr"
+                            stroke={COLORS.mapped}
+                            strokeWidth={2}
+                            dot={false}
+                          />
+                          <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="changes_per_changeset"
+                            name="Changes/Changeset"
+                            stroke={COLORS.validated}
+                            strokeWidth={2}
+                            dot={false}
+                          />
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
@@ -689,7 +812,9 @@ export function AdminReportsWeekly() {
                 {/* Weekly Task Hours */}
                 {weeklyCategoryHours.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold mb-2">Weekly Task Hours</p>
+                    <p className="text-xs font-semibold mb-2">
+                      Weekly Task Hours
+                    </p>
                     <div style={{ width: "100%", height: 250 }}>
                       <ResponsiveContainer>
                         <BarChart data={weeklyCategoryHours}>
@@ -703,7 +828,11 @@ export function AdminReportsWeekly() {
                               key={name}
                               dataKey={name}
                               name={name}
-                              fill={WEEKLY_TASK_COLORS[i % WEEKLY_TASK_COLORS.length]}
+                              fill={
+                                WEEKLY_TASK_COLORS[
+                                  i % WEEKLY_TASK_COLORS.length
+                                ]
+                              }
                               stackId="a"
                             />
                           ))}
@@ -723,11 +852,13 @@ export function AdminReportsWeekly() {
                   </p>
                 </div>
 
-                {weeklyActivity.length === 0 && weeklyCategoryHours.length === 0 && tkFetched && (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No timekeeping data for this date range
-                  </p>
-                )}
+                {weeklyActivity.length === 0 &&
+                  weeklyCategoryHours.length === 0 &&
+                  tkFetched && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No timekeeping data for this date range
+                    </p>
+                  )}
               </>
             )}
           </div>
@@ -738,20 +869,32 @@ export function AdminReportsWeekly() {
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-muted-foreground">Management Activity</label>
+              <label className="text-xs text-muted-foreground">
+                Management Activity
+              </label>
               <textarea
                 value={(section.data.management as string) || ""}
-                onChange={(e) => updateSection("primary_activity", { management: e.target.value })}
+                onChange={(e) =>
+                  updateSection("primary_activity", {
+                    management: e.target.value,
+                  })
+                }
                 rows={5}
                 className="w-full mt-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-kaart-orange resize-y"
                 placeholder="Enter management activity..."
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">QC / Regional Lead Activity</label>
+              <label className="text-xs text-muted-foreground">
+                QC / Regional Lead Activity
+              </label>
               <textarea
                 value={(section.data.qcRegionalLead as string) || ""}
-                onChange={(e) => updateSection("primary_activity", { qcRegionalLead: e.target.value })}
+                onChange={(e) =>
+                  updateSection("primary_activity", {
+                    qcRegionalLead: e.target.value,
+                  })
+                }
                 rows={5}
                 className="w-full mt-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-kaart-orange resize-y"
                 placeholder="Enter QC / Regional Lead activity..."
@@ -769,9 +912,22 @@ export function AdminReportsWeekly() {
               </div>
             ) : elementCategories.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {elementCategories.filter((c) => c.type === "standard").map((cat) => (
-                  <MiniActivityChart key={cat.title} title={cat.title} data={cat.data as { day: string; deleted: number; added: number; modified: number }[]} />
-                ))}
+                {elementCategories
+                  .filter((c) => c.type === "standard")
+                  .map((cat) => (
+                    <MiniActivityChart
+                      key={cat.title}
+                      title={cat.title}
+                      data={
+                        cat.data as {
+                          day: string;
+                          deleted: number;
+                          added: number;
+                          modified: number;
+                        }[]
+                      }
+                    />
+                  ))}
               </div>
             ) : elemFetched ? (
               <p className="text-sm text-muted-foreground text-center py-4">
@@ -817,10 +973,20 @@ export function AdminReportsWeekly() {
                   <tbody>
                     {activeProjects.map((p) => {
                       const pctMapped = p.total_tasks
-                        ? Math.min(Math.round(((p.total_mapped || 0) / p.total_tasks) * 100), 100)
+                        ? Math.min(
+                            Math.round(
+                              ((p.total_mapped || 0) / p.total_tasks) * 100,
+                            ),
+                            100,
+                          )
                         : 0;
                       const pctValidated = p.total_tasks
-                        ? Math.min(Math.round(((p.total_validated || 0) / p.total_tasks) * 100), 100)
+                        ? Math.min(
+                            Math.round(
+                              ((p.total_validated || 0) / p.total_tasks) * 100,
+                            ),
+                            100,
+                          )
                         : 0;
                       return (
                         <tr key={p.id}>
@@ -853,10 +1019,16 @@ export function AdminReportsWeekly() {
 
             {/* Impact / notes */}
             <div>
-              <label className="text-xs text-muted-foreground">Impact / Status Notes</label>
+              <label className="text-xs text-muted-foreground">
+                Impact / Status Notes
+              </label>
               <textarea
                 value={(section.data.statusNotes as string) || ""}
-                onChange={(e) => updateSection("active_projects", { statusNotes: e.target.value })}
+                onChange={(e) =>
+                  updateSection("active_projects", {
+                    statusNotes: e.target.value,
+                  })
+                }
                 rows={3}
                 className="w-full mt-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-kaart-orange resize-y"
                 placeholder="Project impact notes..."
@@ -909,7 +1081,8 @@ export function AdminReportsWeekly() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-muted-foreground">
-                Location, User/Org, Interaction, Date, Channel/Link, Status, Key Participants, Notes
+                Location, User/Org, Interaction, Date, Channel/Link, Status, Key
+                Participants, Notes
               </p>
               <button
                 onClick={() => handlePullCommunityData("community_discussions")}
@@ -930,7 +1103,9 @@ export function AdminReportsWeekly() {
                 { key: "notes", label: "Notes" },
               ]}
               rows={(section.data.rows as ManualTableRow[]) || []}
-              onChange={(rows) => updateSection("community_discussions", { rows })}
+              onChange={(rows) =>
+                updateSection("community_discussions", { rows })
+              }
             />
           </div>
         );
@@ -939,9 +1114,7 @@ export function AdminReportsWeekly() {
         return (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-muted-foreground">
-                Investigations
-              </p>
+              <p className="text-xs text-muted-foreground">Investigations</p>
               <button
                 onClick={() => handlePullCommunityData("investigations")}
                 className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
@@ -973,7 +1146,9 @@ export function AdminReportsWeekly() {
               <label className="text-xs text-muted-foreground">Summary</label>
               <textarea
                 value={(section.data.summary as string) || ""}
-                onChange={(e) => updateSection("drive_project", { summary: e.target.value })}
+                onChange={(e) =>
+                  updateSection("drive_project", { summary: e.target.value })
+                }
                 rows={3}
                 className="w-full mt-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-kaart-orange resize-y"
                 placeholder="Drive project summary..."
@@ -1011,7 +1186,9 @@ export function AdminReportsWeekly() {
             &larr; Reports
           </button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Weekly Report Builder</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Weekly Report Builder
+            </h1>
             <p className="text-sm text-muted-foreground">
               {draftId ? `Draft #${draftId}` : "New Report"}
             </p>
@@ -1059,7 +1236,11 @@ export function AdminReportsWeekly() {
                       <p className="text-sm font-medium">{d.title}</p>
                       <p className="text-xs text-muted-foreground">
                         {d.start_date} to {d.end_date} &middot; Updated{" "}
-                        <Val>{d.updated_at ? new Date(d.updated_at).toLocaleDateString() : null}</Val>
+                        <Val>
+                          {d.updated_at
+                            ? new Date(d.updated_at).toLocaleDateString()
+                            : null}
+                        </Val>
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1095,7 +1276,9 @@ export function AdminReportsWeekly() {
         <CardContent className="p-4 space-y-3">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex-1 min-w-48">
-              <label className="text-xs text-muted-foreground">Report Title</label>
+              <label className="text-xs text-muted-foreground">
+                Report Title
+              </label>
               <input
                 type="text"
                 value={title}
@@ -1104,7 +1287,9 @@ export function AdminReportsWeekly() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Start Date</label>
+              <label className="text-xs text-muted-foreground">
+                Start Date
+              </label>
               <input
                 type="date"
                 value={startDate}
@@ -1125,12 +1310,18 @@ export function AdminReportsWeekly() {
               <label className="text-xs text-muted-foreground">Team</label>
               <select
                 value={selectedTeamId ?? ""}
-                onChange={(e) => setSelectedTeamId(e.target.value ? Number(e.target.value) : null)}
+                onChange={(e) =>
+                  setSelectedTeamId(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
                 className="w-full mt-1 px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-kaart-orange"
               >
                 <option value="">All Teams</option>
                 {teamsData?.teams?.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1168,7 +1359,8 @@ export function AdminReportsWeekly() {
                   className="rounded border-border"
                 />
                 <span className="text-xs text-muted-foreground">
-                  Compare to last report: <strong>{prevDraft.title}</strong> ({prevDraft.start_date} to {prevDraft.end_date})
+                  Compare to last report: <strong>{prevDraft.title}</strong> (
+                  {prevDraft.start_date} to {prevDraft.end_date})
                 </span>
               </label>
             </div>

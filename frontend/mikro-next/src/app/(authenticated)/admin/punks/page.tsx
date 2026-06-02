@@ -82,7 +82,8 @@ export default function AdminPunksPage() {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     return punks.filter(
-      (p) => p.cached_last_active && new Date(p.cached_last_active) >= sevenDaysAgo
+      (p) =>
+        p.cached_last_active && new Date(p.cached_last_active) >= sevenDaysAgo,
     ).length;
   }, [punks]);
 
@@ -90,7 +91,10 @@ export default function AdminPunksPage() {
     if (punks.length === 0) return null;
     return punks.reduce<Punk | null>((best, p) => {
       if (!best) return p;
-      return (p.cached_total_changesets ?? 0) > (best.cached_total_changesets ?? 0) ? p : best;
+      return (p.cached_total_changesets ?? 0) >
+        (best.cached_total_changesets ?? 0)
+        ? p
+        : best;
     }, null);
   }, [punks]);
 
@@ -113,7 +117,7 @@ export default function AdminPunksPage() {
         (p) =>
           p.osm_username.toLowerCase().includes(s) ||
           (p.notes || "").toLowerCase().includes(s) ||
-          (p.tags || []).join(" ").toLowerCase().includes(s)
+          (p.tags || []).join(" ").toLowerCase().includes(s),
       );
     }
 
@@ -155,13 +159,22 @@ export default function AdminPunksPage() {
   }, [punks, searchTerm, sortKey, sortDir]);
 
   // Reset page when search/sort changes
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, sortKey, sortDir]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortKey, sortDir]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredAndSorted.length / ROWS_PER_PAGE);
-  const paginatedPunks = filteredAndSorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
-  const showingStart = filteredAndSorted.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
-  const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, filteredAndSorted.length);
+  const paginatedPunks = filteredAndSorted.slice(
+    (currentPage - 1) * ROWS_PER_PAGE,
+    currentPage * ROWS_PER_PAGE,
+  );
+  const showingStart =
+    filteredAndSorted.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
+  const showingEnd = Math.min(
+    currentPage * ROWS_PER_PAGE,
+    filteredAndSorted.length,
+  );
 
   // CRUD handlers
   const handleCreatePunk = async () => {
@@ -248,7 +261,13 @@ export default function AdminPunksPage() {
   };
 
   // SortHeader sub-component
-  const SortHeader = ({ label, sortField }: { label: string; sortField: string }) => (
+  const SortHeader = ({
+    label,
+    sortField,
+  }: {
+    label: string;
+    sortField: string;
+  }) => (
     <TableHead
       className="cursor-pointer select-none hover:text-kaart-orange transition-colors"
       onClick={() => handleSort(sortField)}
@@ -256,7 +275,12 @@ export default function AdminPunksPage() {
       <span className="inline-flex items-center gap-1">
         {label}
         {sortKey === sortField && (
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -307,12 +331,16 @@ export default function AdminPunksPage() {
             <CardTitle className="text-sm font-medium">Total Listed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold"><Val>{formatNumber(punks.length)}</Val></div>
+            <div className="text-2xl font-bold">
+              <Val>{formatNumber(punks.length)}</Val>
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Active Last 7 Days</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Last 7 Days
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-kaart-orange">
@@ -330,7 +358,8 @@ export default function AdminPunksPage() {
             </div>
             {mostActive?.cached_total_changesets != null && (
               <p className="text-xs text-muted-foreground">
-                <Val>{formatNumber(mostActive.cached_total_changesets)}</Val> changesets
+                <Val>{formatNumber(mostActive.cached_total_changesets)}</Val>{" "}
+                changesets
               </p>
             )}
           </CardContent>
@@ -374,11 +403,13 @@ export default function AdminPunksPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                    <Val>{punk.notes
-                      ? punk.notes.length > 60
-                        ? `${punk.notes.slice(0, 60)}...`
-                        : punk.notes
-                      : null}</Val>
+                    <Val>
+                      {punk.notes
+                        ? punk.notes.length > 60
+                          ? `${punk.notes.slice(0, 60)}...`
+                          : punk.notes
+                        : null}
+                    </Val>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
@@ -394,14 +425,20 @@ export default function AdminPunksPage() {
                   </TableCell>
                   <TableCell>{formatDate(punk.created_at)}</TableCell>
                   <TableCell>
-                    {punk.cached_last_active ? formatDate(punk.cached_last_active) : "Never"}
+                    {punk.cached_last_active
+                      ? formatDate(punk.cached_last_active)
+                      : "Never"}
                   </TableCell>
                   <TableCell>
                     <Val>{formatNumber(punk.cached_total_changesets)}</Val>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openEditModal(punk)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEditModal(punk)}
+                      >
                         Edit
                       </Button>
                       <Button
@@ -428,7 +465,10 @@ export default function AdminPunksPage() {
               ))}
               {filteredAndSorted.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell
+                    colSpan={8}
+                    className="text-center py-8 text-muted-foreground"
+                  >
                     {punks.length === 0
                       ? "No punks listed yet. Add an OSM username to start tracking."
                       : "No results match your search."}
@@ -443,13 +483,29 @@ export default function AdminPunksPage() {
       {/* Pagination Controls */}
       {filteredAndSorted.length > ROWS_PER_PAGE && (
         <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
-          <span>Showing {showingStart}-{showingEnd} of {filteredAndSorted.length}</span>
+          <span>
+            Showing {showingStart}-{showingEnd} of {filteredAndSorted.length}
+          </span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={currentPage === 1}
-              onClick={() => setCurrentPage(p => p - 1)}>Previous</Button>
-            <span className="flex items-center px-2">Page {currentPage} of {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(p => p + 1)}>Next</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+            >
+              Previous
+            </Button>
+            <span className="flex items-center px-2">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+            >
+              Next
+            </Button>
           </div>
         </div>
       )}
@@ -484,7 +540,9 @@ export default function AdminPunksPage() {
             onChange={(e) => setAddUsername(e.target.value)}
           />
           <div>
-            <label className="text-sm font-medium leading-none mb-2 block">Notes</label>
+            <label className="text-sm font-medium leading-none mb-2 block">
+              Notes
+            </label>
             <textarea
               className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               rows={3}
@@ -499,7 +557,9 @@ export default function AdminPunksPage() {
             value={addTags}
             onChange={(e) => setAddTags(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Separate tags with commas</p>
+          <p className="text-xs text-muted-foreground">
+            Separate tags with commas
+          </p>
         </div>
       </Modal>
 
@@ -531,11 +591,17 @@ export default function AdminPunksPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium leading-none mb-2 block">OSM Username</label>
-            <p className="text-sm text-muted-foreground">{selectedPunk?.osm_username}</p>
+            <label className="text-sm font-medium leading-none mb-2 block">
+              OSM Username
+            </label>
+            <p className="text-sm text-muted-foreground">
+              {selectedPunk?.osm_username}
+            </p>
           </div>
           <div>
-            <label className="text-sm font-medium leading-none mb-2 block">Notes</label>
+            <label className="text-sm font-medium leading-none mb-2 block">
+              Notes
+            </label>
             <textarea
               className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               rows={3}
@@ -550,7 +616,9 @@ export default function AdminPunksPage() {
             value={editTags}
             onChange={(e) => setEditTags(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Separate tags with commas</p>
+          <p className="text-xs text-muted-foreground">
+            Separate tags with commas
+          </p>
         </div>
       </Modal>
 

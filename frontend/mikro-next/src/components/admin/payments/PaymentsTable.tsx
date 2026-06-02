@@ -68,8 +68,10 @@ const STATUS_LABEL: Record<PaymentCycleStatus, string> = {
 };
 
 const STATUS_CLASSES: Record<PaymentCycleStatus, string> = {
-  pending: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
-  approved: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
+  pending:
+    "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
+  approved:
+    "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
   held: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
   paid: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
 };
@@ -135,7 +137,9 @@ export function PaymentsTable({
                     {initials(row.name || "??")}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-medium text-foreground truncate">{row.name}</div>
+                    <div className="font-medium text-foreground truncate">
+                      {row.name}
+                    </div>
                     <div className="text-xs text-muted-foreground truncate">
                       {row.osm_username || row.email}
                     </div>
@@ -197,63 +201,65 @@ export function PaymentsTable({
                 </td>
               )}
               {show("actions") && (
-              <td
-                className="px-3 py-2 text-right"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {canEditStatus && (
-                  <div className="flex justify-end gap-1">
-                    {row.status === "pending" && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => onApprove?.(row)}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onHold?.(row)}
-                        >
-                          Hold
-                        </Button>
-                      </>
-                    )}
-                    {row.status === "approved" && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => onMarkPaid?.(row)}
-                        >
-                          Mark Paid
-                        </Button>
+                <td
+                  className="px-3 py-2 text-right"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {canEditStatus && (
+                    <div className="flex justify-end gap-1">
+                      {row.status === "pending" && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => onApprove?.(row)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onHold?.(row)}
+                          >
+                            Hold
+                          </Button>
+                        </>
+                      )}
+                      {row.status === "approved" && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => onMarkPaid?.(row)}
+                          >
+                            Mark Paid
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onResetPending?.(row)}
+                          >
+                            Undo
+                          </Button>
+                        </>
+                      )}
+                      {row.status === "held" && (
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => onResetPending?.(row)}
                         >
-                          Undo
+                          Release
                         </Button>
-                      </>
-                    )}
-                    {row.status === "held" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onResetPending?.(row)}
-                      >
-                        Release
-                      </Button>
-                    )}
-                    {row.status === "paid" && (
-                      <span className="text-xs text-muted-foreground">paid</span>
-                    )}
-                  </div>
-                )}
-              </td>
+                      )}
+                      {row.status === "paid" && (
+                        <span className="text-xs text-muted-foreground">
+                          paid
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </td>
               )}
             </tr>
           ))}

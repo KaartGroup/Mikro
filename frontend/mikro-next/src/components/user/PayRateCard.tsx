@@ -30,8 +30,8 @@ export function PayRateCard() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Only you and a Kaart admin can see this. If it looks wrong,
-              ping the admin who set it up.
+              Only you and a Kaart admin can see this. If it looks wrong, ping
+              the admin who set it up.
             </p>
           </>
         ) : (
@@ -40,8 +40,8 @@ export function PayRateCard() {
               No hourly rate set.
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              You&apos;re paid per-task on the projects you work on — see
-              your Payments tab for running earnings.
+              You&apos;re paid per-task on the projects you work on — see your
+              Payments tab for running earnings.
             </p>
           </>
         )}

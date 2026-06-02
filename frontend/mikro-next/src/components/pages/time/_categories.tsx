@@ -46,7 +46,10 @@ import {
 import { TOPIC_OPTIONS, slugifyName } from "@/lib/timeTracking";
 import type { Subcategory, SubcategoryScope } from "@/types";
 
-const SCOPE_BADGE: Record<SubcategoryScope, "secondary" | "warning" | "destructive"> = {
+const SCOPE_BADGE: Record<
+  SubcategoryScope,
+  "secondary" | "warning" | "destructive"
+> = {
   global: "destructive",
   org: "warning",
   team: "secondary",
@@ -79,10 +82,14 @@ export function AdminTimeCategoriesView() {
   const isTeamAdmin = role === "team_admin";
   const toast = useToastActions();
 
-  const { mutate: fetchSubcategories, loading: loadingList } = useAdminFetchSubcategories();
-  const { mutate: createSubcategory, loading: creating } = useCreateSubcategory();
-  const { mutate: updateSubcategory, loading: updating } = useUpdateSubcategory();
-  const { mutate: deleteSubcategory, loading: deleting } = useDeleteSubcategory();
+  const { mutate: fetchSubcategories, loading: loadingList } =
+    useAdminFetchSubcategories();
+  const { mutate: createSubcategory, loading: creating } =
+    useCreateSubcategory();
+  const { mutate: updateSubcategory, loading: updating } =
+    useUpdateSubcategory();
+  const { mutate: deleteSubcategory, loading: deleting } =
+    useDeleteSubcategory();
   const { data: teamsData } = useFetchTeams();
 
   const [activityFilter, setActivityFilter] = useState<string>("");
@@ -98,7 +105,8 @@ export function AdminTimeCategoriesView() {
       );
       setSubs(res?.subcategories ?? []);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to load subcategories";
+      const msg =
+        e instanceof Error ? e.message : "Failed to load subcategories";
       toast.error(msg);
       setSubs([]);
     }
@@ -110,7 +118,11 @@ export function AdminTimeCategoriesView() {
   }, [activityFilter]);
 
   const teams: { id: number; name: string }[] = useMemo(
-    () => (teamsData?.teams ?? []).map((t: { id: number; name: string }) => ({ id: t.id, name: t.name })),
+    () =>
+      (teamsData?.teams ?? []).map((t: { id: number; name: string }) => ({
+        id: t.id,
+        name: t.name,
+      })),
     [teamsData],
   );
 
@@ -148,7 +160,10 @@ export function AdminTimeCategoriesView() {
         activity: createForm.activity,
         name: createForm.name.trim(),
         scope: createForm.scope,
-        teamId: createForm.scope === "team" ? parseInt(createForm.teamId, 10) : undefined,
+        teamId:
+          createForm.scope === "team"
+            ? parseInt(createForm.teamId, 10)
+            : undefined,
         requiresProject: createForm.requiresProject,
         allowEventFields: createForm.allowEventFields,
         sortOrder: parseInt(createForm.sortOrder, 10) || 0,
@@ -158,7 +173,9 @@ export function AdminTimeCategoriesView() {
       setCreateForm(DEFAULT_FORM);
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to create subcategory");
+      toast.error(
+        e instanceof Error ? e.message : "Failed to create subcategory",
+      );
     }
   };
 
@@ -173,23 +190,30 @@ export function AdminTimeCategoriesView() {
       }
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update subcategory");
+      toast.error(
+        e instanceof Error ? e.message : "Failed to update subcategory",
+      );
     }
   };
 
-  const handleSaveEdit = async (sub: Subcategory, patch: Partial<{
-    name: string;
-    sortOrder: number;
-    requiresProject: boolean;
-    allowEventFields: boolean;
-  }>) => {
+  const handleSaveEdit = async (
+    sub: Subcategory,
+    patch: Partial<{
+      name: string;
+      sortOrder: number;
+      requiresProject: boolean;
+      allowEventFields: boolean;
+    }>,
+  ) => {
     try {
       await updateSubcategory({ id: sub.id, ...patch });
       toast.success(`Updated "${sub.name}"`);
       setEditingId(null);
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update subcategory");
+      toast.error(
+        e instanceof Error ? e.message : "Failed to update subcategory",
+      );
     }
   };
 
@@ -210,7 +234,10 @@ export function AdminTimeCategoriesView() {
   }, [subs]);
 
   const activitiesForFilter = useMemo(
-    () => [{ value: "", label: "All activities" }, ...TOPIC_OPTIONS.map((t) => ({ value: t.value, label: t.label }))],
+    () => [
+      { value: "", label: "All activities" },
+      ...TOPIC_OPTIONS.map((t) => ({ value: t.value, label: t.label })),
+    ],
     [],
   );
 
@@ -225,7 +252,12 @@ export function AdminTimeCategoriesView() {
           Activities (Editing, Validating, Meeting, …) are fixed; the
           subcategories under each one live here and apply per scope.
         </p>
-        <Button onClick={() => { setCreateForm(DEFAULT_FORM); setShowCreate(true); }}>
+        <Button
+          onClick={() => {
+            setCreateForm(DEFAULT_FORM);
+            setShowCreate(true);
+          }}
+        >
           + Add Subcategory
         </Button>
       </div>
@@ -254,7 +286,8 @@ export function AdminTimeCategoriesView() {
       {!loadingList && subs.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            No subcategories yet for this filter. Click <strong>+ Add Subcategory</strong> to create one.
+            No subcategories yet for this filter. Click{" "}
+            <strong>+ Add Subcategory</strong> to create one.
           </CardContent>
         </Card>
       )}
@@ -265,7 +298,8 @@ export function AdminTimeCategoriesView() {
           <Card key={activity}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base capitalize">
-                {TOPIC_OPTIONS.find((t) => t.value === activity)?.label || activity}
+                {TOPIC_OPTIONS.find((t) => t.value === activity)?.label ||
+                  activity}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -273,14 +307,30 @@ export function AdminTimeCategoriesView() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Name</th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Scope</th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Slug</th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Sort</th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Project required</th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Event fields</th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Active</th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Actions</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                        Name
+                      </th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                        Scope
+                      </th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                        Slug
+                      </th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                        Sort
+                      </th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                        Project required
+                      </th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                        Event fields
+                      </th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                        Active
+                      </th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -319,12 +369,17 @@ export function AdminTimeCategoriesView() {
             label="Activity"
             value={createForm.activity}
             onChange={(v) => setCreateForm({ ...createForm, activity: v })}
-            options={[{ value: "", label: "Select activity" }, ...TOPIC_OPTIONS.map((t) => ({ value: t.value, label: t.label }))]}
+            options={[
+              { value: "", label: "Select activity" },
+              ...TOPIC_OPTIONS.map((t) => ({ value: t.value, label: t.label })),
+            ]}
           />
           <Input
             label="Name"
             value={createForm.name}
-            onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, name: e.target.value })
+            }
             placeholder="e.g. Daily Standup"
           />
           {createForm.name && (
@@ -335,7 +390,9 @@ export function AdminTimeCategoriesView() {
           <Select
             label="Scope"
             value={createForm.scope}
-            onChange={(v) => setCreateForm({ ...createForm, scope: v as SubcategoryScope })}
+            onChange={(v) =>
+              setCreateForm({ ...createForm, scope: v as SubcategoryScope })
+            }
             options={scopeOptions}
           />
           {createForm.scope === "team" && (
@@ -353,7 +410,12 @@ export function AdminTimeCategoriesView() {
             <input
               type="checkbox"
               checked={createForm.requiresProject}
-              onChange={(e) => setCreateForm({ ...createForm, requiresProject: e.target.checked })}
+              onChange={(e) =>
+                setCreateForm({
+                  ...createForm,
+                  requiresProject: e.target.checked,
+                })
+              }
             />
             Requires project — clock-in form forces a project pick
           </label>
@@ -361,7 +423,12 @@ export function AdminTimeCategoriesView() {
             <input
               type="checkbox"
               checked={createForm.allowEventFields}
-              onChange={(e) => setCreateForm({ ...createForm, allowEventFields: e.target.checked })}
+              onChange={(e) =>
+                setCreateForm({
+                  ...createForm,
+                  allowEventFields: e.target.checked,
+                })
+              }
             />
             Allow event fields — show # Retained / # New Participants inputs
           </label>
@@ -369,13 +436,19 @@ export function AdminTimeCategoriesView() {
             label="Sort order"
             type="number"
             value={createForm.sortOrder}
-            onChange={(e) => setCreateForm({ ...createForm, sortOrder: e.target.value })}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, sortOrder: e.target.value })
+            }
           />
           <p className="text-xs text-muted-foreground">
             Lower sort-order numbers appear first in the dropdown.
           </p>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setShowCreate(false)} disabled={creating}>
+            <Button
+              variant="outline"
+              onClick={() => setShowCreate(false)}
+              disabled={creating}
+            >
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={creating}>
@@ -398,18 +471,32 @@ interface SubRowProps {
   teams: { id: number; name: string }[];
   onStartEdit: () => void;
   onCancelEdit: () => void;
-  onSave: (patch: { name?: string; sortOrder?: number; requiresProject?: boolean; allowEventFields?: boolean }) => void;
+  onSave: (patch: {
+    name?: string;
+    sortOrder?: number;
+    requiresProject?: boolean;
+    allowEventFields?: boolean;
+  }) => void;
   onToggleActive: () => void;
 }
 
 function SubRow({
-  sub, isEditing, saving, deleting, teams,
-  onStartEdit, onCancelEdit, onSave, onToggleActive,
+  sub,
+  isEditing,
+  saving,
+  deleting,
+  teams,
+  onStartEdit,
+  onCancelEdit,
+  onSave,
+  onToggleActive,
 }: SubRowProps) {
   const [name, setName] = useState(sub.name);
   const [sortOrder, setSortOrder] = useState(String(sub.sortOrder));
   const [requiresProject, setRequiresProject] = useState(sub.requiresProject);
-  const [allowEventFields, setAllowEventFields] = useState(sub.allowEventFields);
+  const [allowEventFields, setAllowEventFields] = useState(
+    sub.allowEventFields,
+  );
 
   useEffect(() => {
     if (!isEditing) {
@@ -421,7 +508,7 @@ function SubRow({
   }, [isEditing, sub]);
 
   const teamLabel = sub.teamId
-    ? teams.find((t) => t.id === sub.teamId)?.name ?? `Team #${sub.teamId}`
+    ? (teams.find((t) => t.id === sub.teamId)?.name ?? `Team #${sub.teamId}`)
     : null;
 
   if (isEditing) {
@@ -483,7 +570,12 @@ function SubRow({
           >
             {saving ? "Saving…" : "Save"}
           </Button>
-          <Button size="sm" variant="outline" onClick={onCancelEdit} disabled={saving}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onCancelEdit}
+            disabled={saving}
+          >
             Cancel
           </Button>
         </td>
@@ -492,11 +584,15 @@ function SubRow({
   }
 
   return (
-    <tr className={`border-b border-border ${!sub.isActive ? "opacity-50" : ""}`}>
+    <tr
+      className={`border-b border-border ${!sub.isActive ? "opacity-50" : ""}`}
+    >
       <td className="py-2 px-2 font-medium">{sub.name}</td>
       <td className="py-2 px-2 text-xs">
         <Badge variant={SCOPE_BADGE[sub.scope]}>{sub.scope}</Badge>
-        {teamLabel && <span className="ml-2 text-muted-foreground">{teamLabel}</span>}
+        {teamLabel && (
+          <span className="ml-2 text-muted-foreground">{teamLabel}</span>
+        )}
       </td>
       <td className="py-2 px-2 text-xs text-muted-foreground">
         <code>{sub.slug}</code>

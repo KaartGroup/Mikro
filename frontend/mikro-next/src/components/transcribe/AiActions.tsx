@@ -41,7 +41,11 @@ interface Props {
   enabled?: boolean;
 }
 
-export default function AiActions({ jobId, displayName, enabled = true }: Props) {
+export default function AiActions({
+  jobId,
+  displayName,
+  enabled = true,
+}: Props) {
   const [activePreset, setActivePreset] = useState<Preset | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
   const [loading, setLoading] = useState<Preset | null>(null);
@@ -79,17 +83,19 @@ export default function AiActions({ jobId, displayName, enabled = true }: Props)
         preset === "custom"
           ? `Custom: ${customPrompt.trim().slice(0, 40)}${customPrompt.trim().length > 40 ? "…" : ""}`
           : def.label;
-      setResults((prev) => [
-        {
-          preset,
-          label,
-          content: data.result || "",
-          inputTokens: data.tokens?.input || 0,
-          outputTokens: data.tokens?.output || 0,
-          timestamp: Date.now(),
-        },
-        ...prev,
-      ].slice(0, 5)); // keep 5 most recent
+      setResults((prev) =>
+        [
+          {
+            preset,
+            label,
+            content: data.result || "",
+            inputTokens: data.tokens?.input || 0,
+            outputTokens: data.tokens?.output || 0,
+            timestamp: Date.now(),
+          },
+          ...prev,
+        ].slice(0, 5),
+      ); // keep 5 most recent
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -105,7 +111,10 @@ export default function AiActions({ jobId, displayName, enabled = true }: Props)
     setTimeout(() => setCopiedResultIdx(null), 2000);
   };
 
-  const buttonStyle = (active: boolean, busy: boolean): React.CSSProperties => ({
+  const buttonStyle = (
+    active: boolean,
+    busy: boolean,
+  ): React.CSSProperties => ({
     padding: "8px 14px",
     fontSize: 13,
     opacity: busy ? 0.6 : 1,
@@ -160,7 +169,14 @@ export default function AiActions({ jobId, displayName, enabled = true }: Props)
       </div>
 
       {activePreset === "custom" && (
-        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div
+          style={{
+            marginTop: 12,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
           <textarea
             value={customPrompt}
             onChange={(e) => setCustomPrompt(e.target.value)}
@@ -251,7 +267,8 @@ export default function AiActions({ jobId, displayName, enabled = true }: Props)
                   fontWeight: 400,
                 }}
               >
-                {r.inputTokens.toLocaleString()} in / {r.outputTokens.toLocaleString()} out tokens
+                {r.inputTokens.toLocaleString()} in /{" "}
+                {r.outputTokens.toLocaleString()} out tokens
               </span>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
@@ -261,7 +278,8 @@ export default function AiActions({ jobId, displayName, enabled = true }: Props)
                 style={{
                   fontSize: 11,
                   padding: "4px 10px",
-                  backgroundColor: copiedResultIdx === idx ? "#16a34a" : undefined,
+                  backgroundColor:
+                    copiedResultIdx === idx ? "#16a34a" : undefined,
                   color: copiedResultIdx === idx ? "#fff" : undefined,
                   borderColor: copiedResultIdx === idx ? "#16a34a" : undefined,
                 }}
@@ -270,14 +288,18 @@ export default function AiActions({ jobId, displayName, enabled = true }: Props)
               </Button>
               <Button
                 variant="outline"
-                onClick={() => downloadAiResultTxt(r.content, r.label, displayName)}
+                onClick={() =>
+                  downloadAiResultTxt(r.content, r.label, displayName)
+                }
                 style={{ fontSize: 11, padding: "4px 10px" }}
               >
                 .txt
               </Button>
               <Button
                 variant="outline"
-                onClick={() => downloadAiResultPdf(r.content, r.label, displayName)}
+                onClick={() =>
+                  downloadAiResultPdf(r.content, r.label, displayName)
+                }
                 style={{ fontSize: 11, padding: "4px 10px" }}
               >
                 .pdf

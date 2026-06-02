@@ -57,9 +57,9 @@ export function ContributorDetailDrawer({
   // Adjustment form state
   const [showAdjustForm, setShowAdjustForm] = useState(false);
   const [adjustAmount, setAdjustAmount] = useState("");
-  const [adjustType, setAdjustType] = useState<"reimbursement" | "correction" | "other">(
-    "reimbursement",
-  );
+  const [adjustType, setAdjustType] = useState<
+    "reimbursement" | "correction" | "other"
+  >("reimbursement");
   const [adjustNote, setAdjustNote] = useState("");
 
   useEffect(() => {
@@ -176,7 +176,9 @@ export function ContributorDetailDrawer({
               <div className="text-xs text-muted-foreground">Wage</div>
               <div className="font-medium tabular-nums">
                 {detail.contributor.calculated_wage !== null ? (
-                  <Val>{formatCurrency(detail.contributor.calculated_wage)}</Val>
+                  <Val>
+                    {formatCurrency(detail.contributor.calculated_wage)}
+                  </Val>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
@@ -221,7 +223,9 @@ export function ContributorDetailDrawer({
                     label="Type"
                     value={adjustType}
                     onChange={(v) =>
-                      setAdjustType(v as "reimbursement" | "correction" | "other")
+                      setAdjustType(
+                        v as "reimbursement" | "correction" | "other",
+                      )
                     }
                     options={[
                       { value: "reimbursement", label: "Reimbursement" },
@@ -267,10 +271,14 @@ export function ContributorDetailDrawer({
                 <tbody>
                   {detail.adjustments.map((a) => (
                     <tr key={a.id} className="border-t border-border">
-                      <td className="px-2 py-1">{formatDateTime(a.created_at)}</td>
+                      <td className="px-2 py-1">
+                        {formatDateTime(a.created_at)}
+                      </td>
                       <td className="px-2 py-1 capitalize">{a.type}</td>
                       <td className="px-2 py-1">{a.note || "—"}</td>
-                      <td className="px-2 py-1">{a.added_by_name || a.added_by}</td>
+                      <td className="px-2 py-1">
+                        {a.added_by_name || a.added_by}
+                      </td>
                       <td className="px-2 py-1 text-right tabular-nums">
                         <Val>{formatCurrency(a.amount)}</Val>
                       </td>
@@ -316,8 +324,12 @@ export function ContributorDetailDrawer({
                   <tbody>
                     {detail.sessions.map((s) => (
                       <tr key={s.id} className="border-t border-border">
-                        <td className="px-2 py-1">{formatDateTime(s.clock_in)}</td>
-                        <td className="px-2 py-1">{formatDateTime(s.clock_out)}</td>
+                        <td className="px-2 py-1">
+                          {formatDateTime(s.clock_in)}
+                        </td>
+                        <td className="px-2 py-1">
+                          {formatDateTime(s.clock_out)}
+                        </td>
                         <td className="px-2 py-1 capitalize">{s.category}</td>
                         <td className="px-2 py-1">{s.task_name || "—"}</td>
                         <td className="px-2 py-1 text-right tabular-nums">

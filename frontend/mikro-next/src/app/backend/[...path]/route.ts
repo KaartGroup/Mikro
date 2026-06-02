@@ -11,17 +11,14 @@ const BACKEND_URL = process.env.FLASK_BACKEND_URL || "http://localhost:5004";
  */
 async function handleRequest(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> },
 ) {
   try {
     const session = await auth0.getSession(request);
 
     if (!session) {
       // Real "user has no session" case — fail fast.
-      console.warn(
-        "[BACKEND-PROXY] 401 no session for",
-        request.url,
-      );
+      console.warn("[BACKEND-PROXY] 401 no session for", request.url);
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
@@ -57,11 +54,14 @@ async function handleRequest(
         "tokenSet present?",
         !!session.tokenSet,
       );
-      return NextResponse.json({ error: "Access token expired" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Access token expired" },
+        { status: 401 },
+      );
     }
 
     const headers: HeadersInit = {
-      "Authorization": `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
     };
 
     // Preserve the original Content-Type (critical for multipart file uploads)
@@ -111,7 +111,7 @@ async function handleRequest(
     console.error("Backend proxy error:", error);
     return NextResponse.json(
       { error: "Failed to proxy request to backend" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

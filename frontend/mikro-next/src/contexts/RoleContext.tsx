@@ -60,7 +60,13 @@ export function RoleProvider({
 
   return (
     <RoleContext.Provider
-      value={{ role, actualRole: initialActualRole, setPreviewRole, isPreviewMode, paymentsVisible }}
+      value={{
+        role,
+        actualRole: initialActualRole,
+        setPreviewRole,
+        isPreviewMode,
+        paymentsVisible,
+      }}
     >
       {children}
     </RoleContext.Provider>

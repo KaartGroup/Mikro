@@ -4,10 +4,10 @@
  * Возвращает объект с миллисекундами и исходными строками времени.
  */
 export declare function parseCueLine(line: string): {
-    startMs: number;
-    endMs: number;
-    start: string;
-    end: string;
-    text: string;
+  startMs: number;
+  endMs: number;
+  start: string;
+  end: string;
+  text: string;
 };
 //# sourceMappingURL=parseCueLine.d.ts.map

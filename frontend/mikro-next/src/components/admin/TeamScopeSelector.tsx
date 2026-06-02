@@ -44,14 +44,14 @@ export function TeamScopeSelector({
 
   const options = useMemo(() => {
     if (managedOnly) {
-      const teams = managedTeams.slice().sort((a, b) =>
-        a.name.localeCompare(b.name),
-      );
+      const teams = managedTeams
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name));
       return teams.map((t) => ({ value: String(t.id), label: t.name }));
     }
-    const teams = (data?.teams ?? []).slice().sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
+    const teams = (data?.teams ?? [])
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name));
     return [
       { value: ALL_TEAMS_VALUE, label: "All teams" },
       ...teams.map((t) => ({ value: String(t.id), label: t.name })),

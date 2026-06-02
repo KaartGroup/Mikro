@@ -11,6 +11,6 @@ declare module "leaflet" {
       radius?: number;
       blur?: number;
       gradient?: Record<number, string>;
-    }
+    },
   ): L.Layer;
 }

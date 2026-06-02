@@ -80,11 +80,14 @@ export function AdminTraining() {
   // - team_admin: list scoped server-side to managed-team trainings.
   //   No create/delete/purge UI.
   const { role: viewerRole } = useCurrentUserRole();
-  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const { teams: managedTeams, loading: managedTeamsLoading } =
+    useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
   const canCreateOrDelete = isOrgAdminOrAbove(viewerRole);
 
-  const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
+  const [selectedTraining, setSelectedTraining] = useState<Training | null>(
+    null,
+  );
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -92,7 +95,9 @@ export function AdminTraining() {
   const [formData, setFormData] = useState<TrainingFormData>(defaultFormData);
   const [questions, setQuestions] = useState<QuestionFormData[]>([]);
   const [editQuestions, setEditQuestions] = useState<QuestionFormData[]>([]);
-  const [editTab, setEditTab] = useState<"settings" | "locations" | "questions">("settings");
+  const [editTab, setEditTab] = useState<
+    "settings" | "locations" | "questions"
+  >("settings");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortKey, setSortKey] = useState<string>("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -100,7 +105,11 @@ export function AdminTraining() {
   const mappingTrainings = trainings?.org_mapping_trainings ?? [];
   const validationTrainings = trainings?.org_validation_trainings ?? [];
   const projectTrainings = trainings?.org_project_trainings ?? [];
-  const allTrainings = [...mappingTrainings, ...validationTrainings, ...projectTrainings];
+  const allTrainings = [
+    ...mappingTrainings,
+    ...validationTrainings,
+    ...projectTrainings,
+  ];
 
   // Current user's name for "Created by Me" filtering
   const currentUserName = auth0User?.name || "";
@@ -122,7 +131,7 @@ export function AdminTraining() {
         (t) =>
           t.title.toLowerCase().includes(s) ||
           (t.created_by || "").toLowerCase().includes(s) ||
-          (t.difficulty || "").toLowerCase().includes(s)
+          (t.difficulty || "").toLowerCase().includes(s),
       );
     }
     const dir = sortDir === "asc" ? 1 : -1;
@@ -162,7 +171,12 @@ export function AdminTraining() {
   };
 
   const myTrainings = allTrainings.filter(
-    (t) => t.created_by && currentUserName && t.created_by.toLowerCase().includes(currentUserName.split(" ")[0].toLowerCase())
+    (t) =>
+      t.created_by &&
+      currentUserName &&
+      t.created_by
+        .toLowerCase()
+        .includes(currentUserName.split(" ")[0].toLowerCase()),
   );
 
   const handleInputChange = (field: keyof TrainingFormData, value: string) => {
@@ -193,7 +207,9 @@ export function AdminTraining() {
         point_value: parseInt(formData.point_value),
         difficulty: formData.difficulty,
         training_type: formData.training_type,
-        project_id: formData.project_id ? parseInt(formData.project_id) : undefined,
+        project_id: formData.project_id
+          ? parseInt(formData.project_id)
+          : undefined,
         questions: formattedQuestions,
       });
       toast.success("Training created successfully");
@@ -202,7 +218,8 @@ export function AdminTraining() {
       setQuestions([]);
       refetch();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to create training";
+      const message =
+        err instanceof Error ? err.message : "Failed to create training";
       toast.error(message);
     }
   };
@@ -244,7 +261,9 @@ export function AdminTraining() {
   const handlePurgeTrainings = async () => {
     try {
       const result = await purgeTrainings({});
-      toast.success(`Purged ${result.trainings_deleted} trainings, reset ${result.users_reset} users`);
+      toast.success(
+        `Purged ${result.trainings_deleted} trainings, reset ${result.users_reset} users`,
+      );
       setShowPurgeModal(false);
       refetch();
     } catch {
@@ -289,12 +308,18 @@ export function AdminTraining() {
     setEditQuestions(
       training.questions?.map((q) => ({
         question: q.question,
-        answers: q.answers.map((a) => ({ answer: a.answer, correct: a.correct })),
-      })) ?? []
+        answers: q.answers.map((a) => ({
+          answer: a.answer,
+          correct: a.correct,
+        })),
+      })) ?? [],
     );
   };
 
-  const openEditModal = (training: Training, tab: "settings" | "locations" | "questions" = "settings") => {
+  const openEditModal = (
+    training: Training,
+    tab: "settings" | "locations" | "questions" = "settings",
+  ) => {
     setSelectedTraining(training);
     setFormData({
       title: training.title,
@@ -330,9 +355,17 @@ export function AdminTraining() {
     setEditQuestions(updated);
   };
 
-  const updateEditAnswer = (qIndex: number, aIndex: number, field: string, value: string | boolean) => {
+  const updateEditAnswer = (
+    qIndex: number,
+    aIndex: number,
+    field: string,
+    value: string | boolean,
+  ) => {
     const updated = [...editQuestions];
-    updated[qIndex].answers[aIndex] = { ...updated[qIndex].answers[aIndex], [field]: value };
+    updated[qIndex].answers[aIndex] = {
+      ...updated[qIndex].answers[aIndex],
+      [field]: value,
+    };
     if (field === "correct" && value === true) {
       updated[qIndex].answers = updated[qIndex].answers.map((a, i) => ({
         ...a,
@@ -348,13 +381,18 @@ export function AdminTraining() {
 
   const addEditAnswer = (qIndex: number) => {
     const updated = [...editQuestions];
-    updated[qIndex].answers = [...updated[qIndex].answers, { answer: "", correct: false }];
+    updated[qIndex].answers = [
+      ...updated[qIndex].answers,
+      { answer: "", correct: false },
+    ];
     setEditQuestions(updated);
   };
 
   const removeEditAnswer = (qIndex: number, aIndex: number) => {
     const updated = [...editQuestions];
-    updated[qIndex].answers = updated[qIndex].answers.filter((_, i) => i !== aIndex);
+    updated[qIndex].answers = updated[qIndex].answers.filter(
+      (_, i) => i !== aIndex,
+    );
     setEditQuestions(updated);
   };
 
@@ -379,9 +417,17 @@ export function AdminTraining() {
     setQuestions(updated);
   };
 
-  const updateAnswer = (qIndex: number, aIndex: number, field: string, value: string | boolean) => {
+  const updateAnswer = (
+    qIndex: number,
+    aIndex: number,
+    field: string,
+    value: string | boolean,
+  ) => {
     const updated = [...questions];
-    updated[qIndex].answers[aIndex] = { ...updated[qIndex].answers[aIndex], [field]: value };
+    updated[qIndex].answers[aIndex] = {
+      ...updated[qIndex].answers[aIndex],
+      [field]: value,
+    };
     if (field === "correct" && value === true) {
       // Only one correct answer per question
       updated[qIndex].answers = updated[qIndex].answers.map((a, i) => ({
@@ -396,7 +442,13 @@ export function AdminTraining() {
     setQuestions(questions.filter((_, i) => i !== index));
   };
 
-  const SortHeader = ({ label, sortField }: { label: string; sortField: string }) => (
+  const SortHeader = ({
+    label,
+    sortField,
+  }: {
+    label: string;
+    sortField: string;
+  }) => (
     <TableHead
       className="cursor-pointer select-none hover:text-kaart-orange transition-colors"
       onClick={() => handleSort(sortField)}
@@ -404,9 +456,18 @@ export function AdminTraining() {
       <span className="inline-flex items-center gap-1">
         {label}
         {sortKey === sortField && (
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d={sortDir === "asc" ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d={sortDir === "asc" ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"}
+            />
           </svg>
         )}
       </span>
@@ -419,8 +480,12 @@ export function AdminTraining() {
     const [currentPage, setCurrentPage] = useState(1);
     const filtered = filterAndSort(trainingList);
     const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
-    const paginated = filtered.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
-    const showingStart = filtered.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1;
+    const paginated = filtered.slice(
+      (currentPage - 1) * ROWS_PER_PAGE,
+      currentPage * ROWS_PER_PAGE,
+    );
+    const showingStart =
+      filtered.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1;
     const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, filtered.length);
 
     // Reset page when search/sort changes
@@ -455,22 +520,34 @@ export function AdminTraining() {
                         training.difficulty === "Easy"
                           ? "success"
                           : training.difficulty === "Medium"
-                          ? "warning"
-                          : "destructive"
+                            ? "warning"
+                            : "destructive"
                       }
                     >
                       {training.difficulty}
                     </Badge>
-                    {(training as Training & { assigned_locations?: number }).assigned_locations ? (
+                    {(training as Training & { assigned_locations?: number })
+                      .assigned_locations ? (
                       <Badge variant="secondary" className="text-[10px]">
-                        {(training as Training & { assigned_locations?: number }).assigned_locations} loc
+                        {
+                          (
+                            training as Training & {
+                              assigned_locations?: number;
+                            }
+                          ).assigned_locations
+                        }{" "}
+                        loc
                       </Badge>
                     ) : null}
                   </div>
                 </TableCell>
                 <TableCell>{training.point_value}</TableCell>
-                <TableCell><Val>{formatNumber(training.questions?.length ?? 0)}</Val></TableCell>
-                <TableCell className="text-sm text-muted-foreground"><Val>{training.created_by}</Val></TableCell>
+                <TableCell>
+                  <Val>{formatNumber(training.questions?.length ?? 0)}</Val>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  <Val>{training.created_by}</Val>
+                </TableCell>
                 <TableCell>
                   <a
                     href={training.training_url}
@@ -483,10 +560,18 @@ export function AdminTraining() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="outline" onClick={() => openEditModal(training, "questions")}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditModal(training, "questions")}
+                    >
                       Questions
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => openEditModal(training)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditModal(training)}
+                    >
                       Edit
                     </Button>
                     {canCreateOrDelete && (
@@ -507,7 +592,10 @@ export function AdminTraining() {
             ))}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={7}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   No trainings found
                 </TableCell>
               </TableRow>
@@ -520,9 +608,25 @@ export function AdminTraining() {
               Showing {showingStart}–{showingEnd} of {filtered.length}
             </span>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Previous</Button>
-              <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                Next
+              </Button>
             </div>
           </div>
         )}
@@ -544,11 +648,7 @@ export function AdminTraining() {
   }
 
   // team_admin with no managed teams → empty state.
-  if (
-    isTeamAdmin &&
-    !managedTeamsLoading &&
-    managedTeams.length === 0
-  ) {
+  if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold tracking-tight">Training</h1>
@@ -576,11 +676,19 @@ export function AdminTraining() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Trainings</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Trainings
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <Val>{formatNumber(mappingTrainings.length + validationTrainings.length + projectTrainings.length)}</Val>
+              <Val>
+                {formatNumber(
+                  mappingTrainings.length +
+                    validationTrainings.length +
+                    projectTrainings.length,
+                )}
+              </Val>
             </div>
           </CardContent>
         </Card>
@@ -589,7 +697,9 @@ export function AdminTraining() {
             <CardTitle className="text-sm font-medium">Mapping</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-kaart-orange"><Val>{formatNumber(mappingTrainings.length)}</Val></div>
+            <div className="text-2xl font-bold text-kaart-orange">
+              <Val>{formatNumber(mappingTrainings.length)}</Val>
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -597,15 +707,21 @@ export function AdminTraining() {
             <CardTitle className="text-sm font-medium">Validation</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600"><Val>{formatNumber(validationTrainings.length)}</Val></div>
+            <div className="text-2xl font-bold text-blue-600">
+              <Val>{formatNumber(validationTrainings.length)}</Val>
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Project Specific</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Project Specific
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600"><Val>{formatNumber(projectTrainings.length)}</Val></div>
+            <div className="text-2xl font-bold text-purple-600">
+              <Val>{formatNumber(projectTrainings.length)}</Val>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -622,11 +738,21 @@ export function AdminTraining() {
       {/* Trainings Tabs */}
       <Tabs defaultValue="all">
         <TabsList>
-          <TabsTrigger value="all">All ({formatNumber(allTrainings.length).text})</TabsTrigger>
-          <TabsTrigger value="mine">Created by Me ({formatNumber(myTrainings.length).text})</TabsTrigger>
-          <TabsTrigger value="mapping">Mapping ({formatNumber(mappingTrainings.length).text})</TabsTrigger>
-          <TabsTrigger value="validation">Validation ({formatNumber(validationTrainings.length).text})</TabsTrigger>
-          <TabsTrigger value="project">Project Specific ({formatNumber(projectTrainings.length).text})</TabsTrigger>
+          <TabsTrigger value="all">
+            All ({formatNumber(allTrainings.length).text})
+          </TabsTrigger>
+          <TabsTrigger value="mine">
+            Created by Me ({formatNumber(myTrainings.length).text})
+          </TabsTrigger>
+          <TabsTrigger value="mapping">
+            Mapping ({formatNumber(mappingTrainings.length).text})
+          </TabsTrigger>
+          <TabsTrigger value="validation">
+            Validation ({formatNumber(validationTrainings.length).text})
+          </TabsTrigger>
+          <TabsTrigger value="project">
+            Project Specific ({formatNumber(projectTrainings.length).text})
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="all">
           <Card>
@@ -741,15 +867,22 @@ export function AdminTraining() {
           {/* Questions Section */}
           <div className="border-t border-border pt-4">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-medium">Quiz Questions ({formatNumber(questions.length).text})</h3>
+              <h3 className="font-medium">
+                Quiz Questions ({formatNumber(questions.length).text})
+              </h3>
               <Button size="sm" variant="outline" onClick={addQuestion}>
                 Add Question
               </Button>
             </div>
             {questions.map((q, qIndex) => (
-              <div key={qIndex} className="border border-border rounded-lg p-4 mb-4">
+              <div
+                key={qIndex}
+                className="border border-border rounded-lg p-4 mb-4"
+              >
                 <div className="flex justify-between items-start mb-2">
-                  <span className="text-sm font-medium">Question {qIndex + 1}</span>
+                  <span className="text-sm font-medium">
+                    Question {qIndex + 1}
+                  </span>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -762,7 +895,9 @@ export function AdminTraining() {
                 <Input
                   placeholder="Enter question"
                   value={q.question}
-                  onChange={(e) => updateQuestion(qIndex, "question", e.target.value)}
+                  onChange={(e) =>
+                    updateQuestion(qIndex, "question", e.target.value)
+                  }
                   className="mb-2"
                 />
                 <div className="space-y-2">
@@ -772,13 +907,17 @@ export function AdminTraining() {
                         type="radio"
                         name={`correct-${qIndex}`}
                         checked={a.correct}
-                        onChange={() => updateAnswer(qIndex, aIndex, "correct", true)}
+                        onChange={() =>
+                          updateAnswer(qIndex, aIndex, "correct", true)
+                        }
                         className="h-4 w-4"
                       />
                       <Input
                         placeholder={`Answer ${aIndex + 1}`}
                         value={a.answer}
-                        onChange={(e) => updateAnswer(qIndex, aIndex, "answer", e.target.value)}
+                        onChange={(e) =>
+                          updateAnswer(qIndex, aIndex, "answer", e.target.value)
+                        }
                         className="flex-1"
                       />
                     </div>
@@ -806,11 +945,14 @@ export function AdminTraining() {
         size="lg"
         footer={
           <>
-            <Button variant="outline" onClick={() => {
-              setShowEditModal(false);
-              setSelectedTraining(null);
-              refetch();
-            }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowEditModal(false);
+                setSelectedTraining(null);
+                refetch();
+              }}
+            >
               Cancel
             </Button>
             {editTab === "questions" ? (
@@ -825,7 +967,13 @@ export function AdminTraining() {
           </>
         }
       >
-        <Tabs defaultValue="settings" value={editTab} onValueChange={(v) => setEditTab(v as "settings" | "locations" | "questions")}>
+        <Tabs
+          defaultValue="settings"
+          value={editTab}
+          onValueChange={(v) =>
+            setEditTab(v as "settings" | "locations" | "questions")
+          }
+        >
           <TabsList className="mb-4">
             <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
@@ -844,14 +992,18 @@ export function AdminTraining() {
               <Input
                 label="Training URL"
                 value={formData.training_url}
-                onChange={(e) => handleInputChange("training_url", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("training_url", e.target.value)
+                }
               />
               <div className="grid grid-cols-2 gap-4">
                 <Input
                   label="Point Value"
                   type="number"
                   value={formData.point_value}
-                  onChange={(e) => handleInputChange("point_value", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("point_value", e.target.value)
+                  }
                 />
                 <Select
                   label="Difficulty"
@@ -869,7 +1021,10 @@ export function AdminTraining() {
 
           <TabsContent value="locations">
             {selectedTraining && (
-              <LocationsTab resourceId={selectedTraining.id} resourceType="training" />
+              <LocationsTab
+                resourceId={selectedTraining.id}
+                resourceType="training"
+              />
             )}
           </TabsContent>
 
@@ -882,9 +1037,14 @@ export function AdminTraining() {
                 </Button>
               </div>
               {editQuestions.map((q, qIndex) => (
-                <div key={qIndex} className="border border-border rounded-lg p-4">
+                <div
+                  key={qIndex}
+                  className="border border-border rounded-lg p-4"
+                >
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-sm font-medium">Question {qIndex + 1}</span>
+                    <span className="text-sm font-medium">
+                      Question {qIndex + 1}
+                    </span>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -897,7 +1057,9 @@ export function AdminTraining() {
                   <Input
                     placeholder="Enter question"
                     value={q.question}
-                    onChange={(e) => updateEditQuestion(qIndex, "question", e.target.value)}
+                    onChange={(e) =>
+                      updateEditQuestion(qIndex, "question", e.target.value)
+                    }
                     className="mb-2"
                   />
                   <div className="space-y-2">
@@ -907,13 +1069,22 @@ export function AdminTraining() {
                           type="radio"
                           name={`edit-correct-${qIndex}`}
                           checked={a.correct}
-                          onChange={() => updateEditAnswer(qIndex, aIndex, "correct", true)}
+                          onChange={() =>
+                            updateEditAnswer(qIndex, aIndex, "correct", true)
+                          }
                           className="h-4 w-4"
                         />
                         <Input
                           placeholder={`Answer ${aIndex + 1}`}
                           value={a.answer}
-                          onChange={(e) => updateEditAnswer(qIndex, aIndex, "answer", e.target.value)}
+                          onChange={(e) =>
+                            updateEditAnswer(
+                              qIndex,
+                              aIndex,
+                              "answer",
+                              e.target.value,
+                            )
+                          }
                           className="flex-1"
                         />
                         {q.answers.length > 2 && (
@@ -933,7 +1104,11 @@ export function AdminTraining() {
                     <p className="text-xs text-muted-foreground">
                       Select the radio button to mark the correct answer
                     </p>
-                    <Button size="sm" variant="ghost" onClick={() => addEditAnswer(qIndex)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => addEditAnswer(qIndex)}
+                    >
                       Add Answer
                     </Button>
                   </div>
@@ -941,7 +1116,8 @@ export function AdminTraining() {
               ))}
               {editQuestions.length === 0 && (
                 <p className="text-muted-foreground text-center py-4">
-                  No questions yet. Click &quot;Add Question&quot; to create one.
+                  No questions yet. Click &quot;Add Question&quot; to create
+                  one.
                 </p>
               )}
             </div>
@@ -982,7 +1158,9 @@ export function AdminTraining() {
       {false && canCreateOrDelete && (
         <Card className="mt-8 border-dashed border-yellow-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
+            <CardTitle className="text-sm font-medium text-yellow-600">
+              Dev Tools (Remove before production)
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Button

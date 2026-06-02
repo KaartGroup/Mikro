@@ -102,7 +102,9 @@ export default function TranscribeLibraryPage() {
 
   const loadTags = useCallback(async () => {
     try {
-      const res = await fetch("/backend/transcribe/tags", { credentials: "include" });
+      const res = await fetch("/backend/transcribe/tags", {
+        credentials: "include",
+      });
       const data = await res.json();
       if (res.ok && data.status === 200) {
         setAllTags(data.tags || []);
@@ -238,7 +240,12 @@ export default function TranscribeLibraryPage() {
 
   const deleteBulk = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} transcription${selectedIds.size === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    if (
+      !confirm(
+        `Delete ${selectedIds.size} transcription${selectedIds.size === 1 ? "" : "s"}? This cannot be undone.`,
+      )
+    )
+      return;
     setBulkBusy(true);
     try {
       const res = await fetch("/backend/transcribe/delete", {
@@ -268,7 +275,14 @@ export default function TranscribeLibraryPage() {
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
         <Link
           href="/admin/transcribe"
           style={{ fontSize: 13, color: "#666", textDecoration: "none" }}
@@ -277,8 +291,17 @@ export default function TranscribeLibraryPage() {
         </Link>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0, color: "#1a1a1a" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
+        <h1
+          style={{ fontSize: 26, fontWeight: 700, margin: 0, color: "#1a1a1a" }}
+        >
           Transcript Library
         </h1>
         <Badge variant="outline" style={{ fontSize: 11 }}>
@@ -289,7 +312,15 @@ export default function TranscribeLibraryPage() {
       {/* Controls */}
       <Card style={{ marginBottom: 16 }}>
         <CardContent>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", padding: "12px 0" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              alignItems: "center",
+              padding: "12px 0",
+            }}
+          >
             <div style={{ flex: "1 1 260px", minWidth: 200 }}>
               <Input
                 type="text"
@@ -394,7 +425,14 @@ export default function TranscribeLibraryPage() {
       {/* List */}
       <Card>
         <CardHeader>
-          <CardTitle style={{ fontSize: 15, display: "flex", alignItems: "center", gap: 10 }}>
+          <CardTitle
+            style={{
+              fontSize: 15,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
             <input
               type="checkbox"
               checked={allSelected}
@@ -405,14 +443,21 @@ export default function TranscribeLibraryPage() {
               {loading
                 ? "Loading…"
                 : jobs.length === 0
-                ? "No transcriptions"
-                : `${jobs.length} shown`}
+                  ? "No transcriptions"
+                  : `${jobs.length} shown`}
             </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {jobs.length === 0 && !loading && (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "#999", fontSize: 14 }}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "40px 0",
+                color: "#999",
+                fontSize: 14,
+              }}
+            >
               No transcriptions match your filters.
             </div>
           )}
@@ -443,7 +488,13 @@ export default function TranscribeLibraryPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {/* Title row */}
                     {isEditingTitle ? (
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 6,
+                          alignItems: "center",
+                        }}
+                      >
                         <input
                           type="text"
                           value={titleDraft}
@@ -526,7 +577,14 @@ export default function TranscribeLibraryPage() {
 
                     {/* Tags row */}
                     {isEditingTags ? (
-                      <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 6,
+                          alignItems: "center",
+                          marginTop: 6,
+                        }}
+                      >
                         <input
                           type="text"
                           value={tagsDraft}
@@ -579,7 +637,13 @@ export default function TranscribeLibraryPage() {
                         }}
                       >
                         {job.tags.length === 0 ? (
-                          <span style={{ fontSize: 11, color: "#bbb", fontStyle: "italic" }}>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "#bbb",
+                              fontStyle: "italic",
+                            }}
+                          >
                             + add tags
                           </span>
                         ) : (
@@ -603,7 +667,9 @@ export default function TranscribeLibraryPage() {
                   </div>
 
                   {/* Actions */}
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <div
+                    style={{ display: "flex", gap: 6, alignItems: "center" }}
+                  >
                     <Link
                       href={`/admin/transcribe/library/${job.jobId}`}
                       style={{

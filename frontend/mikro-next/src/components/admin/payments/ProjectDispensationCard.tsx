@@ -75,8 +75,7 @@ export function ProjectDispensationCard({
           {data.project_count} project{data.project_count === 1 ? "" : "s"}
         </span>
         <span className="tabular-nums">
-          {fmt(data.totals.distributed)} / {fmt(data.totals.budget)}{" "}
-          distributed
+          {fmt(data.totals.distributed)} / {fmt(data.totals.budget)} distributed
         </span>
       </div>
 

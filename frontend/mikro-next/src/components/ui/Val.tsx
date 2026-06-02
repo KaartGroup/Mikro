@@ -31,7 +31,7 @@ export function Val({ children, fallback = "\u2014", className }: ValProps) {
       <span
         className={cn(
           isPlaceholder && "text-muted-foreground/50 italic",
-          className
+          className,
         )}
         title={isPlaceholder ? "No data available" : undefined}
       >
@@ -47,7 +47,7 @@ export function Val({ children, fallback = "\u2014", className }: ValProps) {
     <span
       className={cn(
         isPlaceholder && "text-muted-foreground/50 italic",
-        className
+        className,
       )}
       title={isPlaceholder ? "No data available" : undefined}
     >

@@ -43,10 +43,7 @@ export function PayrollForecastChart({
     <div className="space-y-3">
       <div className="flex items-end gap-3">
         {/* Bars */}
-        <div
-          className="flex-1 flex items-end gap-2"
-          style={{ height: H }}
-        >
+        <div className="flex-1 flex items-end gap-2" style={{ height: H }}>
           {cycles.map((c) => {
             const confH = (c.confirmed / max) * H;
             const varH = (c.variable / max) * H;
@@ -107,7 +104,10 @@ export function PayrollForecastChart({
       {/* Legend */}
       <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#1e3a8a" }} />
+          <span
+            className="w-2.5 h-2.5 rounded-sm"
+            style={{ backgroundColor: "#1e3a8a" }}
+          />
           Confirmed (exact)
         </span>
         <span className="flex items-center gap-1">

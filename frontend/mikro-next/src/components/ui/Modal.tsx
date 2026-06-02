@@ -69,17 +69,21 @@ export function Modal({
           "relative z-50 w-full rounded-lg bg-background shadow-lg flex flex-col",
           "max-h-[90vh]",
           sizes[size],
-          "animate-in fade-in-0 zoom-in-95"
+          "animate-in fade-in-0 zoom-in-95",
         )}
       >
         {/* Header */}
         {(title || description) && (
           <div className="p-6 pb-0 flex-shrink-0">
             {title && (
-              <h2 className="text-lg font-semibold text-foreground pr-8">{title}</h2>
+              <h2 className="text-lg font-semibold text-foreground pr-8">
+                {title}
+              </h2>
             )}
             {description && (
-              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {description}
+              </p>
             )}
           </div>
         )}

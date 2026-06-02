@@ -13,14 +13,25 @@ import {
   useToastActions,
 } from "@/components/ui";
 import { useUserProjects, usePaymentsVisible } from "@/hooks";
-import { getProjectExternalUrl, formatNumber, formatCurrency } from "@/lib/utils";
+import {
+  getProjectExternalUrl,
+  formatNumber,
+  formatCurrency,
+} from "@/lib/utils";
 import Link from "next/link";
 import type { Project } from "@/types";
 
-function ProjectCard({ project, paymentsVisible }: { project: Project; paymentsVisible: boolean }) {
-  const progressPercent = project.total_tasks > 0
-    ? Math.round(((project.total_mapped ?? 0) / project.total_tasks) * 100)
-    : 0;
+function ProjectCard({
+  project,
+  paymentsVisible,
+}: {
+  project: Project;
+  paymentsVisible: boolean;
+}) {
+  const progressPercent =
+    project.total_tasks > 0
+      ? Math.round(((project.total_mapped ?? 0) / project.total_tasks) * 100)
+      : 0;
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -32,8 +43,8 @@ function ProjectCard({ project, paymentsVisible }: { project: Project; paymentsV
               project.difficulty === "Easy"
                 ? "success"
                 : project.difficulty === "Medium"
-                ? "warning"
-                : "destructive"
+                  ? "warning"
+                  : "destructive"
             }
           >
             <Val fallback="Unknown">{project.difficulty}</Val>
@@ -65,9 +76,14 @@ function ProjectCard({ project, paymentsVisible }: { project: Project; paymentsV
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-kaart-orange hover:underline"
-            title={project.source === "mr" ? "Open in MapRoulette" : "Open in Tasking Manager"}
+            title={
+              project.source === "mr"
+                ? "Open in MapRoulette"
+                : "Open in Tasking Manager"
+            }
           >
-            #{project.id} - {project.source === "mr" ? "Open in MapRoulette" : "Open in TM4"}
+            #{project.id} -{" "}
+            {project.source === "mr" ? "Open in MapRoulette" : "Open in TM4"}
           </a>
         </div>
       </CardHeader>
@@ -90,7 +106,9 @@ function ProjectCard({ project, paymentsVisible }: { project: Project; paymentsV
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-muted-foreground">Total Tasks</p>
-            <p className="font-semibold text-lg"><Val>{formatNumber(project.total_tasks)}</Val></p>
+            <p className="font-semibold text-lg">
+              <Val>{formatNumber(project.total_tasks)}</Val>
+            </p>
           </div>
           <div>
             <p className="text-muted-foreground">Mapped</p>
@@ -118,13 +136,17 @@ function ProjectCard({ project, paymentsVisible }: { project: Project; paymentsV
             <p className="text-sm text-muted-foreground mb-2">Payment Rates</p>
             <div className="flex gap-4">
               <div className="flex-1 bg-green-50 dark:bg-green-950 rounded-lg p-3 text-center">
-                <p className="text-xs text-green-700 dark:text-green-300">Mapping</p>
+                <p className="text-xs text-green-700 dark:text-green-300">
+                  Mapping
+                </p>
                 <p className="font-bold text-green-800 dark:text-green-200">
                   <Val>{formatCurrency(project.mapping_rate_per_task)}</Val>
                 </p>
               </div>
               <div className="flex-1 bg-blue-50 dark:bg-blue-950 rounded-lg p-3 text-center">
-                <p className="text-xs text-blue-700 dark:text-blue-300">Validation</p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  Validation
+                </p>
                 <p className="font-bold text-blue-800 dark:text-blue-200">
                   <Val>{formatCurrency(project.validation_rate_per_task)}</Val>
                 </p>
@@ -139,7 +161,11 @@ function ProjectCard({ project, paymentsVisible }: { project: Project; paymentsV
           target="_blank"
           rel="noopener noreferrer"
           className="block w-full text-center py-2 px-4 bg-kaart-orange text-white rounded-lg hover:bg-kaart-orange-dark transition-colors font-medium"
-          title={project.source === "mr" ? "Open this project on MapRoulette" : "Open this project on Tasking Manager"}
+          title={
+            project.source === "mr"
+              ? "Open this project on MapRoulette"
+              : "Open this project on Tasking Manager"
+          }
         >
           Start Mapping
         </a>
@@ -166,9 +192,16 @@ export function UserProjects() {
   const activeProjects = projects?.user_projects ?? [];
 
   const totalPages = Math.ceil(activeProjects.length / ROWS_PER_PAGE);
-  const paginatedProjects = activeProjects.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
-  const showingStart = activeProjects.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
-  const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, activeProjects.length);
+  const paginatedProjects = activeProjects.slice(
+    (currentPage - 1) * ROWS_PER_PAGE,
+    currentPage * ROWS_PER_PAGE,
+  );
+  const showingStart =
+    activeProjects.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
+  const showingEnd = Math.min(
+    currentPage * ROWS_PER_PAGE,
+    activeProjects.length,
+  );
 
   if (loading) {
     return (
@@ -194,44 +227,75 @@ export function UserProjects() {
       </div>
 
       {/* Stats Summary - Compact Row */}
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(4, 1fr)" }} className="grid-stats">
+      <div
+        style={{
+          display: "grid",
+          gap: 16,
+          gridTemplateColumns: "repeat(4, 1fr)",
+        }}
+        className="grid-stats"
+      >
         <Card style={{ padding: 0 }}>
           <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Active Projects</p>
-            <div style={{ fontSize: 20, fontWeight: 700 }}><Val>{formatNumber(activeProjects.length)}</Val></div>
-          </div>
-        </Card>
-        <Card style={{ padding: 0 }}>
-          <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Total Tasks</p>
+            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+              Active Projects
+            </p>
             <div style={{ fontSize: 20, fontWeight: 700 }}>
-              <Val>{formatNumber(activeProjects.reduce((sum, p) => sum + p.total_tasks, 0))}</Val>
+              <Val>{formatNumber(activeProjects.length)}</Val>
             </div>
           </div>
         </Card>
         <Card style={{ padding: 0 }}>
           <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Tasks Completed</p>
+            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+              Total Tasks
+            </p>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>
+              <Val>
+                {formatNumber(
+                  activeProjects.reduce((sum, p) => sum + p.total_tasks, 0),
+                )}
+              </Val>
+            </div>
+          </div>
+        </Card>
+        <Card style={{ padding: 0 }}>
+          <div style={{ padding: "12px 16px" }}>
+            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+              Tasks Completed
+            </p>
             <div style={{ fontSize: 20, fontWeight: 700, color: "#16a34a" }}>
-              <Val>{formatNumber(activeProjects.reduce((sum, p) => sum + (p.total_mapped ?? 0), 0))}</Val>
+              <Val>
+                {formatNumber(
+                  activeProjects.reduce(
+                    (sum, p) => sum + (p.total_mapped ?? 0),
+                    0,
+                  ),
+                )}
+              </Val>
             </div>
           </div>
         </Card>
         {paymentsVisible && (
           <Card style={{ padding: 0 }}>
             <div style={{ padding: "12px 16px" }}>
-              <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Potential Earnings</p>
+              <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+                Potential Earnings
+              </p>
               <div style={{ fontSize: 20, fontWeight: 700, color: "#ff6b35" }}>
-                <Val>{formatCurrency(
-                  activeProjects
-                    .filter((p) => p.payments_enabled !== false)
-                    .reduce(
-                      (sum, p) =>
-                        sum +
-                        (p.total_tasks - (p.total_mapped ?? 0)) * p.mapping_rate_per_task,
-                      0
-                    )
-                )}</Val>
+                <Val>
+                  {formatCurrency(
+                    activeProjects
+                      .filter((p) => p.payments_enabled !== false)
+                      .reduce(
+                        (sum, p) =>
+                          sum +
+                          (p.total_tasks - (p.total_mapped ?? 0)) *
+                            p.mapping_rate_per_task,
+                        0,
+                      ),
+                  )}
+                </Val>
               </div>
             </div>
           </Card>
@@ -243,18 +307,38 @@ export function UserProjects() {
         <>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {paginatedProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} paymentsVisible={paymentsVisible} />
+              <ProjectCard
+                key={project.id}
+                project={project}
+                paymentsVisible={paymentsVisible}
+              />
             ))}
           </div>
           {activeProjects.length > ROWS_PER_PAGE && (
             <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
-              <span>Showing {showingStart}-{showingEnd} of {activeProjects.length}</span>
+              <span>
+                Showing {showingStart}-{showingEnd} of {activeProjects.length}
+              </span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(p => p - 1)}>Previous</Button>
-                <span className="flex items-center px-2">Page {currentPage} of {totalPages}</span>
-                <Button variant="outline" size="sm" disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(p => p + 1)}>Next</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
+                  Previous
+                </Button>
+                <span className="flex items-center px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
               </div>
             </div>
           )}
@@ -262,16 +346,18 @@ export function UserProjects() {
       ) : (
         <Card>
           <CardContent style={{ padding: "48px 24px", textAlign: "center" }}>
-            <div style={{
-              width: 48,
-              height: 48,
-              margin: "0 auto 16px",
-              borderRadius: "50%",
-              backgroundColor: "#f3f4f6",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center"
-            }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                margin: "0 auto 16px",
+                borderRadius: "50%",
+                backgroundColor: "#f3f4f6",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="24"
@@ -287,10 +373,12 @@ export function UserProjects() {
                 <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
               </svg>
             </div>
-            <h3 style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>No Projects Assigned</h3>
+            <h3 style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>
+              No Projects Assigned
+            </h3>
             <p style={{ color: "#6b7280", maxWidth: 320, margin: "0 auto" }}>
-              You don&apos;t have any projects assigned yet. Contact your administrator to get
-              started with mapping.
+              You don&apos;t have any projects assigned yet. Contact your
+              administrator to get started with mapping.
             </p>
           </CardContent>
         </Card>

@@ -37,18 +37,44 @@ export function Header({ displayName }: HeaderProps) {
         }}
       >
         {/* Logo */}
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
+        <Link
+          href="/"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            textDecoration: "none",
+          }}
+        >
           <Image src="/mikro-logo.png" alt="Mikro" width={36} height={36} />
-          <span style={{ fontSize: 20, fontWeight: 600, color: "var(--foreground)" }}>Mikro</span>
+          <span
+            style={{
+              fontSize: 20,
+              fontWeight: 600,
+              color: "var(--foreground)",
+            }}
+          >
+            Mikro
+          </span>
         </Link>
 
         {/* User Menu */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {isLoading ? (
-            <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "var(--border)" }} />
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                backgroundColor: "var(--border)",
+              }}
+            />
           ) : user ? (
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span className="hide-mobile" style={{ fontSize: 14, color: "var(--muted-foreground)" }}>
+              <span
+                className="hide-mobile"
+                style={{ fontSize: 14, color: "var(--muted-foreground)" }}
+              >
                 {displayName || user.name || user.email}
               </span>
               <RolePreviewSwitcher />

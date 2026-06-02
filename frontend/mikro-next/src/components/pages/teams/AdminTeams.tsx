@@ -58,13 +58,15 @@ export function AdminTeams() {
   const { data: usersData } = useUsersList();
   const toast = useToastActions();
   const { activeFilters, setActiveFilters, filtersBody } = useFilters();
-  const { data: filterOptions, loading: filterOptionsLoading } = useFetchFilterOptions();
+  const { data: filterOptions, loading: filterOptionsLoading } =
+    useFetchFilterOptions();
 
   // Role-aware UI (F3 Phase 3.4):
   // - team_admin: can manage their managed teams; cannot create/delete teams.
   // - admin/super_admin: full management.
   const { role: viewerRole } = useCurrentUserRole();
-  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const { teams: managedTeams, loading: managedTeamsLoading } =
+    useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
   const canCreateOrDeleteTeams = isOrgAdminOrAbove(viewerRole);
 
@@ -104,7 +106,7 @@ export function AdminTeams() {
 
   const teams = teamsData?.teams ?? [];
   const filteredTeams = teams.filter((t) =>
-    t.name.toLowerCase().includes(search.toLowerCase())
+    t.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   const orgUsers = usersData?.users ?? [];
@@ -221,7 +223,7 @@ export function AdminTeams() {
   const filteredMembers = members.filter(
     (m) =>
       m.name.toLowerCase().includes(membersSearch.toLowerCase()) ||
-      m.email.toLowerCase().includes(membersSearch.toLowerCase())
+      m.email.toLowerCase().includes(membersSearch.toLowerCase()),
   );
 
   // Trainings handlers
@@ -240,11 +242,17 @@ export function AdminTeams() {
     }
   };
 
-  const handleToggleTraining = async (trainingId: number, currentStatus: string) => {
+  const handleToggleTraining = async (
+    trainingId: number,
+    currentStatus: string,
+  ) => {
     if (!trainingsTeam) return;
     try {
       if (currentStatus === "Assigned") {
-        await unassignTrainingFromTeam({ teamId: trainingsTeam.id, trainingId });
+        await unassignTrainingFromTeam({
+          teamId: trainingsTeam.id,
+          trainingId,
+        });
       } else {
         await assignTrainingToTeam({ teamId: trainingsTeam.id, trainingId });
       }
@@ -256,10 +264,10 @@ export function AdminTeams() {
   };
 
   const filteredTrainings = teamTrainings.filter((t) =>
-    t.title?.toLowerCase().includes(trainingsSearch.toLowerCase())
+    t.title?.toLowerCase().includes(trainingsSearch.toLowerCase()),
   );
 
-  if ((loading && !teamsData) ) {
+  if (loading && !teamsData) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -273,11 +281,7 @@ export function AdminTeams() {
   }
 
   // team_admin with no managed teams → empty state, no create UI.
-  if (
-    isTeamAdmin &&
-    !managedTeamsLoading &&
-    managedTeams.length === 0
-  ) {
+  if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold tracking-tight">Teams</h1>
@@ -308,7 +312,9 @@ export function AdminTeams() {
             <CardTitle className="text-sm font-medium">Total Teams</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold"><Val>{formatNumber(teams.length)}</Val></div>
+            <div className="text-2xl font-bold">
+              <Val>{formatNumber(teams.length)}</Val>
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -319,7 +325,11 @@ export function AdminTeams() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <Val>{formatNumber(teams.reduce((sum, t) => sum + t.member_count, 0))}</Val>
+              <Val>
+                {formatNumber(
+                  teams.reduce((sum, t) => sum + t.member_count, 0),
+                )}
+              </Val>
             </div>
           </CardContent>
         </Card>
@@ -331,7 +341,13 @@ export function AdminTeams() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <Val>{formatNumber(teams.filter((t) => (t.lead_ids?.length ?? (t.lead_id ? 1 : 0)) > 0).length)}</Val>
+              <Val>
+                {formatNumber(
+                  teams.filter(
+                    (t) => (t.lead_ids?.length ?? (t.lead_id ? 1 : 0)) > 0,
+                  ).length,
+                )}
+              </Val>
             </div>
           </CardContent>
         </Card>
@@ -339,17 +355,21 @@ export function AdminTeams() {
 
       {/* Filters */}
       <FilterBar
-        dimensions={filterOptions?.dimensions ? Object.entries(filterOptions.dimensions).map(([key, values]) => ({
-          key,
-          label: key.charAt(0).toUpperCase() + key.slice(1),
-          options: Array.isArray(values)
-            ? values.map((v) =>
-                typeof v === 'string'
-                  ? { value: v, label: v }
-                  : { value: String(v.id ?? v.name), label: v.name }
-              )
-            : [],
-        })) : []}
+        dimensions={
+          filterOptions?.dimensions
+            ? Object.entries(filterOptions.dimensions).map(([key, values]) => ({
+                key,
+                label: key.charAt(0).toUpperCase() + key.slice(1),
+                options: Array.isArray(values)
+                  ? values.map((v) =>
+                      typeof v === "string"
+                        ? { value: v, label: v }
+                        : { value: String(v.id ?? v.name), label: v.name },
+                    )
+                  : [],
+              }))
+            : []
+        }
         activeFilters={activeFilters}
         onChange={setActiveFilters}
         loading={filterOptionsLoading}
@@ -362,7 +382,10 @@ export function AdminTeams() {
             <Input
               placeholder="Search teams..."
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
               className="max-w-sm"
             />
           </div>
@@ -383,9 +406,18 @@ export function AdminTeams() {
               {(() => {
                 const filtered = filteredTeams;
                 const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
-                const paginated = filtered.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
-                const showingStart = filtered.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1;
-                const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, filtered.length);
+                const paginated = filtered.slice(
+                  (currentPage - 1) * ROWS_PER_PAGE,
+                  currentPage * ROWS_PER_PAGE,
+                );
+                const showingStart =
+                  filtered.length === 0
+                    ? 0
+                    : (currentPage - 1) * ROWS_PER_PAGE + 1;
+                const showingEnd = Math.min(
+                  currentPage * ROWS_PER_PAGE,
+                  filtered.length,
+                );
                 return (
                   <>
                     {paginated.map((team) => (
@@ -409,7 +441,9 @@ export function AdminTeams() {
                           {team.lead_names && team.lead_names.length > 0
                             ? team.lead_names.join(", ")
                             : team.lead_name || (
-                                <span className="text-muted-foreground">None</span>
+                                <span className="text-muted-foreground">
+                                  None
+                                </span>
                               )}
                         </TableCell>
                         <TableCell className="text-center">
@@ -418,7 +452,9 @@ export function AdminTeams() {
                             size="sm"
                             onClick={() => openMembersModal(team)}
                           >
-                            <Badge variant="secondary"><Val>{formatNumber(team.member_count)}</Val></Badge>
+                            <Badge variant="secondary">
+                              <Val>{formatNumber(team.member_count)}</Val>
+                            </Badge>
                           </Button>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
@@ -479,12 +515,29 @@ export function AdminTeams() {
                         <TableCell colSpan={6}>
                           <div className="flex items-center justify-between mt-4 px-2 py-3">
                             <span className="text-sm text-muted-foreground">
-                              Showing {showingStart}–{showingEnd} of {filtered.length}
+                              Showing {showingStart}–{showingEnd} of{" "}
+                              {filtered.length}
                             </span>
                             <div className="flex items-center gap-2">
-                              <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Previous</Button>
-                              <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-                              <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next</Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage((p) => p - 1)}
+                              >
+                                Previous
+                              </Button>
+                              <span className="text-sm text-muted-foreground">
+                                Page {currentPage} of {totalPages}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={currentPage >= totalPages}
+                                onClick={() => setCurrentPage((p) => p + 1)}
+                              >
+                                Next
+                              </Button>
                             </div>
                           </div>
                         </TableCell>
@@ -506,10 +559,7 @@ export function AdminTeams() {
         description="Create a new team to group users"
         footer={
           <>
-            <Button
-              variant="outline"
-              onClick={() => setShowCreateModal(false)}
-            >
+            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
               Cancel
             </Button>
             <Button onClick={handleCreate} isLoading={creating}>
@@ -646,14 +696,14 @@ export function AdminTeams() {
                 <TableBody>
                   {filteredMembers.map((user) => (
                     <TableRow key={user.id}>
-                      <TableCell className="font-medium">
-                        {user.name}
-                      </TableCell>
+                      <TableCell className="font-medium">{user.name}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {user.email}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{displayRole(user.role)}</Badge>
+                        <Badge variant="secondary">
+                          {displayRole(user.role)}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge
@@ -678,9 +728,7 @@ export function AdminTeams() {
                             handleToggleMember(user.id, user.assigned)
                           }
                         >
-                          {user.assigned === "Assigned"
-                            ? "Remove"
-                            : "Assign"}
+                          {user.assigned === "Assigned" ? "Remove" : "Assign"}
                         </Button>
                       </TableCell>
                     </TableRow>

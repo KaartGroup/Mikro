@@ -40,7 +40,10 @@ export default function TrendOverview({
 
   // σ bands derived from comparison data only — hidden when no comparison is active
   const cmpValues = compareData?.map((d) => d.value) ?? [];
-  const cmpAvg = cmpValues.length > 0 ? cmpValues.reduce((s, v) => s + v, 0) / cmpValues.length : 0;
+  const cmpAvg =
+    cmpValues.length > 0
+      ? cmpValues.reduce((s, v) => s + v, 0) / cmpValues.length
+      : 0;
   const cmpVariance =
     cmpValues.length > 0
       ? cmpValues.reduce((s, v) => s + (v - cmpAvg) ** 2, 0) / cmpValues.length
@@ -52,9 +55,7 @@ export default function TrendOverview({
 
   const cmpTotal = cmpValues.reduce((s, v) => s + v, 0);
   const delta =
-    hasCompare && cmpTotal > 0
-      ? ((total - cmpTotal) / cmpTotal) * 100
-      : null;
+    hasCompare && cmpTotal > 0 ? ((total - cmpTotal) / cmpTotal) * 100 : null;
 
   return (
     <Card className="flex-1" data-chart-export={title}>
@@ -72,7 +73,11 @@ export default function TrendOverview({
 
         <p className="text-2xl font-bold text-foreground mb-3">
           {formatNumber(total).text}
-          {unit && <span className="text-base font-normal text-muted-foreground ml-1">{unit}</span>}
+          {unit && (
+            <span className="text-base font-normal text-muted-foreground ml-1">
+              {unit}
+            </span>
+          )}
         </p>
 
         {loading ? (
@@ -81,12 +86,17 @@ export default function TrendOverview({
           </div>
         ) : data.length === 0 ? (
           <div className="h-[80px] flex items-center justify-center">
-            <p className="text-xs text-muted-foreground">No data for this period</p>
+            <p className="text-xs text-muted-foreground">
+              No data for this period
+            </p>
           </div>
         ) : (
           <div style={{ width: "100%", height: 80 }}>
             <ResponsiveContainer>
-              <LineChart data={data} margin={{ top: 4, right: 24, left: -32, bottom: 0 }}>
+              <LineChart
+                data={data}
+                margin={{ top: 4, right: 24, left: -32, bottom: 0 }}
+              >
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 9 }}
@@ -107,12 +117,22 @@ export default function TrendOverview({
                   formatter={(v: number | undefined) => {
                     if (v == null) return ["", title];
                     const formatted = `${formatNumber(v).text}${unit ? " " + unit : ""}`;
-                    const note = v > upper ? " · above avg" : v < lower ? " · below avg" : "";
+                    const note =
+                      v > upper
+                        ? " · above avg"
+                        : v < lower
+                          ? " · below avg"
+                          : "";
                     return [formatted + note, title];
                   }}
                 />
                 {hasCompare && cmpAvg > 0 && (
-                  <ReferenceLine y={cmpAvg} stroke={color} strokeDasharray="3 3" strokeOpacity={0.35} />
+                  <ReferenceLine
+                    y={cmpAvg}
+                    stroke={color}
+                    strokeDasharray="3 3"
+                    strokeOpacity={0.35}
+                  />
                 )}
                 {hasCompare && (
                   <ReferenceLine
@@ -120,7 +140,12 @@ export default function TrendOverview({
                     stroke="#16a34a"
                     strokeDasharray="2 2"
                     strokeOpacity={0.6}
-                    label={{ value: "+1σ", position: "right", fontSize: 8, fill: "#16a34a" }}
+                    label={{
+                      value: "+1σ",
+                      position: "right",
+                      fontSize: 8,
+                      fill: "#16a34a",
+                    }}
                   />
                 )}
                 {hasCompare && lower > 0 && (
@@ -129,7 +154,12 @@ export default function TrendOverview({
                     stroke="#dc2626"
                     strokeDasharray="2 2"
                     strokeOpacity={0.6}
-                    label={{ value: "-1σ", position: "right", fontSize: 8, fill: "#dc2626" }}
+                    label={{
+                      value: "-1σ",
+                      position: "right",
+                      fontSize: 8,
+                      fill: "#dc2626",
+                    }}
                   />
                 )}
                 <Line
@@ -137,13 +167,32 @@ export default function TrendOverview({
                   dataKey="value"
                   stroke={color}
                   strokeWidth={2}
-                  dot={(props: { cx?: number; cy?: number; value?: number; index?: number }) => {
+                  dot={(props: {
+                    cx?: number;
+                    cy?: number;
+                    value?: number;
+                    index?: number;
+                  }) => {
                     const { cx, cy, value, index } = props;
-                    if (cx == null || cy == null || value == null) return <circle key={index} r={0} />;
+                    if (cx == null || cy == null || value == null)
+                      return <circle key={index} r={0} />;
                     const fill =
-                      value > upper ? "#16a34a" : value < lower ? "#dc2626" : color;
+                      value > upper
+                        ? "#16a34a"
+                        : value < lower
+                          ? "#dc2626"
+                          : color;
                     const r = value > upper || value < lower ? 3.5 : 2.5;
-                    return <circle key={index} cx={cx} cy={cy} r={r} fill={fill} strokeWidth={0} />;
+                    return (
+                      <circle
+                        key={index}
+                        cx={cx}
+                        cy={cy}
+                        r={r}
+                        fill={fill}
+                        strokeWidth={0}
+                      />
+                    );
                   }}
                   activeDot={{ r: 4 }}
                 />
@@ -155,27 +204,39 @@ export default function TrendOverview({
         {hasCompare && (
           <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border">
             <div className="flex flex-col">
-              <span className="text-[10px] text-muted-foreground leading-tight">Cmp avg</span>
+              <span className="text-[10px] text-muted-foreground leading-tight">
+                Cmp avg
+              </span>
               <span className="text-xs font-medium text-foreground tabular-nums">
-                {formatNumber(cmpAvg).text}{unit ? ` ${unit}` : ""}
+                {formatNumber(cmpAvg).text}
+                {unit ? ` ${unit}` : ""}
               </span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] text-muted-foreground leading-tight">σ</span>
+              <span className="text-[10px] text-muted-foreground leading-tight">
+                σ
+              </span>
               <span className="text-xs font-medium text-foreground tabular-nums">
-                ±{formatNumber(cmpStdDev).text}{unit ? ` ${unit}` : ""}
+                ±{formatNumber(cmpStdDev).text}
+                {unit ? ` ${unit}` : ""}
               </span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] text-green-600 leading-tight">+1σ</span>
+              <span className="text-[10px] text-green-600 leading-tight">
+                +1σ
+              </span>
               <span className="text-xs font-medium text-green-600 tabular-nums">
-                {formatNumber(upper).text}{unit ? ` ${unit}` : ""}
+                {formatNumber(upper).text}
+                {unit ? ` ${unit}` : ""}
               </span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] text-red-500 leading-tight">−1σ</span>
+              <span className="text-[10px] text-red-500 leading-tight">
+                −1σ
+              </span>
               <span className="text-xs font-medium text-red-500 tabular-nums">
-                {formatNumber(Math.max(lower, 0)).text}{unit ? ` ${unit}` : ""}
+                {formatNumber(Math.max(lower, 0)).text}
+                {unit ? ` ${unit}` : ""}
               </span>
             </div>
           </div>

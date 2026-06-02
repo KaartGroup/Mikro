@@ -77,7 +77,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ToastContext.Provider value={{ toasts, addToast, removeToast, clearToasts }}>
+    <ToastContext.Provider
+      value={{ toasts, addToast, removeToast, clearToasts }}
+    >
       {children}
       <ToastContainer />
     </ToastContext.Provider>
@@ -106,8 +108,10 @@ interface ToastItemProps {
 function ToastItem({ toast, onDismiss }: ToastItemProps) {
   const variants = {
     default: "bg-background border-border",
-    success: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800",
-    warning: "bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800",
+    success:
+      "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800",
+    warning:
+      "bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800",
     error: "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800",
   };
 
@@ -195,7 +199,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
       className={cn(
         "flex w-80 items-start gap-3 rounded-lg border p-4 shadow-lg",
         "animate-in slide-in-from-right-full",
-        variants[variant]
+        variants[variant],
       )}
     >
       <span className={cn("flex-shrink-0", iconColors[variant])}>

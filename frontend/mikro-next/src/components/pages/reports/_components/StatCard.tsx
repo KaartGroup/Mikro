@@ -11,7 +11,8 @@ export function StatCard({
   sub?: string;
   compareValue?: number | null;
 }) {
-  const numValue = typeof value === "string" ? parseFloat(value.replace(/,/g, "")) : value;
+  const numValue =
+    typeof value === "string" ? parseFloat(value.replace(/,/g, "")) : value;
   const delta =
     compareValue != null && compareValue > 0
       ? ((numValue - compareValue) / compareValue) * 100
@@ -27,7 +28,9 @@ export function StatCard({
             className={`text-xs font-medium mt-1 ${delta >= 0 ? "text-green-600" : "text-red-600"}`}
           >
             {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}%
-            <span className="text-muted-foreground font-normal ml-1">vs prior</span>
+            <span className="text-muted-foreground font-normal ml-1">
+              vs prior
+            </span>
           </p>
         )}
         {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}

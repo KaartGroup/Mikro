@@ -4,7 +4,10 @@ import { useState, useEffect } from "react";
  * Hook that checks whether the current user should see payment-related UI.
  * Returns true for admins always, and `micropayments_visible` value for others.
  */
-export function usePaymentsVisible(): { paymentsVisible: boolean; loading: boolean } {
+export function usePaymentsVisible(): {
+  paymentsVisible: boolean;
+  loading: boolean;
+} {
   const [paymentsVisible, setPaymentsVisible] = useState(false);
   const [loading, setLoading] = useState(true);
 

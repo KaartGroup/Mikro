@@ -16,7 +16,11 @@ const MappingHeatmap = dynamic(() => import("@/components/MappingHeatmap"), {
 interface ChangesetHeatmapCardProps {
   heatmapPoints: [number, number, number][];
   heatmapLoading: boolean;
-  heatmapSummary: { totalChangesets: number; totalChanges: number; usersWithData: number } | null;
+  heatmapSummary: {
+    totalChangesets: number;
+    totalChanges: number;
+    usersWithData: number;
+  } | null;
 }
 
 export function ChangesetHeatmapCard({
@@ -28,11 +32,14 @@ export function ChangesetHeatmapCard({
     <Card data-chart-export="Changeset Heatmap">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Map of changeset centroids</CardTitle>
+          <CardTitle className="text-base">
+            Map of changeset centroids
+          </CardTitle>
           {heatmapSummary && !heatmapLoading && (
             <span className="text-xs text-muted-foreground">
               {heatmapSummary.usersWithData} users &middot;{" "}
-              <Val>{formatNumber(heatmapSummary.totalChangesets)}</Val> changesets
+              <Val>{formatNumber(heatmapSummary.totalChangesets)}</Val>{" "}
+              changesets
             </span>
           )}
         </div>

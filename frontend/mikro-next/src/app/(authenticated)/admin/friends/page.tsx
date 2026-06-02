@@ -82,7 +82,8 @@ export default function FriendsListPage() {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     return friends.filter(
-      (p) => p.cached_last_active && new Date(p.cached_last_active) >= sevenDaysAgo
+      (p) =>
+        p.cached_last_active && new Date(p.cached_last_active) >= sevenDaysAgo,
     ).length;
   }, [friends]);
 
@@ -90,7 +91,10 @@ export default function FriendsListPage() {
     if (friends.length === 0) return null;
     return friends.reduce<Friend | null>((best, p) => {
       if (!best) return p;
-      return (p.cached_total_changesets ?? 0) > (best.cached_total_changesets ?? 0) ? p : best;
+      return (p.cached_total_changesets ?? 0) >
+        (best.cached_total_changesets ?? 0)
+        ? p
+        : best;
     }, null);
   }, [friends]);
 
@@ -113,7 +117,7 @@ export default function FriendsListPage() {
         (p) =>
           p.osm_username.toLowerCase().includes(s) ||
           (p.notes || "").toLowerCase().includes(s) ||
-          (p.tags || []).join(" ").toLowerCase().includes(s)
+          (p.tags || []).join(" ").toLowerCase().includes(s),
       );
     }
 
@@ -155,13 +159,22 @@ export default function FriendsListPage() {
   }, [friends, searchTerm, sortKey, sortDir]);
 
   // Reset page when search/sort changes
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, sortKey, sortDir]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortKey, sortDir]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredAndSorted.length / ROWS_PER_PAGE);
-  const paginatedFriends = filteredAndSorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
-  const showingStart = filteredAndSorted.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
-  const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, filteredAndSorted.length);
+  const paginatedFriends = filteredAndSorted.slice(
+    (currentPage - 1) * ROWS_PER_PAGE,
+    currentPage * ROWS_PER_PAGE,
+  );
+  const showingStart =
+    filteredAndSorted.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
+  const showingEnd = Math.min(
+    currentPage * ROWS_PER_PAGE,
+    filteredAndSorted.length,
+  );
 
   // CRUD handlers
   const handleCreateFriend = async () => {
@@ -185,7 +198,8 @@ export default function FriendsListPage() {
       setAddTags("");
       refetch();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add friend";
+      const message =
+        err instanceof Error ? err.message : "Failed to add friend";
       toast.error(message);
     }
   };
@@ -248,7 +262,13 @@ export default function FriendsListPage() {
   };
 
   // SortHeader sub-component
-  const SortHeader = ({ label, sortField }: { label: string; sortField: string }) => (
+  const SortHeader = ({
+    label,
+    sortField,
+  }: {
+    label: string;
+    sortField: string;
+  }) => (
     <TableHead
       className="cursor-pointer select-none hover:text-kaart-orange transition-colors"
       onClick={() => handleSort(sortField)}
@@ -256,7 +276,12 @@ export default function FriendsListPage() {
       <span className="inline-flex items-center gap-1">
         {label}
         {sortKey === sortField && (
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -307,12 +332,16 @@ export default function FriendsListPage() {
             <CardTitle className="text-sm font-medium">Total Listed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold"><Val>{formatNumber(friends.length)}</Val></div>
+            <div className="text-2xl font-bold">
+              <Val>{formatNumber(friends.length)}</Val>
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Active Last 7 Days</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Last 7 Days
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-kaart-orange">
@@ -330,7 +359,8 @@ export default function FriendsListPage() {
             </div>
             {mostActive?.cached_total_changesets != null && (
               <p className="text-xs text-muted-foreground">
-                <Val>{formatNumber(mostActive.cached_total_changesets)}</Val> changesets
+                <Val>{formatNumber(mostActive.cached_total_changesets)}</Val>{" "}
+                changesets
               </p>
             )}
           </CardContent>
@@ -374,11 +404,13 @@ export default function FriendsListPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                    <Val>{friend.notes
-                      ? friend.notes.length > 60
-                        ? `${friend.notes.slice(0, 60)}...`
-                        : friend.notes
-                      : null}</Val>
+                    <Val>
+                      {friend.notes
+                        ? friend.notes.length > 60
+                          ? `${friend.notes.slice(0, 60)}...`
+                          : friend.notes
+                        : null}
+                    </Val>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
@@ -394,14 +426,20 @@ export default function FriendsListPage() {
                   </TableCell>
                   <TableCell>{formatDate(friend.created_at)}</TableCell>
                   <TableCell>
-                    {friend.cached_last_active ? formatDate(friend.cached_last_active) : "Never"}
+                    {friend.cached_last_active
+                      ? formatDate(friend.cached_last_active)
+                      : "Never"}
                   </TableCell>
                   <TableCell>
                     <Val>{formatNumber(friend.cached_total_changesets)}</Val>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openEditModal(friend)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEditModal(friend)}
+                      >
                         Edit
                       </Button>
                       <Button
@@ -428,7 +466,10 @@ export default function FriendsListPage() {
               ))}
               {filteredAndSorted.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell
+                    colSpan={8}
+                    className="text-center py-8 text-muted-foreground"
+                  >
                     {friends.length === 0
                       ? "No friends listed yet. Add an OSM username to start tracking."
                       : "No results match your search."}
@@ -443,13 +484,29 @@ export default function FriendsListPage() {
       {/* Pagination Controls */}
       {filteredAndSorted.length > ROWS_PER_PAGE && (
         <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
-          <span>Showing {showingStart}-{showingEnd} of {filteredAndSorted.length}</span>
+          <span>
+            Showing {showingStart}-{showingEnd} of {filteredAndSorted.length}
+          </span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={currentPage === 1}
-              onClick={() => setCurrentPage(p => p - 1)}>Previous</Button>
-            <span className="flex items-center px-2">Page {currentPage} of {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(p => p + 1)}>Next</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+            >
+              Previous
+            </Button>
+            <span className="flex items-center px-2">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+            >
+              Next
+            </Button>
           </div>
         </div>
       )}
@@ -484,7 +541,9 @@ export default function FriendsListPage() {
             onChange={(e) => setAddUsername(e.target.value)}
           />
           <div>
-            <label className="text-sm font-medium leading-none mb-2 block">Notes</label>
+            <label className="text-sm font-medium leading-none mb-2 block">
+              Notes
+            </label>
             <textarea
               className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               rows={3}
@@ -499,7 +558,9 @@ export default function FriendsListPage() {
             value={addTags}
             onChange={(e) => setAddTags(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Separate tags with commas</p>
+          <p className="text-xs text-muted-foreground">
+            Separate tags with commas
+          </p>
         </div>
       </Modal>
 
@@ -531,11 +592,17 @@ export default function FriendsListPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium leading-none mb-2 block">OSM Username</label>
-            <p className="text-sm text-muted-foreground">{selectedFriend?.osm_username}</p>
+            <label className="text-sm font-medium leading-none mb-2 block">
+              OSM Username
+            </label>
+            <p className="text-sm text-muted-foreground">
+              {selectedFriend?.osm_username}
+            </p>
           </div>
           <div>
-            <label className="text-sm font-medium leading-none mb-2 block">Notes</label>
+            <label className="text-sm font-medium leading-none mb-2 block">
+              Notes
+            </label>
             <textarea
               className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               rows={3}
@@ -550,7 +617,9 @@ export default function FriendsListPage() {
             value={editTags}
             onChange={(e) => setEditTags(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Separate tags with commas</p>
+          <p className="text-xs text-muted-foreground">
+            Separate tags with commas
+          </p>
         </div>
       </Modal>
 

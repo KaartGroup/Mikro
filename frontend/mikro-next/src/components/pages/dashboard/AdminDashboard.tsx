@@ -1,7 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, Skeleton, Badge, Button, useToastActions, Tooltip, Val } from "@/components/ui";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Skeleton,
+  Badge,
+  Button,
+  useToastActions,
+  Tooltip,
+  Val,
+} from "@/components/ui";
 import {
   useAdminDashboardStats,
   useOrgTransactions,
@@ -45,14 +56,31 @@ interface DashboardStatsProps {
   viewerRole: string;
 }
 
-function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCountryIdChange, viewerRole }: DashboardStatsProps) {
+function DashboardStats({
+  teamId,
+  onTeamIdChange,
+  regionCountryId,
+  onRegionCountryIdChange,
+  viewerRole,
+}: DashboardStatsProps) {
   const isTeamAdmin = viewerRole === "team_admin";
   const canPurge = isOrgAdminOrAbove(viewerRole);
-  const { data: stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useAdminDashboardStats();
-  const { data: transactions, loading: transactionsLoading } = useOrgTransactions();
+  const {
+    data: stats,
+    loading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useAdminDashboardStats();
+  const { data: transactions, loading: transactionsLoading } =
+    useOrgTransactions();
   const { data: users, loading: usersLoading } = useUsersList();
-  const { data: serverTimeStats, loading: timeHistoryLoading, refetch: refetchTimeStats } = useAdminTimeStats();
-  const { data: activeSessions, refetch: refetchActiveSessions } = useAdminActiveSessions();
+  const {
+    data: serverTimeStats,
+    loading: timeHistoryLoading,
+    refetch: refetchTimeStats,
+  } = useAdminTimeStats();
+  const { data: activeSessions, refetch: refetchActiveSessions } =
+    useAdminActiveSessions();
 
   // When the team scope changes, refetch the time-related panels.
   useEffect(() => {
@@ -62,7 +90,9 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
 
   // Region filter — refetch stats when admin picks a country.
   useEffect(() => {
-    refetchStats(regionCountryId != null ? { country_id: regionCountryId } : undefined).catch(() => {});
+    refetchStats(
+      regionCountryId != null ? { country_id: regionCountryId } : undefined,
+    ).catch(() => {});
   }, [regionCountryId, refetchStats]);
   const { mutate: purgeTaskStats, loading: purging } = usePurgeTaskStats();
   const { mutate: syncAllTasks } = useAdminSyncAllTasks();
@@ -84,7 +114,8 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
       weekHours: serverTimeStats?.weekHours ?? 0,
       lastWeekHours: serverTimeStats?.lastWeekHours ?? 0,
       pendingAdjustments: serverTimeStats?.pendingAdjustments ?? 0,
-      lastWeekPendingAdjustments: serverTimeStats?.lastWeekPendingAdjustments ?? 0,
+      lastWeekPendingAdjustments:
+        serverTimeStats?.lastWeekPendingAdjustments ?? 0,
       shortSessionClusters: serverTimeStats?.shortSessionClusters ?? 0,
       longRunning,
       activeCount: sessions.length,
@@ -109,7 +140,10 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
     pollRef.current = setInterval(async () => {
       try {
         const result = await checkSyncStatus({});
-        if (result.sync_status === "running" || result.sync_status === "queued") {
+        if (
+          result.sync_status === "running" ||
+          result.sync_status === "queued"
+        ) {
           setSyncProgress(result.progress || "Syncing...");
         } else if (result.sync_status === "completed") {
           stopPolling();
@@ -165,7 +199,10 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
       refetchStats();
       toast.success("All task stats purged successfully");
     } catch (err) {
-      toast.error("Failed to purge task stats: " + (err instanceof Error ? err.message : "Unknown error"));
+      toast.error(
+        "Failed to purge task stats: " +
+          (err instanceof Error ? err.message : "Unknown error"),
+      );
     }
   };
 
@@ -178,7 +215,10 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
           h-10 Select buttons (the labels above add ~24px). */}
       <div className="flex items-end justify-end gap-3">
         <div className="w-48">
-          <RegionFilter value={regionCountryId} onChange={onRegionCountryIdChange} />
+          <RegionFilter
+            value={regionCountryId}
+            onChange={onRegionCountryIdChange}
+          />
         </div>
         <div className="w-48">
           <TeamScopeSelector
@@ -190,7 +230,10 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
         {syncing && syncProgress && (
           <span className="text-sm text-muted-foreground">{syncProgress}</span>
         )}
-        <Tooltip content="Pull latest task data from Tasking Manager and MapRoulette" position="bottom">
+        <Tooltip
+          content="Pull latest task data from Tasking Manager and MapRoulette"
+          position="bottom"
+        >
           <Button
             variant="outline"
             size="sm"
@@ -207,8 +250,8 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
           totals) stay org-wide until F23/follow-up backend work. */}
       {teamId !== null && (
         <div className="text-xs text-muted-foreground italic -mt-2">
-          Time stats below are scoped to the selected team. Project counts
-          and payment totals remain org-wide.
+          Time stats below are scoped to the selected team. Project counts and
+          payment totals remain org-wide.
         </div>
       )}
 
@@ -262,7 +305,9 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
           label="Hours This Week"
           value={`${timeStats.weekHours}h`}
           delta={{
-            value: Math.round((timeStats.weekHours - timeStats.lastWeekHours) * 10) / 10,
+            value:
+              Math.round((timeStats.weekHours - timeStats.lastWeekHours) * 10) /
+              10,
             period: "vs last week",
             format: "hours",
             goodDirection: "up",
@@ -282,7 +327,9 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
           label="Pending Adjustments"
           value={formatNumber(timeStats.pendingAdjustments)}
           delta={{
-            value: timeStats.pendingAdjustments - timeStats.lastWeekPendingAdjustments,
+            value:
+              timeStats.pendingAdjustments -
+              timeStats.lastWeekPendingAdjustments,
             period: "vs last week",
             format: "number",
             goodDirection: "down",
@@ -332,14 +379,23 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
           href="/reports"
           linkLabel="View self-validation details in reports"
           tooltip="Tasks where the same user both mapped and validated — flagged as not payable to prevent abuse"
-          severity={(stats?.self_validated_count ?? 0) > 0 ? "warning" : "neutral"}
+          severity={
+            (stats?.self_validated_count ?? 0) > 0 ? "warning" : "neutral"
+          }
           loading={statsLoading}
         />
       </div>
 
       {/* Snapshot notice */}
       <p className="text-xs text-muted-foreground text-right">
-        Stats as of {snapshotTime.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true })}
+        Stats as of{" "}
+        {snapshotTime.toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })}
       </p>
 
       {/* TASKS STRIP — all-time totals. Brand colors preserved (orange/
@@ -409,7 +465,10 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <Tooltip content="Most recent payment requests from users — click View All to manage" position="bottom">
+            <Tooltip
+              content="Most recent payment requests from users — click View All to manage"
+              position="bottom"
+            >
               <CardTitle>Recent Payment Requests</CardTitle>
             </Tooltip>
             <Link
@@ -436,7 +495,8 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
                     <div>
                       <p className="font-medium">{request.user}</p>
                       <p className="text-sm text-muted-foreground">
-                        {request.osm_username} • {formatDate(request.date_requested)}
+                        {request.osm_username} •{" "}
+                        {formatDate(request.date_requested)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -458,7 +518,10 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <Tooltip content="Most recent completed payments to users" position="bottom">
+            <Tooltip
+              content="Most recent completed payments to users"
+              position="bottom"
+            >
               <CardTitle>Recent Payouts</CardTitle>
             </Tooltip>
             <Link
@@ -512,46 +575,49 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
       {/* Dev/purge tools hidden per management request 2026-05-19 —
           restore by removing the `false &&` guard below. */}
       {false && canPurge && (
-      <Card className="border-2 border-dashed border-yellow-400 bg-yellow-50/50 mt-8 relative">
-        <div className="absolute top-2 right-2 z-10">
-          <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">Dev Only</span>
-        </div>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-red-800">
-            Dev Tools
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handlePurgeTaskStats}
-              disabled={purging}
-              className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                purgeConfirm
-                  ? "bg-red-600 text-white hover:bg-red-700"
-                  : "bg-red-100 text-red-700 hover:bg-red-200"
-              } disabled:opacity-50`}
-            >
-              {purging
-                ? "Purging..."
-                : purgeConfirm
-                ? "Click Again to Confirm Purge"
-                : "Purge All Task Stats"}
-            </button>
-            {purgeConfirm && (
-              <button
-                onClick={() => setPurgeConfirm(false)}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                Cancel
-              </button>
-            )}
+        <Card className="border-2 border-dashed border-yellow-400 bg-yellow-50/50 mt-8 relative">
+          <div className="absolute top-2 right-2 z-10">
+            <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">
+              Dev Only
+            </span>
           </div>
-          <p className="text-xs text-red-600 mt-2">
-            Deletes all tasks, user_tasks, validator_task_actions and resets all user/project task counts to 0.
-          </p>
-        </CardContent>
-      </Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-red-800">
+              Dev Tools
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handlePurgeTaskStats}
+                disabled={purging}
+                className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  purgeConfirm
+                    ? "bg-red-600 text-white hover:bg-red-700"
+                    : "bg-red-100 text-red-700 hover:bg-red-200"
+                } disabled:opacity-50`}
+              >
+                {purging
+                  ? "Purging..."
+                  : purgeConfirm
+                    ? "Click Again to Confirm Purge"
+                    : "Purge All Task Stats"}
+              </button>
+              {purgeConfirm && (
+                <button
+                  onClick={() => setPurgeConfirm(false)}
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-red-600 mt-2">
+              Deletes all tasks, user_tasks, validator_task_actions and resets
+              all user/project task counts to 0.
+            </p>
+          </CardContent>
+        </Card>
       )}
     </>
   );
@@ -571,7 +637,8 @@ export function AdminDashboard() {
   // - team_admin: dashboard scope is auto-restricted via TeamScopeSelector
   //   `managedOnly` mode and we show an info chip identifying the tier.
   const { role: viewerRole } = useCurrentUserRole();
-  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const { teams: managedTeams, loading: managedTeamsLoading } =
+    useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
 
   // Team scope persists across reloads via localStorage. Hydration
@@ -622,11 +689,7 @@ export function AdminDashboard() {
   }, []);
 
   // team_admin with no managed teams → empty state, skip the rest.
-  if (
-    isTeamAdmin &&
-    !managedTeamsLoading &&
-    managedTeams.length === 0
-  ) {
+  if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
@@ -684,7 +747,21 @@ export function AdminDashboard() {
       <div className="grid gap-4 lg:grid-cols-4">
         <div className="lg:col-span-1">
           <TimeTrackingWidget
-            projects={projects?.org_active_projects?.map((p: { id: number; name: string; short_name?: string; last_worked_on?: string | null }) => ({ id: p.id, name: p.name, short_name: p.short_name, last_worked_on: p.last_worked_on ?? null })) ?? []}
+            projects={
+              projects?.org_active_projects?.map(
+                (p: {
+                  id: number;
+                  name: string;
+                  short_name?: string;
+                  last_worked_on?: string | null;
+                }) => ({
+                  id: p.id,
+                  name: p.name,
+                  short_name: p.short_name,
+                  last_worked_on: p.last_worked_on ?? null,
+                }),
+              ) ?? []
+            }
           />
         </div>
         <div className="lg:col-span-3">

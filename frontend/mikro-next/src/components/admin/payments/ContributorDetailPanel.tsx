@@ -36,8 +36,10 @@ const STATUS_LABEL: Record<PaymentCycleStatus, string> = {
 };
 
 const STATUS_CLASSES: Record<PaymentCycleStatus, string> = {
-  pending: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
-  approved: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
+  pending:
+    "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
+  approved:
+    "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
   held: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
   paid: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
 };
@@ -187,12 +189,7 @@ export function ContributorDetailPanel({
     }
   };
 
-  type DetailTab =
-    | "payroll"
-    | "projects"
-    | "compensation"
-    | "payment"
-    | "history";
+  type DetailTab = "payroll";
   const [activeTab, setActiveTab] = useState<DetailTab>("payroll");
 
   // Empty state — no row selected
@@ -215,14 +212,10 @@ export function ContributorDetailPanel({
 
   const c = detail.contributor;
   const basePay =
-    c.hourly_rate !== null ? c.hours * c.hourly_rate : c.calculated_wage ?? 0;
+    c.hourly_rate !== null ? c.hours * c.hourly_rate : (c.calculated_wage ?? 0);
 
-  const tabs: { id: DetailTab; label: string; mock: boolean }[] = [
-    { id: "payroll", label: "Payroll Summary", mock: false },
-    { id: "projects", label: "Project Allocations", mock: true },
-    { id: "compensation", label: "Compensation Breakdown", mock: true },
-    { id: "payment", label: "Payment Info", mock: true },
-    { id: "history", label: "History", mock: true },
+  const tabs: { id: DetailTab; label: string }[] = [
+    { id: "payroll", label: "Payroll Summary" },
   ];
 
   return (
@@ -248,11 +241,8 @@ export function ContributorDetailPanel({
             <div className="text-xs text-muted-foreground truncate">
               {c.osm_username || c.email}
             </div>
-            <div className="text-[10px] text-muted-foreground italic mt-0.5 flex items-center gap-1">
+            <div className="text-[10px] text-muted-foreground italic mt-0.5">
               <span>Location</span>
-              <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 not-italic">
-                Mock
-              </span>
             </div>
             {c.status === "held" && c.status_note && (
               <div className="text-xs text-red-700 dark:text-red-300 mt-0.5">
@@ -281,26 +271,46 @@ export function ContributorDetailPanel({
             <div className="flex flex-col gap-1.5">
               {c.status === "pending" && (
                 <>
-                  <Button size="sm" variant="primary" onClick={() => onApprove?.(c)}>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => onApprove?.(c)}
+                  >
                     Approve
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => onHold?.(c)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onHold?.(c)}
+                  >
                     Hold
                   </Button>
                 </>
               )}
               {c.status === "approved" && (
                 <>
-                  <Button size="sm" variant="primary" onClick={() => onMarkPaid?.(c)}>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => onMarkPaid?.(c)}
+                  >
                     Mark Paid
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => onResetPending?.(c)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onResetPending?.(c)}
+                  >
                     Undo
                   </Button>
                 </>
               )}
               {c.status === "held" && (
-                <Button size="sm" variant="outline" onClick={() => onResetPending?.(c)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onResetPending?.(c)}
+                >
                   Release
                 </Button>
               )}
@@ -325,11 +335,6 @@ export function ContributorDetailPanel({
                 }`}
               >
                 {tab.label}
-                {tab.mock && (
-                  <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                    Mock
-                  </span>
-                )}
               </button>
             ))}
           </nav>
@@ -355,14 +360,7 @@ export function ContributorDetailPanel({
               creating={creating}
             />
           )}
-          {activeTab === "projects" && <MockTabPlaceholder label="Project Allocations" />}
-          {activeTab === "compensation" && (
-            <MockTabPlaceholder label="Compensation Breakdown" />
-          )}
-          {activeTab === "payment" && (
-            <MockTabPlaceholder label="Payment Info" />
-          )}
-          {activeTab === "history" && <MockTabPlaceholder label="History" />}
+          {/* Only payroll tab is rendered — other contributor-detail tabs removed (mocked) */}
         </div>
       </div>
     </div>
@@ -371,17 +369,7 @@ export function ContributorDetailPanel({
 
 // ─── sub-components ─────────────────────────────────────────────────
 
-function MockTabPlaceholder({ label }: { label: string }) {
-  return (
-    <div className="p-8 text-center text-sm text-muted-foreground italic border border-dashed border-border rounded-md">
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 mr-2 not-italic">
-        Mock
-      </span>
-      <strong className="not-italic">{label}</strong> — not yet wired. Will surface
-      contributor-specific {label.toLowerCase()} once endpoint is added.
-    </div>
-  );
-}
+// Mock placeholders removed — non-backed contributor detail tabs were deleted
 
 interface PayrollSummaryTabProps {
   contributor: PaymentCycleRow;
@@ -593,8 +581,12 @@ function PayrollSummaryTab({
                 <tbody>
                   {detail.sessions.map((s) => (
                     <tr key={s.id} className="border-t border-border">
-                      <td className="px-2 py-1">{formatDateTime(s.clock_in)}</td>
-                      <td className="px-2 py-1">{formatDateTime(s.clock_out)}</td>
+                      <td className="px-2 py-1">
+                        {formatDateTime(s.clock_in)}
+                      </td>
+                      <td className="px-2 py-1">
+                        {formatDateTime(s.clock_out)}
+                      </td>
                       <td className="px-2 py-1 capitalize">{s.category}</td>
                       <td className="px-2 py-1">{s.task_name || "—"}</td>
                       <td className="px-2 py-1 text-right tabular-nums">

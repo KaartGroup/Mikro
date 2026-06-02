@@ -37,9 +37,7 @@ export function NotesButton({
   }
 
   const sizeClasses =
-    size === "xs"
-      ? "h-6 px-2 text-xs gap-1"
-      : "h-7 px-2.5 text-xs gap-1.5";
+    size === "xs" ? "h-6 px-2 text-xs gap-1" : "h-7 px-2.5 text-xs gap-1.5";
 
   const stateClasses = hasNotes
     ? "bg-kaart-orange/10 text-kaart-orange hover:bg-kaart-orange/20 border-kaart-orange/30"

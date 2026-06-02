@@ -29,7 +29,9 @@ interface ProjectTrainingsTabProps {
   projectId: number | string;
 }
 
-export default function ProjectTrainingsTab({ projectId }: ProjectTrainingsTabProps) {
+export default function ProjectTrainingsTab({
+  projectId,
+}: ProjectTrainingsTabProps) {
   const fetchTrainings = useFetchProjectTrainings();
   const assignTraining = useAssignProjectTraining();
   const unassignTraining = useUnassignProjectTraining();
@@ -69,7 +71,7 @@ export default function ProjectTrainingsTab({ projectId }: ProjectTrainingsTabPr
         // error surfaced via assignTraining.error
       }
     },
-    [projectId, assignTraining.mutate, loadTrainings]
+    [projectId, assignTraining.mutate, loadTrainings],
   );
 
   const handleUnassign = useCallback(
@@ -84,7 +86,7 @@ export default function ProjectTrainingsTab({ projectId }: ProjectTrainingsTabPr
         // error surfaced via unassignTraining.error
       }
     },
-    [projectId, unassignTraining.mutate, loadTrainings]
+    [projectId, unassignTraining.mutate, loadTrainings],
   );
 
   const errorMessage =
@@ -142,7 +144,9 @@ export default function ProjectTrainingsTab({ projectId }: ProjectTrainingsTabPr
                     <Badge variant="secondary">{t.training_type}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={difficultyColor(t.difficulty)}>{t.difficulty}</Badge>
+                    <Badge variant={difficultyColor(t.difficulty)}>
+                      {t.difficulty}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -185,7 +189,9 @@ export default function ProjectTrainingsTab({ projectId }: ProjectTrainingsTabPr
                     <Badge variant="secondary">{t.training_type}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={difficultyColor(t.difficulty)}>{t.difficulty}</Badge>
+                    <Badge variant={difficultyColor(t.difficulty)}>
+                      {t.difficulty}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button

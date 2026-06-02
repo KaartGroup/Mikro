@@ -17,7 +17,11 @@ interface Props {
   className?: string;
 }
 
-export function ChartExportButton({ containerRef, filename, className }: Props) {
+export function ChartExportButton({
+  containerRef,
+  filename,
+  className,
+}: Props) {
   const onClick = useCallback(() => {
     exportChartAsPng(
       containerRef.current,

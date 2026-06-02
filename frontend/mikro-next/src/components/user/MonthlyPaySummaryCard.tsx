@@ -14,13 +14,30 @@ import type { MyMonthlySummaryResponse } from "@/types";
  */
 
 const MONTH_LABELS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ] as const;
 
-function buildMonthOptions(monthsBack = 12): { value: string; label: string; year: number; month: number }[] {
+function buildMonthOptions(
+  monthsBack = 12,
+): { value: string; label: string; year: number; month: number }[] {
   const now = new Date();
-  const options: { value: string; label: string; year: number; month: number }[] = [];
+  const options: {
+    value: string;
+    label: string;
+    year: number;
+    month: number;
+  }[] = [];
   for (let i = 0; i < monthsBack; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const year = d.getFullYear();
@@ -38,14 +55,25 @@ function buildMonthOptions(monthsBack = 12): { value: string; label: string; yea
 /** Local month-start and month-end as ISO UTC instants — matches the
  *  helpers in lib/timeTracking.ts but scoped to a picked (year, month)
  *  rather than "now". */
-function monthBoundsIsoUtc(year: number, month: number): { start: string; end: string } {
+function monthBoundsIsoUtc(
+  year: number,
+  month: number,
+): { start: string; end: string } {
   return {
     start: new Date(year, month, 1).toISOString(),
     end: new Date(year, month + 1, 1).toISOString(),
   };
 }
 
-function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
+function Stat({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+}) {
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
@@ -62,7 +90,8 @@ export function MonthlyPaySummaryCard() {
   const [loading, setLoading] = useState(false);
   const { mutate: fetchSummary } = useMyMonthlySummary();
 
-  const selectedOption = options.find((o) => o.value === selected) || options[0];
+  const selectedOption =
+    options.find((o) => o.value === selected) || options[0];
 
   const load = useCallback(async () => {
     const { year, month } = selectedOption;
@@ -86,8 +115,8 @@ export function MonthlyPaySummaryCard() {
     ? summary.pay_mode === "hourly"
       ? `${formatNumber(summary.total_hours).text}h × ${formatCurrency(summary.hourly_rate ?? 0).text}/hr`
       : summary.pay_mode === "per_task"
-      ? "From per-task rates"
-      : "No rate configured"
+        ? "From per-task rates"
+        : "No rate configured"
     : undefined;
 
   return (

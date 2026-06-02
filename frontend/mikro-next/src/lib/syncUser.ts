@@ -31,7 +31,7 @@ export async function syncUserWithBackend(
     const response = await fetch(`${BACKEND_URL}/api/login`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(userInfo || {}),

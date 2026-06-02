@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useActiveTimeSession, useClockIn, useClockOut, useUserProjects, useFetchMyTimeHistory, useUpdateMyNotes, useDiscardActiveSession, useFetchSubcategories } from "@/hooks";
+import {
+  useActiveTimeSession,
+  useClockIn,
+  useClockOut,
+  useUserProjects,
+  useFetchMyTimeHistory,
+  useUpdateMyNotes,
+  useDiscardActiveSession,
+  useFetchSubcategories,
+} from "@/hooks";
 import {
   TOPIC_OPTIONS,
   requiresProjectFor,
@@ -34,11 +43,16 @@ const selectStyle: React.CSSProperties = {
 };
 
 export function SidebarClock() {
-  const { data: activeSession, loading: sessionLoading, refetch } = useActiveTimeSession();
+  const {
+    data: activeSession,
+    loading: sessionLoading,
+    refetch,
+  } = useActiveTimeSession();
   const { mutate: clockIn, loading: clockingIn } = useClockIn();
   const { mutate: clockOut, loading: clockingOut } = useClockOut();
   const { mutate: updateMyNotes } = useUpdateMyNotes();
-  const { mutate: discardActive, loading: discarding } = useDiscardActiveSession();
+  const { mutate: discardActive, loading: discarding } =
+    useDiscardActiveSession();
   const { data: projects } = useUserProjects();
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [discardError, setDiscardError] = useState<string | null>(null);
@@ -64,7 +78,9 @@ export function SidebarClock() {
   const { mutate: fetchSubcategories } = useFetchSubcategories();
   const [pendingUserNotes, setPendingUserNotes] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
-  const [activeSessionUserNotes, setActiveSessionUserNotes] = useState<string | null>(null);
+  const [activeSessionUserNotes, setActiveSessionUserNotes] = useState<
+    string | null
+  >(null);
   const [todaySeconds, setTodaySeconds] = useState(0);
   const [weekSeconds, setWeekSeconds] = useState(0);
   const { mutate: fetchHistory } = useFetchMyTimeHistory();
@@ -72,16 +88,19 @@ export function SidebarClock() {
   // Project ordering: most-recently-worked-on project pinned at the
   // top, the rest alphabetical underneath. Falls back to pure alpha
   // when no project has a last_worked_on yet. SSOT in @/lib/sortProjects.
-  const projectList: { id: number; name: string; last_worked_on: string | null }[] =
-    sortProjectsRecentPinned(
-      projects?.user_projects?.map(
-        (p: { id: number; name: string; last_worked_on?: string | null }) => ({
-          id: p.id,
-          name: p.name,
-          last_worked_on: p.last_worked_on ?? null,
-        }),
-      ) ?? []
-    );
+  const projectList: {
+    id: number;
+    name: string;
+    last_worked_on: string | null;
+  }[] = sortProjectsRecentPinned(
+    projects?.user_projects?.map(
+      (p: { id: number; name: string; last_worked_on?: string | null }) => ({
+        id: p.id,
+        name: p.name,
+        last_worked_on: p.last_worked_on ?? null,
+      }),
+    ) ?? [],
+  );
 
   // Filter list by search query. If the current selection no longer
   // matches the filter, keep it visible so the dropdown still shows
@@ -137,13 +156,19 @@ export function SidebarClock() {
           fetchHistory({ startDate: localDayStartIsoUtc(), endDate: dayEnd }),
           fetchHistory({ startDate: localWeekStartIsoUtc(), endDate: dayEnd }),
         ]);
-        const sumCompleted = (entries: { status: string; durationSeconds: number | null }[] | undefined) =>
+        const sumCompleted = (
+          entries:
+            | { status: string; durationSeconds: number | null }[]
+            | undefined,
+        ) =>
           (entries || [])
             .filter((e) => e.status === "completed")
             .reduce((sum: number, e) => sum + (e.durationSeconds || 0), 0);
         setTodaySeconds(sumCompleted(todayResult?.entries));
         setWeekSeconds(sumCompleted(weekResult?.entries));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
     fetchTotals();
   }, [isClockedIn, fetchHistory]);
@@ -169,7 +194,10 @@ export function SidebarClock() {
       await clockIn({
         project_id: selectedProject ? parseInt(selectedProject) : null,
         category: selectedTopic,
-        task_name: selectedTopic === "project_creation" && projectDescription ? projectDescription : null,
+        task_name:
+          selectedTopic === "project_creation" && projectDescription
+            ? projectDescription
+            : null,
         subcategoryId: selectedSub?.id ?? null,
         userNotes: pendingUserNotes,
       });
@@ -190,7 +218,16 @@ export function SidebarClock() {
     } catch {
       // Silently handle — dashboard/time page will show full errors
     }
-  }, [selectedTopic, selectedSub, selectedProject, needsProject, projectDescription, clockIn, pendingUserNotes, refetch]);
+  }, [
+    selectedTopic,
+    selectedSub,
+    selectedProject,
+    needsProject,
+    projectDescription,
+    clockIn,
+    pendingUserNotes,
+    refetch,
+  ]);
 
   const handleSaveActiveNotes = useCallback(
     async (value: string | null) => {
@@ -198,7 +235,7 @@ export function SidebarClock() {
       await updateMyNotes({ entry_id: activeSessionId, userNotes: value });
       setActiveSessionUserNotes(value);
     },
-    [activeSessionId, updateMyNotes]
+    [activeSessionId, updateMyNotes],
   );
 
   const handleDiscardConfirmed = useCallback(async () => {
@@ -282,8 +319,16 @@ export function SidebarClock() {
 
   if (sessionLoading) {
     return (
-      <div style={{ padding: "10px 12px", borderTop: "1px solid var(--border)" }}>
-        <div style={{ fontSize: 11, color: "var(--muted-foreground)", textAlign: "center" }}>
+      <div
+        style={{ padding: "10px 12px", borderTop: "1px solid var(--border)" }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--muted-foreground)",
+            textAlign: "center",
+          }}
+        >
           Loading...
         </div>
       </div>
@@ -293,15 +338,29 @@ export function SidebarClock() {
   // Confirmation flash
   if (showConfirmation) {
     return (
-      <div style={{ padding: "10px 12px", borderTop: "1px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+      <div
+        style={{ padding: "10px 12px", borderTop: "1px solid var(--border)" }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+          }}
+        >
           <svg
             style={{ width: 16, height: 16, color: "#2563eb", flexShrink: 0 }}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
           </svg>
           <span style={{ fontSize: 11, color: "#2563eb", fontWeight: 500 }}>
             {formatDurationHM(elapsedSeconds)}
@@ -323,11 +382,27 @@ export function SidebarClock() {
       >
         <div style={{ textAlign: "center", marginBottom: 2 }}>
           <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>
-            Today: {formatDurationHM(todaySeconds + elapsedSeconds)} · Week: {formatDurationHM(weekSeconds + elapsedSeconds)}
+            Today: {formatDurationHM(todaySeconds + elapsedSeconds)} · Week:{" "}
+            {formatDurationHM(weekSeconds + elapsedSeconds)}
           </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, justifyContent: "center" }}>
-          <span style={{ position: "relative", display: "inline-flex", width: 7, height: 7 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 4,
+            justifyContent: "center",
+          }}
+        >
+          <span
+            style={{
+              position: "relative",
+              display: "inline-flex",
+              width: 7,
+              height: 7,
+            }}
+          >
             <span
               style={{
                 position: "absolute",
@@ -360,7 +435,9 @@ export function SidebarClock() {
             {formatLiveDuration(elapsedSeconds)}
           </span>
         </div>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}>
+        <div
+          style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}
+        >
           <NotesButton
             notes={activeSessionUserNotes}
             editable={true}
@@ -369,7 +446,14 @@ export function SidebarClock() {
           />
         </div>
         {discardError && (
-          <div style={{ fontSize: 10, color: "#dc2626", marginBottom: 4, textAlign: "center" }}>
+          <div
+            style={{
+              fontSize: 10,
+              color: "#dc2626",
+              marginBottom: 4,
+              textAlign: "center",
+            }}
+          >
             {discardError}
           </div>
         )}
@@ -394,7 +478,10 @@ export function SidebarClock() {
         </button>
         {elapsedSeconds <= DISCARD_WINDOW_SECONDS && (
           <button
-            onClick={() => { setDiscardError(null); setShowDiscardConfirm(true); }}
+            onClick={() => {
+              setDiscardError(null);
+              setShowDiscardConfirm(true);
+            }}
             disabled={discarding}
             style={{
               width: "100%",
@@ -433,9 +520,8 @@ export function SidebarClock() {
   // Not clocked in — topic first, then optional sub, then conditional project.
   // 2026-05-21: subcategory selection is NEVER required for clock-in, even
   // when options exist. Logan's ask — defaulting to none across the board.
-  const canClockIn = !!selectedTopic
-    && (!needsProject || !!selectedProject)
-    && !clockingIn;
+  const canClockIn =
+    !!selectedTopic && (!needsProject || !!selectedProject) && !clockingIn;
 
   return (
     <div style={{ padding: "10px 12px", borderTop: "1px solid var(--border)" }}>
@@ -458,7 +544,11 @@ export function SidebarClock() {
             value={selectedSub?.id ?? ""}
             onChange={(e) => {
               const id = e.target.value ? parseInt(e.target.value, 10) : null;
-              setSelectedSub(id == null ? null : subOptions.find((s) => s.id === id) ?? null);
+              setSelectedSub(
+                id == null
+                  ? null
+                  : (subOptions.find((s) => s.id === id) ?? null),
+              );
             }}
             aria-label="Subcategory"
           >
@@ -496,8 +586,8 @@ export function SidebarClock() {
                 {filteredProjectList.length === 0
                   ? "No matching projects"
                   : projectSearch.trim()
-                  ? `Project (${filteredProjectList.length} match${filteredProjectList.length === 1 ? "" : "es"})...`
-                  : "Project..."}
+                    ? `Project (${filteredProjectList.length} match${filteredProjectList.length === 1 ? "" : "es"})...`
+                    : "Project..."}
               </option>
               {filteredProjectList.map((p) => (
                 <option key={p.id} value={p.id.toString()}>

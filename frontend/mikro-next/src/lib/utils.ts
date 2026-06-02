@@ -48,7 +48,9 @@ export function formatNumber(value: number | null | undefined): FormattedValue {
  * Format a number as USD currency (e.g., 1234.5 → "$1,234.50").
  * Returns a FormattedValue — isPlaceholder is true when the input was null/undefined.
  */
-export function formatCurrency(amount: number | null | undefined): FormattedValue {
+export function formatCurrency(
+  amount: number | null | undefined,
+): FormattedValue {
   const formatted = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -66,7 +68,7 @@ export function formatCurrency(amount: number | null | undefined): FormattedValu
  */
 export function formatString(
   value: string | null | undefined,
-  fallback: string = "\u2014"
+  fallback: string = "\u2014",
 ): FormattedValue {
   if (!value || !value.trim()) {
     return { text: fallback, isPlaceholder: true };
@@ -102,7 +104,7 @@ export function formatDate(iso: string | null | undefined): string {
  */
 export function getProjectExternalUrl(
   projectId: number | string,
-  source?: string
+  source?: string,
 ): string {
   if (source === "mr") {
     return `https://maproulette.org/browse/challenges/${projectId}`;

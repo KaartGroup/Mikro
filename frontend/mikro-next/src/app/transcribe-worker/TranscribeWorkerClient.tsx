@@ -34,14 +34,20 @@ export default function TranscribeWorkerClient() {
     const script = document.createElement("script");
     script.src = "/whisper-wasm/index.umd.js";
     script.onload = () => {
-      console.log("[whisper-worker] UMD script loaded, WhisperWasm:", Object.keys(getWhisperWasm() || {}));
+      console.log(
+        "[whisper-worker] UMD script loaded, WhisperWasm:",
+        Object.keys(getWhisperWasm() || {}),
+      );
       setScriptReady(true);
       setStatus("idle");
     };
     script.onerror = (e) => {
       console.error("[whisper-worker] Failed to load UMD script:", e);
       setStatus("error");
-      postToParent({ type: "error", message: "Failed to load Whisper WASM script" });
+      postToParent({
+        type: "error",
+        message: "Failed to load Whisper WASM script",
+      });
     };
     document.head.appendChild(script);
   }, []);
@@ -79,7 +85,12 @@ export default function TranscribeWorkerClient() {
     try {
       setStatus("loading-model");
       const ww = getWhisperWasm();
-      console.log("[whisper-worker] Loading model:", modelId, "WhisperWasm available:", !!ww);
+      console.log(
+        "[whisper-worker] Loading model:",
+        modelId,
+        "WhisperWasm available:",
+        !!ww,
+      );
 
       if (!ww) {
         throw new Error("WhisperWasm library not loaded");
@@ -94,9 +105,12 @@ export default function TranscribeWorkerClient() {
         true,
         (progress: number) => {
           postToParent({ type: "model-progress", percent: progress });
-        }
+        },
       );
-      console.log("[whisper-worker] Model data loaded, size:", modelData?.length);
+      console.log(
+        "[whisper-worker] Model data loaded, size:",
+        modelData?.length,
+      );
 
       console.log("[whisper-worker] Creating WhisperWasmService...");
       const whisper = new ww.WhisperWasmService();
@@ -108,9 +122,14 @@ export default function TranscribeWorkerClient() {
       // which throws ENOENT on first load. We call storeFS + init directly.
       console.log("[whisper-worker] Storing model in virtual FS...");
       const modelFileName = "whisper.bin";
-      try { whisper.storeFS(modelFileName, modelData); } catch (e) {
-        console.warn("[whisper-worker] storeFS failed, retrying after short delay...", e);
-        await new Promise(r => setTimeout(r, 200));
+      try {
+        whisper.storeFS(modelFileName, modelData);
+      } catch (e) {
+        console.warn(
+          "[whisper-worker] storeFS failed, retrying after short delay...",
+          e,
+        );
+        await new Promise((r) => setTimeout(r, 200));
         whisper.storeFS(modelFileName, modelData);
       }
 
@@ -130,20 +149,29 @@ export default function TranscribeWorkerClient() {
     } catch (err) {
       console.error("[whisper-worker] Model load failed:", err);
       setStatus("error");
-      const message = err instanceof Error ? err.message : (typeof err === "string" ? err : JSON.stringify(err));
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : JSON.stringify(err);
       postToParent({ type: "error", message });
     }
   }
 
   // Split audio into chunks and transcribe sequentially to avoid WASM memory limits
-  async function transcribeChunked(audioData: Float32Array): Promise<{ segments: Segment[]; transcribeDurationMs: number }> {
+  async function transcribeChunked(
+    audioData: Float32Array,
+  ): Promise<{ segments: Segment[]; transcribeDurationMs: number }> {
     const totalSamples = audioData.length;
     const chunkSamples = 300 * 16000; // 5 minutes at 16kHz
     const totalChunks = Math.ceil(totalSamples / chunkSamples);
     const allSegments: Segment[] = [];
     const startTime = performance.now();
 
-    console.log(`[whisper-worker] Transcribing ${totalChunks} chunk(s), total duration: ${(totalSamples / 16000 / 60).toFixed(1)} min`);
+    console.log(
+      `[whisper-worker] Transcribing ${totalChunks} chunk(s), total duration: ${(totalSamples / 16000 / 60).toFixed(1)} min`,
+    );
 
     for (let i = 0; i < totalChunks; i++) {
       const chunkStart = i * chunkSamples;
@@ -151,25 +179,28 @@ export default function TranscribeWorkerClient() {
       const chunk = audioData.slice(chunkStart, chunkEnd);
       const timeOffsetSec = chunkStart / 16000;
 
-      console.log(`[whisper-worker] Chunk ${i + 1}/${totalChunks}: ${(chunk.length / 16000).toFixed(1)}s, offset: ${timeOffsetSec.toFixed(0)}s`);
-      postToParent({ type: "transcription-progress", chunk: i + 1, totalChunks });
-
-      await whisperRef.current.transcribe(
-        chunk,
-        (segment: Segment) => {
-          // Adjust timestamps to account for chunk offset
-          const adjusted: Segment = {
-            timeStart: segment.timeStart + timeOffsetSec,
-            timeEnd: segment.timeEnd + timeOffsetSec,
-            text: segment.text,
-          };
-          allSegments.push(adjusted);
-          postToParent({ type: "transcription-segment", segment: adjusted });
-        }
+      console.log(
+        `[whisper-worker] Chunk ${i + 1}/${totalChunks}: ${(chunk.length / 16000).toFixed(1)}s, offset: ${timeOffsetSec.toFixed(0)}s`,
       );
+      postToParent({
+        type: "transcription-progress",
+        chunk: i + 1,
+        totalChunks,
+      });
+
+      await whisperRef.current.transcribe(chunk, (segment: Segment) => {
+        // Adjust timestamps to account for chunk offset
+        const adjusted: Segment = {
+          timeStart: segment.timeStart + timeOffsetSec,
+          timeEnd: segment.timeEnd + timeOffsetSec,
+          text: segment.text,
+        };
+        allSegments.push(adjusted);
+        postToParent({ type: "transcription-segment", segment: adjusted });
+      });
 
       // Brief pause between chunks to let GC clean up
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 100));
     }
 
     return {
@@ -178,7 +209,10 @@ export default function TranscribeWorkerClient() {
     };
   }
 
-  async function handleTranscribeFile(fileData: ArrayBuffer, _fileName: string) {
+  async function handleTranscribeFile(
+    fileData: ArrayBuffer,
+    _fileName: string,
+  ) {
     try {
       if (!whisperRef.current) {
         postToParent({ type: "error", message: "Model not loaded" });
@@ -188,7 +222,10 @@ export default function TranscribeWorkerClient() {
       setStatus("transcribing");
       postToParent({ type: "transcription-started" });
 
-      console.log("[whisper-worker] Converting audio, input size:", fileData.byteLength);
+      console.log(
+        "[whisper-worker] Converting audio, input size:",
+        fileData.byteLength,
+      );
       const ww = getWhisperWasm();
       const conversionResult = await ww.convertFromArrayBuffer(fileData);
       const audioData = conversionResult.audioData;
@@ -199,8 +236,12 @@ export default function TranscribeWorkerClient() {
         channels: conversionResult.audioInfo?.channels,
       });
 
-      const { segments, transcribeDurationMs } = await transcribeChunked(audioData);
-      const text = segments.map((s: Segment) => s.text).join(" ").trim();
+      const { segments, transcribeDurationMs } =
+        await transcribeChunked(audioData);
+      const text = segments
+        .map((s: Segment) => s.text)
+        .join(" ")
+        .trim();
 
       setStatus("ready");
       postToParent({
@@ -214,7 +255,12 @@ export default function TranscribeWorkerClient() {
       setStatus("error");
       postToParent({
         type: "error",
-        message: err instanceof Error ? err.message : (typeof err === "string" ? err : JSON.stringify(err)),
+        message:
+          err instanceof Error
+            ? err.message
+            : typeof err === "string"
+              ? err
+              : JSON.stringify(err),
       });
     }
   }
@@ -232,16 +278,16 @@ export default function TranscribeWorkerClient() {
       const startTime = performance.now();
       const segments: Segment[] = [];
 
-      await whisperRef.current.transcribe(
-        audioData,
-        (segment: Segment) => {
-          segments.push(segment);
-          postToParent({ type: "transcription-segment", segment });
-        }
-      );
+      await whisperRef.current.transcribe(audioData, (segment: Segment) => {
+        segments.push(segment);
+        postToParent({ type: "transcription-segment", segment });
+      });
 
       const transcribeDurationMs = Math.round(performance.now() - startTime);
-      const text = segments.map((s: Segment) => s.text).join(" ").trim();
+      const text = segments
+        .map((s: Segment) => s.text)
+        .join(" ")
+        .trim();
 
       setStatus("ready");
       postToParent({

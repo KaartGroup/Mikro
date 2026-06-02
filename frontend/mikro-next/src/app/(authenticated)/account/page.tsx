@@ -3,7 +3,15 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Val } from "@/components/ui";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Input,
+  Val,
+} from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
 import { usePaymentsVisible } from "@/hooks";
 import { roleLabel } from "@/types";
@@ -41,11 +49,17 @@ export default function AccountPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [osmLinking, setOsmLinking] = useState(false);
   const [osmUnlinking, setOsmUnlinking] = useState(false);
-  const [osmMessage, setOsmMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [osmMessage, setOsmMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   const [mapillaryInput, setMapillaryInput] = useState("");
   const [mapillaryLinking, setMapillaryLinking] = useState(false);
   const [mapillaryUnlinking, setMapillaryUnlinking] = useState(false);
-  const [mapillaryMessage, setMapillaryMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [mapillaryMessage, setMapillaryMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   const { isDarkMode, toggleDarkMode } = useTheme();
   const { paymentsVisible } = usePaymentsVisible();
 
@@ -65,7 +79,10 @@ export default function AccountPage() {
     const osmError = searchParams.get("osm_error");
 
     if (osmLinked === "true") {
-      setOsmMessage({ type: "success", text: "OSM account linked successfully!" });
+      setOsmMessage({
+        type: "success",
+        text: "OSM account linked successfully!",
+      });
       // Clear the URL params
       window.history.replaceState({}, "", "/account");
     } else if (osmError) {
@@ -81,7 +98,10 @@ export default function AccountPage() {
         user_not_found: "User not found",
         update_failed: "Failed to update user profile",
       };
-      setOsmMessage({ type: "error", text: errorMessages[osmError] || `Error: ${osmError}` });
+      setOsmMessage({
+        type: "error",
+        text: errorMessages[osmError] || `Error: ${osmError}`,
+      });
       window.history.replaceState({}, "", "/account");
     }
   }, [searchParams]);
@@ -159,7 +179,10 @@ export default function AccountPage() {
         window.location.href = data.auth_url;
       } else {
         const error = await response.json();
-        setOsmMessage({ type: "error", text: error.message || "Failed to start OSM linking" });
+        setOsmMessage({
+          type: "error",
+          text: error.message || "Failed to start OSM linking",
+        });
         setOsmLinking(false);
       }
     } catch (error) {
@@ -180,11 +203,17 @@ export default function AccountPage() {
         method: "POST",
       });
       if (response.ok) {
-        setOsmMessage({ type: "success", text: "OSM account unlinked successfully" });
+        setOsmMessage({
+          type: "success",
+          text: "OSM account unlinked successfully",
+        });
         fetchProfile();
       } else {
         const error = await response.json();
-        setOsmMessage({ type: "error", text: error.message || "Failed to unlink OSM account" });
+        setOsmMessage({
+          type: "error",
+          text: error.message || "Failed to unlink OSM account",
+        });
       }
     } catch (error) {
       console.error("Failed to unlink OSM:", error);
@@ -211,18 +240,25 @@ export default function AccountPage() {
         setMapillaryInput("");
         fetchProfile();
       } else {
-        setMapillaryMessage({ type: "error", text: data.message || "Failed to link Mapillary account" });
+        setMapillaryMessage({
+          type: "error",
+          text: data.message || "Failed to link Mapillary account",
+        });
       }
     } catch (error) {
       console.error("Failed to link Mapillary:", error);
-      setMapillaryMessage({ type: "error", text: "Failed to link Mapillary account" });
+      setMapillaryMessage({
+        type: "error",
+        text: "Failed to link Mapillary account",
+      });
     } finally {
       setMapillaryLinking(false);
     }
   };
 
   const handleUnlinkMapillary = async () => {
-    if (!confirm("Are you sure you want to unlink your Mapillary account?")) return;
+    if (!confirm("Are you sure you want to unlink your Mapillary account?"))
+      return;
     setMapillaryUnlinking(true);
     setMapillaryMessage(null);
     try {
@@ -234,11 +270,17 @@ export default function AccountPage() {
         setMapillaryMessage({ type: "success", text: data.message });
         fetchProfile();
       } else {
-        setMapillaryMessage({ type: "error", text: data.message || "Failed to unlink Mapillary account" });
+        setMapillaryMessage({
+          type: "error",
+          text: data.message || "Failed to unlink Mapillary account",
+        });
       }
     } catch (error) {
       console.error("Failed to unlink Mapillary:", error);
-      setMapillaryMessage({ type: "error", text: "Failed to unlink Mapillary account" });
+      setMapillaryMessage({
+        type: "error",
+        text: "Failed to unlink Mapillary account",
+      });
     } finally {
       setMapillaryUnlinking(false);
     }
@@ -246,14 +288,29 @@ export default function AccountPage() {
 
   if (userLoading || isLoading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: 256,
+        }}
+      >
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kaart-orange" />
       </div>
     );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 32, maxWidth: 720, margin: "0 auto" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 32,
+        maxWidth: 720,
+        margin: "0 auto",
+      }}
+    >
       {/* Header */}
       <div style={{ marginBottom: 8 }}>
         <h1 className="text-3xl font-bold tracking-tight">Account Settings</h1>
@@ -284,7 +341,8 @@ export default function AccountPage() {
                 padding: "12px 16px",
                 borderRadius: 8,
                 marginBottom: 16,
-                backgroundColor: osmMessage.type === "success" ? "#dcfce7" : "#fee2e2",
+                backgroundColor:
+                  osmMessage.type === "success" ? "#dcfce7" : "#fee2e2",
                 color: osmMessage.type === "success" ? "#166534" : "#991b1b",
                 fontSize: 14,
               }}
@@ -320,13 +378,24 @@ export default function AccountPage() {
                     fontSize: 20,
                   }}
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                  >
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: 16 }}>{profile.osm_username}</span>
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 16 }}>
+                      {profile.osm_username}
+                    </span>
                     <span
                       style={{
                         fontSize: 11,
@@ -340,8 +409,17 @@ export default function AccountPage() {
                       Verified
                     </span>
                   </div>
-                  <p style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 4 }}>
-                    Linked {profile.osm_verified_at ? new Date(profile.osm_verified_at).toLocaleDateString() : ""}
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: "var(--muted-foreground)",
+                      marginTop: 4,
+                    }}
+                  >
+                    Linked{" "}
+                    {profile.osm_verified_at
+                      ? new Date(profile.osm_verified_at).toLocaleDateString()
+                      : ""}
                     {profile.osm_id && ` (OSM ID: ${profile.osm_id})`}
                   </p>
                 </div>
@@ -382,8 +460,15 @@ export default function AccountPage() {
           ) : (
             // Not Linked - Show Link Button
             <div>
-              <p style={{ fontSize: 14, color: "var(--muted-foreground)", marginBottom: 16 }}>
-                Link your OpenStreetMap account to verify your identity and enable automatic stats tracking.
+              <p
+                style={{
+                  fontSize: 14,
+                  color: "var(--muted-foreground)",
+                  marginBottom: 16,
+                }}
+              >
+                Link your OpenStreetMap account to verify your identity and
+                enable automatic stats tracking.
               </p>
               <Button onClick={handleLinkOSM} disabled={osmLinking}>
                 {osmLinking ? (
@@ -412,8 +497,10 @@ export default function AccountPage() {
                 padding: "12px 16px",
                 borderRadius: 8,
                 marginBottom: 16,
-                backgroundColor: mapillaryMessage.type === "success" ? "#dcfce7" : "#fee2e2",
-                color: mapillaryMessage.type === "success" ? "#166534" : "#991b1b",
+                backgroundColor:
+                  mapillaryMessage.type === "success" ? "#dcfce7" : "#fee2e2",
+                color:
+                  mapillaryMessage.type === "success" ? "#166534" : "#991b1b",
                 fontSize: 14,
               }}
             >
@@ -447,13 +534,24 @@ export default function AccountPage() {
                     fontSize: 20,
                   }}
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                  >
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: 16 }}>{profile.mapillary_username}</span>
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 16 }}>
+                      {profile.mapillary_username}
+                    </span>
                     <span
                       style={{
                         fontSize: 11,
@@ -467,7 +565,13 @@ export default function AccountPage() {
                       Linked
                     </span>
                   </div>
-                  <p style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 4 }}>
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: "var(--muted-foreground)",
+                      marginTop: 4,
+                    }}
+                  >
                     Mapillary imagery uploads are being tracked
                   </p>
                 </div>
@@ -501,14 +605,23 @@ export default function AccountPage() {
                     opacity: mapillaryUnlinking ? 0.5 : 1,
                   }}
                 >
-                  {mapillaryUnlinking ? "Unlinking..." : "Unlink Mapillary Account"}
+                  {mapillaryUnlinking
+                    ? "Unlinking..."
+                    : "Unlink Mapillary Account"}
                 </button>
               </div>
             </div>
           ) : (
             <div>
-              <p style={{ fontSize: 14, color: "var(--muted-foreground)", marginBottom: 16 }}>
-                Link your Mapillary account to track your street-level imagery uploads.
+              <p
+                style={{
+                  fontSize: 14,
+                  color: "var(--muted-foreground)",
+                  marginBottom: 16,
+                }}
+              >
+                Link your Mapillary account to track your street-level imagery
+                uploads.
               </p>
               <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
                 <div style={{ flex: 1 }}>
@@ -528,8 +641,15 @@ export default function AccountPage() {
                   {mapillaryLinking ? "Verifying..." : "Link Account"}
                 </Button>
               </div>
-              <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 8 }}>
-                Your username will be verified against the Mapillary API to confirm it exists.
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "var(--muted-foreground)",
+                  marginTop: 8,
+                }}
+              >
+                Your username will be verified against the Mapillary API to
+                confirm it exists.
               </p>
             </div>
           )}
@@ -539,7 +659,13 @@ export default function AccountPage() {
       {/* Profile Card */}
       <Card>
         <CardHeader>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <CardTitle>Profile Information</CardTitle>
             {!isEditing && (
               <Button variant="outline" onClick={() => setIsEditing(true)}>
@@ -550,34 +676,59 @@ export default function AccountPage() {
         </CardHeader>
         <CardContent>
           {/* Avatar and Name */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: 20, marginBottom: 20, borderBottom: "1px solid var(--border)" }}>
-            <div style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
-              backgroundColor: "#ff6b35",
+          <div
+            style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              fontSize: 24,
-              fontWeight: 700
-            }}>
-              {profile?.name?.charAt(0).toUpperCase() || auth0User?.name?.charAt(0).toUpperCase() || "U"}
+              gap: 16,
+              paddingBottom: 20,
+              marginBottom: 20,
+              borderBottom: "1px solid var(--border)",
+            }}
+          >
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                backgroundColor: "#ff6b35",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontSize: 24,
+                fontWeight: 700,
+              }}
+            >
+              {profile?.name?.charAt(0).toUpperCase() ||
+                auth0User?.name?.charAt(0).toUpperCase() ||
+                "U"}
             </div>
             <div>
-              <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>{profile?.name || auth0User?.name}</h2>
-              <p style={{ fontSize: 14, color: "var(--muted-foreground)", marginBottom: 6 }}>{profile?.email || auth0User?.email}</p>
-              <span style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "4px 10px",
-                borderRadius: 12,
-                fontSize: 12,
-                fontWeight: 500,
-                backgroundColor: "rgba(255, 107, 53, 0.1)",
-                color: "#ff6b35"
-              }}>
+              <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>
+                {profile?.name || auth0User?.name}
+              </h2>
+              <p
+                style={{
+                  fontSize: 14,
+                  color: "var(--muted-foreground)",
+                  marginBottom: 6,
+                }}
+              >
+                {profile?.email || auth0User?.email}
+              </p>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "4px 10px",
+                  borderRadius: 12,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  backgroundColor: "rgba(255, 107, 53, 0.1)",
+                  color: "#ff6b35",
+                }}
+              >
                 {roleLabel(profile?.role)}
               </span>
             </div>
@@ -587,7 +738,16 @@ export default function AccountPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {paymentsVisible && (
               <div>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Payment Email (Payoneer)</label>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    marginBottom: 6,
+                  }}
+                >
+                  Payment Email (Payoneer)
+                </label>
                 {isEditing ? (
                   <Input
                     type="email"
@@ -596,14 +756,31 @@ export default function AccountPage() {
                     placeholder="your-payoneer@email.com"
                   />
                 ) : (
-                  <p style={{ fontSize: 15, color: "var(--foreground)" }}><Val fallback="-">{profile?.payment_email}</Val></p>
+                  <p style={{ fontSize: 15, color: "var(--foreground)" }}>
+                    <Val fallback="-">{profile?.payment_email}</Val>
+                  </p>
                 )}
               </div>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 16,
+              }}
+            >
               <div>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>City</label>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    marginBottom: 6,
+                  }}
+                >
+                  City
+                </label>
                 {isEditing ? (
                   <Input
                     value={city}
@@ -611,11 +788,22 @@ export default function AccountPage() {
                     placeholder="City"
                   />
                 ) : (
-                  <p style={{ fontSize: 15, color: "var(--foreground)" }}><Val fallback="-">{profile?.city}</Val></p>
+                  <p style={{ fontSize: 15, color: "var(--foreground)" }}>
+                    <Val fallback="-">{profile?.city}</Val>
+                  </p>
                 )}
               </div>
               <div>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Country</label>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    marginBottom: 6,
+                  }}
+                >
+                  Country
+                </label>
                 {isEditing ? (
                   <select
                     value={country}
@@ -654,12 +842,23 @@ export default function AccountPage() {
                     })()}
                   </select>
                 ) : (
-                  <p style={{ fontSize: 15, color: "var(--foreground)" }}><Val fallback="-">{profile?.country}</Val></p>
+                  <p style={{ fontSize: 15, color: "var(--foreground)" }}>
+                    <Val fallback="-">{profile?.country}</Val>
+                  </p>
                 )}
               </div>
             </div>
             <div>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Timezone</label>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  marginBottom: 6,
+                }}
+              >
+                Timezone
+              </label>
               {isEditing ? (
                 <select
                   value={timezone}
@@ -682,14 +881,27 @@ export default function AccountPage() {
                   ))}
                 </select>
               ) : (
-                <p style={{ fontSize: 15, color: "var(--foreground)" }}><Val fallback="-">{profile?.timezone?.replace(/_/g, " ")}</Val></p>
+                <p style={{ fontSize: 15, color: "var(--foreground)" }}>
+                  <Val fallback="-">
+                    {profile?.timezone?.replace(/_/g, " ")}
+                  </Val>
+                </p>
               )}
             </div>
           </div>
 
           {/* Save/Cancel Buttons */}
           {isEditing && (
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 20, marginTop: 20, borderTop: "1px solid var(--border)" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                justifyContent: "flex-end",
+                paddingTop: 20,
+                marginTop: 20,
+                borderTop: "1px solid var(--border)",
+              }}
+            >
               <Button
                 variant="outline"
                 onClick={() => {
@@ -729,7 +941,13 @@ export default function AccountPage() {
           >
             <div>
               <h3 style={{ fontWeight: 500, fontSize: 15 }}>Dark Mode</h3>
-              <p style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 4 }}>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "var(--muted-foreground)",
+                  marginTop: 4,
+                }}
+              >
                 Enable dark theme for the application
               </p>
             </div>
@@ -756,7 +974,9 @@ export default function AccountPage() {
                   borderRadius: "50%",
                   backgroundColor: "white",
                   transition: "transform 0.2s",
-                  transform: isDarkMode ? "translateX(24px)" : "translateX(4px)",
+                  transform: isDarkMode
+                    ? "translateX(24px)"
+                    : "translateX(4px)",
                 }}
               />
             </button>
@@ -770,7 +990,13 @@ export default function AccountPage() {
           <CardTitle>Session</CardTitle>
         </CardHeader>
         <CardContent>
-          <p style={{ fontSize: 14, color: "var(--muted-foreground)", marginBottom: 12 }}>
+          <p
+            style={{
+              fontSize: 14,
+              color: "var(--muted-foreground)",
+              marginBottom: 12,
+            }}
+          >
             Sign out of your account on this device.
           </p>
           <a
@@ -785,7 +1011,7 @@ export default function AccountPage() {
               fontSize: 14,
               fontWeight: 500,
               color: "white",
-              textDecoration: "none"
+              textDecoration: "none",
             }}
           >
             Sign Out

@@ -46,14 +46,17 @@ export default function AdminRegionsPage() {
   // Region modal state
   const [showCreateRegionModal, setShowCreateRegionModal] = useState(false);
   const [editingRegion, setEditingRegion] = useState<Region | null>(null);
-  const [deleteRegionTarget, setDeleteRegionTarget] = useState<Region | null>(null);
+  const [deleteRegionTarget, setDeleteRegionTarget] = useState<Region | null>(
+    null,
+  );
   const [regionName, setRegionName] = useState("");
   const [regionSaving, setRegionSaving] = useState(false);
 
   // Country modal state
   const [showCreateCountryModal, setShowCreateCountryModal] = useState(false);
   const [editingCountry, setEditingCountry] = useState<Country | null>(null);
-  const [deleteCountryTarget, setDeleteCountryTarget] = useState<Country | null>(null);
+  const [deleteCountryTarget, setDeleteCountryTarget] =
+    useState<Country | null>(null);
   const [countryName, setCountryName] = useState("");
   const [countryIsoCode, setCountryIsoCode] = useState("");
   const [countryTimezone, setCountryTimezone] = useState("");
@@ -100,7 +103,9 @@ export default function AdminRegionsPage() {
   }, [regions]);
 
   // Reset country page when selected region changes
-  useEffect(() => { setCountryPage(1); }, [selectedRegion?.id]);
+  useEffect(() => {
+    setCountryPage(1);
+  }, [selectedRegion?.id]);
 
   // Seed defaults
   const handleSeedDefaults = async () => {
@@ -113,7 +118,7 @@ export default function AdminRegionsPage() {
       if (response.ok && data.status === 200) {
         toast.success(
           data.message ||
-            `Seeded ${data.created_regions ?? 0} regions and ${data.created_countries ?? 0} countries`
+            `Seeded ${data.created_regions ?? 0} regions and ${data.created_countries ?? 0} countries`,
         );
         fetchRegions();
       } else {
@@ -200,7 +205,10 @@ export default function AdminRegionsPage() {
       const response = await fetch("/backend/region/update_region", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ regionId: editingRegion.id, name: regionName.trim() }),
+        body: JSON.stringify({
+          regionId: editingRegion.id,
+          name: regionName.trim(),
+        }),
       });
       const data = await response.json();
       if (response.ok && data.status === 200) {
@@ -371,11 +379,13 @@ export default function AdminRegionsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Regions</h1>
-          <p className="text-muted-foreground">
-            Manage regions and countries
-          </p>
+          <p className="text-muted-foreground">Manage regions and countries</p>
         </div>
-        <Button onClick={handleSeedDefaults} isLoading={seeding} variant="outline">
+        <Button
+          onClick={handleSeedDefaults}
+          isLoading={seeding}
+          variant="outline"
+        >
           Seed Defaults
         </Button>
       </div>
@@ -413,10 +423,16 @@ export default function AdminRegionsPage() {
                     <div>
                       <p className="font-medium">{region.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        <Val>{formatNumber(region.countries.length)}</Val> {region.countries.length === 1 ? "country" : "countries"}
+                        <Val>{formatNumber(region.countries.length)}</Val>{" "}
+                        {region.countries.length === 1
+                          ? "country"
+                          : "countries"}
                       </p>
                     </div>
-                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="flex gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Button
                         size="sm"
                         variant="outline"
@@ -480,49 +496,83 @@ export default function AdminRegionsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedRegion.countries.slice((countryPage - 1) * ROWS_PER_PAGE, countryPage * ROWS_PER_PAGE).map((country) => (
-                      <TableRow key={country.id}>
-                        <TableCell className="font-medium">
-                          {country.name}
-                        </TableCell>
-                        <TableCell>{country.iso_code}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          <Val>{country.default_timezone}</Val>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Val>{formatNumber(country.user_count)}</Val>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openEditCountryModal(country)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => setDeleteCountryTarget(country)}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {selectedRegion.countries
+                      .slice(
+                        (countryPage - 1) * ROWS_PER_PAGE,
+                        countryPage * ROWS_PER_PAGE,
+                      )
+                      .map((country) => (
+                        <TableRow key={country.id}>
+                          <TableCell className="font-medium">
+                            {country.name}
+                          </TableCell>
+                          <TableCell>{country.iso_code}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            <Val>{country.default_timezone}</Val>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Val>{formatNumber(country.user_count)}</Val>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openEditCountryModal(country)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setDeleteCountryTarget(country)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                   </TableBody>
                 </Table>
                 {selectedRegion.countries.length > ROWS_PER_PAGE && (
                   <div className="flex items-center justify-between px-4 py-3 text-sm text-muted-foreground">
-                    <span>Showing {(countryPage - 1) * ROWS_PER_PAGE + 1}-{Math.min(countryPage * ROWS_PER_PAGE, selectedRegion.countries.length)} of {selectedRegion.countries.length}</span>
+                    <span>
+                      Showing {(countryPage - 1) * ROWS_PER_PAGE + 1}-
+                      {Math.min(
+                        countryPage * ROWS_PER_PAGE,
+                        selectedRegion.countries.length,
+                      )}{" "}
+                      of {selectedRegion.countries.length}
+                    </span>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={countryPage === 1}
-                        onClick={() => setCountryPage(p => p - 1)}>Previous</Button>
-                      <span className="flex items-center px-2">Page {countryPage} of {Math.ceil(selectedRegion.countries.length / ROWS_PER_PAGE)}</span>
-                      <Button variant="outline" size="sm" disabled={countryPage === Math.ceil(selectedRegion.countries.length / ROWS_PER_PAGE)}
-                        onClick={() => setCountryPage(p => p + 1)}>Next</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={countryPage === 1}
+                        onClick={() => setCountryPage((p) => p - 1)}
+                      >
+                        Previous
+                      </Button>
+                      <span className="flex items-center px-2">
+                        Page {countryPage} of{" "}
+                        {Math.ceil(
+                          selectedRegion.countries.length / ROWS_PER_PAGE,
+                        )}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          countryPage ===
+                          Math.ceil(
+                            selectedRegion.countries.length / ROWS_PER_PAGE,
+                          )
+                        }
+                        onClick={() => setCountryPage((p) => p + 1)}
+                      >
+                        Next
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -703,20 +753,22 @@ export default function AdminRegionsPage() {
       {/* Dev/purge tools hidden per management request 2026-05-19 —
           restore by removing the `false && (` / `)}` guard. */}
       {false && (
-      <Card className="mt-8 border-dashed border-yellow-500">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="destructive"
-            onClick={() => setShowPurgeModal(true)}
-            isLoading={purging}
-          >
-            Purge All Regions & Countries
-          </Button>
-        </CardContent>
-      </Card>
+        <Card className="mt-8 border-dashed border-yellow-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-yellow-600">
+              Dev Tools (Remove before production)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={() => setShowPurgeModal(true)}
+              isLoading={purging}
+            >
+              Purge All Regions & Countries
+            </Button>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -70,9 +70,11 @@ export function RecentActivityCard({
                   Clocked in
                   {activeEntry.projectName && (
                     <>
-                      {" "}on{" "}
+                      {" "}
+                      on{" "}
                       <span className="font-medium">
-                        {activeEntry.projectShortName || activeEntry.projectName}
+                        {activeEntry.projectShortName ||
+                          activeEntry.projectName}
                       </span>
                     </>
                   )}
@@ -92,7 +94,8 @@ export function RecentActivityCard({
                 href={`/admin/projects/${mostRecentEntry.projectId}`}
                 className="text-sm font-medium hover:text-kaart-orange hover:underline"
               >
-                {mostRecentEntry.projectShortName || mostRecentEntry.projectName}
+                {mostRecentEntry.projectShortName ||
+                  mostRecentEntry.projectName}
               </Link>
             ) : (
               <p className="text-sm text-muted-foreground">—</p>
@@ -100,7 +103,7 @@ export function RecentActivityCard({
             {mostRecentEntry && (
               <p className="text-xs text-muted-foreground mt-0.5">
                 {formatRelative(
-                  mostRecentEntry.clockOut || mostRecentEntry.clockIn
+                  mostRecentEntry.clockOut || mostRecentEntry.clockIn,
                 )}
                 {mostRecentEntry.durationSeconds != null && (
                   <> · {formatDuration(mostRecentEntry.durationSeconds)}</>
@@ -116,24 +119,33 @@ export function RecentActivityCard({
             {mostRecentEntry?.clockIn ? (
               <>
                 <p className="text-sm">
-                  {new Date(mostRecentEntry.clockIn).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  {new Date(mostRecentEntry.clockIn).toLocaleDateString(
+                    "en-US",
+                    {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    },
+                  )}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {new Date(mostRecentEntry.clockIn).toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {new Date(mostRecentEntry.clockIn).toLocaleTimeString(
+                    "en-US",
+                    {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    },
+                  )}
                   {mostRecentEntry.clockOut && (
                     <>
                       {" → "}
-                      {new Date(mostRecentEntry.clockOut).toLocaleTimeString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {new Date(mostRecentEntry.clockOut).toLocaleTimeString(
+                        "en-US",
+                        {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )}
                     </>
                   )}
                 </p>
@@ -177,9 +189,13 @@ export function RecentActivityCard({
                 </p>
               </>
             ) : recentChangesetMessage ? (
-              <p className="text-sm text-muted-foreground">{recentChangesetMessage}</p>
+              <p className="text-sm text-muted-foreground">
+                {recentChangesetMessage}
+              </p>
             ) : (
-              <p className="text-sm text-muted-foreground">No recent OSM activity</p>
+              <p className="text-sm text-muted-foreground">
+                No recent OSM activity
+              </p>
             )}
           </div>
         </div>

@@ -14,7 +14,11 @@ interface Props {
   displayName: string;
 }
 
-export default function ExportButtons({ segments, fullText, displayName }: Props) {
+export default function ExportButtons({
+  segments,
+  fullText,
+  displayName,
+}: Props) {
   const [copied, setCopied] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
 
@@ -34,7 +38,14 @@ export default function ExportButtons({ segments, fullText, displayName }: Props
   };
 
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+        justifyContent: "flex-end",
+      }}
+    >
       <Button
         variant="outline"
         onClick={() => downloadTranscriptTxt(segments, fullText, displayName)}
@@ -52,7 +63,10 @@ export default function ExportButtons({ segments, fullText, displayName }: Props
       </Button>
       <Button
         onClick={handleCopy}
-        style={{ backgroundColor: copied ? "#16a34a" : "#ff6b35", color: "#fff" }}
+        style={{
+          backgroundColor: copied ? "#16a34a" : "#ff6b35",
+          color: "#fff",
+        }}
       >
         {copied ? "Copied!" : "Copy to Clipboard"}
       </Button>

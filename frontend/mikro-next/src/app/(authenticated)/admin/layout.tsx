@@ -8,12 +8,15 @@ interface UserInfo {
   email?: string;
 }
 
-async function getUserRole(accessToken: string, userInfo?: UserInfo): Promise<string> {
+async function getUserRole(
+  accessToken: string,
+  userInfo?: UserInfo,
+): Promise<string> {
   try {
     const response = await fetch(`${BACKEND_URL}/api/login`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(userInfo || {}),

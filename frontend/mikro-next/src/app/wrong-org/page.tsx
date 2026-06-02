@@ -35,8 +35,8 @@ export default function WrongOrgPage() {
           opening it up to other organizations as a paid platform.
         </p>
         <p style={{ color: "#4b5563", marginBottom: 24, lineHeight: 1.6 }}>
-          If you&apos;re interested in Mikro for your organization, please
-          reach out to{" "}
+          If you&apos;re interested in Mikro for your organization, please reach
+          out to{" "}
           <a
             href="mailto:dev@kaart.com?subject=Mikro%20for%20our%20organization"
             style={{ color: "#004e89", fontWeight: 600 }}
@@ -53,9 +53,8 @@ export default function WrongOrgPage() {
             lineHeight: 1.6,
           }}
         >
-          If you meant to sign in with a different organization, log out and
-          try again — you&apos;ll be able to pick the right one at the org
-          selector.
+          If you meant to sign in with a different organization, log out and try
+          again — you&apos;ll be able to pick the right one at the org selector.
         </p>
         <a
           href="/auth/logout"

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 
 const TranscribeWorkerClient = dynamic(
   () => import("./TranscribeWorkerClient"),
-  { ssr: false }
+  { ssr: false },
 );
 
 export default function TranscribeWorkerPage() {

@@ -101,7 +101,8 @@ export default function TranscribePage() {
 
           // If there's an active job (queued or transcribing), resume polling it
           const active = data.jobs.find(
-            (j: RecentJob) => j.jobStatus === "queued" || j.jobStatus === "transcribing"
+            (j: RecentJob) =>
+              j.jobStatus === "queued" || j.jobStatus === "transcribing",
           );
           if (active) {
             setJobId(active.jobId);
@@ -152,7 +153,9 @@ export default function TranscribePage() {
           // been notified via setError above; keeping the row around just
           // clutters the library. Best-effort — failure here is silent.
           if (failedJobId) {
-            setRecentJobs((prev) => prev.filter((j) => j.jobId !== failedJobId));
+            setRecentJobs((prev) =>
+              prev.filter((j) => j.jobId !== failedJobId),
+            );
             fetch("/backend/transcribe/delete", {
               method: "POST",
               credentials: "include",
@@ -199,7 +202,9 @@ export default function TranscribePage() {
   // Upload file via chunked multipart direct to Spaces
   const uploadFile = useCallback(async (file: File | Blob, name: string) => {
     if (file.size > MAX_FILE_BYTES) {
-      setError(`File is ${formatBytes(file.size)} — max is ${formatBytes(MAX_FILE_BYTES)}`);
+      setError(
+        `File is ${formatBytes(file.size)} — max is ${formatBytes(MAX_FILE_BYTES)}`,
+      );
       return;
     }
 
@@ -225,7 +230,12 @@ export default function TranscribePage() {
         fileName: name,
         contentType: file.type || undefined,
         signal: controller.signal,
-        onProgress: ({ bytesUploaded, totalBytes, partsUploaded, totalParts }) => {
+        onProgress: ({
+          bytesUploaded,
+          totalBytes,
+          partsUploaded,
+          totalParts,
+        }) => {
           setUploadBytes(bytesUploaded);
           setUploadTotal(totalBytes);
           setUploadParts(partsUploaded);
@@ -239,7 +249,9 @@ export default function TranscribePage() {
       if (err instanceof Error && err.name === "AbortedError") {
         setError("Upload cancelled.");
       } else {
-        setError(`Upload failed: ${err instanceof Error ? err.message : String(err)}`);
+        setError(
+          `Upload failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
       setTranscriptionStatus("idle");
     } finally {
@@ -345,7 +357,9 @@ export default function TranscribePage() {
     setError(null);
   };
 
-  const isBusy = transcriptionStatus === "uploading" || transcriptionStatus === "transcribing";
+  const isBusy =
+    transcriptionStatus === "uploading" ||
+    transcriptionStatus === "transcribing";
 
   // ─── Phase-aware status text + stall detection ────────────────────────
   // Nothing here ever lies: each branch either reports what the worker is
@@ -363,7 +377,7 @@ export default function TranscribePage() {
   };
   const rateText = () => {
     if (segmentCount === 0 || elapsedMs < 10000) return "";
-    const perMin = (segmentCount / (elapsedMs / 60000));
+    const perMin = segmentCount / (elapsedMs / 60000);
     if (!Number.isFinite(perMin) || perMin <= 0) return "";
     return ` · ~${perMin.toFixed(1)} segments/min`;
   };
@@ -399,20 +413,23 @@ export default function TranscribePage() {
         return {
           kind: "info",
           label: `Still warming up (${formatElapsed(elapsedMs)})`,
-          subtitle: "First job after a redeploy downloads the model (~74MB). Subsequent jobs skip this step.",
+          subtitle:
+            "First job after a redeploy downloads the model (~74MB). Subsequent jobs skip this step.",
         };
       }
       if (elapsedMs < 15 * 60_000) {
         return {
           kind: "warn",
           label: `No segments yet after ${formatElapsed(elapsedMs)}`,
-          subtitle: "Model load or audio download might be slow. You can keep waiting, or Kill Job and retry.",
+          subtitle:
+            "Model load or audio download might be slow. You can keep waiting, or Kill Job and retry.",
         };
       }
       return {
         kind: "error",
         label: `Likely stuck — no progress after ${formatElapsed(elapsedMs)}`,
-        subtitle: "The stale-job watchdog will kill this at the 30-minute mark. Safe to Kill Job now and retry.",
+        subtitle:
+          "The stale-job watchdog will kill this at the 30-minute mark. Safe to Kill Job now and retry.",
       };
     }
 
@@ -440,15 +457,34 @@ export default function TranscribePage() {
     return {
       kind: "info",
       label: `Transcribing — ${segmentCount} segment${segmentCount === 1 ? "" : "s"} · ${formatElapsed(elapsedMs)}${rateText()}`,
-      subtitle: "Safe to navigate away — results will be here when you come back.",
+      subtitle:
+        "Safe to navigate away — results will be here when you come back.",
     };
   };
 
   const phase = computePhase();
-  const phaseColors: Record<"info" | "warn" | "error", { bg: string; border: string; text: string; accent: string }> = {
-    info:  { bg: "#eff6ff", border: "#bfdbfe", text: "#1e40af", accent: "#004e89" },
-    warn:  { bg: "#fff7ed", border: "#fed7aa", text: "#9a3412", accent: "#ea580c" },
-    error: { bg: "#fef2f2", border: "#fca5a5", text: "#991b1b", accent: "#dc2626" },
+  const phaseColors: Record<
+    "info" | "warn" | "error",
+    { bg: string; border: string; text: string; accent: string }
+  > = {
+    info: {
+      bg: "#eff6ff",
+      border: "#bfdbfe",
+      text: "#1e40af",
+      accent: "#004e89",
+    },
+    warn: {
+      bg: "#fff7ed",
+      border: "#fed7aa",
+      text: "#9a3412",
+      accent: "#ea580c",
+    },
+    error: {
+      bg: "#fef2f2",
+      border: "#fca5a5",
+      text: "#991b1b",
+      accent: "#dc2626",
+    },
   };
 
   return (
@@ -458,14 +494,36 @@ export default function TranscribePage() {
       onDrop={(e) => e.preventDefault()}
     >
       {/* Page title */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#004e89" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 24,
+        }}
+      >
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#004e89"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
           <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
           <line x1="12" x2="12" y1="19" y2="22" />
         </svg>
-        <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, color: "#1a1a1a" }}>Transcribe</h1>
-        <Badge variant="outline" style={{ fontSize: 11 }}>Experimental</Badge>
+        <h1
+          style={{ fontSize: 28, fontWeight: 700, margin: 0, color: "#1a1a1a" }}
+        >
+          Transcribe
+        </h1>
+        <Badge variant="outline" style={{ fontSize: 11 }}>
+          Experimental
+        </Badge>
         <div style={{ marginLeft: "auto" }}>
           <Link
             href="/admin/transcribe/library"
@@ -483,7 +541,16 @@ export default function TranscribePage() {
               backgroundColor: "#fff",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
             </svg>
@@ -493,27 +560,42 @@ export default function TranscribePage() {
       </div>
 
       <p style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
-        Upload an audio file or record directly. Transcription runs on the server using Whisper — you can navigate away and come back for results.
+        Upload an audio file or record directly. Transcription runs on the
+        server using Whisper — you can navigate away and come back for results.
       </p>
 
       {/* Mode tabs + input */}
       <Card style={{ marginBottom: 20 }}>
         <CardHeader>
           <CardTitle style={{ fontSize: 18 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
               <span>Audio Input</span>
               <div style={{ display: "flex", gap: 8 }}>
                 <Button
                   onClick={() => setMode("record")}
                   variant={mode === "record" ? "primary" : "outline"}
-                  style={mode === "record" ? { backgroundColor: "#004e89", color: "#fff" } : {}}
+                  style={
+                    mode === "record"
+                      ? { backgroundColor: "#004e89", color: "#fff" }
+                      : {}
+                  }
                 >
                   Record
                 </Button>
                 <Button
                   onClick={() => setMode("upload")}
                   variant={mode === "upload" ? "primary" : "outline"}
-                  style={mode === "upload" ? { backgroundColor: "#004e89", color: "#fff" } : {}}
+                  style={
+                    mode === "upload"
+                      ? { backgroundColor: "#004e89", color: "#fff" }
+                      : {}
+                  }
                 >
                   Upload
                 </Button>
@@ -523,65 +605,145 @@ export default function TranscribePage() {
         </CardHeader>
         <CardContent>
           {mode === "record" ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "32px 0" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                padding: "32px 0",
+              }}
+            >
               <button
                 onClick={isRecording ? stopRecording : startRecording}
                 disabled={isBusy}
                 style={{
-                  width: 96, height: 96, borderRadius: "50%", border: "none",
+                  width: 96,
+                  height: 96,
+                  borderRadius: "50%",
+                  border: "none",
                   backgroundColor: isRecording ? "#dc2626" : "#004e89",
-                  color: "#fff", cursor: isBusy ? "not-allowed" : "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  opacity: isBusy ? 0.4 : 1, transition: "background-color 0.2s",
-                  animation: isRecording ? "pulse-recording 1.5s ease-in-out infinite" : "none",
-                  boxShadow: isRecording ? "0 0 0 8px rgba(220, 38, 38, 0.2)" : "0 2px 8px rgba(0,0,0,0.15)",
+                  color: "#fff",
+                  cursor: isBusy ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: isBusy ? 0.4 : 1,
+                  transition: "background-color 0.2s",
+                  animation: isRecording
+                    ? "pulse-recording 1.5s ease-in-out infinite"
+                    : "none",
+                  boxShadow: isRecording
+                    ? "0 0 0 8px rgba(220, 38, 38, 0.2)"
+                    : "0 2px 8px rgba(0,0,0,0.15)",
                 }}
               >
                 {isRecording ? (
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                  <svg
+                    width="36"
+                    height="36"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
                 ) : (
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="36"
+                    height="36"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" x2="12" y1="19" y2="22" />
                   </svg>
                 )}
               </button>
               {isRecording && (
-                <p style={{ marginTop: 16, fontSize: 20, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: "#dc2626" }}>
+                <p
+                  style={{
+                    marginTop: 16,
+                    fontSize: 20,
+                    fontWeight: 600,
+                    fontVariantNumeric: "tabular-nums",
+                    color: "#dc2626",
+                  }}
+                >
                   {formatTimestamp(recordingTime)}
                 </p>
               )}
               <p style={{ marginTop: 12, fontSize: 13, color: "#888" }}>
-                {isBusy ? "Processing..." : isRecording ? "Click to stop recording" : "Click to start recording"}
+                {isBusy
+                  ? "Processing..."
+                  : isRecording
+                    ? "Click to stop recording"
+                    : "Click to start recording"}
               </p>
               <style>{`@keyframes pulse-recording { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }`}</style>
             </div>
           ) : (
             <div>
               <div
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
                 onClick={() => !isBusy && fileInputRef.current?.click()}
                 style={{
                   border: `2px dashed ${dragOver ? "#004e89" : "#d1d5db"}`,
-                  borderRadius: 12, padding: "48px 24px", textAlign: "center",
+                  borderRadius: 12,
+                  padding: "48px 24px",
+                  textAlign: "center",
                   cursor: isBusy ? "not-allowed" : "pointer",
                   backgroundColor: dragOver ? "#f0f7ff" : "#fafafa",
-                  transition: "all 0.2s", opacity: isBusy ? 0.4 : 1,
+                  transition: "all 0.2s",
+                  opacity: isBusy ? 0.4 : 1,
                 }}
               >
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 12px" }}>
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" />
+                <svg
+                  width="40"
+                  height="40"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#999"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ margin: "0 auto 12px" }}
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" x2="12" y1="3" y2="15" />
                 </svg>
-                <p style={{ fontSize: 15, fontWeight: 500, color: "#333", margin: "0 0 6px" }}>
-                  {fileName && isBusy ? `Processing: ${fileName}` : "Drop an audio file here, or click to browse"}
+                <p
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 500,
+                    color: "#333",
+                    margin: "0 0 6px",
+                  }}
+                >
+                  {fileName && isBusy
+                    ? `Processing: ${fileName}`
+                    : "Drop an audio file here, or click to browse"}
                 </p>
                 <p style={{ fontSize: 12, color: "#999", margin: 0 }}>
                   Supports MP3, M4A, WAV, MP4, WebM, OGG — any length
                 </p>
               </div>
-              <input ref={fileInputRef} type="file" accept={ACCEPTED_MIME_TYPES} onChange={handleFileInput} style={{ display: "none" }} />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_MIME_TYPES}
+                onChange={handleFileInput}
+                style={{ display: "none" }}
+              />
             </div>
           )}
         </CardContent>
@@ -591,13 +753,16 @@ export default function TranscribePage() {
       {error && (
         <Card style={{ marginBottom: 20, borderColor: "#fca5a5" }}>
           <CardContent>
-            <p style={{ color: "#dc2626", margin: "12px 0 0", fontSize: 14 }}>{error}</p>
+            <p style={{ color: "#dc2626", margin: "12px 0 0", fontSize: 14 }}>
+              {error}
+            </p>
           </CardContent>
         </Card>
       )}
 
       {/* Progress */}
-      {(transcriptionStatus === "uploading" || transcriptionStatus === "transcribing") && (
+      {(transcriptionStatus === "uploading" ||
+        transcriptionStatus === "transcribing") && (
         <Card
           style={{
             marginBottom: 20,
@@ -621,26 +786,59 @@ export default function TranscribePage() {
               {/* Spinner only while things are healthy — for warn/error show
                   a warning glyph instead so the UI doesn't *look* fine. */}
               {transcriptionStatus === "uploading" || phase?.kind === "info" ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={phase ? phaseColors[phase.kind].accent : "#004e89"} strokeWidth="2" style={{ animation: "spin 1s linear infinite", flexShrink: 0, marginTop: 2 }}>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={phase ? phaseColors[phase.kind].accent : "#004e89"}
+                  strokeWidth="2"
+                  style={{
+                    animation: "spin 1s linear infinite",
+                    flexShrink: 0,
+                    marginTop: 2,
+                  }}
+                >
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
               ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={phaseColors[phase!.kind].accent} strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={phaseColors[phase!.kind].accent}
+                  strokeWidth="2"
+                  style={{ flexShrink: 0, marginTop: 2 }}
+                >
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" />
                   <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
               )}
               <div style={{ flex: 1, minWidth: 220 }}>
-                <div style={{ fontSize: 15, fontWeight: 500, color: phase ? phaseColors[phase.kind].text : "#333" }}>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 500,
+                    color: phase ? phaseColors[phase.kind].text : "#333",
+                  }}
+                >
                   {transcriptionStatus === "uploading"
                     ? uploadTotalParts > 0
                       ? `Uploading ${uploadParts}/${uploadTotalParts} chunks — ${formatBytes(uploadBytes)} / ${formatBytes(uploadTotal)} (${Math.round((uploadBytes / Math.max(uploadTotal, 1)) * 100)}%)`
                       : "Preparing upload..."
-                    : phase?.label ?? "Transcribing…"}
+                    : (phase?.label ?? "Transcribing…")}
                 </div>
                 {transcriptionStatus === "transcribing" && phase?.subtitle && (
-                  <div style={{ fontSize: 12, color: phase ? phaseColors[phase.kind].text : "#888", marginTop: 4, opacity: 0.85 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: phase ? phaseColors[phase.kind].text : "#888",
+                      marginTop: 4,
+                      opacity: 0.85,
+                    }}
+                  >
                     {phase.subtitle}
                   </div>
                 )}
@@ -658,7 +856,13 @@ export default function TranscribePage() {
                 <Button
                   variant="outline"
                   onClick={cancelTranscription}
-                  style={{ fontSize: 12, padding: "4px 12px", color: "#dc2626", borderColor: "#fca5a5", flexShrink: 0 }}
+                  style={{
+                    fontSize: 12,
+                    padding: "4px 12px",
+                    color: "#dc2626",
+                    borderColor: "#fca5a5",
+                    flexShrink: 0,
+                  }}
                 >
                   Kill job
                 </Button>
@@ -666,23 +870,44 @@ export default function TranscribePage() {
               <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
             </div>
             {transcriptionStatus === "uploading" && uploadTotal > 0 && (
-              <div style={{ height: 6, borderRadius: 3, backgroundColor: "#e5e7eb", overflow: "hidden", marginTop: 4 }}>
-                <div style={{
-                  width: `${(uploadBytes / uploadTotal) * 100}%`,
-                  height: "100%",
-                  backgroundColor: "#004e89",
-                  transition: "width 0.2s ease-out",
-                }} />
+              <div
+                style={{
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: "#e5e7eb",
+                  overflow: "hidden",
+                  marginTop: 4,
+                }}
+              >
+                <div
+                  style={{
+                    width: `${(uploadBytes / uploadTotal) * 100}%`,
+                    height: "100%",
+                    backgroundColor: "#004e89",
+                    transition: "width 0.2s ease-out",
+                  }}
+                />
               </div>
             )}
 
             {/* Live segments as they arrive */}
             {segments.length > 0 && (
-              <div style={{ marginTop: 8, maxHeight: 200, overflowY: "auto", fontSize: 13, color: "#666", fontFamily: "monospace", lineHeight: 1.8 }}>
+              <div
+                style={{
+                  marginTop: 8,
+                  maxHeight: 200,
+                  overflowY: "auto",
+                  fontSize: 13,
+                  color: "#666",
+                  fontFamily: "monospace",
+                  lineHeight: 1.8,
+                }}
+              >
                 {segments.map((seg, i) => (
                   <div key={i}>
                     <span style={{ color: "#004e89", fontWeight: 600 }}>
-                      [{formatTimestamp(seg.timeStart)} &rarr; {formatTimestamp(seg.timeEnd)}]
+                      [{formatTimestamp(seg.timeStart)} &rarr;{" "}
+                      {formatTimestamp(seg.timeEnd)}]
                     </span>{" "}
                     {seg.text}
                   </div>
@@ -698,7 +923,13 @@ export default function TranscribePage() {
         <Card style={{ marginBottom: 20 }}>
           <CardHeader>
             <CardTitle style={{ fontSize: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <span>Results{fileName ? ` — ${fileName}` : ""}</span>
                 <div style={{ display: "flex", gap: 8 }}>
                   <Badge variant="outline" style={{ fontSize: 11 }}>
@@ -714,29 +945,56 @@ export default function TranscribePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div style={{
-              maxHeight: 400, overflowY: "auto", marginBottom: 20, fontFamily: "monospace",
-              fontSize: 13, lineHeight: 1.9, backgroundColor: "#f9fafb", borderRadius: 8,
-              padding: 16, border: "1px solid #e5e7eb",
-            }}>
+            <div
+              style={{
+                maxHeight: 400,
+                overflowY: "auto",
+                marginBottom: 20,
+                fontFamily: "monospace",
+                fontSize: 13,
+                lineHeight: 1.9,
+                backgroundColor: "#f9fafb",
+                borderRadius: 8,
+                padding: 16,
+                border: "1px solid #e5e7eb",
+              }}
+            >
               {segments.map((seg, i) => (
                 <div key={i} style={{ marginBottom: 4 }}>
                   <span style={{ color: "#004e89", fontWeight: 600 }}>
-                    [{formatTimestamp(seg.timeStart)} &rarr; {formatTimestamp(seg.timeEnd)}]
+                    [{formatTimestamp(seg.timeStart)} &rarr;{" "}
+                    {formatTimestamp(seg.timeEnd)}]
                   </span>{" "}
                   {seg.text}
                 </div>
               ))}
             </div>
 
-            <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "#555" }}>Full Text</label>
+            <label
+              style={{
+                display: "block",
+                fontSize: 13,
+                fontWeight: 500,
+                marginBottom: 6,
+                color: "#555",
+              }}
+            >
+              Full Text
+            </label>
             <textarea
               readOnly
               value={fullText}
               style={{
-                width: "100%", minHeight: 120, padding: 12, borderRadius: 8,
-                border: "1px solid #d1d5db", fontSize: 14, lineHeight: 1.6,
-                resize: "vertical", fontFamily: "inherit", backgroundColor: "#fff",
+                width: "100%",
+                minHeight: 120,
+                padding: 12,
+                borderRadius: 8,
+                border: "1px solid #d1d5db",
+                fontSize: 14,
+                lineHeight: 1.6,
+                resize: "vertical",
+                fontFamily: "inherit",
+                backgroundColor: "#fff",
               }}
             />
             <div style={{ marginTop: 12 }}>
@@ -762,7 +1020,9 @@ export default function TranscribePage() {
       {recentJobs.length > 0 && transcriptionStatus !== "done" && (
         <Card>
           <CardHeader>
-            <CardTitle style={{ fontSize: 16 }}>Recent Transcriptions</CardTitle>
+            <CardTitle style={{ fontSize: 16 }}>
+              Recent Transcriptions
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -774,19 +1034,34 @@ export default function TranscribePage() {
                     key={job.jobId}
                     onClick={() => loadPreviousJob(job)}
                     style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "10px 14px", borderRadius: 8, border: "1px solid #e5e7eb",
-                      cursor: "pointer", transition: "background-color 0.15s",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      cursor: "pointer",
+                      transition: "background-color 0.15s",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f9fafb")}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "")}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.backgroundColor = "#f9fafb")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.backgroundColor = "")
+                    }
                   >
                     <div>
-                      <span style={{ fontSize: 14, fontWeight: 500, color: "#333" }}>
+                      <span
+                        style={{ fontSize: 14, fontWeight: 500, color: "#333" }}
+                      >
                         {job.fileName || "Untitled"}
                       </span>
-                      <span style={{ fontSize: 12, color: "#999", marginLeft: 12 }}>
-                        {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ""}
+                      <span
+                        style={{ fontSize: 12, color: "#999", marginLeft: 12 }}
+                      >
+                        {job.createdAt
+                          ? new Date(job.createdAt).toLocaleDateString()
+                          : ""}
                       </span>
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>

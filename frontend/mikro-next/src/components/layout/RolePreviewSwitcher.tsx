@@ -28,7 +28,7 @@ export function RolePreviewSwitcher() {
   if (!isAnyAdmin(actualRole)) return null;
 
   const previewOptions = ALL_ROLES.filter(
-    (r) => ROLE_ORDER[r] < ROLE_ORDER[actualRole]
+    (r) => ROLE_ORDER[r] < ROLE_ORDER[actualRole],
   );
 
   const close = () => setOpen(false);
@@ -37,7 +37,11 @@ export function RolePreviewSwitcher() {
     <div style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((o) => !o)}
-        title={isPreviewMode ? `Previewing as ${roleLabel(role)}` : "Preview the app as a lower role"}
+        title={
+          isPreviewMode
+            ? `Previewing as ${roleLabel(role)}`
+            : "Preview the app as a lower role"
+        }
         style={{
           display: "flex",
           alignItems: "center",
@@ -127,7 +131,10 @@ export function RolePreviewSwitcher() {
             {isPreviewMode && (
               <>
                 <button
-                  onClick={() => { setPreviewRole(null); close(); }}
+                  onClick={() => {
+                    setPreviewRole(null);
+                    close();
+                  }}
                   style={{
                     width: "100%",
                     textAlign: "left",
@@ -191,14 +198,19 @@ export function RolePreviewSwitcher() {
               return (
                 <button
                   key={r}
-                  onClick={() => { setPreviewRole(r); close(); }}
+                  onClick={() => {
+                    setPreviewRole(r);
+                    close();
+                  }}
                   style={{
                     width: "100%",
                     textAlign: "left",
                     padding: "8px 14px",
                     fontSize: 13,
                     cursor: "pointer",
-                    backgroundColor: isActive ? "var(--secondary)" : "transparent",
+                    backgroundColor: isActive
+                      ? "var(--secondary)"
+                      : "transparent",
                     border: "none",
                     color: "var(--foreground)",
                     fontWeight: isActive ? 600 : 400,

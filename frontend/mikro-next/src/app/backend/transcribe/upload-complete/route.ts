@@ -11,14 +11,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.text();
-    const response = await fetch(`${BACKEND_URL}/api/transcribe/upload-complete`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.tokenSet.accessToken}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${BACKEND_URL}/api/transcribe/upload-complete`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.tokenSet.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body,
       },
-      body,
-    });
+    );
 
     const text = await response.text();
     try {
@@ -32,7 +35,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Transcribe upload-complete proxy error:", error);
     return NextResponse.json(
-      { error: `Proxy failed: ${error instanceof Error ? error.message : String(error)}` },
+      {
+        error: `Proxy failed: ${error instanceof Error ? error.message : String(error)}`,
+      },
       { status: 500 },
     );
   }

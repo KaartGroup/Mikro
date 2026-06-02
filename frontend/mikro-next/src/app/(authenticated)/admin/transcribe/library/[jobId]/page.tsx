@@ -11,10 +11,7 @@ import {
   Button,
   Badge,
 } from "@/components/ui";
-import {
-  type TranscriptionSegment,
-  formatTimestamp,
-} from "@/lib/transcribe";
+import { type TranscriptionSegment, formatTimestamp } from "@/lib/transcribe";
 import AiActions from "@/components/transcribe/AiActions";
 import ExportButtons from "@/components/transcribe/ExportButtons";
 
@@ -103,7 +100,10 @@ export default function TranscribeDetailPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId: job.jobId, title: titleDraft.trim() || null }),
+        body: JSON.stringify({
+          jobId: job.jobId,
+          title: titleDraft.trim() || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok || data.status !== 200) {
@@ -122,7 +122,10 @@ export default function TranscribeDetailPage() {
     if (!job) return;
     setSavingMeta(true);
     try {
-      const tags = tagsDraft.split(",").map((t) => t.trim()).filter(Boolean);
+      const tags = tagsDraft
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
       const res = await fetch("/backend/transcribe/update", {
         method: "POST",
         credentials: "include",
@@ -174,7 +177,10 @@ export default function TranscribeDetailPage() {
     return (
       <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
         <div style={{ marginBottom: 16 }}>
-          <Link href="/admin/transcribe/library" style={{ fontSize: 13, color: "#666" }}>
+          <Link
+            href="/admin/transcribe/library"
+            style={{ fontSize: 13, color: "#666" }}
+          >
             ← Back to Library
           </Link>
         </div>
@@ -195,7 +201,10 @@ export default function TranscribeDetailPage() {
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
-        <Link href="/admin/transcribe/library" style={{ fontSize: 13, color: "#666", textDecoration: "none" }}>
+        <Link
+          href="/admin/transcribe/library"
+          style={{ fontSize: 13, color: "#666", textDecoration: "none" }}
+        >
           ← Back to Library
         </Link>
       </div>
@@ -226,7 +235,12 @@ export default function TranscribeDetailPage() {
                 <Button
                   onClick={saveTitle}
                   disabled={savingMeta}
-                  style={{ fontSize: 12, padding: "6px 12px", backgroundColor: "#004e89", color: "#fff" }}
+                  style={{
+                    fontSize: 12,
+                    padding: "6px 12px",
+                    backgroundColor: "#004e89",
+                    color: "#fff",
+                  }}
                 >
                   Save
                 </Button>
@@ -239,7 +253,14 @@ export default function TranscribeDetailPage() {
                 </Button>
               </div>
             ) : (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
                 <span
                   onClick={() => {
                     setTitleDraft(job.title || job.fileName || "");
@@ -253,7 +274,8 @@ export default function TranscribeDetailPage() {
                 <div style={{ display: "flex", gap: 6 }}>
                   {job.segments.length > 0 && (
                     <Badge variant="outline" style={{ fontSize: 11 }}>
-                      {job.segments.length} segment{job.segments.length === 1 ? "" : "s"}
+                      {job.segments.length} segment
+                      {job.segments.length === 1 ? "" : "s"}
                     </Badge>
                   )}
                   <Badge variant="outline" style={{ fontSize: 11 }}>
@@ -266,7 +288,16 @@ export default function TranscribeDetailPage() {
         </CardHeader>
         <CardContent>
           {/* Meta */}
-          <div style={{ fontSize: 12, color: "#888", display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          <div
+            style={{
+              fontSize: 12,
+              color: "#888",
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              marginBottom: 12,
+            }}
+          >
             <span>Created {formatDate(job.createdAt)}</span>
             {job.completedAt && (
               <>
@@ -307,7 +338,12 @@ export default function TranscribeDetailPage() {
                 <Button
                   onClick={saveTags}
                   disabled={savingMeta}
-                  style={{ fontSize: 12, padding: "6px 12px", backgroundColor: "#004e89", color: "#fff" }}
+                  style={{
+                    fontSize: 12,
+                    padding: "6px 12px",
+                    backgroundColor: "#004e89",
+                    color: "#fff",
+                  }}
                 >
                   Save
                 </Button>
@@ -326,10 +362,19 @@ export default function TranscribeDetailPage() {
                   setEditingTags(true);
                 }}
                 title="Click to edit tags"
-                style={{ cursor: "pointer", display: "flex", gap: 6, flexWrap: "wrap", minHeight: 24, alignItems: "center" }}
+                style={{
+                  cursor: "pointer",
+                  display: "flex",
+                  gap: 6,
+                  flexWrap: "wrap",
+                  minHeight: 24,
+                  alignItems: "center",
+                }}
               >
                 {job.tags.length === 0 ? (
-                  <span style={{ fontSize: 12, color: "#bbb", fontStyle: "italic" }}>
+                  <span
+                    style={{ fontSize: 12, color: "#bbb", fontStyle: "italic" }}
+                  >
                     + add tags
                   </span>
                 ) : (
@@ -371,7 +416,8 @@ export default function TranscribeDetailPage() {
               {job.segments.map((seg, i) => (
                 <div key={i} style={{ marginBottom: 4 }}>
                   <span style={{ color: "#004e89", fontWeight: 600 }}>
-                    [{formatTimestamp(seg.timeStart)} &rarr; {formatTimestamp(seg.timeEnd)}]
+                    [{formatTimestamp(seg.timeStart)} &rarr;{" "}
+                    {formatTimestamp(seg.timeEnd)}]
                   </span>{" "}
                   {seg.text}
                 </div>
@@ -379,7 +425,15 @@ export default function TranscribeDetailPage() {
             </div>
           )}
 
-          <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6, color: "#555" }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: 13,
+              fontWeight: 500,
+              marginBottom: 6,
+              color: "#555",
+            }}
+          >
             Full Text
           </label>
           <textarea
@@ -407,10 +461,22 @@ export default function TranscribeDetailPage() {
             />
           </div>
 
-          <AiActions key={job.jobId} jobId={job.jobId} displayName={displayName} />
+          <AiActions
+            key={job.jobId}
+            jobId={job.jobId}
+            displayName={displayName}
+          />
 
           {/* Delete at bottom */}
-          <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid #f3f4f6", display: "flex", justifyContent: "flex-end" }}>
+          <div
+            style={{
+              marginTop: 24,
+              paddingTop: 16,
+              borderTop: "1px solid #f3f4f6",
+              display: "flex",
+              justifyContent: "flex-end",
+            }}
+          >
             <Button
               onClick={deleteJob}
               style={{

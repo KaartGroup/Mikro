@@ -1,9 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, Button, Modal, useToastActions, Val } from "@/components/ui";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Modal,
+  useToastActions,
+  Val,
+} from "@/components/ui";
 import { Task } from "@/types";
-import { formatNumber, formatCurrency, getProjectExternalUrl } from "@/lib/utils";
+import {
+  formatNumber,
+  formatCurrency,
+  getProjectExternalUrl,
+} from "@/lib/utils";
 
 export default function AdminTasksPage() {
   const [externalValidations, setExternalValidations] = useState<Task[]>([]);
@@ -79,7 +92,9 @@ export default function AdminTasksPage() {
       });
       const data = await response.json();
       if (response.ok && data.status === 200) {
-        toast.success(`Task stats purged. ${data.users_reset} users and ${data.projects_reset} projects reset.`);
+        toast.success(
+          `Task stats purged. ${data.users_reset} users and ${data.projects_reset} projects reset.`,
+        );
         setShowPurgeModal(false);
         fetchExternalValidations();
       } else {
@@ -131,41 +146,72 @@ export default function AdminTasksPage() {
             <table className="w-full">
               <thead className="bg-muted">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Task ID</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Project Name</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Project ID</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Mapped By</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Validated By</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">
+                    Task ID
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">
+                    Project Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">
+                    Project ID
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">
+                    Mapped By
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">
+                    Validated By
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {(() => {
                   const filtered = externalValidations;
                   const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
-                  const paginated = filtered.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
-                  const showingStart = filtered.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1;
-                  const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, filtered.length);
+                  const paginated = filtered.slice(
+                    (currentPage - 1) * ROWS_PER_PAGE,
+                    currentPage * ROWS_PER_PAGE,
+                  );
+                  const showingStart =
+                    filtered.length === 0
+                      ? 0
+                      : (currentPage - 1) * ROWS_PER_PAGE + 1;
+                  const showingEnd = Math.min(
+                    currentPage * ROWS_PER_PAGE,
+                    filtered.length,
+                  );
                   return (
                     <>
                       {paginated.map((task) => (
                         <tr
                           key={task.id}
                           onClick={() => handleSelectTask(task.id)}
-                          onDoubleClick={() => task.project_id && goToSource(getProjectExternalUrl(task.project_id))}
+                          onDoubleClick={() =>
+                            task.project_id &&
+                            goToSource(getProjectExternalUrl(task.project_id))
+                          }
                           className={`cursor-pointer hover:bg-muted/50 transition-colors ${
                             selectedTask === task.id ? "bg-kaart-orange/10" : ""
                           }`}
                         >
                           <td className="px-4 py-3">{task.id}</td>
-                          <td className="px-4 py-3 font-medium">{task.project_name}</td>
+                          <td className="px-4 py-3 font-medium">
+                            {task.project_name}
+                          </td>
                           <td className="px-4 py-3">{task.project_id}</td>
-                          <td className="px-4 py-3"><Val fallback="-">{task.mapped_by}</Val></td>
-                          <td className="px-4 py-3"><Val fallback="-">{task.validated_by}</Val></td>
+                          <td className="px-4 py-3">
+                            <Val fallback="-">{task.mapped_by}</Val>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Val fallback="-">{task.validated_by}</Val>
+                          </td>
                         </tr>
                       ))}
                       {filtered.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                          <td
+                            colSpan={5}
+                            className="px-4 py-8 text-center text-muted-foreground"
+                          >
                             No external validations pending
                           </td>
                         </tr>
@@ -175,12 +221,29 @@ export default function AdminTasksPage() {
                           <td colSpan={5}>
                             <div className="flex items-center justify-between mt-4 px-2 py-3">
                               <span className="text-sm text-muted-foreground">
-                                Showing {showingStart}–{showingEnd} of {filtered.length}
+                                Showing {showingStart}–{showingEnd} of{" "}
+                                {filtered.length}
                               </span>
                               <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Previous</Button>
-                                <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-                                <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next</Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={currentPage === 1}
+                                  onClick={() => setCurrentPage((p) => p - 1)}
+                                >
+                                  Previous
+                                </Button>
+                                <span className="text-sm text-muted-foreground">
+                                  Page {currentPage} of {totalPages}
+                                </span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={currentPage >= totalPages}
+                                  onClick={() => setCurrentPage((p) => p + 1)}
+                                >
+                                  Next
+                                </Button>
                               </div>
                             </div>
                           </td>
@@ -200,20 +263,33 @@ export default function AdminTasksPage() {
       </p>
 
       {/* Purge Task Stats Modal */}
-      <Modal isOpen={showPurgeModal} onClose={() => setShowPurgeModal(false)} title="Purge All Task Stats">
+      <Modal
+        isOpen={showPurgeModal}
+        onClose={() => setShowPurgeModal(false)}
+        title="Purge All Task Stats"
+      >
         <div className="space-y-4">
           <p className="text-muted-foreground">
-            This will reset all task statistics for all users and projects.
-            Task counts (mapped, validated, invalidated) and payable amounts will be zeroed out.
+            This will reset all task statistics for all users and projects. Task
+            counts (mapped, validated, invalidated) and payable amounts will be
+            zeroed out.
           </p>
           <p className="text-red-600 font-semibold">
             This action cannot be undone!
           </p>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowPurgeModal(false)} disabled={isPurging}>
+            <Button
+              variant="outline"
+              onClick={() => setShowPurgeModal(false)}
+              disabled={isPurging}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handlePurgeTaskStats} disabled={isPurging}>
+            <Button
+              variant="destructive"
+              onClick={handlePurgeTaskStats}
+              disabled={isPurging}
+            >
               {isPurging ? "Purging..." : "Purge All Task Stats"}
             </Button>
           </div>
@@ -223,24 +299,25 @@ export default function AdminTasksPage() {
       {/* Dev/purge tools hidden per management request 2026-05-19 —
           restore by removing the `false && (` / `)}` guard. */}
       {false && (
-      <Card className="border-2 border-dashed border-yellow-500">
-        <CardHeader>
-          <CardTitle className="text-yellow-700">Dev Tools</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <Button
-              variant="destructive"
-              onClick={() => setShowPurgeModal(true)}
-            >
-              Purge All Task Stats
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            Warning: This will reset all task statistics for all users and projects.
-          </p>
-        </CardContent>
-      </Card>
+        <Card className="border-2 border-dashed border-yellow-500">
+          <CardHeader>
+            <CardTitle className="text-yellow-700">Dev Tools</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              <Button
+                variant="destructive"
+                onClick={() => setShowPurgeModal(true)}
+              >
+                Purge All Task Stats
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Warning: This will reset all task statistics for all users and
+              projects.
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

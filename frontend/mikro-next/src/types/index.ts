@@ -207,7 +207,13 @@ export interface Training {
   training_url: string;
   point_value: number;
   difficulty: "Easy" | "Medium" | "Hard";
-  training_type?: "Mapping" | "Validation" | "Project" | "mapping" | "validation" | "project";
+  training_type?:
+    | "Mapping"
+    | "Validation"
+    | "Project"
+    | "mapping"
+    | "validation"
+    | "project";
   project_id?: number;
   created_by?: string;
   questions?: TrainingQuestion[];
@@ -376,7 +382,7 @@ export interface TimeEntry {
   retainedParticipants?: number | null;
   newParticipants?: number | null;
   taskName?: string | null;
-  taskRefType?: string | null;  // "project" | "training" | "checklist" | null
+  taskRefType?: string | null; // "project" | "training" | "checklist" | null
   taskRefId?: number | null;
   clockIn: string | null;
   clockOut: string | null;
@@ -524,8 +530,8 @@ export interface UserProfileData {
   name_last_change?: {
     changed_at: string;
     source: string;
-    changed_by: string | null;        // raw id, kept for debugging
-    changed_by_name: string | null;   // resolved friendly name for UI
+    changed_by: string | null; // raw id, kept for debugging
+    changed_by_name: string | null; // resolved friendly name for UI
     old_first_name: string | null;
     old_last_name: string | null;
     new_first_name: string | null;
@@ -1036,16 +1042,29 @@ export interface ChangesetHeatmapResponse {
 export interface StandardAnalysisCategory {
   title: string;
   type: "standard";
-  data: Array<{ day: string; added: number; modified: number; deleted: number }>;
+  data: Array<{
+    day: string;
+    added: number;
+    modified: number;
+    deleted: number;
+  }>;
 }
 
 export interface HprAnalysisCategory {
   title: string;
   type: "hpr";
-  data: Array<{ day: string; upgraded: number; downgraded: number; links: number; construction: number }>;
+  data: Array<{
+    day: string;
+    upgraded: number;
+    downgraded: number;
+    links: number;
+    construction: number;
+  }>;
 }
 
-export type ElementAnalysisCategory = StandardAnalysisCategory | HprAnalysisCategory;
+export type ElementAnalysisCategory =
+  | StandardAnalysisCategory
+  | HprAnalysisCategory;
 
 export interface ElementAnalysisResponse {
   status: number;
@@ -1408,7 +1427,10 @@ export interface ActiveFilter {
 }
 
 export interface FilterOptionsResponse {
-  dimensions: Record<string, Array<string | { id?: number; name: string; value?: string }>>;
+  dimensions: Record<
+    string,
+    Array<string | { id?: number; name: string; value?: string }>
+  >;
   status: number;
 }
 
@@ -1424,11 +1446,7 @@ export interface CountriesResponse {
 
 // ─── Payments v1 (admin payroll workspace) ──────────────────────────
 
-export type PaymentCycleStatus =
-  | "pending"
-  | "approved"
-  | "held"
-  | "paid";
+export type PaymentCycleStatus = "pending" | "approved" | "held" | "paid";
 
 export interface PaymentCycleRow {
   user_id: string;
@@ -1566,7 +1584,11 @@ export interface PaymentAdjustment {
 // PaymentAdjustment: a ReimbursementRequest is the *workflow* record;
 // when an admin approves one, a paired PaymentAdjustment row is
 // created and linked via `adjustment_id` here / `request_id` there.
-export type ReimbursementStatus = "pending" | "approved" | "rejected" | "withdrawn";
+export type ReimbursementStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "withdrawn";
 
 export interface ReimbursementRequest {
   id: number;

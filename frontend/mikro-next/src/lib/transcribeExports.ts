@@ -107,8 +107,13 @@ export function downloadAiResultTxt(
   displayName: string,
 ) {
   const header = `${presetLabel} — ${displayName}\n${"─".repeat(40)}\n\n`;
-  const blob = new Blob([header + content], { type: "text/plain;charset=utf-8" });
-  triggerDownload(blob, `${sanitizeFilename(displayName)}-${sanitizeFilename(presetLabel)}.txt`);
+  const blob = new Blob([header + content], {
+    type: "text/plain;charset=utf-8",
+  });
+  triggerDownload(
+    blob,
+    `${sanitizeFilename(displayName)}-${sanitizeFilename(presetLabel)}.txt`,
+  );
 }
 
 export async function downloadAiResultPdf(
@@ -155,5 +160,7 @@ export async function downloadAiResultPdf(
     cursorY += LINE_HEIGHT;
   }
 
-  doc.save(`${sanitizeFilename(displayName)}-${sanitizeFilename(presetLabel)}.pdf`);
+  doc.save(
+    `${sanitizeFilename(displayName)}-${sanitizeFilename(presetLabel)}.pdf`,
+  );
 }

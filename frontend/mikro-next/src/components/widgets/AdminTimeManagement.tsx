@@ -54,16 +54,26 @@ function fromDatetimeLocal(value: string): string {
   return new Date(value).toISOString();
 }
 
-const CATEGORY_OPTIONS = ["mapping", "validation", "review", "training", "other"];
+const CATEGORY_OPTIONS = [
+  "mapping",
+  "validation",
+  "review",
+  "training",
+  "other",
+];
 
 export interface AdminTimeManagementProps {
   /** Restrict every query in this widget to members of this team. */
   teamId?: number | null;
 }
 
-export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps = {}) {
+export function AdminTimeManagement({
+  teamId = null,
+}: AdminTimeManagementProps = {}) {
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
-  const [liveDurations, setLiveDurations] = useState<Record<number, string>>({});
+  const [liveDurations, setLiveDurations] = useState<Record<number, string>>(
+    {},
+  );
   const [search, setSearch] = useState("");
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [editClockIn, setEditClockIn] = useState("");
@@ -81,13 +91,22 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
   const [addNotes, setAddNotes] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
 
-  const { data: activeSessions, loading: sessionsLoading, refetch: refetchSessions } = useAdminActiveSessions();
-  const { mutate: fetchHistoryPage } = useApiMutation<TimeTrackingHistoryResponse>("/timetracking/history");
+  const {
+    data: activeSessions,
+    loading: sessionsLoading,
+    refetch: refetchSessions,
+  } = useAdminActiveSessions();
+  const { mutate: fetchHistoryPage } =
+    useApiMutation<TimeTrackingHistoryResponse>("/timetracking/history");
   const [allHistoryEntries, setAllHistoryEntries] = useState<TimeEntry[]>([]);
-  const [historyNextCursor, setHistoryNextCursor] = useState<{ clockIn: string; id: number } | null>(null);
+  const [historyNextCursor, setHistoryNextCursor] = useState<{
+    clockIn: string;
+    id: number;
+  } | null>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const { mutate: forceClockOut, loading: forcingClockOut } = useForceClockOut();
+  const { mutate: forceClockOut, loading: forcingClockOut } =
+    useForceClockOut();
   const { mutate: voidEntry, loading: voiding } = useVoidTimeEntry();
   const { mutate: editEntry, loading: editing } = useEditTimeEntry();
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
@@ -102,15 +121,21 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
 
   const sessions = activeSessions?.sessions || [];
 
-  const refreshHistory = useCallback(async (params: Record<string, unknown> = {}) => {
-    setHistoryLoading(true);
-    try {
-      const result = await fetchHistoryPage(params);
-      setAllHistoryEntries(result?.entries ?? []);
-      setHistoryNextCursor(result?.nextCursor ?? null);
-    } catch { /* errors surfaced by mutation */ }
-    finally { setHistoryLoading(false); }
-  }, [fetchHistoryPage]);
+  const refreshHistory = useCallback(
+    async (params: Record<string, unknown> = {}) => {
+      setHistoryLoading(true);
+      try {
+        const result = await fetchHistoryPage(params);
+        setAllHistoryEntries(result?.entries ?? []);
+        setHistoryNextCursor(result?.nextCursor ?? null);
+      } catch {
+        /* errors surfaced by mutation */
+      } finally {
+        setHistoryLoading(false);
+      }
+    },
+    [fetchHistoryPage],
+  );
 
   const loadMoreHistory = useCallback(async () => {
     if (!historyNextCursor) return;
@@ -121,8 +146,11 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
       const result = await fetchHistoryPage(params);
       setAllHistoryEntries((prev) => [...prev, ...(result?.entries ?? [])]);
       setHistoryNextCursor(result?.nextCursor ?? null);
-    } catch { /* errors surfaced by mutation */ }
-    finally { setLoadingMore(false); }
+    } catch {
+      /* errors surfaced by mutation */
+    } finally {
+      setLoadingMore(false);
+    }
   }, [fetchHistoryPage, historyNextCursor, teamId]);
 
   // Search matches userName / projectName / category. One-field design so
@@ -131,20 +159,22 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
   const filteredSessions = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return sessions;
-    return sessions.filter((s) =>
-      (s.userName || "").toLowerCase().includes(q) ||
-      (s.projectName || "").toLowerCase().includes(q) ||
-      (s.category || "").toLowerCase().includes(q)
+    return sessions.filter(
+      (s) =>
+        (s.userName || "").toLowerCase().includes(q) ||
+        (s.projectName || "").toLowerCase().includes(q) ||
+        (s.category || "").toLowerCase().includes(q),
     );
   }, [sessions, search]);
 
   const filteredHistory = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return allHistoryEntries;
-    return allHistoryEntries.filter((e) =>
-      (e.userName || "").toLowerCase().includes(q) ||
-      (e.projectName || "").toLowerCase().includes(q) ||
-      (e.category || "").toLowerCase().includes(q)
+    return allHistoryEntries.filter(
+      (e) =>
+        (e.userName || "").toLowerCase().includes(q) ||
+        (e.projectName || "").toLowerCase().includes(q) ||
+        (e.category || "").toLowerCase().includes(q),
     );
   }, [allHistoryEntries, search]);
 
@@ -231,7 +261,9 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
       setEditingEntry(null);
       await refreshHistory(teamId ? { teamId } : {});
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Failed to update entry");
+      setEditError(
+        err instanceof Error ? err.message : "Failed to update entry",
+      );
     }
   };
 
@@ -248,9 +280,18 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
 
   const handleSaveAddEntry = async () => {
     setAddError(null);
-    if (!addUserId) { setAddError("User is required"); return; }
-    if (!addClockIn) { setAddError("Clock in time is required"); return; }
-    if (!addClockOut) { setAddError("Clock out time is required"); return; }
+    if (!addUserId) {
+      setAddError("User is required");
+      return;
+    }
+    if (!addClockIn) {
+      setAddError("Clock in time is required");
+      return;
+    }
+    if (!addClockOut) {
+      setAddError("Clock out time is required");
+      return;
+    }
 
     try {
       await addTimeEntry({
@@ -264,7 +305,9 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
       setShowAddEntry(false);
       await refreshHistory(teamId ? { teamId } : {});
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : "Failed to create entry");
+      setAddError(
+        err instanceof Error ? err.message : "Failed to create entry",
+      );
     }
   };
 
@@ -324,7 +367,11 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Active Sessions ({search.trim() ? `${filteredSessions.length}/${sessions.length}` : sessions.length})
+                  Active Sessions (
+                  {search.trim()
+                    ? `${filteredSessions.length}/${sessions.length}`
+                    : sessions.length}
+                  )
                 </button>
                 <button
                   onClick={() => setActiveTab("history")}
@@ -375,66 +422,92 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
                 <table className="w-full text-sm" style={{ minWidth: 500 }}>
                   <thead className="sticky top-0 bg-background z-10">
                     <tr className="border-b border-border">
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">User</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Project</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Category</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Clocked In</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Duration</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Notes</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Actions</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                        User
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                        Project
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                        Category
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                        Clocked In
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                        Duration
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                        Notes
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredSessions.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-4 px-3 text-center text-sm text-muted-foreground">
+                        <td
+                          colSpan={7}
+                          className="py-4 px-3 text-center text-sm text-muted-foreground"
+                        >
                           No active sessions match &ldquo;{search}&rdquo;.
                         </td>
                       </tr>
-                    ) : filteredSessions.map((entry) => (
-                      <tr key={entry.id} className="border-b border-border last:border-0">
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    ) : (
+                      filteredSessions.map((entry) => (
+                        <tr
+                          key={entry.id}
+                          className="border-b border-border last:border-0"
+                        >
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                              </span>
+                              <span className="font-medium">
+                                {entry.userName}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">{entry.projectName}</td>
+                          <td className="py-3 px-3">
+                            <Badge variant="secondary">{entry.category}</Badge>
+                          </td>
+                          <td className="py-3 px-3 text-muted-foreground">
+                            {entry.clockIn
+                              ? formatDateTime(entry.clockIn)
+                              : "—"}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="font-mono text-green-600 font-medium">
+                              {liveDurations[entry.id] || entry.duration || "—"}
                             </span>
-                            <span className="font-medium">{entry.userName}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3">{entry.projectName}</td>
-                        <td className="py-3 px-3">
-                          <Badge variant="secondary">{entry.category}</Badge>
-                        </td>
-                        <td className="py-3 px-3 text-muted-foreground">
-                          {entry.clockIn ? formatDateTime(entry.clockIn) : "—"}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className="font-mono text-green-600 font-medium">
-                            {liveDurations[entry.id] || entry.duration || "—"}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3">
-                          <NotesButton
-                            notes={entry.userNotes}
-                            editable={false}
-                            size="xs"
-                            title={`Note from ${entry.userName}`}
-                          />
-                        </td>
-                        <td className="py-3 px-3">
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleForceClockOut(entry.id)}
-                            disabled={forcingClockOut}
-                            className="whitespace-nowrap"
-                          >
-                            Clock Out
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="py-3 px-3">
+                            <NotesButton
+                              notes={entry.userNotes}
+                              editable={false}
+                              size="xs"
+                              title={`Note from ${entry.userName}`}
+                            />
+                          </td>
+                          <td className="py-3 px-3">
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleForceClockOut(entry.id)}
+                              disabled={forcingClockOut}
+                              className="whitespace-nowrap"
+                            >
+                              Clock Out
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -443,42 +516,65 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
                 No users are currently clocked in.
               </p>
             )
-          ) : (
-            historyLoading ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                Loading history...
-              </p>
-            ) : allHistoryEntries.length > 0 ? (
-              <div className="overflow-auto max-h-[70vh]">
-                <table className="w-full text-sm" style={{ minWidth: 500 }}>
-                  <thead className="sticky top-0 bg-background z-10">
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">User</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Project</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Category</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Clock In</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Clock Out</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Duration</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Status</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Notes</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Actions</th>
+          ) : historyLoading ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Loading history...
+            </p>
+          ) : allHistoryEntries.length > 0 ? (
+            <div className="overflow-auto max-h-[70vh]">
+              <table className="w-full text-sm" style={{ minWidth: 500 }}>
+                <thead className="sticky top-0 bg-background z-10">
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                      User
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                      Project
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                      Category
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                      Clock In
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                      Clock Out
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                      Duration
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                      Notes
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHistory.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="py-4 px-3 text-center text-sm text-muted-foreground"
+                      >
+                        No history entries match &ldquo;{search}&rdquo;.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {filteredHistory.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} className="py-4 px-3 text-center text-sm text-muted-foreground">
-                          No history entries match &ldquo;{search}&rdquo;.
-                        </td>
-                      </tr>
-                    ) : filteredHistory.map((entry) => (
+                  ) : (
+                    filteredHistory.map((entry) => (
                       <tr
                         key={entry.id}
                         className={`border-b border-border last:border-0 ${
                           entry.status === "voided" ? "opacity-50" : ""
                         }`}
                       >
-                        <td className="py-3 px-3 font-medium">{entry.userName}</td>
+                        <td className="py-3 px-3 font-medium">
+                          {entry.userName}
+                        </td>
                         <td className="py-3 px-3">{entry.projectName}</td>
                         <td className="py-3 px-3">
                           <Badge variant="secondary">{entry.category}</Badge>
@@ -487,10 +583,14 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
                           {entry.clockIn ? formatDateTime(entry.clockIn) : "—"}
                         </td>
                         <td className="py-3 px-3 text-muted-foreground">
-                          {entry.clockOut ? formatDateTime(entry.clockOut) : "—"}
+                          {entry.clockOut
+                            ? formatDateTime(entry.clockOut)
+                            : "—"}
                         </td>
                         <td className="py-3 px-3">
-                          <span className="font-mono">{formatDurationHM(entry.durationSeconds)}</span>
+                          <span className="font-mono">
+                            {formatDurationHM(entry.durationSeconds)}
+                          </span>
                         </td>
                         <td className="py-3 px-3">
                           <Badge
@@ -498,17 +598,26 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
                               entry.status === "completed"
                                 ? "success"
                                 : entry.status === "voided"
-                                ? "destructive"
-                                : "warning"
+                                  ? "destructive"
+                                  : "warning"
                             }
                           >
                             {entry.status}
                           </Badge>
-                          {entry.notes?.startsWith("[ADJUSTMENT REQUESTED]") && (
-                            <Badge variant="destructive" className="ml-1 text-xs uppercase">Adjust</Badge>
+                          {entry.notes?.startsWith(
+                            "[ADJUSTMENT REQUESTED]",
+                          ) && (
+                            <Badge
+                              variant="destructive"
+                              className="ml-1 text-xs uppercase"
+                            >
+                              Adjust
+                            </Badge>
                           )}
                           {entry.notes?.startsWith("[ADJUSTED]") && (
-                            <Badge className="ml-1 text-xs uppercase bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">Adjusted</Badge>
+                            <Badge className="ml-1 text-xs uppercase bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                              Adjusted
+                            </Badge>
                           )}
                         </td>
                         <td className="py-3 px-3">
@@ -543,27 +652,27 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
                           )}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {historyNextCursor && (
-                  <div className="flex justify-center py-3 border-t border-border">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={loadMoreHistory}
-                      isLoading={loadingMore}
-                    >
-                      Load more
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                No time entries yet.
-              </p>
-            )
+                    ))
+                  )}
+                </tbody>
+              </table>
+              {historyNextCursor && (
+                <div className="flex justify-center py-3 border-t border-border">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadMoreHistory}
+                    isLoading={loadingMore}
+                  >
+                    Load more
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No time entries yet.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -573,7 +682,11 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
         isOpen={!!editingEntry}
         onClose={() => setEditingEntry(null)}
         title="Edit Time Entry"
-        description={editingEntry ? `${editingEntry.userName} — ${editingEntry.projectName}` : ""}
+        description={
+          editingEntry
+            ? `${editingEntry.userName} — ${editingEntry.projectName}`
+            : ""
+        }
         size="sm"
         footer={
           <>
@@ -592,9 +705,7 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
       >
         {editingEntry && (
           <div className="space-y-4">
-            {editError && (
-              <p className="text-sm text-red-600">{editError}</p>
-            )}
+            {editError && <p className="text-sm text-red-600">{editError}</p>}
 
             {editingEntry.notes?.startsWith("[ADJUSTMENT REQUESTED]") && (
               <div className="rounded-lg bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 p-3">
@@ -618,7 +729,9 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Clock Out</label>
+              <label className="block text-sm font-medium mb-1">
+                Clock Out
+              </label>
               <input
                 type="datetime-local"
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -668,9 +781,7 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
         }
       >
         <div className="space-y-4">
-          {addError && (
-            <p className="text-sm text-red-600">{addError}</p>
-          )}
+          {addError && <p className="text-sm text-red-600">{addError}</p>}
 
           <div>
             <label className="block text-sm font-medium mb-1">User</label>
@@ -681,13 +792,17 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
             >
               <option value="">Select a user...</option>
               {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Project (optional)</label>
+            <label className="block text-sm font-medium mb-1">
+              Project (optional)
+            </label>
             <select
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               value={addProjectId}
@@ -695,7 +810,9 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
             >
               <option value="">No project</option>
               {sortProjectsAlphabetical(projects).map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
             </select>
           </div>
@@ -740,11 +857,16 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
             onClick={handleFillTestEntry}
             className="w-full text-xs text-yellow-700 dark:text-yellow-400 border-2 border-dashed border-yellow-400 rounded-md py-1.5 hover:bg-yellow-50 dark:hover:bg-yellow-950/30 transition-colors bg-yellow-50 dark:bg-yellow-950/20"
           >
-            <span className="font-bold uppercase tracking-wider">Test Data</span> — Fill 8-Hour Test Entry (now - 8h → now)
+            <span className="font-bold uppercase tracking-wider">
+              Test Data
+            </span>{" "}
+            — Fill 8-Hour Test Entry (now - 8h → now)
           </button>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Notes (optional)</label>
+            <label className="block text-sm font-medium mb-1">
+              Notes (optional)
+            </label>
             <textarea
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
               rows={2}
@@ -765,7 +887,10 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
         size="sm"
         footer={
           <>
-            <Button variant="outline" onClick={() => setShowPurgeConfirm(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowPurgeConfirm(false)}
+            >
               Cancel
             </Button>
             <Button
@@ -781,7 +906,8 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
         <div className="space-y-3">
           <div className="rounded-lg bg-secondary border border-border p-3">
             <p className="text-sm font-medium text-foreground">
-              This will permanently delete ALL time tracking entries for your organization:
+              This will permanently delete ALL time tracking entries for your
+              organization:
             </p>
             <ul className="mt-2 text-sm text-foreground list-disc list-inside space-y-1">
               <li>All active sessions will be removed</li>

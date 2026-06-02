@@ -44,7 +44,7 @@ const TableFooter = forwardRef<
     ref={ref}
     className={cn(
       "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
-      className
+      className,
     )}
     {...props}
   />
@@ -59,7 +59,7 @@ const TableRow = forwardRef<
     ref={ref}
     className={cn(
       "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
-      className
+      className,
     )}
     {...props}
   />
@@ -74,7 +74,7 @@ const TableHead = forwardRef<
     ref={ref}
     className={cn(
       "h-10 px-3 text-left align-middle font-medium text-muted-foreground text-xs whitespace-nowrap [&:has([role=checkbox])]:pr-0",
-      className
+      className,
     )}
     {...props}
   />
@@ -87,7 +87,10 @@ const TableCell = forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("px-3 py-2 align-middle text-sm [&:has([role=checkbox])]:pr-0", className)}
+    className={cn(
+      "px-3 py-2 align-middle text-sm [&:has([role=checkbox])]:pr-0",
+      className,
+    )}
     {...props}
   />
 ));

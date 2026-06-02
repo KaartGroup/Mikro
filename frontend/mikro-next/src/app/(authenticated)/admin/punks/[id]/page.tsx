@@ -25,7 +25,12 @@ import {
   Val,
   StatCard,
 } from "@/components/ui";
-import { usePunkDetail, useRefreshPunkActivity, useToggleDiscussionFlag, usePurgeAllDiscussions } from "@/hooks";
+import {
+  usePunkDetail,
+  useRefreshPunkActivity,
+  useToggleDiscussionFlag,
+  usePurgeAllDiscussions,
+} from "@/hooks";
 import type { PunkDetailResponse } from "@/types";
 import { formatNumber } from "@/lib/utils";
 
@@ -76,17 +81,18 @@ export default function PunkDetailPage() {
     error: detailError,
   } = usePunkDetail();
 
-  const {
-    mutate: refreshActivity,
-    loading: refreshing,
-  } = useRefreshPunkActivity();
+  const { mutate: refreshActivity, loading: refreshing } =
+    useRefreshPunkActivity();
 
   const { mutate: toggleFlag } = useToggleDiscussionFlag();
-  const { mutate: purgeDiscussions, loading: purging } = usePurgeAllDiscussions();
+  const { mutate: purgeDiscussions, loading: purging } =
+    usePurgeAllDiscussions();
 
   const [data, setData] = useState<PunkDetailResponse | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
-  const [expandedDiscussions, setExpandedDiscussions] = useState<Set<number>>(new Set());
+  const [expandedDiscussions, setExpandedDiscussions] = useState<Set<number>>(
+    new Set(),
+  );
 
   // Pagination for changesets
   const ROWS_PER_PAGE = 20;
@@ -121,7 +127,7 @@ export default function PunkDetailPage() {
       return {
         ...prev,
         discussions: prev.discussions.map((d) =>
-          d.link === link ? { ...d, flagged: !d.flagged } : d
+          d.link === link ? { ...d, flagged: !d.flagged } : d,
         ),
       };
     });
@@ -165,16 +171,17 @@ export default function PunkDetailPage() {
   const { punk, changesets, heatmapPoints, summary, hashtagSummary } = data;
 
   const sortedChangesets = [...changesets].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
 
   const sortedHashtags = Object.entries(hashtagSummary).sort(
-    (a, b) => b[1] - a[1]
+    (a, b) => b[1] - a[1],
   );
 
   const cachedChangesTotal = changesets.reduce(
     (sum, cs) => sum + (cs.changes_count || 0),
-    0
+    0,
   );
 
   return (
@@ -288,10 +295,16 @@ export default function PunkDetailPage() {
       <Tabs defaultValue="heatmap">
         <TabsList>
           <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
-          <TabsTrigger value="changesets">Changesets ({formatNumber(changesets.length).text})</TabsTrigger>
-          <TabsTrigger value="discussions">Discussions ({data.discussions?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="changesets">
+            Changesets ({formatNumber(changesets.length).text})
+          </TabsTrigger>
+          <TabsTrigger value="discussions">
+            Discussions ({data.discussions?.length ?? 0})
+          </TabsTrigger>
           {sortedHashtags.length > 0 && (
-            <TabsTrigger value="hashtags">Hashtags ({formatNumber(sortedHashtags.length).text})</TabsTrigger>
+            <TabsTrigger value="hashtags">
+              Hashtags ({formatNumber(sortedHashtags.length).text})
+            </TabsTrigger>
           )}
         </TabsList>
 
@@ -316,59 +329,89 @@ export default function PunkDetailPage() {
             <CardContent className="p-0">
               {sortedChangesets.length > 0 ? (
                 <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Changeset ID</TableHead>
-                        <TableHead>Comment</TableHead>
-                        <TableHead>Editor</TableHead>
-                        <TableHead className="text-right">Changes</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sortedChangesets.slice((changesetPage - 1) * ROWS_PER_PAGE, changesetPage * ROWS_PER_PAGE).map((cs) => (
-                        <TableRow key={cs.changeset_id}>
-                          <TableCell className="whitespace-nowrap">
-                            {formatDate(cs.created_at)}
-                          </TableCell>
-                          <TableCell>
-                            <a
-                              href={`https://www.openstreetmap.org/changeset/${cs.changeset_id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-kaart-orange hover:underline"
-                            >
-                              {cs.changeset_id}
-                            </a>
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate text-muted-foreground">
-                            <Val>{cs.comment}</Val>
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            <Val>{cs.editor}</Val>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Val>{formatNumber(cs.changes_count)}</Val>
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Changeset ID</TableHead>
+                          <TableHead>Comment</TableHead>
+                          <TableHead>Editor</TableHead>
+                          <TableHead className="text-right">Changes</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {sortedChangesets.length > ROWS_PER_PAGE && (
-                  <div className="flex items-center justify-between px-4 py-3 text-sm text-muted-foreground">
-                    <span>Showing {(changesetPage - 1) * ROWS_PER_PAGE + 1}-{Math.min(changesetPage * ROWS_PER_PAGE, sortedChangesets.length)} of {sortedChangesets.length}</span>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={changesetPage === 1}
-                        onClick={() => setChangesetPage(p => p - 1)}>Previous</Button>
-                      <span className="flex items-center px-2">Page {changesetPage} of {Math.ceil(sortedChangesets.length / ROWS_PER_PAGE)}</span>
-                      <Button variant="outline" size="sm" disabled={changesetPage === Math.ceil(sortedChangesets.length / ROWS_PER_PAGE)}
-                        onClick={() => setChangesetPage(p => p + 1)}>Next</Button>
-                    </div>
+                      </TableHeader>
+                      <TableBody>
+                        {sortedChangesets
+                          .slice(
+                            (changesetPage - 1) * ROWS_PER_PAGE,
+                            changesetPage * ROWS_PER_PAGE,
+                          )
+                          .map((cs) => (
+                            <TableRow key={cs.changeset_id}>
+                              <TableCell className="whitespace-nowrap">
+                                {formatDate(cs.created_at)}
+                              </TableCell>
+                              <TableCell>
+                                <a
+                                  href={`https://www.openstreetmap.org/changeset/${cs.changeset_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-kaart-orange hover:underline"
+                                >
+                                  {cs.changeset_id}
+                                </a>
+                              </TableCell>
+                              <TableCell className="max-w-xs truncate text-muted-foreground">
+                                <Val>{cs.comment}</Val>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                <Val>{cs.editor}</Val>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Val>{formatNumber(cs.changes_count)}</Val>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
                   </div>
-                )}
+                  {sortedChangesets.length > ROWS_PER_PAGE && (
+                    <div className="flex items-center justify-between px-4 py-3 text-sm text-muted-foreground">
+                      <span>
+                        Showing {(changesetPage - 1) * ROWS_PER_PAGE + 1}-
+                        {Math.min(
+                          changesetPage * ROWS_PER_PAGE,
+                          sortedChangesets.length,
+                        )}{" "}
+                        of {sortedChangesets.length}
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={changesetPage === 1}
+                          onClick={() => setChangesetPage((p) => p - 1)}
+                        >
+                          Previous
+                        </Button>
+                        <span className="flex items-center px-2">
+                          Page {changesetPage} of{" "}
+                          {Math.ceil(sortedChangesets.length / ROWS_PER_PAGE)}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            changesetPage ===
+                            Math.ceil(sortedChangesets.length / ROWS_PER_PAGE)
+                          }
+                          onClick={() => setChangesetPage((p) => p + 1)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <p className="text-muted-foreground text-center py-8">
@@ -414,80 +457,89 @@ export default function PunkDetailPage() {
             </CardHeader>
             <CardContent>
               {data.discussions && data.discussions.length > 0 ? (
-                <div className="space-y-3" style={{ maxHeight: 600, overflowY: "auto" }}>
+                <div
+                  className="space-y-3"
+                  style={{ maxHeight: 600, overflowY: "auto" }}
+                >
                   {data.discussions.map((disc, i) => {
                     const isExpanded = expandedDiscussions.has(i);
                     return (
-                    <div
-                      key={`${disc.link}-${disc.commentId || i}`}
-                      className={`border rounded-lg p-3 ${
-                        disc.flagged
-                          ? "border-l-4 border-l-kaart-orange border-t border-r border-b border-border bg-orange-50/30 dark:bg-orange-950/10"
-                          : "border-border"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{disc.title}</p>
-                          {disc.pubDate ? (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {formatDate(disc.pubDate)} ({timeAgo(disc.pubDate)})
-                            </p>
-                          ) : (
-                            <p className="text-xs text-muted-foreground mt-0.5">No date</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => handleToggleFlag(disc.link)}
-                            className={`text-base leading-none ${
-                              disc.flagged
-                                ? "text-kaart-orange"
-                                : "text-muted-foreground hover:text-kaart-orange"
-                            } transition-colors`}
-                            title={disc.flagged ? "Unflag" : "Flag as important"}
-                          >
-                            {disc.flagged ? "\u2605" : "\u2606"}
-                          </button>
-                          <a
-                            href={disc.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-kaart-orange hover:underline whitespace-nowrap"
-                          >
-                            View on OSM
-                          </a>
-                        </div>
-                      </div>
-                      <p
-                        className={`text-sm text-muted-foreground whitespace-pre-line ${
-                          !isExpanded ? "line-clamp-3" : ""
+                      <div
+                        key={`${disc.link}-${disc.commentId || i}`}
+                        className={`border rounded-lg p-3 ${
+                          disc.flagged
+                            ? "border-l-4 border-l-kaart-orange border-t border-r border-b border-border bg-orange-50/30 dark:bg-orange-950/10"
+                            : "border-border"
                         }`}
                       >
-                        {disc.description || "\u2014"}
-                      </p>
-                      {disc.description && disc.description.length > 100 && (
-                        <button
-                          onClick={() =>
-                            setExpandedDiscussions((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(i)) next.delete(i);
-                              else next.add(i);
-                              return next;
-                            })
-                          }
-                          className="text-xs text-kaart-orange hover:underline mt-1"
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{disc.title}</p>
+                            {disc.pubDate ? (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {formatDate(disc.pubDate)} (
+                                {timeAgo(disc.pubDate)})
+                              </p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                No date
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => handleToggleFlag(disc.link)}
+                              className={`text-base leading-none ${
+                                disc.flagged
+                                  ? "text-kaart-orange"
+                                  : "text-muted-foreground hover:text-kaart-orange"
+                              } transition-colors`}
+                              title={
+                                disc.flagged ? "Unflag" : "Flag as important"
+                              }
+                            >
+                              {disc.flagged ? "\u2605" : "\u2606"}
+                            </button>
+                            <a
+                              href={disc.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-kaart-orange hover:underline whitespace-nowrap"
+                            >
+                              View on OSM
+                            </a>
+                          </div>
+                        </div>
+                        <p
+                          className={`text-sm text-muted-foreground whitespace-pre-line ${
+                            !isExpanded ? "line-clamp-3" : ""
+                          }`}
                         >
-                          {isExpanded ? "Show less" : "Show more"}
-                        </button>
-                      )}
-                    </div>
+                          {disc.description || "\u2014"}
+                        </p>
+                        {disc.description && disc.description.length > 100 && (
+                          <button
+                            onClick={() =>
+                              setExpandedDiscussions((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(i)) next.delete(i);
+                                else next.add(i);
+                                return next;
+                              })
+                            }
+                            className="text-xs text-kaart-orange hover:underline mt-1"
+                          >
+                            {isExpanded ? "Show less" : "Show more"}
+                          </button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
               ) : (
                 <p className="text-muted-foreground text-center py-8">
-                  No changeset discussions found. Click Refresh Activity to fetch data.
+                  No changeset discussions found. Click Refresh Activity to
+                  fetch data.
                 </p>
               )}
             </CardContent>

@@ -21,13 +21,19 @@ interface CommunityOutreachCardProps {
   granularity: "weekly" | "daily";
 }
 
-export function CommunityOutreachCard({ data, granularity }: CommunityOutreachCardProps) {
+export function CommunityOutreachCard({
+  data,
+  granularity,
+}: CommunityOutreachCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const catData = granularity === "daily" ? data.daily_category_hours : data.weekly_category_hours;
+  const catData =
+    granularity === "daily"
+      ? data.daily_category_hours
+      : data.weekly_category_hours;
   const dataKey = granularity === "daily" ? "day" : "week";
 
   const communityCategories = (data.weekly_category_names ?? []).filter((cat) =>
-    cat.includes("community")
+    cat.includes("community"),
   );
 
   return (
@@ -42,10 +48,12 @@ export function CommunityOutreachCard({ data, granularity }: CommunityOutreachCa
               <BarChart
                 data={catData.map((row) => ({
                   ...row,
-                  [dataKey]: new Date(String(row[dataKey]) + "T00:00:00").toLocaleDateString(
-                    "en-US",
-                    { month: "short", day: "numeric" }
-                  ),
+                  [dataKey]: new Date(
+                    String(row[dataKey]) + "T00:00:00",
+                  ).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  }),
                 }))}
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -60,7 +68,10 @@ export function CommunityOutreachCard({ data, granularity }: CommunityOutreachCa
                     style: { fontSize: 10 },
                   }}
                 />
-                <Tooltip contentStyle={{ fontSize: 11 }} formatter={chartTooltipFmt} />
+                <Tooltip
+                  contentStyle={{ fontSize: 11 }}
+                  formatter={chartTooltipFmt}
+                />
                 <Legend wrapperStyle={{ fontSize: 9 }} iconSize={8} />
                 {communityCategories.map((cat) => (
                   <Bar

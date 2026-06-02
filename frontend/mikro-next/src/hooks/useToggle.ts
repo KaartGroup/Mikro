@@ -6,7 +6,9 @@ import { useState, useCallback } from "react";
  * Custom hook for toggle state management.
  * Mimics the existing useToggle hook from the React frontend.
  */
-export function useToggle(initialValue: boolean = false): [boolean, (value?: boolean) => void] {
+export function useToggle(
+  initialValue: boolean = false,
+): [boolean, (value?: boolean) => void] {
   const [value, setValue] = useState(initialValue);
 
   const toggle = useCallback((newValue?: boolean) => {

@@ -32,8 +32,8 @@ export default function NoOrgPage() {
         </h1>
         <p style={{ color: "#4b5563", marginBottom: 24, lineHeight: 1.6 }}>
           Your account isn&apos;t associated with an organization. This can
-          happen with a test account or an account that hasn&apos;t been
-          invited to an organization yet.
+          happen with a test account or an account that hasn&apos;t been invited
+          to an organization yet.
         </p>
         <p
           style={{

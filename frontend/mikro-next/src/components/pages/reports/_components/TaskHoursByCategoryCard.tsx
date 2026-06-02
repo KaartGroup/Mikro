@@ -12,7 +12,10 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { TIMEKEEPING_CATEGORY_COLORS, WEEKLY_TASK_COLORS } from "@/lib/chartColors";
+import {
+  TIMEKEEPING_CATEGORY_COLORS,
+  WEEKLY_TASK_COLORS,
+} from "@/lib/chartColors";
 import { chartNumberFmt, chartTooltipFmt } from "./reportUtils";
 import type { TimekeepingStatsResponse } from "@/types";
 
@@ -21,9 +24,15 @@ interface TaskHoursByCategoryCardProps {
   granularity: "weekly" | "daily";
 }
 
-export function TaskHoursByCategoryCard({ data, granularity }: TaskHoursByCategoryCardProps) {
+export function TaskHoursByCategoryCard({
+  data,
+  granularity,
+}: TaskHoursByCategoryCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const catData = granularity === "daily" ? data.daily_category_hours : data.weekly_category_hours;
+  const catData =
+    granularity === "daily"
+      ? data.daily_category_hours
+      : data.weekly_category_hours;
   const dataKey = granularity === "daily" ? "day" : "week";
 
   return (
@@ -40,10 +49,12 @@ export function TaskHoursByCategoryCard({ data, granularity }: TaskHoursByCatego
               <BarChart
                 data={catData.map((row) => ({
                   ...row,
-                  [dataKey]: new Date(String(row[dataKey]) + "T00:00:00").toLocaleDateString(
-                    "en-US",
-                    { month: "short", day: "numeric" }
-                  ),
+                  [dataKey]: new Date(
+                    String(row[dataKey]) + "T00:00:00",
+                  ).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  }),
                 }))}
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -58,14 +69,20 @@ export function TaskHoursByCategoryCard({ data, granularity }: TaskHoursByCatego
                     style: { fontSize: 10 },
                   }}
                 />
-                <Tooltip contentStyle={{ fontSize: 11 }} formatter={chartTooltipFmt} />
+                <Tooltip
+                  contentStyle={{ fontSize: 11 }}
+                  formatter={chartTooltipFmt}
+                />
                 <Legend wrapperStyle={{ fontSize: 9 }} iconSize={8} />
                 {(data.weekly_category_names || []).map((cat, i) => (
                   <Bar
                     key={cat}
                     dataKey={cat}
                     stackId="a"
-                    fill={TIMEKEEPING_CATEGORY_COLORS[cat] ?? WEEKLY_TASK_COLORS[i % WEEKLY_TASK_COLORS.length]}
+                    fill={
+                      TIMEKEEPING_CATEGORY_COLORS[cat] ??
+                      WEEKLY_TASK_COLORS[i % WEEKLY_TASK_COLORS.length]
+                    }
                     stroke="#ffffff"
                     strokeWidth={0.5}
                   />

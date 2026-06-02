@@ -21,8 +21,8 @@ export interface ChunkedUploadOptions {
   file: File | Blob;
   fileName: string;
   contentType?: string;
-  concurrency?: number;          // default 3
-  maxRetriesPerPart?: number;    // default 3
+  concurrency?: number; // default 3
+  maxRetriesPerPart?: number; // default 3
   onProgress?: (p: ChunkedUploadProgress) => void;
   signal?: AbortSignal;
 }
@@ -56,10 +56,14 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(new AbortedError());
     const timer = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
-      clearTimeout(timer);
-      reject(new AbortedError());
-    }, { once: true });
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(new AbortedError());
+      },
+      { once: true },
+    );
   });
 }
 
@@ -77,25 +81,32 @@ async function uploadPart(
     try {
       const res = await fetch(url, { method: "PUT", body: chunk, signal });
       if (!res.ok) {
-        throw new Error(`Chunk PUT ${res.status}: ${(await res.text()).slice(0, 200)}`);
+        throw new Error(
+          `Chunk PUT ${res.status}: ${(await res.text()).slice(0, 200)}`,
+        );
       }
       const etag = res.headers.get("ETag");
       if (!etag) {
-        throw new Error("Missing ETag on chunk response — check bucket CORS ExposeHeaders");
+        throw new Error(
+          "Missing ETag on chunk response — check bucket CORS ExposeHeaders",
+        );
       }
       return etag;
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") throw new AbortedError();
+      if (err instanceof Error && err.name === "AbortError")
+        throw new AbortedError();
       lastErr = err;
       attempt += 1;
       if (attempt > maxRetries) break;
-      await delay(500 * Math.pow(2, attempt - 1), signal);  // 500ms, 1s, 2s
+      await delay(500 * Math.pow(2, attempt - 1), signal); // 500ms, 1s, 2s
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
-export async function chunkedUpload(opts: ChunkedUploadOptions): Promise<{ jobId: string }> {
+export async function chunkedUpload(
+  opts: ChunkedUploadOptions,
+): Promise<{ jobId: string }> {
   const {
     file,
     fileName,
@@ -120,7 +131,9 @@ export async function chunkedUpload(opts: ChunkedUploadOptions): Promise<{ jobId
   });
   if (!initRes.ok) {
     const txt = await initRes.text();
-    throw new Error(`Upload init failed (${initRes.status}): ${txt.slice(0, 300)}`);
+    throw new Error(
+      `Upload init failed (${initRes.status}): ${txt.slice(0, 300)}`,
+    );
   }
   const init = (await initRes.json()) as InitResponse;
   if (init.status !== 200) {
@@ -164,7 +177,12 @@ export async function chunkedUpload(opts: ChunkedUploadOptions): Promise<{ jobId
       const start = i * partSize;
       const end = Math.min(start + partSize, totalBytes);
       const chunk = file.slice(start, end);
-      const etag = await uploadPart(partUrls[i], chunk, maxRetriesPerPart, signal);
+      const etag = await uploadPart(
+        partUrls[i],
+        chunk,
+        maxRetriesPerPart,
+        signal,
+      );
       etags[i] = etag;
       bytesUploaded += end - start;
       partsUploaded += 1;
@@ -193,7 +211,9 @@ export async function chunkedUpload(opts: ChunkedUploadOptions): Promise<{ jobId
   if (!completeRes.ok) {
     await remoteAbort();
     const txt = await completeRes.text();
-    throw new Error(`Upload complete failed (${completeRes.status}): ${txt.slice(0, 300)}`);
+    throw new Error(
+      `Upload complete failed (${completeRes.status}): ${txt.slice(0, 300)}`,
+    );
   }
   const complete = (await completeRes.json()) as CompleteResponse;
   if (complete.status !== 200) {

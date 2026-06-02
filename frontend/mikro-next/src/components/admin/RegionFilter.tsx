@@ -24,13 +24,17 @@ const ALL_REGIONS_VALUE = "__all__";
  * Each consuming page tracks its own selected country in local state
  * and threads it into its data fetch as `country_id`.
  */
-export function RegionFilter({ value, onChange, className }: RegionFilterProps) {
+export function RegionFilter({
+  value,
+  onChange,
+  className,
+}: RegionFilterProps) {
   const { data } = useFetchCountries();
 
   const options = useMemo(() => {
-    const countries = (data?.countries ?? []).slice().sort((a, b) =>
-      a.name.localeCompare(b.name)
-    );
+    const countries = (data?.countries ?? [])
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name));
     return [
       { value: ALL_REGIONS_VALUE, label: "All regions" },
       ...countries.map((c) => ({ value: String(c.id), label: c.name })),
@@ -44,9 +48,7 @@ export function RegionFilter({ value, onChange, className }: RegionFilterProps) 
       label="Region"
       options={options}
       value={selected}
-      onChange={(v) =>
-        onChange(v === ALL_REGIONS_VALUE ? null : Number(v))
-      }
+      onChange={(v) => onChange(v === ALL_REGIONS_VALUE ? null : Number(v))}
       searchable
       className={className}
     />

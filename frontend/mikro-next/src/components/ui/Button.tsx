@@ -1,9 +1,14 @@
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "outline" | "ghost" | "destructive" | "link";
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?:
+    | "primary"
+    | "secondary"
+    | "outline"
+    | "ghost"
+    | "destructive"
+    | "link";
   size?: "sm" | "md" | "lg" | "icon";
   isLoading?: boolean;
 }
@@ -20,7 +25,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       style,
       ...props
     },
-    ref
+    ref,
   ) => {
     const baseStyles =
       "inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 rounded-lg";
@@ -31,7 +36,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       outline:
         "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
       ghost: "hover:bg-accent hover:text-accent-foreground",
-      destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+      destructive:
+        "bg-destructive text-destructive-foreground hover:bg-destructive/90",
       link: "text-kaart-orange underline-offset-4 hover:underline",
     };
 
@@ -44,7 +50,12 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     return (
       <button
-        className={cn(baseStyles, variants[variant], sizeClasses[size], className)}
+        className={cn(
+          baseStyles,
+          variants[variant],
+          sizeClasses[size],
+          className,
+        )}
         style={style}
         ref={ref}
         disabled={disabled || isLoading}
@@ -79,7 +90,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         )}
       </button>
     );
-  }
+  },
 );
 
 Button.displayName = "Button";

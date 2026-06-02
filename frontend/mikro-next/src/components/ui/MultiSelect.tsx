@@ -67,7 +67,7 @@ export function MultiSelect({
 
   const selectedOptions = useMemo(
     () => options.filter((opt) => value.includes(opt.value)),
-    [options, value]
+    [options, value],
   );
 
   const toggleOption = (optionValue: string) => {
@@ -107,7 +107,7 @@ export function MultiSelect({
         className={cn(
           "flex min-h-10 w-full items-center justify-between gap-1 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background",
           "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-          "disabled:cursor-not-allowed disabled:opacity-50"
+          "disabled:cursor-not-allowed disabled:opacity-50",
         )}
       >
         <div className="flex flex-1 flex-wrap items-center gap-1">
@@ -156,7 +156,7 @@ export function MultiSelect({
           strokeLinejoin="round"
           className={cn(
             "shrink-0 transition-transform",
-            isOpen && "rotate-180"
+            isOpen && "rotate-180",
           )}
         >
           <polyline points="6 9 12 15 18 9" />
@@ -215,7 +215,7 @@ export function MultiSelect({
                   className={cn(
                     "flex w-full items-center gap-2 px-3 py-2 text-sm",
                     "hover:bg-accent hover:text-accent-foreground",
-                    isSelected && "bg-accent/50"
+                    isSelected && "bg-accent/50",
                   )}
                 >
                   {/* Checkbox */}
@@ -224,7 +224,7 @@ export function MultiSelect({
                       "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
                       isSelected
                         ? "border-primary bg-primary text-primary-foreground"
-                        : "border-input"
+                        : "border-input",
                     )}
                   >
                     {isSelected && (

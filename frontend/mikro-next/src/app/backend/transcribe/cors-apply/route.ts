@@ -31,7 +31,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Transcribe cors-apply proxy error:", error);
     return NextResponse.json(
-      { error: `Proxy failed: ${error instanceof Error ? error.message : String(error)}` },
+      {
+        error: `Proxy failed: ${error instanceof Error ? error.message : String(error)}`,
+      },
       { status: 500 },
     );
   }

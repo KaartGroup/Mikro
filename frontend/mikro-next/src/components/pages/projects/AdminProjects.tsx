@@ -53,7 +53,11 @@ import {
 } from "@/hooks";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import Link from "next/link";
-import { formatNumber, formatCurrency, getProjectExternalUrl } from "@/lib/utils";
+import {
+  formatNumber,
+  formatCurrency,
+  getProjectExternalUrl,
+} from "@/lib/utils";
 import { Val } from "@/components/ui";
 import { isOrgAdminOrAbove, isAnyAdmin } from "@/types";
 import type { Project, ProjectTeamItem, TeamsResponse } from "@/types";
@@ -102,13 +106,16 @@ export function AdminProjects() {
   const { mutate: createProject, loading: creating } = useCreateProject();
   const { mutate: updateProject, loading: updating } = useUpdateProject();
   const { mutate: deleteProject, loading: deleting } = useDeleteProject();
-  const { mutate: calculateBudget } = useApiMutation<{ calculation: string; status: number }>(
-    "/project/calculate_budget"
-  );
-  const { mutate: fetchProjectUsers, loading: loadingUsers } = useFetchProjectUsers();
+  const { mutate: calculateBudget } = useApiMutation<{
+    calculation: string;
+    status: number;
+  }>("/project/calculate_budget");
+  const { mutate: fetchProjectUsers, loading: loadingUsers } =
+    useFetchProjectUsers();
   const { mutate: toggleAssignUser, loading: assigning } = useAssignUser();
   const { mutate: purgeProjects, loading: purging } = usePurgeProjects();
-  const { mutate: fetchProjectTeams, loading: loadingTeams } = useFetchProjectTeams();
+  const { mutate: fetchProjectTeams, loading: loadingTeams } =
+    useFetchProjectTeams();
   const { mutate: assignTeamToProject } = useAssignTeamToProject();
   const { mutate: unassignTeamFromProject } = useUnassignTeamFromProject();
   const { mutate: syncProject } = useSyncProject();
@@ -126,7 +133,8 @@ export function AdminProjects() {
   //   No create/delete/purge buttons.
   // - admin/super_admin: full management.
   const { role: viewerRole } = useCurrentUserRole();
-  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const { teams: managedTeams, loading: managedTeamsLoading } =
+    useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
   const canCreateOrDelete = isOrgAdminOrAbove(viewerRole);
   // team_admin can now create AND edit projects (delete + dev-tools purge
@@ -143,7 +151,9 @@ export function AdminProjects() {
   const [budgetCalculation, setBudgetCalculation] = useState("");
   const [projectUsers, setProjectUsers] = useState<ProjectUserItem[]>([]);
   const [projectTeams, setProjectTeams] = useState<ProjectTeamItem[]>([]);
-  const [editTab, setEditTab] = useState<"settings" | "users" | "teams" | "training" | "locations">("settings");
+  const [editTab, setEditTab] = useState<
+    "settings" | "users" | "teams" | "training" | "locations"
+  >("settings");
   const [showMyProjects, setShowMyProjects] = useState(false);
   // Standalone filter dropdowns. Each null = "All …" (no filter).
   const [filterRegionId, setFilterRegionId] = useState<string | null>(null);
@@ -154,17 +164,25 @@ export function AdminProjects() {
   const [inactivePageNum, setInactivePageNum] = useState(1);
   const ROWS_PER_PAGE = 20;
   const [newProjectId, setNewProjectId] = useState<number | null>(null);
-  const [addTab, setAddTab] = useState<"details" | "locations" | "teams" | "users">("details");
+  const [addTab, setAddTab] = useState<
+    "details" | "locations" | "teams" | "users"
+  >("details");
   const [addProjectTeams, setAddProjectTeams] = useState<ProjectTeamItem[]>([]);
 
   // Pre-creation location & team selection
   const { data: allTeamsData } = useFetchTeams();
   const { data: countriesData } = useFetchCountries();
   const { mutate: assignProjectLocations } = useAssignProjectLocations();
-  const [preSelectedCountryIds, setPreSelectedCountryIds] = useState<Set<number>>(new Set());
-  const [preSelectedTeamIds, setPreSelectedTeamIds] = useState<Set<number>>(new Set());
+  const [preSelectedCountryIds, setPreSelectedCountryIds] = useState<
+    Set<number>
+  >(new Set());
+  const [preSelectedTeamIds, setPreSelectedTeamIds] = useState<Set<number>>(
+    new Set(),
+  );
   // User ids are Auth0 sub strings (or tracked|uuid), so Set<string>.
-  const [preSelectedUserIds, setPreSelectedUserIds] = useState<Set<string>>(new Set());
+  const [preSelectedUserIds, setPreSelectedUserIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [addUserSearch, setAddUserSearch] = useState("");
   const [addLocationSearch, setAddLocationSearch] = useState("");
 
@@ -182,13 +200,21 @@ export function AdminProjects() {
       }
     | { state: "dupe-other-org"; sourceId: number }
     | { state: "unparseable" };
-  const [addPreflight, setAddPreflight] = useState<AddPreflight>({ state: "idle" });
+  const [addPreflight, setAddPreflight] = useState<AddPreflight>({
+    state: "idle",
+  });
 
   // Reset pagination when search or filters change
   useEffect(() => {
     setActivePageNum(1);
     setInactivePageNum(1);
-  }, [projectSearch, showMyProjects, filterRegionId, filterCountryId, filterTeamId]);
+  }, [
+    projectSearch,
+    showMyProjects,
+    filterRegionId,
+    filterCountryId,
+    filterTeamId,
+  ]);
 
   // Build the request body from current filter state. Used both by
   // the auto-refetch effect below and by post-mutation refetches
@@ -216,7 +242,10 @@ export function AdminProjects() {
   const activeProjects = projects?.org_active_projects ?? [];
   const inactiveProjects = projects?.org_inactive_projects ?? [];
 
-  const handleInputChange = (field: keyof ProjectFormData, value: string | boolean) => {
+  const handleInputChange = (
+    field: keyof ProjectFormData,
+    value: string | boolean,
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -249,7 +278,10 @@ export function AdminProjects() {
           project: res.project,
         });
       } else {
-        setAddPreflight({ state: "dupe-other-org", sourceId: res.source_id ?? 0 });
+        setAddPreflight({
+          state: "dupe-other-org",
+          sourceId: res.source_id ?? 0,
+        });
       }
     } catch (err) {
       // Don't block submission on a flaky preflight — log and stay idle.
@@ -278,7 +310,8 @@ export function AdminProjects() {
       const result = await calculateBudget(payload);
       setBudgetCalculation(result.calculation || "");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to calculate budget";
+      const message =
+        err instanceof Error ? err.message : "Failed to calculate budget";
       toast.error(message);
     }
   };
@@ -298,8 +331,12 @@ export function AdminProjects() {
         // 2026-05-21 — admins can override the auto-derived label).
         short_name: formData.short_name.trim() || undefined,
         rate_type: true,
-        mapping_rate: formData.payments_enabled ? parseFloat(formData.mapping_rate) : 0,
-        validation_rate: formData.payments_enabled ? parseFloat(formData.validation_rate) : 0,
+        mapping_rate: formData.payments_enabled
+          ? parseFloat(formData.mapping_rate)
+          : 0,
+        validation_rate: formData.payments_enabled
+          ? parseFloat(formData.validation_rate)
+          : 0,
         max_editors: parseInt(formData.max_editors),
         max_validators: parseInt(formData.max_validators),
         visibility: formData.visibility,
@@ -355,7 +392,10 @@ export function AdminProjects() {
         );
       }
 
-      const suffix = assignResults.length > 0 ? ` — assigned ${assignResults.join(", ")}` : "";
+      const suffix =
+        assignResults.length > 0
+          ? ` — assigned ${assignResults.join(", ")}`
+          : "";
       toast.success(`Project created${suffix}`);
 
       // Close modal and reset
@@ -373,7 +413,8 @@ export function AdminProjects() {
       setAddPreflight({ state: "idle" });
       refetch(buildRefetchBody());
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to create project";
+      const message =
+        err instanceof Error ? err.message : "Failed to create project";
       toast.error(message);
     }
   };
@@ -387,8 +428,12 @@ export function AdminProjects() {
         short_name: formData.short_name,
         difficulty: formData.difficulty,
         rate_type: true,
-        mapping_rate: formData.payments_enabled ? parseFloat(formData.mapping_rate) : 0,
-        validation_rate: formData.payments_enabled ? parseFloat(formData.validation_rate) : 0,
+        mapping_rate: formData.payments_enabled
+          ? parseFloat(formData.mapping_rate)
+          : 0,
+        validation_rate: formData.payments_enabled
+          ? parseFloat(formData.validation_rate)
+          : 0,
         max_editors: parseInt(formData.max_editors),
         max_validators: parseInt(formData.max_validators),
         visibility: formData.visibility,
@@ -400,7 +445,8 @@ export function AdminProjects() {
       setSelectedProject(null);
       refetch(buildRefetchBody());
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update project";
+      const message =
+        err instanceof Error ? err.message : "Failed to update project";
       toast.error(message);
     }
   };
@@ -415,7 +461,8 @@ export function AdminProjects() {
       setSelectedProject(null);
       refetch(buildRefetchBody());
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete project";
+      const message =
+        err instanceof Error ? err.message : "Failed to delete project";
       toast.error(message);
     }
   };
@@ -506,9 +553,14 @@ export function AdminProjects() {
   const handleToggleUserAssignment = async (userId: string) => {
     if (!selectedProject) return;
     try {
-      await toggleAssignUser({ project_id: selectedProject.id, user_id: userId });
+      await toggleAssignUser({
+        project_id: selectedProject.id,
+        user_id: userId,
+      });
       // Refresh the users list
-      const response = await fetchProjectUsers({ project_id: selectedProject.id });
+      const response = await fetchProjectUsers({
+        project_id: selectedProject.id,
+      });
       setProjectUsers(response?.users ?? []);
       toast.success("User assignment updated");
     } catch {
@@ -516,7 +568,10 @@ export function AdminProjects() {
     }
   };
 
-  const handleToggleTeamAssignment = async (teamId: number, currentStatus: string) => {
+  const handleToggleTeamAssignment = async (
+    teamId: number,
+    currentStatus: string,
+  ) => {
     if (!selectedProject) return;
     try {
       if (currentStatus === "Assigned") {
@@ -531,7 +586,7 @@ export function AdminProjects() {
           projectId: selectedProject.id,
         });
         toast.success(
-          `Team assigned — ${result.assigned} user(s) added${result.skipped ? `, ${result.skipped} already assigned` : ""}`
+          `Team assigned — ${result.assigned} user(s) added${result.skipped ? `, ${result.skipped} already assigned` : ""}`,
         );
       }
       // Refresh both teams and users lists
@@ -546,19 +601,30 @@ export function AdminProjects() {
     }
   };
 
-  const handleToggleAddTeamAssignment = async (teamId: number, currentStatus: string) => {
+  const handleToggleAddTeamAssignment = async (
+    teamId: number,
+    currentStatus: string,
+  ) => {
     if (!newProjectId) return;
     try {
       if (currentStatus === "Assigned") {
-        const result = await unassignTeamFromProject({ teamId, projectId: newProjectId });
+        const result = await unassignTeamFromProject({
+          teamId,
+          projectId: newProjectId,
+        });
         toast.success(`Team removed — ${result.removed} user(s) unassigned`);
       } else {
-        const result = await assignTeamToProject({ teamId, projectId: newProjectId });
+        const result = await assignTeamToProject({
+          teamId,
+          projectId: newProjectId,
+        });
         toast.success(
-          `Team assigned — ${result.assigned} user(s) added${result.skipped ? `, ${result.skipped} already assigned` : ""}`
+          `Team assigned — ${result.assigned} user(s) added${result.skipped ? `, ${result.skipped} already assigned` : ""}`,
         );
       }
-      const teamsResponse = await fetchProjectTeams({ projectId: newProjectId });
+      const teamsResponse = await fetchProjectTeams({
+        projectId: newProjectId,
+      });
       setAddProjectTeams(teamsResponse?.teams ?? []);
     } catch {
       toast.error("Failed to update team assignment");
@@ -573,7 +639,9 @@ export function AdminProjects() {
   const handlePurgeProjects = async () => {
     try {
       const result = await purgeProjects({});
-      toast.success(`Purged ${result.projects_deleted} projects, ${result.tasks_deleted} tasks, reset ${result.users_reset} users`);
+      toast.success(
+        `Purged ${result.projects_deleted} projects, ${result.tasks_deleted} tasks, reset ${result.users_reset} users`,
+      );
       setShowPurgeModal(false);
       refetch(buildRefetchBody());
     } catch {
@@ -627,7 +695,11 @@ export function AdminProjects() {
           bVal = getCompletionPct(b) ?? -1;
           break;
         case "difficulty":
-          const diffOrder: Record<string, number> = { Easy: 1, Medium: 2, Hard: 3 };
+          const diffOrder: Record<string, number> = {
+            Easy: 1,
+            Medium: 2,
+            Hard: 3,
+          };
           aVal = diffOrder[a.difficulty || ""] ?? 0;
           bVal = diffOrder[b.difficulty || ""] ?? 0;
           break;
@@ -644,7 +716,10 @@ export function AdminProjects() {
   /** NFD-decompose + strip combining marks so accents don't sink an otherwise
    *  obvious match (e.g. searching "Vias Chia" needs to find "Vías Chía"). */
   const normalizeForSearch = (s: string): string =>
-    (s || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+    (s || "")
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase();
 
   const filterProjectsBySearch = (list: Project[]) => {
     if (!projectSearch.trim()) return list;
@@ -665,11 +740,24 @@ export function AdminProjects() {
   const getCompletionPct = (project: Project): number | null => {
     try {
       if (!project.total_tasks || project.total_tasks === 0) return null;
-      if (project.source === "mr" && project.mr_status_breakdown && typeof project.mr_status_breakdown === "object" && !Array.isArray(project.mr_status_breakdown)) {
+      if (
+        project.source === "mr" &&
+        project.mr_status_breakdown &&
+        typeof project.mr_status_breakdown === "object" &&
+        !Array.isArray(project.mr_status_breakdown)
+      ) {
         const breakdown = project.mr_status_breakdown as Record<string, number>;
         // Count all trackable MR statuses: Fixed(1), FalsePositive(2), Skipped(3), AlreadyFixed(5), CantComplete(6)
-        const completed = (breakdown["1"] ?? 0) + (breakdown["2"] ?? 0) + (breakdown["3"] ?? 0) + (breakdown["5"] ?? 0) + (breakdown["6"] ?? 0);
-        return Math.min(Math.round((completed / project.total_tasks) * 100), 100);
+        const completed =
+          (breakdown["1"] ?? 0) +
+          (breakdown["2"] ?? 0) +
+          (breakdown["3"] ?? 0) +
+          (breakdown["5"] ?? 0) +
+          (breakdown["6"] ?? 0);
+        return Math.min(
+          Math.round((completed / project.total_tasks) * 100),
+          100,
+        );
       }
       const validated = project.total_validated ?? 0;
       return Math.min(Math.round((validated / project.total_tasks) * 100), 100);
@@ -698,222 +786,367 @@ export function AdminProjects() {
     { key: "difficulty", label: "Difficulty", width: "w-[10%]" },
   ];
 
-  const ProjectTable = ({ projectList, currentPage, setCurrentPage }: { projectList: Project[]; currentPage: number; setCurrentPage: (v: number | ((p: number) => number)) => void }) => {
+  const ProjectTable = ({
+    projectList,
+    currentPage,
+    setCurrentPage,
+  }: {
+    projectList: Project[];
+    currentPage: number;
+    setCurrentPage: (v: number | ((p: number) => number)) => void;
+  }) => {
     const totalPages = Math.ceil(projectList.length / ROWS_PER_PAGE);
     const paginatedProjects = projectList.slice(
       (currentPage - 1) * ROWS_PER_PAGE,
-      currentPage * ROWS_PER_PAGE
+      currentPage * ROWS_PER_PAGE,
     );
-    const showingStart = projectList.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
-    const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, projectList.length);
+    const showingStart =
+      projectList.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
+    const showingEnd = Math.min(
+      currentPage * ROWS_PER_PAGE,
+      projectList.length,
+    );
 
-    return (<>
-    <Table className="table-fixed">
-      <TableHeader>
-        <TableRow>
-          {projSortColumns.map((col) => (
-            <TableHead
-              key={col.label}
-              className={`${col.width} ${col.key ? "cursor-pointer select-none hover:text-foreground transition-colors" : ""}`}
-              onClick={col.key ? () => handleProjSort(col.key) : undefined}
-            >
-              <span className="inline-flex items-center gap-1">
-                {col.label}
-                {col.key && projSortKey === col.key && (
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d={projSortDir === "asc" ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
-                  </svg>
-                )}
-              </span>
-            </TableHead>
-          ))}
-          <TableHead className="w-[16%] text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {paginatedProjects.map((project) => (
-          <TableRow key={project.id}>
-            <TableCell className="max-w-0">
-              <div className="min-w-0">
-                <div className="font-medium truncate">
-                  <Link href={`/projects/${project.id}`} className="font-medium text-kaart-orange hover:underline" title={project.name}>
-                    {project.short_name || project.name}
-                  </Link>
-                  {project.source === "mr" ? (
-                    <Badge variant="default" className="ml-2 text-[10px] bg-blue-500">MR</Badge>
-                  ) : (
-                    <Badge variant="secondary" className="ml-2 text-[10px]">TM4</Badge>
-                  )}
-                </div>
-                <a
-                  href={getProjectExternalUrl(project.id, project.source)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-kaart-orange hover:underline"
-                  title={project.source === "mr" ? "Open in MapRoulette" : "Open in Tasking Manager"}
+    return (
+      <>
+        <Table className="table-fixed">
+          <TableHeader>
+            <TableRow>
+              {projSortColumns.map((col) => (
+                <TableHead
+                  key={col.label}
+                  className={`${col.width} ${col.key ? "cursor-pointer select-none hover:text-foreground transition-colors" : ""}`}
+                  onClick={col.key ? () => handleProjSort(col.key) : undefined}
                 >
-                  Open ↗
-                </a>
-              </div>
-            </TableCell>
-            <TableCell>
-              {/* Source ID = upstream TM4/MR id, persisted as project.id PK.
+                  <span className="inline-flex items-center gap-1">
+                    {col.label}
+                    {col.key && projSortKey === col.key && (
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d={
+                            projSortDir === "asc"
+                              ? "M5 15l7-7 7 7"
+                              : "M19 9l-7 7-7-7"
+                          }
+                        />
+                      </svg>
+                    )}
+                  </span>
+                </TableHead>
+              ))}
+              <TableHead className="w-[16%] text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedProjects.map((project) => (
+              <TableRow key={project.id}>
+                <TableCell className="max-w-0">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">
+                      <Link
+                        href={`/projects/${project.id}`}
+                        className="font-medium text-kaart-orange hover:underline"
+                        title={project.name}
+                      >
+                        {project.short_name || project.name}
+                      </Link>
+                      {project.source === "mr" ? (
+                        <Badge
+                          variant="default"
+                          className="ml-2 text-[10px] bg-blue-500"
+                        >
+                          MR
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="ml-2 text-[10px]">
+                          TM4
+                        </Badge>
+                      )}
+                    </div>
+                    <a
+                      href={getProjectExternalUrl(project.id, project.source)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-kaart-orange hover:underline"
+                      title={
+                        project.source === "mr"
+                          ? "Open in MapRoulette"
+                          : "Open in Tasking Manager"
+                      }
+                    >
+                      Open ↗
+                    </a>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {/* Source ID = upstream TM4/MR id, persisted as project.id PK.
                   Monospace + small so the digits don't crowd the row. */}
-              <a
-                href={getProjectExternalUrl(project.id, project.source)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-sm text-kaart-orange hover:underline"
-                title={project.source === "mr" ? "Open in MapRoulette" : "Open in Tasking Manager"}
+                  <a
+                    href={getProjectExternalUrl(project.id, project.source)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-sm text-kaart-orange hover:underline"
+                    title={
+                      project.source === "mr"
+                        ? "Open in MapRoulette"
+                        : "Open in Tasking Manager"
+                    }
+                  >
+                    {project.id}
+                  </a>
+                </TableCell>
+                <TableCell>
+                  {project.total_tasks === 0 && !project.last_synced ? (
+                    <span
+                      className="text-muted-foreground italic text-sm"
+                      title="Tasks haven't been synced from the source yet"
+                    >
+                      Pending sync
+                    </span>
+                  ) : (
+                    <Val>{formatNumber(project.total_tasks)}</Val>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {project.total_tasks === 0 && !project.last_synced ? (
+                    <span className="text-muted-foreground italic text-sm">
+                      —
+                    </span>
+                  ) : project.source === "mr" ? (
+                    <div className="text-sm space-y-0.5">
+                      <p className="text-green-600">
+                        <Val>
+                          {formatNumber(
+                            project.mr_status_breakdown?.["1"] ?? 0,
+                          )}
+                        </Val>{" "}
+                        Fixed
+                      </p>
+                      <p className="text-emerald-500">
+                        <Val>
+                          {formatNumber(
+                            project.mr_status_breakdown?.["5"] ?? 0,
+                          )}
+                        </Val>{" "}
+                        Already Fixed
+                      </p>
+                      <p className="text-amber-600">
+                        <Val>
+                          {formatNumber(
+                            project.mr_status_breakdown?.["2"] ?? 0,
+                          )}
+                        </Val>{" "}
+                        Not an Issue
+                      </p>
+                      <p className="text-orange-500">
+                        <Val>
+                          {formatNumber(
+                            project.mr_status_breakdown?.["6"] ?? 0,
+                          )}
+                        </Val>{" "}
+                        Can&apos;t Complete
+                      </p>
+                      <p className="text-gray-400">
+                        <Val>
+                          {formatNumber(
+                            project.mr_status_breakdown?.["3"] ?? 0,
+                          )}
+                        </Val>{" "}
+                        Skipped
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-sm">
+                      <p className="text-green-600">
+                        <Val>{formatNumber(project.total_mapped)}</Val> mapped
+                      </p>
+                      <p className="text-blue-600">
+                        <Val>{formatNumber(project.total_validated)}</Val>{" "}
+                        validated
+                      </p>
+                      <p className="text-red-600">
+                        <Val>{formatNumber(project.total_invalidated)}</Val>{" "}
+                        invalidated
+                      </p>
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {(() => {
+                    try {
+                      const pct = getCompletionPct(project);
+                      if (pct === null)
+                        return (
+                          <span className="text-muted-foreground text-sm">
+                            —
+                          </span>
+                        );
+                      return (
+                        <span
+                          className={`text-sm font-semibold ${completionColor(pct)}`}
+                        >
+                          {pct}%
+                        </span>
+                      );
+                    } catch {
+                      return (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      );
+                    }
+                  })()}
+                </TableCell>
+                <TableCell>
+                  {project.payments_enabled === false ? (
+                    <Badge variant="secondary">Stats Only</Badge>
+                  ) : (
+                    <div className="text-sm">
+                      <p>
+                        Map:{" "}
+                        <Val>
+                          {formatCurrency(project.mapping_rate_per_task)}
+                        </Val>
+                      </p>
+                      <p>
+                        Val:{" "}
+                        <Val>
+                          {formatCurrency(project.validation_rate_per_task)}
+                        </Val>
+                      </p>
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">
+                    <p>
+                      Max: <Val>{formatCurrency(project.max_payment)}</Val>
+                    </p>
+                    <p className="text-muted-foreground">
+                      Paid: <Val>{formatCurrency(project.total_payout)}</Val>
+                    </p>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Badge
+                      variant={
+                        project.difficulty === "Easy"
+                          ? "success"
+                          : project.difficulty === "Medium"
+                            ? "warning"
+                            : "destructive"
+                      }
+                    >
+                      {project.difficulty || "Unknown"}
+                    </Badge>
+                    {(project as Project & { assigned_locations?: number })
+                      .assigned_locations ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {
+                          (project as Project & { assigned_locations?: number })
+                            .assigned_locations
+                        }{" "}
+                        loc
+                      </Badge>
+                    ) : null}
+                    {(project as Project & { assigned_trainings?: number })
+                      .assigned_trainings ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {
+                          (project as Project & { assigned_trainings?: number })
+                            .assigned_trainings
+                        }{" "}
+                        trn
+                      </Badge>
+                    ) : null}
+                  </div>
+                </TableCell>
+                <TableCell className="text-right pr-2">
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        handleSyncProject(project.id, project.name)
+                      }
+                      isLoading={syncingProjectId === project.id}
+                      disabled={syncingProjectId !== null}
+                    >
+                      Sync
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditModal(project)}
+                    >
+                      Edit
+                    </Button>
+                    {canCreateOrDelete && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => openDeleteModal(project)}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+            {projectList.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={9}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  No projects found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+        {projectList.length > ROWS_PER_PAGE && (
+          <div className="flex items-center justify-between mt-4 px-2">
+            <span className="text-sm text-muted-foreground">
+              Showing {showingStart}–{showingEnd} of {projectList.length}{" "}
+              projects
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p: number) => p - 1)}
               >
-                {project.id}
-              </a>
-            </TableCell>
-            <TableCell>
-              {project.total_tasks === 0 && !project.last_synced ? (
-                <span className="text-muted-foreground italic text-sm" title="Tasks haven't been synced from the source yet">Pending sync</span>
-              ) : (
-                <Val>{formatNumber(project.total_tasks)}</Val>
-              )}
-            </TableCell>
-            <TableCell>
-              {project.total_tasks === 0 && !project.last_synced ? (
-                <span className="text-muted-foreground italic text-sm">—</span>
-              ) : project.source === "mr" ? (
-                <div className="text-sm space-y-0.5">
-                  <p className="text-green-600"><Val>{formatNumber(project.mr_status_breakdown?.["1"] ?? 0)}</Val> Fixed</p>
-                  <p className="text-emerald-500"><Val>{formatNumber(project.mr_status_breakdown?.["5"] ?? 0)}</Val> Already Fixed</p>
-                  <p className="text-amber-600"><Val>{formatNumber(project.mr_status_breakdown?.["2"] ?? 0)}</Val> Not an Issue</p>
-                  <p className="text-orange-500"><Val>{formatNumber(project.mr_status_breakdown?.["6"] ?? 0)}</Val> Can&apos;t Complete</p>
-                  <p className="text-gray-400"><Val>{formatNumber(project.mr_status_breakdown?.["3"] ?? 0)}</Val> Skipped</p>
-                </div>
-              ) : (
-                <div className="text-sm">
-                  <p className="text-green-600"><Val>{formatNumber(project.total_mapped)}</Val> mapped</p>
-                  <p className="text-blue-600"><Val>{formatNumber(project.total_validated)}</Val> validated</p>
-                  <p className="text-red-600"><Val>{formatNumber(project.total_invalidated)}</Val> invalidated</p>
-                </div>
-              )}
-            </TableCell>
-            <TableCell>
-              {(() => {
-                try {
-                  const pct = getCompletionPct(project);
-                  if (pct === null) return <span className="text-muted-foreground text-sm">—</span>;
-                  return <span className={`text-sm font-semibold ${completionColor(pct)}`}>{pct}%</span>;
-                } catch {
-                  return <span className="text-muted-foreground text-sm">—</span>;
-                }
-              })()}
-            </TableCell>
-            <TableCell>
-              {project.payments_enabled === false ? (
-                <Badge variant="secondary">Stats Only</Badge>
-              ) : (
-                <div className="text-sm">
-                  <p>Map: <Val>{formatCurrency(project.mapping_rate_per_task)}</Val></p>
-                  <p>Val: <Val>{formatCurrency(project.validation_rate_per_task)}</Val></p>
-                </div>
-              )}
-            </TableCell>
-            <TableCell>
-              <div className="text-sm">
-                <p>Max: <Val>{formatCurrency(project.max_payment)}</Val></p>
-                <p className="text-muted-foreground">
-                  Paid: <Val>{formatCurrency(project.total_payout)}</Val>
-                </p>
-              </div>
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center gap-1">
-                <Badge
-                  variant={
-                    project.difficulty === "Easy"
-                      ? "success"
-                      : project.difficulty === "Medium"
-                      ? "warning"
-                      : "destructive"
-                  }
-                >
-                  {project.difficulty || "Unknown"}
-                </Badge>
-                {(project as Project & { assigned_locations?: number }).assigned_locations ? (
-                  <Badge variant="secondary" className="text-[10px]">
-                    {(project as Project & { assigned_locations?: number }).assigned_locations} loc
-                  </Badge>
-                ) : null}
-                {(project as Project & { assigned_trainings?: number }).assigned_trainings ? (
-                  <Badge variant="secondary" className="text-[10px]">
-                    {(project as Project & { assigned_trainings?: number }).assigned_trainings} trn
-                  </Badge>
-                ) : null}
-              </div>
-            </TableCell>
-            <TableCell className="text-right pr-2">
-              <div className="flex justify-end gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleSyncProject(project.id, project.name)}
-                  isLoading={syncingProjectId === project.id}
-                  disabled={syncingProjectId !== null}
-                >
-                  Sync
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => openEditModal(project)}>
-                  Edit
-                </Button>
-                {canCreateOrDelete && (
-                  <Button size="sm" variant="destructive" onClick={() => openDeleteModal(project)}>
-                    Delete
-                  </Button>
-                )}
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
-        {projectList.length === 0 && (
-          <TableRow>
-            <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-              No projects found
-            </TableCell>
-          </TableRow>
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p: number) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
-      </TableBody>
-    </Table>
-    {projectList.length > ROWS_PER_PAGE && (
-      <div className="flex items-center justify-between mt-4 px-2">
-        <span className="text-sm text-muted-foreground">
-          Showing {showingStart}–{showingEnd} of {projectList.length} projects
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((p: number) => p - 1)}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage >= totalPages}
-            onClick={() => setCurrentPage((p: number) => p + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
-    )}
-    </>);
+      </>
+    );
   };
 
-  if ((loading && !projects) ) {
+  if (loading && !projects) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -927,11 +1160,7 @@ export function AdminProjects() {
   }
 
   // team_admin with no managed teams → empty state.
-  if (
-    isTeamAdmin &&
-    !managedTeamsLoading &&
-    managedTeams.length === 0
-  ) {
+  if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
@@ -968,18 +1197,26 @@ export function AdminProjects() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Projects
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600"><Val>{formatNumber(activeProjects.length)}</Val></div>
+            <div className="text-2xl font-bold text-green-600">
+              <Val>{formatNumber(activeProjects.length)}</Val>
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Inactive Projects</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Inactive Projects
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600"><Val>{formatNumber(inactiveProjects.length)}</Val></div>
+            <div className="text-2xl font-bold text-yellow-600">
+              <Val>{formatNumber(inactiveProjects.length)}</Val>
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -988,7 +1225,14 @@ export function AdminProjects() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <Val>{formatNumber([...activeProjects, ...inactiveProjects].reduce((sum, p) => sum + p.total_tasks, 0))}</Val>
+              <Val>
+                {formatNumber(
+                  [...activeProjects, ...inactiveProjects].reduce(
+                    (sum, p) => sum + p.total_tasks,
+                    0,
+                  ),
+                )}
+              </Val>
             </div>
           </CardContent>
         </Card>
@@ -1004,12 +1248,23 @@ export function AdminProjects() {
               return (
                 <div className="flex items-baseline gap-3">
                   <div>
-                    <span className="text-2xl font-bold"><Val>{formatNumber(tm4)}</Val></span>
-                    <Badge variant="secondary" className="ml-1 text-[10px]">TM4</Badge>
+                    <span className="text-2xl font-bold">
+                      <Val>{formatNumber(tm4)}</Val>
+                    </span>
+                    <Badge variant="secondary" className="ml-1 text-[10px]">
+                      TM4
+                    </Badge>
                   </div>
                   <div>
-                    <span className="text-2xl font-bold"><Val>{formatNumber(mr)}</Val></span>
-                    <Badge variant="default" className="ml-1 text-[10px] bg-blue-500">MR</Badge>
+                    <span className="text-2xl font-bold">
+                      <Val>{formatNumber(mr)}</Val>
+                    </span>
+                    <Badge
+                      variant="default"
+                      className="ml-1 text-[10px] bg-blue-500"
+                    >
+                      MR
+                    </Badge>
                   </div>
                 </div>
               );
@@ -1039,12 +1294,11 @@ export function AdminProjects() {
           <StandaloneFilter
             label="Region"
             allLabel="All regions"
-            options={(filterOptions?.dimensions?.region ?? [])
-              .map((v) =>
-                typeof v === "string"
-                  ? { value: v, label: v }
-                  : { value: String(v.id ?? v.name), label: v.name },
-              )}
+            options={(filterOptions?.dimensions?.region ?? []).map((v) =>
+              typeof v === "string"
+                ? { value: v, label: v }
+                : { value: String(v.id ?? v.name), label: v.name },
+            )}
             value={filterRegionId}
             onChange={setFilterRegionId}
           />
@@ -1053,12 +1307,11 @@ export function AdminProjects() {
           <StandaloneFilter
             label="Country"
             allLabel="All countries"
-            options={(filterOptions?.dimensions?.country ?? [])
-              .map((v) =>
-                typeof v === "string"
-                  ? { value: v, label: v }
-                  : { value: String(v.id ?? v.name), label: v.name },
-              )}
+            options={(filterOptions?.dimensions?.country ?? []).map((v) =>
+              typeof v === "string"
+                ? { value: v, label: v }
+                : { value: String(v.id ?? v.name), label: v.name },
+            )}
             value={filterCountryId}
             onChange={setFilterCountryId}
           />
@@ -1067,12 +1320,11 @@ export function AdminProjects() {
           <StandaloneFilter
             label="Team"
             allLabel="All teams"
-            options={(filterOptions?.dimensions?.team ?? [])
-              .map((v) =>
-                typeof v === "string"
-                  ? { value: v, label: v }
-                  : { value: String(v.id ?? v.name), label: v.name },
-              )}
+            options={(filterOptions?.dimensions?.team ?? []).map((v) =>
+              typeof v === "string"
+                ? { value: v, label: v }
+                : { value: String(v.id ?? v.name), label: v.name },
+            )}
             value={filterTeamId}
             onChange={setFilterTeamId}
           />
@@ -1091,20 +1343,36 @@ export function AdminProjects() {
       {/* Projects Tabs */}
       <Tabs defaultValue="active">
         <TabsList>
-          <TabsTrigger value="active">Active ({activeProjects.length})</TabsTrigger>
-          <TabsTrigger value="inactive">Inactive ({inactiveProjects.length})</TabsTrigger>
+          <TabsTrigger value="active">
+            Active ({activeProjects.length})
+          </TabsTrigger>
+          <TabsTrigger value="inactive">
+            Inactive ({inactiveProjects.length})
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="active">
           <Card>
             <CardContent className="p-0">
-              <ProjectTable projectList={sortProjects(filterProjectsBySearch(activeProjects))} currentPage={activePageNum} setCurrentPage={setActivePageNum} />
+              <ProjectTable
+                projectList={sortProjects(
+                  filterProjectsBySearch(activeProjects),
+                )}
+                currentPage={activePageNum}
+                setCurrentPage={setActivePageNum}
+              />
             </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="inactive">
           <Card>
             <CardContent className="p-0">
-              <ProjectTable projectList={sortProjects(filterProjectsBySearch(inactiveProjects))} currentPage={inactivePageNum} setCurrentPage={setInactivePageNum} />
+              <ProjectTable
+                projectList={sortProjects(
+                  filterProjectsBySearch(inactiveProjects),
+                )}
+                currentPage={inactivePageNum}
+                setCurrentPage={setInactivePageNum}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1147,180 +1415,241 @@ export function AdminProjects() {
           </>
         }
       >
-        <Tabs defaultValue="details" value={addTab} onValueChange={(v) => setAddTab(v as "details" | "locations" | "teams" | "users")}>
+        <Tabs
+          defaultValue="details"
+          value={addTab}
+          onValueChange={(v) =>
+            setAddTab(v as "details" | "locations" | "teams" | "users")
+          }
+        >
           <TabsList className="mb-4">
             <TabsTrigger value="details">Project Details</TabsTrigger>
             <TabsTrigger value="locations">
-              Locations{preSelectedCountryIds.size > 0 ? ` (${preSelectedCountryIds.size})` : ""}
+              Locations
+              {preSelectedCountryIds.size > 0
+                ? ` (${preSelectedCountryIds.size})`
+                : ""}
             </TabsTrigger>
             <TabsTrigger value="teams">
-              Teams{preSelectedTeamIds.size > 0 ? ` (${preSelectedTeamIds.size})` : ""}
+              Teams
+              {preSelectedTeamIds.size > 0
+                ? ` (${preSelectedTeamIds.size})`
+                : ""}
             </TabsTrigger>
             <TabsTrigger value="users">
-              Users{preSelectedUserIds.size > 0 ? ` (${preSelectedUserIds.size})` : ""}
+              Users
+              {preSelectedUserIds.size > 0
+                ? ` (${preSelectedUserIds.size})`
+                : ""}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="details">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Project Source</label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="add-source"
-                        value="tm4"
-                        checked={formData.source === "tm4"}
-                        onChange={() => handleInputChange("source", "tm4")}
-                        className="accent-kaart-orange"
-                      />
-                      <span className="text-sm">TM4 (Tasking Manager)</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="add-source"
-                        value="mr"
-                        checked={formData.source === "mr"}
-                        onChange={() => handleInputChange("source", "mr")}
-                        className="accent-kaart-orange"
-                      />
-                      <span className="text-sm">MapRoulette</span>
-                    </label>
-                  </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Project Source
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="add-source"
+                      value="tm4"
+                      checked={formData.source === "tm4"}
+                      onChange={() => handleInputChange("source", "tm4")}
+                      className="accent-kaart-orange"
+                    />
+                    <span className="text-sm">TM4 (Tasking Manager)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="add-source"
+                      value="mr"
+                      checked={formData.source === "mr"}
+                      onChange={() => handleInputChange("source", "mr")}
+                      className="accent-kaart-orange"
+                    />
+                    <span className="text-sm">MapRoulette</span>
+                  </label>
                 </div>
-                <Input
-                  label={formData.source === "mr" ? "MapRoulette Challenge URL" : "TM4 Project URL"}
-                  placeholder={formData.source === "mr" ? "https://maproulette.org/browse/challenges/123" : "https://tasks.kaart.com/projects/123"}
-                  value={formData.url}
-                  onChange={(e) => {
-                    handleInputChange("url", e.target.value);
-                    // Reset stale preflight result while the admin is typing.
-                    if (addPreflight.state !== "idle") {
-                      setAddPreflight({ state: "idle" });
-                    }
-                  }}
-                  onBlur={runAddPreflight}
-                />
-                {/* Preflight duplicate-check banner (2026-05-21, Logan ask).
+              </div>
+              <Input
+                label={
+                  formData.source === "mr"
+                    ? "MapRoulette Challenge URL"
+                    : "TM4 Project URL"
+                }
+                placeholder={
+                  formData.source === "mr"
+                    ? "https://maproulette.org/browse/challenges/123"
+                    : "https://tasks.kaart.com/projects/123"
+                }
+                value={formData.url}
+                onChange={(e) => {
+                  handleInputChange("url", e.target.value);
+                  // Reset stale preflight result while the admin is typing.
+                  if (addPreflight.state !== "idle") {
+                    setAddPreflight({ state: "idle" });
+                  }
+                }}
+                onBlur={runAddPreflight}
+              />
+              {/* Preflight duplicate-check banner (2026-05-21, Logan ask).
                     Runs on URL blur. Surfaces same-org dupes with a link to
                     the existing project; cross-org dupes get a generic
                     message (no name leakage). */}
-                {addPreflight.state === "checking" && (
-                  <p className="text-xs text-muted-foreground -mt-2">Checking for duplicates…</p>
-                )}
-                {addPreflight.state === "dupe-here" && (
-                  <div className="bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800 rounded-md p-3 text-sm">
-                    <p className="font-medium text-red-700 dark:text-red-300">Already in Mikro</p>
-                    <p className="text-red-600 dark:text-red-400 mt-1">
-                      Source ID {addPreflight.sourceId} — &quot;{addPreflight.project.name}&quot;
-                      {addPreflight.project.short_name ? ` (${addPreflight.project.short_name})` : ""}
-                    </p>
-                    <Link
-                      href={`/projects/${addPreflight.project.id}`}
-                      className="inline-block mt-1 text-red-700 dark:text-red-300 underline"
-                    >
-                      Open existing project →
-                    </Link>
-                  </div>
-                )}
-                {addPreflight.state === "dupe-other-org" && (
-                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-md p-3 text-sm">
-                    <p className="font-medium text-amber-700 dark:text-amber-300">
-                      Source ID {addPreflight.sourceId} belongs to another organization
-                    </p>
-                    <p className="text-amber-600 dark:text-amber-400 mt-1">
-                      The same upstream project has already been imported by another org. Ask a super admin if cross-org access is needed.
-                    </p>
-                  </div>
-                )}
-                {addPreflight.state === "unparseable" && (
-                  <p className="text-xs text-amber-600">
-                    Could not extract a project id from this URL — double-check the format.
+              {addPreflight.state === "checking" && (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Checking for duplicates…
+                </p>
+              )}
+              {addPreflight.state === "dupe-here" && (
+                <div className="bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800 rounded-md p-3 text-sm">
+                  <p className="font-medium text-red-700 dark:text-red-300">
+                    Already in Mikro
                   </p>
-                )}
-                <Input
-                  label="Short Name (optional)"
-                  placeholder="Leave blank to auto-derive from project name"
-                  value={formData.short_name}
-                  onChange={(e) => handleInputChange("short_name", e.target.value)}
-                />
-                <div className="flex items-center gap-2 mb-4">
-                  <input
-                    type="checkbox"
-                    id="add-payments-enabled"
-                    checked={formData.payments_enabled}
-                    onChange={(e) => handleInputChange("payments_enabled", e.target.checked)}
-                    className="rounded border-input"
-                  />
-                  <label htmlFor="add-payments-enabled" className="text-sm font-medium">
-                    Enable Payments
-                  </label>
-                  <span className="text-xs text-muted-foreground">
-                    (uncheck for stats-only tracking)
-                  </span>
+                  <p className="text-red-600 dark:text-red-400 mt-1">
+                    Source ID {addPreflight.sourceId} — &quot;
+                    {addPreflight.project.name}&quot;
+                    {addPreflight.project.short_name
+                      ? ` (${addPreflight.project.short_name})`
+                      : ""}
+                  </p>
+                  <Link
+                    href={`/projects/${addPreflight.project.id}`}
+                    className="inline-block mt-1 text-red-700 dark:text-red-300 underline"
+                  >
+                    Open existing project →
+                  </Link>
                 </div>
-                {formData.payments_enabled && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      label="Mapping Rate ($)"
-                      type="number"
-                      step="0.01"
-                      value={formData.mapping_rate}
-                      onChange={(e) => handleInputChange("mapping_rate", e.target.value)}
-                    />
-                    <Input
-                      label="Validation Rate ($)"
-                      type="number"
-                      step="0.01"
-                      value={formData.validation_rate}
-                      onChange={(e) => handleInputChange("validation_rate", e.target.value)}
-                    />
-                  </div>
-                )}
+              )}
+              {addPreflight.state === "dupe-other-org" && (
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-md p-3 text-sm">
+                  <p className="font-medium text-amber-700 dark:text-amber-300">
+                    Source ID {addPreflight.sourceId} belongs to another
+                    organization
+                  </p>
+                  <p className="text-amber-600 dark:text-amber-400 mt-1">
+                    The same upstream project has already been imported by
+                    another org. Ask a super admin if cross-org access is
+                    needed.
+                  </p>
+                </div>
+              )}
+              {addPreflight.state === "unparseable" && (
+                <p className="text-xs text-amber-600">
+                  Could not extract a project id from this URL — double-check
+                  the format.
+                </p>
+              )}
+              <Input
+                label="Short Name (optional)"
+                placeholder="Leave blank to auto-derive from project name"
+                value={formData.short_name}
+                onChange={(e) =>
+                  handleInputChange("short_name", e.target.value)
+                }
+              />
+              <div className="flex items-center gap-2 mb-4">
+                <input
+                  type="checkbox"
+                  id="add-payments-enabled"
+                  checked={formData.payments_enabled}
+                  onChange={(e) =>
+                    handleInputChange("payments_enabled", e.target.checked)
+                  }
+                  className="rounded border-input"
+                />
+                <label
+                  htmlFor="add-payments-enabled"
+                  className="text-sm font-medium"
+                >
+                  Enable Payments
+                </label>
+                <span className="text-xs text-muted-foreground">
+                  (uncheck for stats-only tracking)
+                </span>
+              </div>
+              {formData.payments_enabled && (
                 <div className="grid grid-cols-2 gap-4">
                   <Input
-                    label="Max Editors"
+                    label="Mapping Rate ($)"
                     type="number"
-                    value={formData.max_editors}
-                    onChange={(e) => handleInputChange("max_editors", e.target.value)}
+                    step="0.01"
+                    value={formData.mapping_rate}
+                    onChange={(e) =>
+                      handleInputChange("mapping_rate", e.target.value)
+                    }
                   />
                   <Input
-                    label="Max Validators"
+                    label="Validation Rate ($)"
                     type="number"
-                    value={formData.max_validators}
-                    onChange={(e) => handleInputChange("max_validators", e.target.value)}
+                    step="0.01"
+                    value={formData.validation_rate}
+                    onChange={(e) =>
+                      handleInputChange("validation_rate", e.target.value)
+                    }
                   />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="add-visibility"
-                      checked={formData.visibility}
-                      onChange={(e) => handleInputChange("visibility", e.target.checked)}
-                      className="rounded border-input"
-                    />
-                    <label htmlFor="add-visibility" className="text-sm font-medium">
-                      Publicly visible
-                    </label>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 ml-6">
-                    If checked, anyone in the org can see this project. If unchecked, only assigned users and teams can see it.
-                  </p>
-                </div>
-                <div className="border-t border-border pt-4">
-                  <Button variant="outline" onClick={handleCalculateBudget} className="w-full">
-                    Calculate Budget
-                  </Button>
-                  {budgetCalculation && (
-                    <p className="mt-2 text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                      {budgetCalculation}
-                    </p>
-                  )}
-                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Max Editors"
+                  type="number"
+                  value={formData.max_editors}
+                  onChange={(e) =>
+                    handleInputChange("max_editors", e.target.value)
+                  }
+                />
+                <Input
+                  label="Max Validators"
+                  type="number"
+                  value={formData.max_validators}
+                  onChange={(e) =>
+                    handleInputChange("max_validators", e.target.value)
+                  }
+                />
               </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="add-visibility"
+                    checked={formData.visibility}
+                    onChange={(e) =>
+                      handleInputChange("visibility", e.target.checked)
+                    }
+                    className="rounded border-input"
+                  />
+                  <label
+                    htmlFor="add-visibility"
+                    className="text-sm font-medium"
+                  >
+                    Publicly visible
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 ml-6">
+                  If checked, anyone in the org can see this project. If
+                  unchecked, only assigned users and teams can see it.
+                </p>
+              </div>
+              <div className="border-t border-border pt-4">
+                <Button
+                  variant="outline"
+                  onClick={handleCalculateBudget}
+                  className="w-full"
+                >
+                  Calculate Budget
+                </Button>
+                {budgetCalculation && (
+                  <p className="mt-2 text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                    {budgetCalculation}
+                  </p>
+                )}
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="locations">
@@ -1334,16 +1663,25 @@ export function AdminProjects() {
               </div>
               {preSelectedCountryIds.size > 0 && (
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">Selected ({preSelectedCountryIds.size})</p>
+                  <p className="text-sm font-medium">
+                    Selected ({preSelectedCountryIds.size})
+                  </p>
                   <div className="flex flex-wrap gap-1">
                     {Array.from(preSelectedCountryIds).map((id) => {
-                      const c = countriesData?.countries?.find((c) => c.id === id);
+                      const c = countriesData?.countries?.find(
+                        (c) => c.id === id,
+                      );
                       return c ? (
-                        <Badge key={id} variant="success" className="cursor-pointer" onClick={() => {
-                          const next = new Set(preSelectedCountryIds);
-                          next.delete(id);
-                          setPreSelectedCountryIds(next);
-                        }}>
+                        <Badge
+                          key={id}
+                          variant="success"
+                          className="cursor-pointer"
+                          onClick={() => {
+                            const next = new Set(preSelectedCountryIds);
+                            next.delete(id);
+                            setPreSelectedCountryIds(next);
+                          }}
+                        >
                           {c.name} &times;
                         </Badge>
                       ) : null;
@@ -1357,7 +1695,10 @@ export function AdminProjects() {
                   .filter((c) => {
                     if (!addLocationSearch.trim()) return true;
                     const q = addLocationSearch.toLowerCase();
-                    return c.name.toLowerCase().includes(q) || (c.iso_code && c.iso_code.toLowerCase().includes(q));
+                    return (
+                      c.name.toLowerCase().includes(q) ||
+                      (c.iso_code && c.iso_code.toLowerCase().includes(q))
+                    );
                   })
                   .map((country) => (
                     <button
@@ -1371,7 +1712,9 @@ export function AdminProjects() {
                       }}
                     >
                       <span>{country.name}</span>
-                      <span className="text-xs text-muted-foreground">{country.iso_code || ""}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {country.iso_code || ""}
+                      </span>
                     </button>
                   ))}
               </div>
@@ -1380,7 +1723,9 @@ export function AdminProjects() {
 
           <TabsContent value="teams">
             {!(allTeamsData as TeamsResponse)?.teams?.length ? (
-              <p className="text-muted-foreground text-center py-8">No teams in organization</p>
+              <p className="text-muted-foreground text-center py-8">
+                No teams in organization
+              </p>
             ) : (
               <div className="max-h-80 overflow-y-auto">
                 <Table>
@@ -1393,36 +1738,42 @@ export function AdminProjects() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {((allTeamsData as TeamsResponse)?.teams || []).map((team) => {
-                      const isSelected = preSelectedTeamIds.has(team.id);
-                      return (
-                        <TableRow key={team.id}>
-                          <TableCell className="font-medium">{team.name}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="secondary">{team.member_count}</Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {team.lead_names && team.lead_names.length > 0
-                              ? team.lead_names.join(", ")
-                              : team.lead_name || "None"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant={isSelected ? "destructive" : "primary"}
-                              onClick={() => {
-                                const next = new Set(preSelectedTeamIds);
-                                if (isSelected) next.delete(team.id);
-                                else next.add(team.id);
-                                setPreSelectedTeamIds(next);
-                              }}
-                            >
-                              {isSelected ? "Remove" : "Assign"}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {((allTeamsData as TeamsResponse)?.teams || []).map(
+                      (team) => {
+                        const isSelected = preSelectedTeamIds.has(team.id);
+                        return (
+                          <TableRow key={team.id}>
+                            <TableCell className="font-medium">
+                              {team.name}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary">
+                                {team.member_count}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {team.lead_names && team.lead_names.length > 0
+                                ? team.lead_names.join(", ")
+                                : team.lead_name || "None"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant={isSelected ? "destructive" : "primary"}
+                                onClick={() => {
+                                  const next = new Set(preSelectedTeamIds);
+                                  if (isSelected) next.delete(team.id);
+                                  else next.add(team.id);
+                                  setPreSelectedTeamIds(next);
+                                }}
+                              >
+                                {isSelected ? "Remove" : "Assign"}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      },
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -1446,8 +1797,10 @@ export function AdminProjects() {
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : !(allUsersData?.users?.length) ? (
-                <p className="text-muted-foreground text-center py-8">No users in organization</p>
+              ) : !allUsersData?.users?.length ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No users in organization
+                </p>
               ) : (
                 (() => {
                   const q = addUserSearch.trim().toLowerCase();
@@ -1460,7 +1813,9 @@ export function AdminProjects() {
                     );
                   });
                   return filtered.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">No users match the search.</p>
+                    <p className="text-muted-foreground text-center py-8">
+                      No users match the search.
+                    </p>
                   ) : (
                     <div className="max-h-80 overflow-y-auto">
                       <Table>
@@ -1477,13 +1832,21 @@ export function AdminProjects() {
                             const isSelected = preSelectedUserIds.has(user.id);
                             return (
                               <TableRow key={user.id}>
-                                <TableCell className="font-medium">{user.name || "—"}</TableCell>
-                                <TableCell className="text-muted-foreground">{user.email || "—"}</TableCell>
-                                <TableCell className="text-muted-foreground">{user.osm_username || "—"}</TableCell>
+                                <TableCell className="font-medium">
+                                  {user.name || "—"}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {user.email || "—"}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {user.osm_username || "—"}
+                                </TableCell>
                                 <TableCell className="text-right">
                                   <Button
                                     size="sm"
-                                    variant={isSelected ? "destructive" : "primary"}
+                                    variant={
+                                      isSelected ? "destructive" : "primary"
+                                    }
                                     onClick={() => {
                                       const next = new Set(preSelectedUserIds);
                                       if (isSelected) next.delete(user.id);
@@ -1521,287 +1884,379 @@ export function AdminProjects() {
         title="Edit Project"
         description={`Editing ${selectedProject?.name || "project"}`}
         size="lg"
-        footer={editModalLoading ? null : (
-          <>
-            <Button variant="outline" onClick={() => {
-              setShowEditModal(false);
-              setSelectedProject(null);
-              setProjectUsers([]);
-              setProjectTeams([]);
-              refetch(buildRefetchBody());
-            }}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateProject} isLoading={updating}>
-              Save Changes
-            </Button>
-          </>
-        )}
+        footer={
+          editModalLoading ? null : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSelectedProject(null);
+                  setProjectUsers([]);
+                  setProjectTeams([]);
+                  refetch(buildRefetchBody());
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateProject} isLoading={updating}>
+                Save Changes
+              </Button>
+            </>
+          )
+        }
       >
         {editModalLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
-            <p className="text-sm text-muted-foreground">Loading project data…</p>
+            <p className="text-sm text-muted-foreground">
+              Loading project data…
+            </p>
           </div>
         ) : (
-        <Tabs defaultValue="settings" value={editTab} onValueChange={(v) => setEditTab(v as "settings" | "users" | "teams" | "training" | "locations")}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-            <TabsTrigger value="users">
-              Users ({projectUsers.filter(u => u.assigned === "Yes").length}/{selectedProject?.max_editors ?? 0})
-            </TabsTrigger>
-            <TabsTrigger value="teams">
-              Teams ({projectTeams.filter(t => t.assigned === "Assigned").length})
-            </TabsTrigger>
-            <TabsTrigger value="training">Training</TabsTrigger>
-            <TabsTrigger value="locations">Locations</TabsTrigger>
-          </TabsList>
+          <Tabs
+            defaultValue="settings"
+            value={editTab}
+            onValueChange={(v) =>
+              setEditTab(
+                v as "settings" | "users" | "teams" | "training" | "locations",
+              )
+            }
+          >
+            <TabsList className="mb-4">
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger value="users">
+                Users ({projectUsers.filter((u) => u.assigned === "Yes").length}
+                /{selectedProject?.max_editors ?? 0})
+              </TabsTrigger>
+              <TabsTrigger value="teams">
+                Teams (
+                {projectTeams.filter((t) => t.assigned === "Assigned").length})
+              </TabsTrigger>
+              <TabsTrigger value="training">Training</TabsTrigger>
+              <TabsTrigger value="locations">Locations</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="settings">
-            <div className="space-y-4">
-              {/* 2026-05-21 (Logan ask): show the long name as a read-only
+            <TabsContent value="settings">
+              <div className="space-y-4">
+                {/* 2026-05-21 (Logan ask): show the long name as a read-only
                   field alongside the editable short name. Source URL +
                   source id are read-only too — both display under the
                   short-name input below. */}
-              <Input
-                label="Long Name"
-                value={selectedProject?.name ?? ""}
-                readOnly
-                disabled
-              />
-              <Input
-                label="Short Name"
-                placeholder="e.g. Philippines — Construction Check"
-                value={formData.short_name}
-                onChange={(e) => handleInputChange("short_name", e.target.value)}
-              />
-              {selectedProject && (
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Source ID"
-                    value={String(selectedProject.id)}
-                    readOnly
-                    disabled
-                  />
-                  <Input
-                    label={selectedProject.source === "mr" ? "MapRoulette URL" : "TM4 URL"}
-                    value={selectedProject.url || ""}
-                    readOnly
-                    disabled
-                  />
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="edit-payments-enabled"
-                  checked={formData.payments_enabled}
-                  onChange={(e) => handleInputChange("payments_enabled", e.target.checked)}
-                  className="rounded border-input"
-                />
-                <label htmlFor="edit-payments-enabled" className="text-sm font-medium">
-                  Enable Payments
-                </label>
-                <span className="text-xs text-muted-foreground">
-                  (uncheck for stats-only tracking)
-                </span>
-              </div>
-              {!formData.payments_enabled && (
-                <p className="text-xs text-amber-600">
-                  Disabling payments will not reverse already-accumulated earnings
-                </p>
-              )}
-              {formData.payments_enabled && (
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Mapping Rate ($)"
-                    type="number"
-                    step="0.01"
-                    value={formData.mapping_rate}
-                    onChange={(e) => handleInputChange("mapping_rate", e.target.value)}
-                  />
-                  <Input
-                    label="Validation Rate ($)"
-                    type="number"
-                    step="0.01"
-                    value={formData.validation_rate}
-                    onChange={(e) => handleInputChange("validation_rate", e.target.value)}
-                  />
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-4">
                 <Input
-                  label="Max Editors"
-                  type="number"
-                  value={formData.max_editors}
-                  onChange={(e) => handleInputChange("max_editors", e.target.value)}
+                  label="Long Name"
+                  value={selectedProject?.name ?? ""}
+                  readOnly
+                  disabled
                 />
                 <Input
-                  label="Max Validators"
-                  type="number"
-                  value={formData.max_validators}
-                  onChange={(e) => handleInputChange("max_validators", e.target.value)}
+                  label="Short Name"
+                  placeholder="e.g. Philippines — Construction Check"
+                  value={formData.short_name}
+                  onChange={(e) =>
+                    handleInputChange("short_name", e.target.value)
+                  }
                 />
-              </div>
-              <Select
-                label="Difficulty"
-                value={formData.difficulty}
-                onChange={(value) => handleInputChange("difficulty", value)}
-                options={[
-                  { value: "Easy", label: "Easy" },
-                  { value: "Medium", label: "Medium" },
-                  { value: "Hard", label: "Hard" },
-                ]}
-              />
-              <div className="space-y-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="edit-visibility"
-                      checked={formData.visibility}
-                      onChange={(e) => handleInputChange("visibility", e.target.checked)}
-                      className="rounded border-input"
+                {selectedProject && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Source ID"
+                      value={String(selectedProject.id)}
+                      readOnly
+                      disabled
                     />
-                    <label htmlFor="edit-visibility" className="text-sm font-medium">
-                      Publicly visible
-                    </label>
+                    <Input
+                      label={
+                        selectedProject.source === "mr"
+                          ? "MapRoulette URL"
+                          : "TM4 URL"
+                      }
+                      value={selectedProject.url || ""}
+                      readOnly
+                      disabled
+                    />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 ml-6">
-                    If checked, anyone in the org can see this project. If unchecked, only assigned users and teams can see it.
-                  </p>
-                </div>
+                )}
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    id="edit-status"
-                    checked={formData.status}
-                    onChange={(e) => handleInputChange("status", e.target.checked)}
+                    id="edit-payments-enabled"
+                    checked={formData.payments_enabled}
+                    onChange={(e) =>
+                      handleInputChange("payments_enabled", e.target.checked)
+                    }
                     className="rounded border-input"
                   />
-                  <label htmlFor="edit-status" className="text-sm font-medium">
-                    Active
+                  <label
+                    htmlFor="edit-payments-enabled"
+                    className="text-sm font-medium"
+                  >
+                    Enable Payments
                   </label>
+                  <span className="text-xs text-muted-foreground">
+                    (uncheck for stats-only tracking)
+                  </span>
+                </div>
+                {!formData.payments_enabled && (
+                  <p className="text-xs text-amber-600">
+                    Disabling payments will not reverse already-accumulated
+                    earnings
+                  </p>
+                )}
+                {formData.payments_enabled && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Mapping Rate ($)"
+                      type="number"
+                      step="0.01"
+                      value={formData.mapping_rate}
+                      onChange={(e) =>
+                        handleInputChange("mapping_rate", e.target.value)
+                      }
+                    />
+                    <Input
+                      label="Validation Rate ($)"
+                      type="number"
+                      step="0.01"
+                      value={formData.validation_rate}
+                      onChange={(e) =>
+                        handleInputChange("validation_rate", e.target.value)
+                      }
+                    />
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Max Editors"
+                    type="number"
+                    value={formData.max_editors}
+                    onChange={(e) =>
+                      handleInputChange("max_editors", e.target.value)
+                    }
+                  />
+                  <Input
+                    label="Max Validators"
+                    type="number"
+                    value={formData.max_validators}
+                    onChange={(e) =>
+                      handleInputChange("max_validators", e.target.value)
+                    }
+                  />
+                </div>
+                <Select
+                  label="Difficulty"
+                  value={formData.difficulty}
+                  onChange={(value) => handleInputChange("difficulty", value)}
+                  options={[
+                    { value: "Easy", label: "Easy" },
+                    { value: "Medium", label: "Medium" },
+                    { value: "Hard", label: "Hard" },
+                  ]}
+                />
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="edit-visibility"
+                        checked={formData.visibility}
+                        onChange={(e) =>
+                          handleInputChange("visibility", e.target.checked)
+                        }
+                        className="rounded border-input"
+                      />
+                      <label
+                        htmlFor="edit-visibility"
+                        className="text-sm font-medium"
+                      >
+                        Publicly visible
+                      </label>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 ml-6">
+                      If checked, anyone in the org can see this project. If
+                      unchecked, only assigned users and teams can see it.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="edit-status"
+                      checked={formData.status}
+                      onChange={(e) =>
+                        handleInputChange("status", e.target.checked)
+                      }
+                      className="rounded border-input"
+                    />
+                    <label
+                      htmlFor="edit-status"
+                      className="text-sm font-medium"
+                    >
+                      Active
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="users">
-            {loadingUsers ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : projectUsers.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No users in organization</p>
-            ) : (
-              <div className="max-h-80 overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead className="text-center">Assigned</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {projectUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant={user.assigned === "Yes" ? "success" : "secondary"}>
-                            {user.assigned}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant={user.assigned === "Yes" ? "destructive" : "primary"}
-                            onClick={() => handleToggleUserAssignment(user.id)}
-                            disabled={assigning}
-                          >
-                            {user.assigned === "Yes" ? "Unassign" : "Assign"}
-                          </Button>
-                        </TableCell>
+            <TabsContent value="users">
+              {loadingUsers ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : projectUsers.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No users in organization
+                </p>
+              ) : (
+                <div className="max-h-80 overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead className="text-center">Assigned</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </TabsContent>
+                    </TableHeader>
+                    <TableBody>
+                      {projectUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">
+                            {user.name}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {user.email}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={
+                                user.assigned === "Yes"
+                                  ? "success"
+                                  : "secondary"
+                              }
+                            >
+                              {user.assigned}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant={
+                                user.assigned === "Yes"
+                                  ? "destructive"
+                                  : "primary"
+                              }
+                              onClick={() =>
+                                handleToggleUserAssignment(user.id)
+                              }
+                              disabled={assigning}
+                            >
+                              {user.assigned === "Yes" ? "Unassign" : "Assign"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
 
-          <TabsContent value="teams">
-            {loadingTeams ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : projectTeams.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No teams in organization</p>
-            ) : (
-              <div className="max-h-80 overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Team</TableHead>
-                      <TableHead className="text-center">Members</TableHead>
-                      <TableHead>Lead</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {projectTeams.map((team) => (
-                      <TableRow key={team.id}>
-                        <TableCell className="font-medium">{team.name}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="secondary">{team.member_count}</Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {team.lead_names && team.lead_names.length > 0
-                            ? team.lead_names.join(", ")
-                            : team.lead_name || "None"}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant={team.assigned === "Assigned" ? "success" : "secondary"}>
-                            {team.assigned}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant={team.assigned === "Assigned" ? "destructive" : "primary"}
-                            onClick={() => handleToggleTeamAssignment(team.id, team.assigned)}
-                          >
-                            {team.assigned === "Assigned" ? "Unassign" : "Assign"}
-                          </Button>
-                        </TableCell>
+            <TabsContent value="teams">
+              {loadingTeams ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : projectTeams.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No teams in organization
+                </p>
+              ) : (
+                <div className="max-h-80 overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Team</TableHead>
+                        <TableHead className="text-center">Members</TableHead>
+                        <TableHead>Lead</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </TabsContent>
+                    </TableHeader>
+                    <TableBody>
+                      {projectTeams.map((team) => (
+                        <TableRow key={team.id}>
+                          <TableCell className="font-medium">
+                            {team.name}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="secondary">
+                              {team.member_count}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {team.lead_names && team.lead_names.length > 0
+                              ? team.lead_names.join(", ")
+                              : team.lead_name || "None"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={
+                                team.assigned === "Assigned"
+                                  ? "success"
+                                  : "secondary"
+                              }
+                            >
+                              {team.assigned}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant={
+                                team.assigned === "Assigned"
+                                  ? "destructive"
+                                  : "primary"
+                              }
+                              onClick={() =>
+                                handleToggleTeamAssignment(
+                                  team.id,
+                                  team.assigned,
+                                )
+                              }
+                            >
+                              {team.assigned === "Assigned"
+                                ? "Unassign"
+                                : "Assign"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
 
-          <TabsContent value="training">
-            {selectedProject && (
-              <ProjectTrainingsTab projectId={selectedProject.id} />
-            )}
-          </TabsContent>
+            <TabsContent value="training">
+              {selectedProject && (
+                <ProjectTrainingsTab projectId={selectedProject.id} />
+              )}
+            </TabsContent>
 
-          <TabsContent value="locations">
-            {selectedProject && (
-              <LocationsTab resourceId={selectedProject.id} resourceType="project" />
-            )}
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="locations">
+              {selectedProject && (
+                <LocationsTab
+                  resourceId={selectedProject.id}
+                  resourceType="project"
+                />
+              )}
+            </TabsContent>
+          </Tabs>
         )}
       </Modal>
 
@@ -1838,7 +2293,9 @@ export function AdminProjects() {
       {false && canCreateOrDelete && (
         <Card className="mt-8 border-dashed border-yellow-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-600">Dev Tools (Remove before production)</CardTitle>
+            <CardTitle className="text-sm font-medium text-yellow-600">
+              Dev Tools (Remove before production)
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Button

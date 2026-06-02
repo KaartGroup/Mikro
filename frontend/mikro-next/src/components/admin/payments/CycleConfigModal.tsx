@@ -95,8 +95,8 @@ export function CycleConfigModal({
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Sets the default period and the picker&apos;s presets for this
-            org. Admins can still pick a custom range any time.
+            Sets the default period and the picker&apos;s presets for this org.
+            Admins can still pick a custom range any time.
             {isDefault && (
               <span className="ml-1 italic">
                 (No cadence saved yet — showing the monthly default.)

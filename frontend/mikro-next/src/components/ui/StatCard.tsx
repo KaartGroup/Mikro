@@ -18,13 +18,22 @@ interface StatCardProps {
   linkLabel?: string;
 }
 
-export function StatCard({ label, value, sub, href, linkLabel }: StatCardProps) {
+export function StatCard({
+  label,
+  value,
+  sub,
+  href,
+  linkLabel,
+}: StatCardProps) {
   return (
     <Card>
       <CardContent className="p-4 relative">
         {href && (
           <div className="absolute top-2 right-2">
-            <StatCardLink href={href} label={linkLabel ?? `View ${label} details`} />
+            <StatCardLink
+              href={href}
+              label={linkLabel ?? `View ${label} details`}
+            />
           </div>
         )}
         <div className="text-center">

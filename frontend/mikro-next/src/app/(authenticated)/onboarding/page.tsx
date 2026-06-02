@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, useToastActions } from "@/components/ui";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Input,
+  useToastActions,
+} from "@/components/ui";
 import { usePaymentsVisible } from "@/hooks";
 
 export default function OnboardingPage() {
@@ -96,7 +104,9 @@ export default function OnboardingPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-kaart-orange">Mikro</h1>
-          <p className="text-muted-foreground mt-2">Welcome! Let&apos;s get you set up.</p>
+          <p className="text-muted-foreground mt-2">
+            Welcome! Let&apos;s get you set up.
+          </p>
         </div>
 
         {/* Progress */}
@@ -126,7 +136,8 @@ export default function OnboardingPage() {
             {step === 1 && (
               <div className="space-y-4">
                 <p className="text-muted-foreground">
-                  Enter your OpenStreetMap username. This is used to track your mapping contributions.
+                  Enter your OpenStreetMap username. This is used to track your
+                  mapping contributions.
                 </p>
                 <Input
                   value={osmUsername}
@@ -151,7 +162,8 @@ export default function OnboardingPage() {
             {step === 2 && (
               <div className="space-y-4">
                 <p className="text-muted-foreground">
-                  Enter your Payoneer email address. This is where your payments will be sent.
+                  Enter your Payoneer email address. This is where your payments
+                  will be sent.
                 </p>
                 <Input
                   type="email"
@@ -205,9 +217,14 @@ export default function OnboardingPage() {
                   <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                     <li>You will provide accurate mapping data</li>
                     <li>You will follow OSM mapping guidelines</li>
-                    <li>You will complete assigned tasks to the best of your ability</li>
+                    <li>
+                      You will complete assigned tasks to the best of your
+                      ability
+                    </li>
                     <li>Payment is subject to validation of your work</li>
-                    <li>Fraudulent activity will result in account termination</li>
+                    <li>
+                      Fraudulent activity will result in account termination
+                    </li>
                     <li>Kaart reserves the right to modify payment rates</li>
                   </ul>
                 </div>
@@ -260,7 +277,11 @@ export default function OnboardingPage() {
                 </Button>
               )}
               {step === 5 && (
-                <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full">
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="w-full"
+                >
                   {isSubmitting ? "Saving..." : "Go to Dashboard"}
                 </Button>
               )}

@@ -26,7 +26,9 @@ export function Tooltip({
   className = "",
 }: TooltipProps) {
   const [visible, setVisible] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
+    null,
+  );
   const [actualPosition, setActualPosition] = useState(position);
   const triggerRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -58,18 +60,22 @@ export function Tooltip({
       switch (p) {
         case "top":
           top = triggerRect.top - tooltipRect.height - gap;
-          left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
+          left =
+            triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
           break;
         case "bottom":
           top = triggerRect.bottom + gap;
-          left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
+          left =
+            triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
           break;
         case "left":
-          top = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
+          top =
+            triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
           left = triggerRect.left - tooltipRect.width - gap;
           break;
         case "right":
-          top = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
+          top =
+            triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2;
           left = triggerRect.right + gap;
           break;
       }
@@ -78,13 +84,31 @@ export function Tooltip({
     calc(pos);
 
     // Flip if out of viewport
-    if (pos === "top" && top < 0) { pos = "bottom"; calc(pos); }
-    else if (pos === "bottom" && top + tooltipRect.height > window.innerHeight) { pos = "top"; calc(pos); }
-    else if (pos === "left" && left < 0) { pos = "right"; calc(pos); }
-    else if (pos === "right" && left + tooltipRect.width > window.innerWidth) { pos = "left"; calc(pos); }
+    if (pos === "top" && top < 0) {
+      pos = "bottom";
+      calc(pos);
+    } else if (
+      pos === "bottom" &&
+      top + tooltipRect.height > window.innerHeight
+    ) {
+      pos = "top";
+      calc(pos);
+    } else if (pos === "left" && left < 0) {
+      pos = "right";
+      calc(pos);
+    } else if (
+      pos === "right" &&
+      left + tooltipRect.width > window.innerWidth
+    ) {
+      pos = "left";
+      calc(pos);
+    }
 
     // Clamp horizontal to viewport
-    left = Math.max(8, Math.min(left, window.innerWidth - tooltipRect.width - 8));
+    left = Math.max(
+      8,
+      Math.min(left, window.innerWidth - tooltipRect.width - 8),
+    );
 
     setActualPosition(pos);
     setCoords({ top, left });

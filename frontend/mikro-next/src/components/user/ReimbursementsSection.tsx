@@ -49,7 +49,6 @@ import {
 import type { ReimbursementRequest, ReimbursementStatus } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 
-
 const ALLOWED_RECEIPT_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -57,7 +56,6 @@ const ALLOWED_RECEIPT_TYPES = new Set([
   "application/pdf",
 ]);
 const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
-
 
 const STATUS_BADGE: Record<
   ReimbursementStatus,
@@ -69,15 +67,15 @@ const STATUS_BADGE: Record<
   withdrawn: "secondary",
 };
 
-
 function formatDate(s: string | null): string {
   if (!s) return "—";
   const d = new Date(s);
   return d.toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
-
 
 // ─── Submit modal ─────────────────────────────────────────────────
 
@@ -90,10 +88,13 @@ interface SubmitModalProps {
 }
 
 export function ReimbursementSubmitModal({
-  isOpen, onClose, onSubmitted,
+  isOpen,
+  onClose,
+  onSubmitted,
 }: SubmitModalProps) {
   const toast = useToastActions();
-  const { mutate: submit, loading: submitting } = useSubmitReimbursementRequest();
+  const { mutate: submit, loading: submitting } =
+    useSubmitReimbursementRequest();
   const { mutate: getUploadUrl } = useReimbursementUploadUrl();
 
   const [amount, setAmount] = useState("");
@@ -225,12 +226,17 @@ export function ReimbursementSubmitModal({
           </p>
           {receipt && (
             <p className="text-xs text-muted-foreground">
-              Selected: <strong>{receipt.name}</strong> ({Math.round(receipt.size / 1024)} KB)
+              Selected: <strong>{receipt.name}</strong> (
+              {Math.round(receipt.size / 1024)} KB)
             </p>
           )}
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={submitting || uploading}>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={submitting || uploading}
+          >
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={submitting || uploading}>
@@ -242,7 +248,6 @@ export function ReimbursementSubmitModal({
   );
 }
 
-
 // ─── My history panel ────────────────────────────────────────────
 
 interface HistoryPanelProps {
@@ -250,10 +255,13 @@ interface HistoryPanelProps {
   refreshKey?: number;
 }
 
-export function ReimbursementsHistoryPanel({ refreshKey = 0 }: HistoryPanelProps) {
+export function ReimbursementsHistoryPanel({
+  refreshKey = 0,
+}: HistoryPanelProps) {
   const toast = useToastActions();
   const { mutate: fetchMy, loading } = useMyReimbursementRequests();
-  const { mutate: withdraw, loading: withdrawing } = useWithdrawReimbursementRequest();
+  const { mutate: withdraw, loading: withdrawing } =
+    useWithdrawReimbursementRequest();
   const { mutate: fetchAttachmentUrl } = useReimbursementAttachmentUrl();
 
   const [rows, setRows] = useState<ReimbursementRequest[]>([]);
@@ -263,7 +271,9 @@ export function ReimbursementsHistoryPanel({ refreshKey = 0 }: HistoryPanelProps
       const res = await fetchMy({});
       setRows(res?.requests ?? []);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load reimbursements");
+      toast.error(
+        e instanceof Error ? e.message : "Failed to load reimbursements",
+      );
       setRows([]);
     }
   }, [fetchMy, toast]);
@@ -337,21 +347,45 @@ export function ReimbursementsHistoryPanel({ refreshKey = 0 }: HistoryPanelProps
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">Submitted</th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">Amount</th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">Description</th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">Receipt</th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">Status</th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">Reviewer note</th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">Actions</th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                  Submitted
+                </th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                  Amount
+                </th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                  Description
+                </th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                  Receipt
+                </th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                  Status
+                </th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                  Reviewer note
+                </th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="py-2 px-2 text-muted-foreground">{formatDate(row.submitted_at)}</td>
-                  <td className="py-2 px-2 font-mono">{formatCurrency(row.amount).text}</td>
-                  <td className="py-2 px-2 max-w-md truncate" title={row.description}>
+                <tr
+                  key={row.id}
+                  className="border-b border-border last:border-0"
+                >
+                  <td className="py-2 px-2 text-muted-foreground">
+                    {formatDate(row.submitted_at)}
+                  </td>
+                  <td className="py-2 px-2 font-mono">
+                    {formatCurrency(row.amount).text}
+                  </td>
+                  <td
+                    className="py-2 px-2 max-w-md truncate"
+                    title={row.description}
+                  >
                     {row.description}
                   </td>
                   <td className="py-2 px-2">
@@ -368,9 +402,14 @@ export function ReimbursementsHistoryPanel({ refreshKey = 0 }: HistoryPanelProps
                     )}
                   </td>
                   <td className="py-2 px-2">
-                    <Badge variant={STATUS_BADGE[row.status]}>{row.status}</Badge>
+                    <Badge variant={STATUS_BADGE[row.status]}>
+                      {row.status}
+                    </Badge>
                   </td>
-                  <td className="py-2 px-2 text-muted-foreground max-w-xs truncate" title={row.reviewer_note ?? undefined}>
+                  <td
+                    className="py-2 px-2 text-muted-foreground max-w-xs truncate"
+                    title={row.reviewer_note ?? undefined}
+                  >
                     {row.reviewer_note || "—"}
                   </td>
                   <td className="py-2 px-2">

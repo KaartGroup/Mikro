@@ -60,7 +60,7 @@ export function TabsList({ children, className }: TabsListProps) {
     <div
       className={cn(
         "inline-flex h-10 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground",
-        className
+        className,
       )}
     >
       {children}
@@ -96,7 +96,7 @@ export function TabsTrigger({
         isActive
           ? "bg-background text-foreground shadow-sm"
           : "hover:bg-background/50",
-        className
+        className,
       )}
     >
       {children}
@@ -119,7 +119,7 @@ export function TabsContent({ value, children, className }: TabsContentProps) {
     <div
       className={cn(
         "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-        className
+        className,
       )}
     >
       {children}

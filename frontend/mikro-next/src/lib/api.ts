@@ -24,7 +24,7 @@ interface ApiResponse<T = unknown> {
 export async function fetchFromBackend<T = unknown>(
   endpoint: string,
   options: RequestInit = {},
-  accessToken?: string | null
+  accessToken?: string | null,
 ): Promise<ApiResponse<T>> {
   const url = `${BACKEND_URL}/api${endpoint}`;
 
@@ -34,7 +34,8 @@ export async function fetchFromBackend<T = unknown>(
   };
 
   if (accessToken) {
-    (headers as Record<string, string>)["Authorization"] = `Bearer ${accessToken}`;
+    (headers as Record<string, string>)["Authorization"] =
+      `Bearer ${accessToken}`;
   }
 
   try {
@@ -71,7 +72,7 @@ export async function fetchFromBackend<T = unknown>(
 export async function postToBackend<T = unknown>(
   endpoint: string,
   body: unknown,
-  accessToken?: string | null
+  accessToken?: string | null,
 ): Promise<ApiResponse<T>> {
   return fetchFromBackend<T>(
     endpoint,
@@ -79,7 +80,7 @@ export async function postToBackend<T = unknown>(
       method: "POST",
       body: JSON.stringify(body),
     },
-    accessToken
+    accessToken,
   );
 }
 
@@ -88,13 +89,13 @@ export async function postToBackend<T = unknown>(
  */
 export async function getFromBackend<T = unknown>(
   endpoint: string,
-  accessToken?: string | null
+  accessToken?: string | null,
 ): Promise<ApiResponse<T>> {
   return fetchFromBackend<T>(
     endpoint,
     {
       method: "GET",
     },
-    accessToken
+    accessToken,
   );
 }

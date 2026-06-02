@@ -87,9 +87,7 @@ export function PendingAdjustmentsStrip({
             <span className="absolute inset-0 rounded-full bg-red-500 opacity-75 animate-ping" />
             <span className="relative rounded-full bg-red-600 h-2.5 w-2.5" />
           </span>
-          <h2 className="text-sm font-semibold">
-            Pending adjustment requests
-          </h2>
+          <h2 className="text-sm font-semibold">Pending adjustment requests</h2>
           <Badge variant="destructive" className="text-xs">
             {entries.length}
           </Badge>

@@ -40,7 +40,10 @@ export function ElementActivitySection({
   useEffect(() => {
     if (!showDropdown) return;
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setShowDropdown(false);
       }
     }
@@ -52,7 +55,9 @@ export function ElementActivitySection({
     <div>
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-lg font-semibold">Editing Activity by Element Type</h3>
+          <h3 className="text-lg font-semibold">
+            Editing Activity by Element Type
+          </h3>
           {elementLastUpdated && (
             <p className="text-xs text-muted-foreground">
               Last updated: {formatDateTime(elementLastUpdated)}
@@ -66,7 +71,9 @@ export function ElementActivitySection({
         </div>
         <div className="flex items-center gap-2">
           {elementRefreshing && elementProgress && (
-            <span className="text-xs text-muted-foreground">{elementProgress}</span>
+            <span className="text-xs text-muted-foreground">
+              {elementProgress}
+            </span>
           )}
 
           {/* Split button: main action + dropdown chevron */}
@@ -130,10 +137,15 @@ export function ElementActivitySection({
       {elementLoading ? (
         <div className="flex items-center justify-center h-32 gap-2">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-kaart-orange" />
-          <span className="text-sm text-muted-foreground">Loading cached data...</span>
+          <span className="text-sm text-muted-foreground">
+            Loading cached data...
+          </span>
         </div>
       ) : (
-        <ElementActivityChart categories={elementCategories} granularity={granularity} />
+        <ElementActivityChart
+          categories={elementCategories}
+          granularity={granularity}
+        />
       )}
 
       {showRefreshModal && (
@@ -143,9 +155,10 @@ export function ElementActivitySection({
               Refresh Element Analysis
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              This will re-analyze all changesets from the OSM API for the last 4 weeks. The
-              process runs in the background and typically takes 2-5 minutes depending on the
-              number of active mappers and their changeset volume.
+              This will re-analyze all changesets from the OSM API for the last
+              4 weeks. The process runs in the background and typically takes
+              2-5 minutes depending on the number of active mappers and their
+              changeset volume.
             </p>
             <p className="text-sm text-muted-foreground mb-6">
               This analysis also runs automatically every night at midnight MST.
@@ -175,13 +188,13 @@ export function ElementActivitySection({
               Run Element Analysis Backfill
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              This will fetch and analyze all changesets from the beginning of the project
-              up to the latest data already stored. Use this to fill in gaps or rebuild
-              historical data.
+              This will fetch and analyze all changesets from the beginning of
+              the project up to the latest data already stored. Use this to fill
+              in gaps or rebuild historical data.
             </p>
             <p className="text-sm text-muted-foreground mb-6">
-              The job runs in the background in 2-day windows and may take several minutes
-              depending on the volume of historical changesets.
+              The job runs in the background in 2-day windows and may take
+              several minutes depending on the volume of historical changesets.
             </p>
             <div className="flex justify-end gap-3">
               <button

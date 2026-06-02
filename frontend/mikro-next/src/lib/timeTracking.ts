@@ -38,10 +38,7 @@ export const TOPIC_OPTIONS = [
 // covers it). Editing still requires a project; qc_review's per-sub
 // flag is the canonical source — this fallback only kicks in if no sub
 // is selected yet OR a fresh-DB org has nothing seeded.
-const PROJECT_REQUIRED_FALLBACK_ACTIVITIES = new Set([
-  "editing",
-  "qc_review",
-]);
+const PROJECT_REQUIRED_FALLBACK_ACTIVITIES = new Set(["editing", "qc_review"]);
 
 /**
  * SSOT for the "do I need a project?" decision.
@@ -147,7 +144,9 @@ const LABEL_TO_KEY: Record<string, string> = (() => {
  * treat null as "no category filter" rather than substituting a guess —
  * that's the failure mode the previous `.toLowerCase()` fallback hid.
  */
-export function resolveCategoryKey(input: string | null | undefined): string | null {
+export function resolveCategoryKey(
+  input: string | null | undefined,
+): string | null {
   if (input == null) return null;
   const trimmed = String(input).trim().toLowerCase();
   if (!trimmed || trimmed === "all") return null;
@@ -231,7 +230,11 @@ export function localDayEndIsoUtc(d: Date = new Date()): string {
 /** Start of the user's local week (Sunday) as an ISO UTC string. */
 export function localWeekStartIsoUtc(d: Date = new Date()): string {
   const day = d.getDay();
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - day).toISOString();
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate() - day,
+  ).toISOString();
 }
 
 /** Start of the user's local NEXT Sunday — i.e. the exclusive upper
@@ -239,15 +242,23 @@ export function localWeekStartIsoUtc(d: Date = new Date()): string {
  *  midnight tonight; on a Sunday it's a week from now. */
 export function localWeekEndIsoUtc(d: Date = new Date()): string {
   const day = d.getDay();
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - day + 7).toISOString();
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate() - day + 7,
+  ).toISOString();
 }
 
 /** Start of the user's local Sunday N weeks ago as an ISO UTC string.
  *  weeksAgo=1 returns the Sunday that began the previous week. */
-export function localWeekStartAgoIsoUtc(weeksAgo: number, d: Date = new Date()): string {
+export function localWeekStartAgoIsoUtc(
+  weeksAgo: number,
+  d: Date = new Date(),
+): string {
   const day = d.getDay();
   return new Date(
-    d.getFullYear(), d.getMonth(),
+    d.getFullYear(),
+    d.getMonth(),
     d.getDate() - day - 7 * weeksAgo,
   ).toISOString();
 }
@@ -263,7 +274,10 @@ export function localMonthEndIsoUtc(d: Date = new Date()): string {
 }
 
 /** Start of the user's local month N months ago as an ISO UTC string. */
-export function localMonthStartAgoIsoUtc(monthsAgo: number, d: Date = new Date()): string {
+export function localMonthStartAgoIsoUtc(
+  monthsAgo: number,
+  d: Date = new Date(),
+): string {
   return new Date(d.getFullYear(), d.getMonth() - monthsAgo, 1).toISOString();
 }
 
@@ -272,7 +286,9 @@ export function localMonthStartAgoIsoUtc(monthsAgo: number, d: Date = new Date()
  * instant that is local midnight of that calendar day. Undefined/empty input
  * returns null.
  */
-export function dateInputToLocalStartIsoUtc(input: string | null | undefined): string | null {
+export function dateInputToLocalStartIsoUtc(
+  input: string | null | undefined,
+): string | null {
   if (!input) return null;
   const [y, m, d] = input.split("-").map(Number);
   if (!y || !m || !d) return null;
@@ -283,7 +299,9 @@ export function dateInputToLocalStartIsoUtc(input: string | null | undefined): s
  * Exclusive upper bound: local midnight of the day AFTER the picked day.
  * Intended for backend windows like `column < endIsoUtc`.
  */
-export function dateInputToLocalEndIsoUtc(input: string | null | undefined): string | null {
+export function dateInputToLocalEndIsoUtc(
+  input: string | null | undefined,
+): string | null {
   if (!input) return null;
   const [y, m, d] = input.split("-").map(Number);
   if (!y || !m || !d) return null;

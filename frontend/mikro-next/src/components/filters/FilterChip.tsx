@@ -24,7 +24,7 @@ export function FilterChip({
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-sm text-foreground",
-        "cursor-pointer transition-colors hover:bg-muted/80"
+        "cursor-pointer transition-colors hover:bg-muted/80",
       )}
     >
       <button

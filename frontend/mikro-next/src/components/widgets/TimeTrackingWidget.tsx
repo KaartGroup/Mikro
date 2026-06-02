@@ -41,15 +41,16 @@ import {
 import { useFetchSubcategories } from "@/hooks";
 import type { Subcategory } from "@/types";
 
-const TOPIC_OPTIONS: SelectOption[] = _TOPIC_OPTIONS.map((t) => ({ value: t.value, label: t.label }));
+const TOPIC_OPTIONS: SelectOption[] = _TOPIC_OPTIONS.map((t) => ({
+  value: t.value,
+  label: t.label,
+}));
 
 // Duration helpers consolidated into @/lib/timeTracking:
 // formatElapsedTime → formatLiveDuration (HH:MM:SS)
 // formatHoursMinutes → formatDurationHM (HH:MM)
 
-export function TimeTrackingWidget({
-  projects = [],
-}: TimeTrackingWidgetProps) {
+export function TimeTrackingWidget({ projects = [] }: TimeTrackingWidgetProps) {
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null); // Date.now() when timer was initialized
   const [initialElapsed, setInitialElapsed] = useState(0); // Server-provided elapsed seconds at start
@@ -72,29 +73,35 @@ export function TimeTrackingWidget({
   const [isAddingCustomTopic, setIsAddingCustomTopic] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [activeSessionProjectName, setActiveSessionProjectName] = useState<string>("");
+  const [activeSessionProjectName, setActiveSessionProjectName] =
+    useState<string>("");
   const [activeSessionTopic, setActiveSessionTopic] = useState<string>("");
-  const [activeSessionTaskName, setActiveSessionTaskName] = useState<string>("");
+  const [activeSessionTaskName, setActiveSessionTaskName] =
+    useState<string>("");
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
-  const [activeSessionUserNotes, setActiveSessionUserNotes] = useState<string | null>(null);
+  const [activeSessionUserNotes, setActiveSessionUserNotes] = useState<
+    string | null
+  >(null);
   const [pendingUserNotes, setPendingUserNotes] = useState<string | null>(null);
   const [todaySeconds, setTodaySeconds] = useState(0);
   const [weekSeconds, setWeekSeconds] = useState(0);
   const [switchMode, setSwitchMode] = useState(false);
 
-  const { data: activeSession, loading: sessionLoading, refetch: refetchSession } = useActiveTimeSession();
+  const {
+    data: activeSession,
+    loading: sessionLoading,
+    refetch: refetchSession,
+  } = useActiveTimeSession();
   const { mutate: clockIn, loading: clockingIn } = useClockIn();
   const { mutate: clockOut, loading: clockingOut } = useClockOut();
   const { mutate: updateMyNotes } = useUpdateMyNotes();
-  const { mutate: discardActive, loading: discarding } = useDiscardActiveSession();
+  const { mutate: discardActive, loading: discarding } =
+    useDiscardActiveSession();
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [discardError, setDiscardError] = useState<string | null>(null);
 
   // Lazy-loaded data for training topics
-  const {
-    data: trainingData,
-    refetch: fetchTrainings,
-  } = useApiCall<{
+  const { data: trainingData, refetch: fetchTrainings } = useApiCall<{
     status: number;
     mapping_trainings: Array<{ id: number; title: string }>;
     validation_trainings: Array<{ id: number; title: string }>;
@@ -283,10 +290,10 @@ export function TimeTrackingWidget({
       setTimerStartedAt(Date.now());
       setElapsedSeconds(0);
       setActiveSessionProjectName(
-        projects.find((p) => p.id.toString() === selectedProject)?.name || ""
+        projects.find((p) => p.id.toString() === selectedProject)?.name || "",
       );
       setActiveSessionTopic(
-        TOPIC_OPTIONS.find((t) => t.value === selectedTopic)?.label || ""
+        TOPIC_OPTIONS.find((t) => t.value === selectedTopic)?.label || "",
       );
       setActiveSessionTaskName(taskName || "");
       setActiveSessionUserNotes(pendingUserNotes);
@@ -299,7 +306,21 @@ export function TimeTrackingWidget({
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Failed to clock in");
     }
-  }, [selectedProject, selectedTopic, selectedSub, retainedInput, newInput, taskName, taskRefType, taskRefId, clockIn, projects, fetchTotals, pendingUserNotes, refetchSession]);
+  }, [
+    selectedProject,
+    selectedTopic,
+    selectedSub,
+    retainedInput,
+    newInput,
+    taskName,
+    taskRefType,
+    taskRefId,
+    clockIn,
+    projects,
+    fetchTotals,
+    pendingUserNotes,
+    refetchSession,
+  ]);
 
   const handleSaveActiveNotes = useCallback(
     async (value: string | null) => {
@@ -307,7 +328,7 @@ export function TimeTrackingWidget({
       await updateMyNotes({ entry_id: activeSessionId, userNotes: value });
       setActiveSessionUserNotes(value);
     },
-    [activeSessionId, updateMyNotes]
+    [activeSessionId, updateMyNotes],
   );
 
   const handleDiscardConfirmed = useCallback(async () => {
@@ -370,7 +391,9 @@ export function TimeTrackingWidget({
       // Refresh totals for the new form
       fetchTotals();
     } catch (err) {
-      setApiError(err instanceof Error ? err.message : "Failed to switch tasks");
+      setApiError(
+        err instanceof Error ? err.message : "Failed to switch tasks",
+      );
     }
   }, [clockOut, fetchTotals]);
 
@@ -387,7 +410,14 @@ export function TimeTrackingWidget({
     handleClockIn().finally(() => {
       switchAutoClockRef.current = false;
     });
-  }, [switchMode, selectedTopic, selectedProject, isClockedIn, clockingIn, handleClockIn]);
+  }, [
+    switchMode,
+    selectedTopic,
+    selectedProject,
+    isClockedIn,
+    clockingIn,
+    handleClockIn,
+  ]);
 
   // Handle task selection for training
   const handleTrainingSelect = useCallback(
@@ -397,14 +427,12 @@ export function TimeTrackingWidget({
         ...(trainingData?.validation_trainings || []),
         ...(trainingData?.project_trainings || []),
       ];
-      const training = allTrainings.find(
-        (t) => t.id.toString() === trainingId
-      );
+      const training = allTrainings.find((t) => t.id.toString() === trainingId);
       setTaskRefType("training");
       setTaskRefId(training ? training.id : null);
       setTaskName(training ? training.title : "");
     },
-    [trainingData]
+    [trainingData],
   );
 
   // Handle custom topic selection
@@ -418,20 +446,22 @@ export function TimeTrackingWidget({
       } else {
         setIsAddingCustomTopic(false);
         const topic = customTopicsData?.topics?.find(
-          (t) => t.id.toString() === value
+          (t) => t.id.toString() === value,
         );
         setTaskName(topic ? topic.name : "");
         setTaskRefType(null);
         setTaskRefId(topic ? topic.id : null);
       }
     },
-    [customTopicsData]
+    [customTopicsData],
   );
 
-  const projectOptions: SelectOption[] = sortProjectsRecentPinned(projects).map((p) => ({
-    value: p.id.toString(),
-    label: p.short_name || p.name,
-  }));
+  const projectOptions: SelectOption[] = sortProjectsRecentPinned(projects).map(
+    (p) => ({
+      value: p.id.toString(),
+      label: p.short_name || p.name,
+    }),
+  );
 
   const trainingOptions: SelectOption[] = [
     ...(trainingData?.mapping_trainings || []),
@@ -495,7 +525,9 @@ export function TimeTrackingWidget({
     }
 
     // Free-text topics
-    if (["meeting", "documentation", "imagery_capture"].includes(selectedTopic)) {
+    if (
+      ["meeting", "documentation", "imagery_capture"].includes(selectedTopic)
+    ) {
       return (
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">
@@ -626,9 +658,13 @@ export function TimeTrackingWidget({
               </p>
             )}
             <div className="flex justify-center gap-3 text-xs text-muted-foreground mb-3">
-              <span>Today: {formatDurationHM(todaySeconds + elapsedSeconds)}</span>
+              <span>
+                Today: {formatDurationHM(todaySeconds + elapsedSeconds)}
+              </span>
               <span>·</span>
-              <span>Week: {formatDurationHM(weekSeconds + elapsedSeconds)}</span>
+              <span>
+                Week: {formatDurationHM(weekSeconds + elapsedSeconds)}
+              </span>
             </div>
             <div className="flex justify-center mb-3">
               <NotesButton
@@ -658,9 +694,24 @@ export function TimeTrackingWidget({
                 disabled={clockingOut}
                 className="flex-1"
               >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10h6v4H9z" />
+                <svg
+                  className="w-4 h-4 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 10h6v4H9z"
+                  />
                 </svg>
                 {clockingOut ? "..." : "Clock Out"}
               </Button>
@@ -669,7 +720,10 @@ export function TimeTrackingWidget({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => { setDiscardError(null); setShowDiscardConfirm(true); }}
+                onClick={() => {
+                  setDiscardError(null);
+                  setShowDiscardConfirm(true);
+                }}
                 disabled={discarding}
                 className="w-full mt-2 text-muted-foreground"
                 title="Throw away this entry without saving (within 5 min of clock-in)"
@@ -699,7 +753,9 @@ export function TimeTrackingWidget({
     return (
       <Card className="border-blue-500 bg-blue-50 dark:bg-blue-900 h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg text-blue-900 dark:text-blue-100">Time Tracking</CardTitle>
+          <CardTitle className="text-lg text-blue-900 dark:text-blue-100">
+            Time Tracking
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4">
@@ -751,9 +807,7 @@ export function TimeTrackingWidget({
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {apiError && (
-            <p className="text-xs text-red-600">{apiError}</p>
-          )}
+          {apiError && <p className="text-xs text-red-600">{apiError}</p>}
           {switchMode && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 text-center">
               <p className="text-xs text-blue-700 dark:text-blue-300">
@@ -771,11 +825,18 @@ export function TimeTrackingWidget({
           {subOptions.length > 0 && (
             <Select
               label="Subcategory"
-              options={subOptions.map((s) => ({ value: String(s.id), label: s.name }))}
+              options={subOptions.map((s) => ({
+                value: String(s.id),
+                label: s.name,
+              }))}
               value={selectedSub ? String(selectedSub.id) : ""}
               onChange={(v) => {
                 const id = v ? parseInt(v, 10) : null;
-                setSelectedSub(id == null ? null : subOptions.find((s) => s.id === id) ?? null);
+                setSelectedSub(
+                  id == null
+                    ? null
+                    : (subOptions.find((s) => s.id === id) ?? null),
+                );
               }}
               placeholder="Select subcategory"
             />
@@ -839,10 +900,11 @@ export function TimeTrackingWidget({
             variant="primary"
             onClick={handleClockIn}
             disabled={
-              !selectedTopic
+              !selectedTopic ||
               // 2026-05-21: subcategory never required for clock-in.
-              || (requiresProjectFor(selectedTopic, selectedSub) && !selectedProject)
-              || clockingIn
+              (requiresProjectFor(selectedTopic, selectedSub) &&
+                !selectedProject) ||
+              clockingIn
             }
             className="w-full mt-2"
           >

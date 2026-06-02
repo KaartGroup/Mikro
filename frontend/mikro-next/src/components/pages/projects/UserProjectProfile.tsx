@@ -109,9 +109,7 @@ export function UserProjectProfile() {
 
   const { project: proj } = data;
   const totalTasks = proj.total_tasks || 0;
-  const pctMapped = totalTasks
-    ? (proj.effective_mapped / totalTasks) * 100
-    : 0;
+  const pctMapped = totalTasks ? (proj.effective_mapped / totalTasks) * 100 : 0;
   const pctValidated = totalTasks
     ? (proj.effective_validated / totalTasks) * 100
     : 0;
@@ -172,59 +170,65 @@ export function UserProjectProfile() {
           value={`${pctValidated.toFixed(1)}%`}
           sub={`${formatNumber(proj.effective_validated).text} / ${formatNumber(totalTasks).text}`}
         />
-        <StatCard
-          label="Difficulty"
-          value={proj.difficulty || "Unknown"}
-        />
+        <StatCard label="Difficulty" value={proj.difficulty || "Unknown"} />
       </div>
 
       {/* Your Progress */}
-      {data.assigned_users.length > 0 && (() => {
-        // Find the current logged-in user by matching their Auth0 email
-        const me = data.assigned_users.find((u) => u.email === auth0User?.email);
-        if (!me) return null;
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div>
-                  <p className="text-sm text-muted-foreground">Tasks Mapped</p>
-                  <p className="text-xl font-semibold">
-                    <Val>{formatNumber(me.tasks_mapped)}</Val>
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Tasks Validated</p>
-                  <p className="text-xl font-semibold">
-                    <Val>{formatNumber(me.tasks_validated)}</Val>
-                  </p>
-                </div>
-                {paymentsVisible && proj.payments_enabled !== false && (
+      {data.assigned_users.length > 0 &&
+        (() => {
+          // Find the current logged-in user by matching their Auth0 email
+          const me = data.assigned_users.find(
+            (u) => u.email === auth0User?.email,
+          );
+          if (!me) return null;
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Progress</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div>
-                    <p className="text-sm text-muted-foreground">Your Earnings</p>
-                    <p className="text-xl font-semibold text-green-600">
-                      <Val>{formatCurrency(me.earnings)}</Val>
+                    <p className="text-sm text-muted-foreground">
+                      Tasks Mapped
+                    </p>
+                    <p className="text-xl font-semibold">
+                      <Val>{formatNumber(me.tasks_mapped)}</Val>
                     </p>
                   </div>
-                )}
-                <div>
-                  <p className="text-sm text-muted-foreground">Time Logged</p>
-                  <p className="text-xl font-semibold">
-                    {me.time_logged_seconds > 0
-                      ? me.time_logged_seconds >= 3600
-                        ? `${Math.floor(me.time_logged_seconds / 3600)}h ${Math.floor((me.time_logged_seconds % 3600) / 60)}m`
-                        : `${Math.floor(me.time_logged_seconds / 60)}m`
-                      : "\u2014"}
-                  </p>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Tasks Validated
+                    </p>
+                    <p className="text-xl font-semibold">
+                      <Val>{formatNumber(me.tasks_validated)}</Val>
+                    </p>
+                  </div>
+                  {paymentsVisible && proj.payments_enabled !== false && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Your Earnings
+                      </p>
+                      <p className="text-xl font-semibold text-green-600">
+                        <Val>{formatCurrency(me.earnings)}</Val>
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm text-muted-foreground">Time Logged</p>
+                    <p className="text-xl font-semibold">
+                      {me.time_logged_seconds > 0
+                        ? me.time_logged_seconds >= 3600
+                          ? `${Math.floor(me.time_logged_seconds / 3600)}h ${Math.floor((me.time_logged_seconds % 3600) / 60)}m`
+                          : `${Math.floor(me.time_logged_seconds / 60)}m`
+                        : "\u2014"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
       {/* Task Progress */}
       <Card>
@@ -272,7 +276,7 @@ export function UserProjectProfile() {
                           <Val>{formatNumber(count as number)}</Val>
                         </Badge>
                       </div>
-                    )
+                    ),
                   )}
                 </div>
               </div>

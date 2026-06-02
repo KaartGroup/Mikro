@@ -29,8 +29,16 @@ export function getDateRange(preset: "daily" | "weekly" | "monthly"): {
       return { start: today, end: today };
     case "weekly": {
       const day = now.getDay();
-      const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
-      const saturday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day + 6);
+      const sunday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - day,
+      );
+      const saturday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - day + 6,
+      );
       return { start: ymd(sunday), end: ymd(saturday) };
     }
     case "monthly": {

@@ -34,7 +34,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
       label,
       searchable = false,
     },
-    ref
+    ref,
   ) => {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -43,11 +43,12 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
 
     const selectedOption = options.find((opt) => opt.value === value);
 
-    const filteredOptions = searchable && search.trim()
-      ? options.filter((opt) =>
-          opt.label.toLowerCase().includes(search.toLowerCase())
-        )
-      : options;
+    const filteredOptions =
+      searchable && search.trim()
+        ? options.filter((opt) =>
+            opt.label.toLowerCase().includes(search.toLowerCase()),
+          )
+        : options;
 
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -61,7 +62,8 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
       };
 
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
     return (
@@ -80,12 +82,10 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
               "flex h-10 w-full items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background",
               "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              error && "border-destructive focus:ring-destructive"
+              error && "border-destructive focus:ring-destructive",
             )}
           >
-            <span
-              className={cn(!selectedOption && "text-muted-foreground")}
-            >
+            <span className={cn(!selectedOption && "text-muted-foreground")}>
               {selectedOption?.label || placeholder}
             </span>
             <svg
@@ -98,10 +98,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className={cn(
-                "transition-transform",
-                isOpen && "rotate-180"
-              )}
+              className={cn("transition-transform", isOpen && "rotate-180")}
             >
               <polyline points="6 9 12 15 18 9" />
             </svg>
@@ -142,7 +139,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
                         "flex w-full items-center px-3 py-2 text-sm",
                         "hover:bg-accent hover:text-accent-foreground",
                         "disabled:cursor-not-allowed disabled:opacity-50",
-                        option.value === value && "bg-accent"
+                        option.value === value && "bg-accent",
                       )}
                     >
                       {option.label}
@@ -153,12 +150,10 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
             </div>
           )}
         </div>
-        {error && (
-          <p className="mt-1.5 text-sm text-destructive">{error}</p>
-        )}
+        {error && <p className="mt-1.5 text-sm text-destructive">{error}</p>}
       </div>
     );
-  }
+  },
 );
 
 Select.displayName = "Select";

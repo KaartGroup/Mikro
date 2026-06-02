@@ -106,4 +106,3 @@ export function WhatsNewModal({ userId, role }: WhatsNewModalProps) {
     </Modal>
   );
 }
-

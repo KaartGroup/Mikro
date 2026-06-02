@@ -5,7 +5,12 @@ import Link from "next/link";
 import { Button, Input, Select } from "@/components/ui";
 import type { AssignedProject } from "@/types";
 
-type SortKey = "name" | "status" | "task_count" | "hours_logged" | "last_worked_on";
+type SortKey =
+  | "name"
+  | "status"
+  | "task_count"
+  | "hours_logged"
+  | "last_worked_on";
 type SortDir = "asc" | "desc";
 
 const ROWS_PER_PAGE = 10;
@@ -52,7 +57,11 @@ function formatAbsolute(iso: string | null): string {
  * to the bottom regardless of direction — null is "less interesting" than
  * any real timestamp, asc or desc.
  */
-function compareLastWorked(a: AssignedProject, b: AssignedProject, dir: SortDir): number {
+function compareLastWorked(
+  a: AssignedProject,
+  b: AssignedProject,
+  dir: SortDir,
+): number {
   const aVal = a.last_worked_on ? new Date(a.last_worked_on).getTime() : null;
   const bVal = b.last_worked_on ? new Date(b.last_worked_on).getTime() : null;
   if (aVal === null && bVal === null) return 0;
@@ -67,8 +76,12 @@ interface Props {
 
 export function AssignedProjectsTable({ projects }: Props) {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [activityFilter, setActivityFilter] = useState<"any" | "worked" | "never">("any");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("all");
+  const [activityFilter, setActivityFilter] = useState<
+    "any" | "worked" | "never"
+  >("any");
   const [sortKey, setSortKey] = useState<SortKey>("last_worked_on");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
@@ -122,7 +135,10 @@ export function AssignedProjectsTable({ projects }: Props) {
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / ROWS_PER_PAGE));
   const safePage = Math.min(page, totalPages);
-  const pageRows = sorted.slice((safePage - 1) * ROWS_PER_PAGE, safePage * ROWS_PER_PAGE);
+  const pageRows = sorted.slice(
+    (safePage - 1) * ROWS_PER_PAGE,
+    safePage * ROWS_PER_PAGE,
+  );
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -238,7 +254,10 @@ export function AssignedProjectsTable({ projects }: Props) {
               </tr>
             ) : (
               pageRows.map((p) => (
-                <tr key={p.id} className={p.status === false ? "opacity-60" : ""}>
+                <tr
+                  key={p.id}
+                  className={p.status === false ? "opacity-60" : ""}
+                >
                   <td className="px-4 py-2">
                     <Link
                       href={`/admin/projects/${p.id}`}
@@ -259,7 +278,9 @@ export function AssignedProjectsTable({ projects }: Props) {
                       <span className="text-green-600">Active</span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right font-mono">{p.task_count || 0}</td>
+                  <td className="px-4 py-2 text-right font-mono">
+                    {p.task_count || 0}
+                  </td>
                   <td className="px-4 py-2 text-right font-mono">
                     {formatHours(p.hours_logged)}
                   </td>
@@ -280,7 +301,8 @@ export function AssignedProjectsTable({ projects }: Props) {
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
             Showing {(safePage - 1) * ROWS_PER_PAGE + 1}-
-            {Math.min(safePage * ROWS_PER_PAGE, sorted.length)} of {sorted.length}
+            {Math.min(safePage * ROWS_PER_PAGE, sorted.length)} of{" "}
+            {sorted.length}
           </span>
           <div className="flex gap-2">
             <Button

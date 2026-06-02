@@ -1,11 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import {
-  Card,
-  CardContent,
-  Val,
-} from "@/components/ui";
+import { Card, CardContent, Val } from "@/components/ui";
+import { KpiCard } from "@/components/ui/KpiCard";
 import {
   useFetchEditingStats,
   useFetchMrStats,
@@ -71,7 +68,8 @@ function twoWeeksAgoRange() {
 
 export function AdminReports() {
   const { role: viewerRole } = useCurrentUserRole();
-  const { teams: managedTeams, loading: managedTeamsLoading } = useManagedTeams();
+  const { teams: managedTeams, loading: managedTeamsLoading } =
+    useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
 
   // ── Shared UI state ──────────────────────────────────────────
@@ -79,21 +77,30 @@ export function AdminReports() {
   const [customStart, setCustomStart] = useState(() => prevWeekRange().start);
   const [customEnd, setCustomEnd] = useState(() => prevWeekRange().end);
   const [compareEnabled, setCompareEnabled] = useState(true);
-  const [compareStart, setCompareStart] = useState(() => twoWeeksAgoRange().start);
+  const [compareStart, setCompareStart] = useState(
+    () => twoWeeksAgoRange().start,
+  );
   const [compareEnd, setCompareEnd] = useState(() => twoWeeksAgoRange().end);
 
   const [draftStart, setDraftStart] = useState(customStart);
   const [draftEnd, setDraftEnd] = useState(customEnd);
   const [draftCompareStart, setDraftCompareStart] = useState(compareStart);
   const [draftCompareEnd, setDraftCompareEnd] = useState(compareEnd);
-  const [timekeepingGranularity, setTimekeepingGranularity] = useState<"weekly" | "daily">("weekly");
+  const [timekeepingGranularity, setTimekeepingGranularity] = useState<
+    "weekly" | "daily"
+  >("weekly");
 
   // ── Tab data state ───────────────────────────────────────────
-  const [editingData, setEditingData] = useState<EditingStatsResponse | null>(null);
-  const [timekeepingData, setTimekeepingData] = useState<TimekeepingStatsResponse | null>(null);
+  const [editingData, setEditingData] = useState<EditingStatsResponse | null>(
+    null,
+  );
+  const [timekeepingData, setTimekeepingData] =
+    useState<TimekeepingStatsResponse | null>(null);
 
   // ── Heatmap state ────────────────────────────────────────────
-  const [heatmapPoints, setHeatmapPoints] = useState<[number, number, number][]>([]);
+  const [heatmapPoints, setHeatmapPoints] = useState<
+    [number, number, number][]
+  >([]);
   const [heatmapLoading, setHeatmapLoading] = useState(false);
   const [heatmapSummary, setHeatmapSummary] = useState<{
     totalChangesets: number;
@@ -102,8 +109,12 @@ export function AdminReports() {
   } | null>(null);
 
   // ── Element analysis state ───────────────────────────────────
-  const [elementCategories, setElementCategories] = useState<ElementAnalysisCategory[]>([]);
-  const [elementLastUpdated, setElementLastUpdated] = useState<string | null>(null);
+  const [elementCategories, setElementCategories] = useState<
+    ElementAnalysisCategory[]
+  >([]);
+  const [elementLastUpdated, setElementLastUpdated] = useState<string | null>(
+    null,
+  );
   const [elementLoading, setElementLoading] = useState(false);
   const [elementRefreshing, setElementRefreshing] = useState(false);
   const [elementProgress, setElementProgress] = useState<string | null>(null);
@@ -119,17 +130,26 @@ export function AdminReports() {
   }, []);
 
   // ── Hooks ────────────────────────────────────────────────────
-  const { mutate: fetchEditing, loading: editingLoading, error: editingError } = useFetchEditingStats();
+  const {
+    mutate: fetchEditing,
+    loading: editingLoading,
+    error: editingError,
+  } = useFetchEditingStats();
   const { mutate: fetchMr } = useFetchMrStats();
-  const { mutate: fetchTimekeeping, loading: timekeepingLoading } = useFetchTimekeepingStats();
+  const { mutate: fetchTimekeeping, loading: timekeepingLoading } =
+    useFetchTimekeepingStats();
   const { activeFilters, setActiveFilters, filtersBody } = useFilters();
-  const { data: filterOptions, loading: filterOptionsLoading } = useFetchFilterOptions();
+  const { data: filterOptions, loading: filterOptionsLoading } =
+    useFetchFilterOptions();
   const { mutate: fetchHeatmap } = useFetchChangesetHeatmap();
   const { mutate: fetchElementAnalysis } = useFetchElementAnalysis();
   const { mutate: queueElementAnalysis } = useQueueElementAnalysis();
-  const { mutate: checkElementAnalysisStatus } = useCheckElementAnalysisStatus();
-  const { mutate: queueElementAnalysisBackfill } = useQueueElementAnalysisBackfill();
-  const { mutate: checkElementAnalysisBackfillStatus } = useCheckElementAnalysisBackfillStatus();
+  const { mutate: checkElementAnalysisStatus } =
+    useCheckElementAnalysisStatus();
+  const { mutate: queueElementAnalysisBackfill } =
+    useQueueElementAnalysisBackfill();
+  const { mutate: checkElementAnalysisBackfillStatus } =
+    useCheckElementAnalysisBackfillStatus();
   const { mutate: fetchMapillaryStats } = useFetchMapillaryStats();
 
   // ── Data fetching ────────────────────────────────────────────
@@ -161,18 +181,22 @@ export function AdminReports() {
         if (res?.status === 200) setTimekeepingData(res);
       }),
       fetchMr(params),
-      fetchHeatmap(params).then((res) => {
-        if (res?.status === 200) {
-          setHeatmapPoints(res.heatmapPoints || []);
-          setHeatmapSummary(res.summary || null);
-        }
-      }).finally(() => setHeatmapLoading(false)),
-      fetchElementAnalysis({ startDate: startIso, endDate: endIso }).then((res) => {
-        if (res?.status === 200) {
-          setElementCategories(res.categories || []);
-          setElementLastUpdated(res.lastUpdated);
-        }
-      }).finally(() => setElementLoading(false)),
+      fetchHeatmap(params)
+        .then((res) => {
+          if (res?.status === 200) {
+            setHeatmapPoints(res.heatmapPoints || []);
+            setHeatmapSummary(res.summary || null);
+          }
+        })
+        .finally(() => setHeatmapLoading(false)),
+      fetchElementAnalysis({ startDate: startIso, endDate: endIso })
+        .then((res) => {
+          if (res?.status === 200) {
+            setElementCategories(res.categories || []);
+            setElementLastUpdated(res.lastUpdated);
+          }
+        })
+        .finally(() => setElementLoading(false)),
       fetchMapillaryStats({
         startDate: startIso,
         endDate: endIso,
@@ -214,7 +238,8 @@ export function AdminReports() {
             if (statusRes?.status === 200) {
               setElementProgress(statusRes.progress || "Processing...");
               if (statusRes.sync_status === "completed") {
-                if (elementPollRef.current) clearInterval(elementPollRef.current);
+                if (elementPollRef.current)
+                  clearInterval(elementPollRef.current);
                 elementPollRef.current = null;
                 setElementRefreshing(false);
                 setElementProgress(null);
@@ -227,7 +252,8 @@ export function AdminReports() {
                   setElementLastUpdated(elRes.lastUpdated);
                 }
               } else if (statusRes.sync_status === "failed") {
-                if (elementPollRef.current) clearInterval(elementPollRef.current);
+                if (elementPollRef.current)
+                  clearInterval(elementPollRef.current);
                 elementPollRef.current = null;
                 setElementRefreshing(false);
                 setElementProgress(null);
@@ -266,8 +292,12 @@ export function AdminReports() {
             const statusRes = await checkElementAnalysisBackfillStatus({});
             if (statusRes?.status === 200) {
               setElementProgress(statusRes.progress || "Processing...");
-              if (statusRes.sync_status === "completed" || statusRes.sync_status === "failed") {
-                if (elementPollRef.current) clearInterval(elementPollRef.current);
+              if (
+                statusRes.sync_status === "completed" ||
+                statusRes.sync_status === "failed"
+              ) {
+                if (elementPollRef.current)
+                  clearInterval(elementPollRef.current);
                 elementPollRef.current = null;
                 setElementRefreshing(false);
                 setElementProgress(null);
@@ -290,27 +320,69 @@ export function AdminReports() {
   // ── Derived data ─────────────────────────────────────────────
   const overallProgress = useMemo(() => {
     if (!editingData) return null;
-    const totalTasks = editingData.projects.reduce((s, p) => s + p.total_tasks, 0);
-    const totalMapped = editingData.projects.reduce((s, p) => s + p.tasks_mapped, 0);
-    const totalValidated = editingData.projects.reduce((s, p) => s + p.tasks_validated, 0);
-    const pct = totalTasks > 0 ? Math.round((totalMapped / totalTasks) * 100) : 0;
+    const totalTasks = editingData.projects.reduce(
+      (s, p) => s + p.total_tasks,
+      0,
+    );
+    const totalMapped = editingData.projects.reduce(
+      (s, p) => s + p.tasks_mapped,
+      0,
+    );
+    const totalValidated = editingData.projects.reduce(
+      (s, p) => s + p.tasks_validated,
+      0,
+    );
+    const pct =
+      totalTasks > 0 ? Math.round((totalMapped / totalTasks) * 100) : 0;
     return { totalTasks, totalMapped, totalValidated, pct };
   }, [editingData]);
 
   const trendSeries = useMemo(() => {
     const isWeekly = timekeepingGranularity === "weekly";
     const tkData = isWeekly
-      ? (timekeepingData?.weekly_activity ?? []).map((d) => ({ date: d.week, changes: d.changes, changesets: d.changesets }))
-      : (timekeepingData?.daily_activity ?? []).map((d) => ({ date: d.day, changes: d.changes, changesets: d.changesets }));
+      ? (timekeepingData?.weekly_activity ?? []).map((d) => ({
+          date: d.week,
+          changes: d.changes,
+          changesets: d.changesets,
+        }))
+      : (timekeepingData?.daily_activity ?? []).map((d) => ({
+          date: d.day,
+          changes: d.changes,
+          changesets: d.changesets,
+        }));
     const tkCmp = isWeekly
-      ? (timekeepingData?.comparison?.weekly_activity ?? []).map((d) => ({ date: d.week, changes: d.changes, changesets: d.changesets }))
-      : (timekeepingData?.comparison?.daily_activity ?? []).map((d) => ({ date: d.day, changes: d.changes, changesets: d.changesets }));
+      ? (timekeepingData?.comparison?.weekly_activity ?? []).map((d) => ({
+          date: d.week,
+          changes: d.changes,
+          changesets: d.changesets,
+        }))
+      : (timekeepingData?.comparison?.daily_activity ?? []).map((d) => ({
+          date: d.day,
+          changes: d.changes,
+          changesets: d.changesets,
+        }));
     const edData = isWeekly
-      ? (editingData?.tasks_over_time ?? []).map((d) => ({ date: d.week, mapped: d.mapped, validated: d.validated }))
-      : (editingData?.tasks_over_time_daily ?? []).map((d) => ({ date: d.day, mapped: d.mapped, validated: d.validated }));
+      ? (editingData?.tasks_over_time ?? []).map((d) => ({
+          date: d.week,
+          mapped: d.mapped,
+          validated: d.validated,
+        }))
+      : (editingData?.tasks_over_time_daily ?? []).map((d) => ({
+          date: d.day,
+          mapped: d.mapped,
+          validated: d.validated,
+        }));
     const edCmp = isWeekly
-      ? (editingData?.comparison?.tasks_over_time ?? []).map((d) => ({ date: d.week, mapped: d.mapped, validated: d.validated }))
-      : (editingData?.comparison?.tasks_over_time_daily ?? []).map((d) => ({ date: d.day, mapped: d.mapped, validated: d.validated }));
+      ? (editingData?.comparison?.tasks_over_time ?? []).map((d) => ({
+          date: d.week,
+          mapped: d.mapped,
+          validated: d.validated,
+        }))
+      : (editingData?.comparison?.tasks_over_time_daily ?? []).map((d) => ({
+          date: d.day,
+          mapped: d.mapped,
+          validated: d.validated,
+        }));
     return { tkData, tkCmp, edData, edCmp };
   }, [timekeepingData, editingData, timekeepingGranularity]);
 
@@ -415,20 +487,22 @@ export function AdminReports() {
               <FilterBar
                 dimensions={
                   filterOptions?.dimensions
-                    ? Object.entries(filterOptions.dimensions).map(([key, values]) => ({
-                        key,
-                        label: key.charAt(0).toUpperCase() + key.slice(1),
-                        options: Array.isArray(values)
-                          ? values.map((v) =>
-                              typeof v === "string"
-                                ? { value: v, label: v }
-                                : {
-                                    value: String(v.id ?? v.value ?? v.name),
-                                    label: v.name,
-                                  }
-                            )
-                          : [],
-                      }))
+                    ? Object.entries(filterOptions.dimensions).map(
+                        ([key, values]) => ({
+                          key,
+                          label: key.charAt(0).toUpperCase() + key.slice(1),
+                          options: Array.isArray(values)
+                            ? values.map((v) =>
+                                typeof v === "string"
+                                  ? { value: v, label: v }
+                                  : {
+                                      value: String(v.id ?? v.value ?? v.name),
+                                      label: v.name,
+                                    },
+                              )
+                            : [],
+                        }),
+                      )
                     : []
                 }
                 activeFilters={activeFilters}
@@ -442,58 +516,114 @@ export function AdminReports() {
 
       {/* Report content captured for PDF export */}
       <div ref={reportContentRef}>
-
         {/* KPI Summary */}
         <div className="flex flex-col gap-4">
-        <div className="flex flex-row gap-2">
-          {[
-            { label: "Total Hours", value: formatNumber(totalHours) },
-            { label: "Total Changesets", value: formatNumber(totalChangesets) },
-            { label: "Total Changes", value: formatNumber(totalChanges) },
-            { label: "Avg Changes / Changeset", value: totalChangesets > 0 ? formatNumber(totalChanges / totalChangesets) : "—" },
-            { label: "Avg Changes / Hour", value: totalHours > 0 ? formatNumber(totalChanges / totalHours) : "—" },
-            { label: "Total Tasks", value: formatNumber(overallProgress?.totalTasks ?? 0) },
-            { label: "Tasks Completed", value: formatNumber(overallProgress?.totalMapped ?? 0) },
-            { label: "% Complete", value: formatNumber(overallProgress?.pct ?? 0), suffix: "%" },
-          ].map(({ label, value, suffix }) => (
-            <Card key={label} className="flex-1">
-              <CardContent className="px-4 py-3">
-                <p className="text-xs text-muted-foreground mb-1">{label}</p>
-                <p className="text-xl font-bold leading-none">
-                  <Val>{value}</Val>{suffix}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+          <div className="flex flex-row gap-2">
+            {[
+              { label: "Total Hours", value: formatNumber(totalHours) },
+              {
+                label: "Total Changesets",
+                value: formatNumber(totalChangesets),
+              },
+              { label: "Total Changes", value: formatNumber(totalChanges) },
+              {
+                label: "Avg Changes / Changeset",
+                value:
+                  totalChangesets > 0
+                    ? formatNumber(totalChanges / totalChangesets)
+                    : "—",
+              },
+              {
+                label: "Avg Changes / Hour",
+                value:
+                  totalHours > 0
+                    ? formatNumber(totalChanges / totalHours)
+                    : "—",
+              },
+              {
+                label: "Total Tasks",
+                value: formatNumber(overallProgress?.totalTasks ?? 0),
+              },
+              {
+                label: "Tasks Completed",
+                value: formatNumber(overallProgress?.totalMapped ?? 0),
+              },
+              {
+                label: "% Complete",
+                value: formatNumber(overallProgress?.pct ?? 0),
+                suffix: "%",
+              },
+            ].map(({ label, value, suffix }) => {
+              const displayValue = suffix
+                ? typeof value === "string"
+                  ? `${value}${suffix}`
+                  : `${(value as any).text ?? String(value)}${suffix}`
+                : value;
+              return (
+                <KpiCard
+                  key={label}
+                  className="w-44"
+                  label={label}
+                  value={displayValue as any}
+                  subtitle=""
+                />
+              );
+            })}
+          </div>
 
-        {/* ── Trends + Activity ── */}
+          {/* ── Trends + Activity ── */}
           <div className="flex flex-row gap-4">
             <TrendOverview
               title="Total Changes"
-              data={trendSeries.tkData.map((d) => ({ date: d.date, value: d.changes }))}
-              compareData={trendSeries.tkCmp.map((d) => ({ date: d.date, value: d.changes }))}
+              data={trendSeries.tkData.map((d) => ({
+                date: d.date,
+                value: d.changes,
+              }))}
+              compareData={trendSeries.tkCmp.map((d) => ({
+                date: d.date,
+                value: d.changes,
+              }))}
               color="#f97316"
               loading={timekeepingLoading}
             />
             <TrendOverview
               title="Total Changesets"
-              data={trendSeries.tkData.map((d) => ({ date: d.date, value: d.changesets }))}
-              compareData={trendSeries.tkCmp.map((d) => ({ date: d.date, value: d.changesets }))}
+              data={trendSeries.tkData.map((d) => ({
+                date: d.date,
+                value: d.changesets,
+              }))}
+              compareData={trendSeries.tkCmp.map((d) => ({
+                date: d.date,
+                value: d.changesets,
+              }))}
               color="#3b82f6"
               loading={timekeepingLoading}
             />
             <TrendOverview
               title="Tasks Completed"
-              data={trendSeries.edData.map((d) => ({ date: d.date, value: d.mapped }))}
-              compareData={trendSeries.edCmp.map((d) => ({ date: d.date, value: d.mapped }))}
+              data={trendSeries.edData.map((d) => ({
+                date: d.date,
+                value: d.mapped,
+              }))}
+              compareData={trendSeries.edCmp.map((d) => ({
+                date: d.date,
+                value: d.mapped,
+              }))}
               color="#10b981"
               loading={editingLoading}
             />
             <TrendOverview
               title="Validation Rate"
-              data={trendSeries.edData.map((d) => ({ date: d.date, value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0 }))}
-              compareData={trendSeries.edCmp.map((d) => ({ date: d.date, value: d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0 }))}
+              data={trendSeries.edData.map((d) => ({
+                date: d.date,
+                value:
+                  d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0,
+              }))}
+              compareData={trendSeries.edCmp.map((d) => ({
+                date: d.date,
+                value:
+                  d.mapped > 0 ? Math.round((d.validated / d.mapped) * 100) : 0,
+              }))}
               color="#8b5cf6"
               unit="%"
               loading={editingLoading}
@@ -517,10 +647,11 @@ export function AdminReports() {
                 />
               </>
             ) : timekeepingLoading ? (
-              <div className="col-span-3"><LoadingSpinner /></div>
+              <div className="col-span-3">
+                <LoadingSpinner />
+              </div>
             ) : null}
           </div>
-
         </div>
 
         {/* ── Editing Section ── */}
@@ -550,13 +681,13 @@ export function AdminReports() {
             />
           </div>
         ) : null}
-
-      </div>{/* end reportContentRef */}
-                      <ChangesetHeatmapCard
-                  heatmapPoints={heatmapPoints}
-                  heatmapLoading={heatmapLoading}
-                  heatmapSummary={heatmapSummary}
-                />
+      </div>
+      {/* end reportContentRef */}
+      <ChangesetHeatmapCard
+        heatmapPoints={heatmapPoints}
+        heatmapLoading={heatmapLoading}
+        heatmapSummary={heatmapSummary}
+      />
     </div>
   );
 }

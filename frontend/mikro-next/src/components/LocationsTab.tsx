@@ -84,7 +84,9 @@ export default function LocationsTab({
   const { fetchLocations, assignLocations, unassignLocation } =
     useLocationHooks(resourceType);
 
-  const [assignedCountries, setAssignedCountries] = useState<AssignedCountry[]>([]);
+  const [assignedCountries, setAssignedCountries] = useState<AssignedCountry[]>(
+    [],
+  );
   const [allCountries, setAllCountries] = useState<AvailableCountry[]>([]);
   const [allRegions, setAllRegions] = useState<Region[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -119,7 +121,10 @@ export default function LocationsTab({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     }
@@ -131,12 +136,12 @@ export default function LocationsTab({
 
   const assignedIds = useMemo(
     () => new Set(assignedCountries.map((c) => c.id)),
-    [assignedCountries]
+    [assignedCountries],
   );
 
   const unassignedCountries = useMemo(
     () => allCountries.filter((c) => !assignedIds.has(c.id)),
-    [allCountries, assignedIds]
+    [allCountries, assignedIds],
   );
 
   const filteredCountries = useMemo(() => {
@@ -145,7 +150,7 @@ export default function LocationsTab({
     return unassignedCountries.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        (c.iso_code && c.iso_code.toLowerCase().includes(q))
+        (c.iso_code && c.iso_code.toLowerCase().includes(q)),
     );
   }, [unassignedCountries, searchQuery]);
 
@@ -176,7 +181,7 @@ export default function LocationsTab({
         // error surfaced via assignLocations.error
       }
     },
-    [resourceId, assignLocations.mutate, loadLocations]
+    [resourceId, assignLocations.mutate, loadLocations],
   );
 
   const handleAssignRegion = useCallback(
@@ -192,7 +197,7 @@ export default function LocationsTab({
         // error surfaced via assignLocations.error
       }
     },
-    [resourceId, assignLocations.mutate, loadLocations]
+    [resourceId, assignLocations.mutate, loadLocations],
   );
 
   const handleUnassignCountry = useCallback(
@@ -207,7 +212,7 @@ export default function LocationsTab({
         // error surfaced via unassignLocation.error
       }
     },
-    [resourceId, unassignLocation.mutate, loadLocations]
+    [resourceId, unassignLocation.mutate, loadLocations],
   );
 
   // ── Error display ───────────────────────────────────────
@@ -282,7 +287,9 @@ export default function LocationsTab({
                   <span>{country.name}</span>
                   <span className="text-xs text-muted-foreground">
                     {country.iso_code || ""}
-                    {country.region_id ? ` · ${regionMap.get(country.region_id) || ""}` : ""}
+                    {country.region_id
+                      ? ` · ${regionMap.get(country.region_id) || ""}`
+                      : ""}
                   </span>
                 </button>
               ))}
@@ -293,11 +300,13 @@ export default function LocationsTab({
               )}
             </div>
           )}
-          {dropdownOpen && searchQuery.trim() && filteredCountries.length === 0 && (
-            <div className="absolute z-50 mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground shadow-md">
-              No matching countries found
-            </div>
-          )}
+          {dropdownOpen &&
+            searchQuery.trim() &&
+            filteredCountries.length === 0 && (
+              <div className="absolute z-50 mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground shadow-md">
+                No matching countries found
+              </div>
+            )}
         </div>
       </div>
 
@@ -305,7 +314,9 @@ export default function LocationsTab({
       <div className="space-y-2">
         <p className="text-sm font-medium">
           Assigned countries{" "}
-          <span className="text-muted-foreground">({assignedCountries.length})</span>
+          <span className="text-muted-foreground">
+            ({assignedCountries.length})
+          </span>
         </p>
 
         {assignedCountries.length === 0 ? (

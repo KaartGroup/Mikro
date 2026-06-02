@@ -40,7 +40,9 @@ export interface LoadingOverlayProps {
   message?: string;
 }
 
-export function LoadingOverlay({ message = "Loading..." }: LoadingOverlayProps) {
+export function LoadingOverlay({
+  message = "Loading...",
+}: LoadingOverlayProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
       <div className="flex flex-col items-center gap-4">
@@ -61,7 +63,7 @@ export function LoadingCard({ message, className }: LoadingCardProps) {
     <div
       className={cn(
         "flex flex-col items-center justify-center gap-4 rounded-lg border border-input bg-background p-8",
-        className
+        className,
       )}
     >
       <Spinner size="md" />
@@ -76,14 +78,7 @@ export interface SkeletonProps {
 }
 
 export function Skeleton({ className }: SkeletonProps) {
-  return (
-    <div
-      className={cn(
-        "animate-pulse rounded-md bg-muted",
-        className
-      )}
-    />
-  );
+  return <div className={cn("animate-pulse rounded-md bg-muted", className)} />;
 }
 
 // Table skeleton

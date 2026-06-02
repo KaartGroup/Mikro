@@ -69,7 +69,11 @@ function formatDeltaValue(n: number, format: DeltaFormat): string {
   }
 }
 
-function DeltaBadge({ delta }: { delta: NonNullable<DashboardStatCardProps["delta"]> }) {
+function DeltaBadge({
+  delta,
+}: {
+  delta: NonNullable<DashboardStatCardProps["delta"]>;
+}) {
   const good = delta.goodDirection ?? "up";
   const dir = delta.value === 0 ? "flat" : delta.value > 0 ? "up" : "down";
   const isGood = dir === "flat" ? null : dir === good;
@@ -78,8 +82,8 @@ function DeltaBadge({ delta }: { delta: NonNullable<DashboardStatCardProps["delt
     isGood === null
       ? "text-muted-foreground"
       : isGood
-      ? "text-green-600"
-      : "text-red-600";
+        ? "text-green-600"
+        : "text-red-600";
   return (
     <span className={`text-xs font-medium ${colorClass}`}>
       {arrow} {formatDeltaValue(delta.value, delta.format ?? "number")}
@@ -117,15 +121,22 @@ export function DashboardStatCard({
         <div className="flex items-start justify-between gap-2">
           {labelNode}
           {href && (
-            <StatCardLink href={href} label={linkLabel ?? `View ${label} details`} />
+            <StatCardLink
+              href={href}
+              label={linkLabel ?? `View ${label} details`}
+            />
           )}
         </div>
         <div className="flex items-baseline gap-2 flex-wrap">
           {loading ? (
             <Skeleton className="h-6 w-16" />
           ) : (
-            <span className={`text-xl font-bold leading-tight ${SEVERITY_TEXT[severity]}`}>
-              {typeof value === "object" && value !== null && "isPlaceholder" in value ? (
+            <span
+              className={`text-xl font-bold leading-tight ${SEVERITY_TEXT[severity]}`}
+            >
+              {typeof value === "object" &&
+              value !== null &&
+              "isPlaceholder" in value ? (
                 <Val>{value}</Val>
               ) : (
                 value

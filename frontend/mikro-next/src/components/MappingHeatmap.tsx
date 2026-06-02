@@ -40,26 +40,25 @@ export default function MappingHeatmap({
       });
 
       // Add heat layer
-      const heat = (L as unknown as { heatLayer: typeof L.heatLayer }).heatLayer(
-        points,
-        {
-          radius: 25,
-          blur: 15,
-          maxZoom: 10,
-          gradient: {
-            0.4: "#2563eb",
-            0.6: "#f59e0b",
-            0.8: "#f97316",
-            1.0: "#ef4444",
-          },
-        }
-      );
+      const heat = (
+        L as unknown as { heatLayer: typeof L.heatLayer }
+      ).heatLayer(points, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 10,
+        gradient: {
+          0.4: "#2563eb",
+          0.6: "#f59e0b",
+          0.8: "#f97316",
+          1.0: "#ef4444",
+        },
+      });
       heat.addTo(map);
 
       // Fit bounds to points
       if (points.length > 0) {
         const bounds = L.latLngBounds(
-          points.map(([lat, lon]) => [lat, lon] as L.LatLngTuple)
+          points.map(([lat, lon]) => [lat, lon] as L.LatLngTuple),
         );
         map.fitBounds(bounds, { padding: [20, 20] });
       }
@@ -84,6 +83,10 @@ export default function MappingHeatmap({
   }
 
   return (
-    <div ref={mapRef} style={{ height, width: "100%" }} className="rounded-lg" />
+    <div
+      ref={mapRef}
+      style={{ height, width: "100%" }}
+      className="rounded-lg"
+    />
   );
 }

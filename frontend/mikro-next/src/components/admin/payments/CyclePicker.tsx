@@ -26,7 +26,11 @@ interface CyclePickerProps {
   onChange: (start: string, end: string) => void;
 }
 
-export function CyclePicker({ cycleStart, cycleEnd, onChange }: CyclePickerProps) {
+export function CyclePicker({
+  cycleStart,
+  cycleEnd,
+  onChange,
+}: CyclePickerProps) {
   const [open, setOpen] = useState(false);
   const [customStart, setCustomStart] = useState(cycleStart);
   const [customEnd, setCustomEnd] = useState(cycleEnd);
