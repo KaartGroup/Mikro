@@ -98,6 +98,9 @@ export interface Project {
   total_tasks: number;
   source?: "tm4" | "mr";
   created_by?: string;
+  // Backend-computed: true if the current viewer may delete this project
+  // (Org Admin/Super Admin for any, Team Admin only for ones they created).
+  can_delete?: boolean;
   total_mapped?: number;
   total_validated?: number;
   total_invalidated?: number;

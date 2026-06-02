@@ -539,7 +539,7 @@ class ProjectAPI(MethodView):
         response["status"] = 200
         return response
 
-    @requires_admin
+    @requires_team_admin_or_above
     def delete_project(self):
         response = {}
         # Check if user is authenticated
@@ -557,6 +557,16 @@ class ProjectAPI(MethodView):
             response["status"] = 400
             return response
         else:
+            # Org Admins / Super Admins may delete any project in the org.
+            # Team Admins may only delete projects they created themselves.
+            if (
+                not is_org_admin_or_above(g.user)
+                and target_project.created_by != g.user.id
+            ):
+                return {
+                    "message": "Team admins can only delete projects they created",
+                    "status": 403,
+                }
             # Put logic here to process remaining payouts or whatever else before deletion  # noqa: E501
             target_project.delete(soft=False)
             response["message"] = "Project %s deleted" % (project_id)
@@ -951,6 +961,13 @@ class ProjectAPI(MethodView):
                     "difficulty": project.difficulty,
                     "source": project.source,
                     "created_by": project.created_by,
+                    # Org Admins can delete any org project; Team Admins only
+                    # the projects they created themselves. Drives the Delete
+                    # button's visibility on the frontend.
+                    "can_delete": (
+                        is_org_admin_or_above(g.user)
+                        or project.created_by == g.user.id
+                    ),
                     # Use effective counts that handle split tasks
                     "total_mapped": task_counts["effective_mapped"],
                     "total_validated": task_counts["effective_validated"],
@@ -994,6 +1011,13 @@ class ProjectAPI(MethodView):
                     "difficulty": project.difficulty,
                     "source": project.source,
                     "created_by": project.created_by,
+                    # Org Admins can delete any org project; Team Admins only
+                    # the projects they created themselves. Drives the Delete
+                    # button's visibility on the frontend.
+                    "can_delete": (
+                        is_org_admin_or_above(g.user)
+                        or project.created_by == g.user.id
+                    ),
                     # Use effective counts that handle split tasks
                     "total_mapped": task_counts["effective_mapped"],
                     "total_validated": task_counts["effective_validated"],

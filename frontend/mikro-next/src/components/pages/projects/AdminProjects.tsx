@@ -1088,7 +1088,7 @@ export function AdminProjects() {
                     >
                       Edit
                     </Button>
-                    {canCreateOrDelete && (
+                    {(canCreateOrDelete || project.can_delete) && (
                       <Button
                         size="sm"
                         variant="destructive"
