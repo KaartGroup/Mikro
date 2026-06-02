@@ -11,8 +11,15 @@ import io
 import logging
 import unicodedata
 from datetime import datetime, timedelta
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib import colors
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
+)
+from xml.sax.saxutils import escape as xml_escape
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 
-import requests as http_requests
 from flask.views import MethodView
 from flask import g, request, jsonify, Response
 
@@ -28,7 +35,6 @@ from ..database import (
     TimeEntry, User, Project, Task, Team, TeamUser, TeamLead,
     CustomTopic, ActivitySubcategory, HourlyPayment, db,
 )
-from ..filters import resolve_filtered_user_ids
 from ..auth import (
     is_org_admin_or_above,
     managed_team_ids_for,
@@ -36,6 +42,8 @@ from ..auth import (
     team_admin_can_access_user,
     team_member_ids_for,
 )
+from ..utils.time_tracking_helpers import TimeTrackingHelpers, ACTIVITY_SLUGS, ACTIVITY_DISPLAY_MAP
+from ..utils.time_entry_query import TimeEntryQuery
 
 logger = logging.getLogger(__name__)
 
@@ -64,56 +72,6 @@ def _ascii_safe(s):
         .encode("ascii", "ignore")
         .decode("ascii")
     )
-
-# Tier-1 activity slugs (the renamed `category` enum). Stored in
-# `time_entries.activity`. Mirrors the SSOT on the frontend at
-# `lib/timeTracking.ts` — keep these two lists in sync; any new
-# activity needs to be added in BOTH places (and seeded with a
-# default set of subcategories via the Time Categories admin page
-# or a follow-up migration).
-# 2026-05-21 Logan taxonomy pass: removed `validating`, `checklist`, and
-# `community` from the accepted activity set per his request (Validating
-# folded into QC/Validation; Checklist deprecated; Community's subs
-# relocated under Other). The slugs are NOT in ACTIVITY_DISPLAY_MAP-less
-# territory — historical entries with those values still render via the
-# display map below — but new clock-ins with those slugs now 400. Legacy
-# alias `validation` is also dropped from accepted slugs for the same
-# reason. `mapping` (-> Editing) and `review` (-> QC/Validation) stay
-# accepted for back-compat from older clients.
-ACTIVITY_SLUGS = {
-    "editing", "training",
-    "qc_review", "meeting", "documentation", "imagery_capture",
-    "project_creation", "other",
-    # Legacy values still accepted for backward compat (clock-in payloads
-    # from older clients). Normalized to canonical slugs on display.
-    "mapping", "review",
-}
-
-# Map stored activity slug -> display label. User-facing UI strings.
-# Retired activities (`validating`, `checklist`, `community`) keep their
-# display entries so historical time_entries continue to render their
-# original label correctly even though new clock-ins can no longer pick
-# them. `qc_review` was renamed from "QC / Review" -> "QC / Validation"
-# in the same pass (Logan merged Validating into it).
-ACTIVITY_DISPLAY_MAP = {
-    "editing": "Editing",
-    "training": "Training",
-    "qc_review": "QC / Validation",
-    "meeting": "Meeting",
-    "documentation": "Documentation",
-    "imagery_capture": "Imagery Capture",
-    "project_creation": "Project Creation",
-    "other": "Other",
-    # Retired activities — kept for display continuity on historical rows.
-    "validating": "Validating",
-    "checklist": "Checklist",
-    "community": "Community",
-    # Legacy mappings -> canonical labels (post-rename for review/validation).
-    "mapping": "Editing",
-    "validation": "Validating",
-    "review": "QC / Validation",
-}
-
 
 # ─── Subcategory helpers (SSOT for visibility / management) ─────────
 #
@@ -369,6 +327,10 @@ class TimeTrackingAPI(MethodView):
             return self.admin_export()
         elif path == "fetch_custom_topics":
             return self.fetch_custom_topics()
+        elif path == "time_stats":
+            return self.admin_time_stats()
+        elif path == "aggregate_stats":
+            return self.admin_aggregate_stats()
         elif path == "hourly_summary":
             return self.admin_hourly_summary()
         elif path == "set_hourly_rate":
@@ -389,238 +351,10 @@ class TimeTrackingAPI(MethodView):
 
         return jsonify({"message": "Endpoint not found", "status": 404}), 404
 
-    # ─── Helpers ───────────────────────────────────────────────
-
-    USER_NOTES_MAX_LEN = 500
-
     # Self-service "discard active record" is allowed within this window
     # only. Past it, users must clock out and request an adjustment so the
     # admin has visibility on retroactive changes.
     DISCARD_WINDOW_SECONDS = 300  # 5 minutes
-
-    @staticmethod
-    def _normalize_user_notes(value):
-        """Coerce incoming user_notes payload into a clean column value.
-
-        Returns None for missing / empty input so we don't store empty
-        strings. Raises ValueError if the trimmed value exceeds the
-        500-char limit — caller turns that into a 400 response.
-        """
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            raise ValueError("user_notes must be a string")
-        trimmed = value.strip()
-        if not trimmed:
-            return None
-        if len(trimmed) > TimeTrackingAPI.USER_NOTES_MAX_LEN:
-            raise ValueError(
-                f"user_notes exceeds {TimeTrackingAPI.USER_NOTES_MAX_LEN}-character limit"
-            )
-        return trimmed
-
-    @staticmethod
-    def _format_entry(entry):
-        """Format a TimeEntry for JSON response."""
-        user = User.query.get(entry.user_id)
-        project = Project.query.get(entry.project_id) if entry.project_id else None
-
-        duration = None
-        if entry.duration_seconds is not None:
-            hours = entry.duration_seconds // 3600
-            minutes = (entry.duration_seconds % 3600) // 60
-            seconds = entry.duration_seconds % 60
-            duration = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-
-        return {
-            "id": entry.id,
-            "userId": entry.user_id,
-            "userName": user.full_name if user else "Unknown",
-            "firstName": (user.first_name or "") if user else "",
-            "lastName": (user.last_name or "") if user else "",
-            "projectId": entry.project_id,
-            "projectName": project.name if project else "No Project",
-            "projectShortName": (project.short_name or "") if project else "",
-            # The "category" JSON key is preserved for frontend backward
-            # compat; it reads from entry.activity now (DB column was
-            # renamed in migration c4f8a9b0d1e2). Display label still
-            # comes from ACTIVITY_DISPLAY_MAP.
-            "category": ACTIVITY_DISPLAY_MAP.get(entry.activity, entry.activity.capitalize() if entry.activity else ""),
-            "activity": entry.activity,  # raw slug (new — preferred for filters)
-            "subcategoryId": entry.subcategory_id,
-            "subcategoryName": entry.subcategory_name,
-            "retainedParticipants": entry.retained_participants,
-            "newParticipants": entry.new_participants,
-            "taskName": entry.task_name,
-            "taskRefType": entry.task_ref_type,
-            "taskRefId": entry.task_ref_id,
-            "clockIn": entry.clock_in.isoformat() + "Z" if entry.clock_in else None,
-            "clockOut": entry.clock_out.isoformat() + "Z" if entry.clock_out else None,
-            "duration": duration,
-            "durationSeconds": entry.duration_seconds,
-            "status": entry.status,
-            "changesetCount": entry.changeset_count or 0,
-            "changesCount": entry.changes_count or 0,
-            "notes": entry.notes,
-            "userNotes": entry.user_notes,
-            "voidedBy": entry.voided_by,
-            "voidedAt": entry.voided_at.isoformat() + "Z" if entry.voided_at else None,
-            "editedBy": entry.edited_by,
-            "editedAt": entry.edited_at.isoformat() + "Z" if entry.edited_at else None,
-            "forceClockedOutBy": entry.force_clocked_out_by,
-        }
-
-    @staticmethod
-    def _fetch_osm_changesets(osm_username, clock_in_time):
-        """
-        Fetch OSM changesets for a user since clock_in_time.
-
-        Returns (changeset_count, changes_count) tuple.
-        Best-effort: returns (0, 0) on any failure.
-        """
-        if not osm_username:
-            return 0, 0
-
-        time_str = clock_in_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-        url = (
-            f"https://api.openstreetmap.org/api/0.6/changesets.json"
-            f"?display_name={osm_username}&time={time_str}"
-        )
-
-        for attempt in range(3):
-            try:
-                resp = http_requests.get(url, timeout=30)
-                if resp.status_code == 429:
-                    import time
-                    time.sleep(2 ** attempt)
-                    continue
-                resp.raise_for_status()
-                data = resp.json()
-                changesets = data.get("changesets", [])
-                changeset_count = len(changesets)
-                changes_count = sum(
-                    cs.get("changes_count", 0) for cs in changesets
-                )
-                return changeset_count, changes_count
-            except Exception as e:
-                logger.warning(
-                    f"OSM changeset fetch attempt {attempt + 1} failed for "
-                    f"{osm_username}: {e}"
-                )
-                if attempt < 2:
-                    import time
-                    time.sleep(2 ** attempt)
-
-        logger.error(f"OSM changeset fetch failed after 3 attempts for {osm_username}")
-        return 0, 0
-
-    # _parse_date: thin wrapper around the shared parser so existing in-file
-    # callers keep working. New code should use parse_filter_datetime directly.
-    _parse_date = staticmethod(parse_filter_datetime)
-
-    @staticmethod
-    def _apply_team_admin_scope(query, viewer, team_id_in_request=None):
-        """Force a TimeEntry query to managed-team members for team_admin.
-
-        Returns the (possibly empty-result) query. Org Admin / super_admin
-        get the query untouched. If a team_admin sends a `teamId` outside
-        their managed set, we silently drop it back to the union of their
-        managed teams — same effect as if they never sent the param.
-        """
-        if viewer is None or getattr(viewer, "role", None) != "team_admin":
-            return query
-
-        managed = managed_team_ids_for(viewer)
-        if not managed:
-            # Zero-team team_admin → empty result
-            return query.filter(TimeEntry.user_id == None)  # noqa: E711
-
-        if team_id_in_request and team_id_in_request not in managed:
-            # Requested team is outside their managed set — refuse the team
-            # narrow and fall back to the union of managed teams.
-            team_id_in_request = None
-
-        if team_id_in_request:
-            member_ids = [
-                tu.user_id
-                for tu in TeamUser.query.filter_by(team_id=team_id_in_request).all()
-            ]
-        else:
-            member_ids = list(team_member_ids_for(managed))
-
-        if not member_ids:
-            return query.filter(TimeEntry.user_id == None)  # noqa: E711
-        return query.filter(TimeEntry.user_id.in_(member_ids))
-
-    @staticmethod
-    def _build_filtered_query(org_id, data, restrict_user_id=None):
-        """
-        Build a filtered TimeEntry query from request data.
-
-        Args:
-            org_id: Organization ID to scope entries
-            data: Request JSON dict with optional filter params
-            restrict_user_id: If set, always filter to this user only
-
-        Returns:
-            SQLAlchemy query object (not yet executed)
-        """
-        conditions = [
-            TimeEntry.org_id == org_id,
-            TimeEntry.status.in_(["completed", "voided"]),
-        ]
-
-        # Always restrict to a single user if specified
-        if restrict_user_id:
-            conditions.append(TimeEntry.user_id == restrict_user_id)
-        else:
-            # Admin-level filters
-            filters = data.get("filters")
-            user_id = data.get("userId")
-            team_id = data.get("teamId")
-
-            if filters:
-                filtered_ids = resolve_filtered_user_ids(filters, org_id)
-                if filtered_ids is not None:
-                    conditions.append(TimeEntry.user_id.in_(filtered_ids))
-            elif user_id:
-                conditions.append(TimeEntry.user_id == user_id)
-            elif team_id:
-                member_ids = [
-                    tu.user_id
-                    for tu in TeamUser.query.filter_by(team_id=team_id).all()
-                ]
-                if member_ids:
-                    conditions.append(TimeEntry.user_id.in_(member_ids))
-                else:
-                    # Team has no members — return empty result
-                    conditions.append(TimeEntry.user_id == None)  # noqa: E711
-
-        # Date filters. Frontend usually sends ISO UTC instants aligned to
-        # the user's local midnights — in that case we use the explicit
-        # instant as-is. Legacy date-only strings ("2026-04-23") still work
-        # and get the add-a-day upper bound for back-compat.
-        start_date, _ = TimeTrackingAPI._parse_date(data.get("startDate"))
-        end_date, end_was_date_only = TimeTrackingAPI._parse_date(data.get("endDate"))
-        if start_date:
-            conditions.append(TimeEntry.clock_in >= start_date)
-        if end_date:
-            if end_was_date_only:
-                end_date = end_date + timedelta(days=1)
-            conditions.append(TimeEntry.clock_in < end_date)
-
-        # Activity filter (JSON key still "category" for frontend back-compat).
-        category = data.get("category") or data.get("activity")
-        if category:
-            conditions.append(TimeEntry.activity == category.lower())
-
-        # Subcategory filter — matches the snapshot name on the entry.
-        # Frontend sends the display name (e.g. "Kaart Project") as-is.
-        subcategory_name = data.get("subcategoryName")
-        if subcategory_name:
-            conditions.append(TimeEntry.subcategory_name == subcategory_name)
-
-        return TimeEntry.query.filter(*conditions).order_by(TimeEntry.clock_in.desc())
 
     # ─── User Endpoints ───────────────────────────────────────
 
@@ -682,7 +416,7 @@ class TimeTrackingAPI(MethodView):
                 }), 404
 
         try:
-            user_notes = self._normalize_user_notes(data.get("userNotes"))
+            user_notes = TimeTrackingHelpers._normalize_user_notes(data.get("userNotes"))
         except ValueError as e:
             return jsonify({"message": str(e), "status": 400}), 400
 
@@ -739,7 +473,7 @@ class TimeTrackingAPI(MethodView):
             f"subcategory_id={entry.subcategory_id}"
         )
 
-        session_data = self._format_entry(entry)
+        session_data = TimeTrackingHelpers._format_entry(entry)
         session_data["elapsedSeconds"] = 0  # Just clocked in
 
         return jsonify({
@@ -787,7 +521,7 @@ class TimeTrackingAPI(MethodView):
         # apply the same normalize/validate path as elsewhere.
         if "userNotes" in data:
             try:
-                entry.user_notes = self._normalize_user_notes(data.get("userNotes"))
+                entry.user_notes = TimeTrackingHelpers._normalize_user_notes(data.get("userNotes"))
             except ValueError as e:
                 return jsonify({"message": str(e), "status": 400}), 400
 
@@ -805,7 +539,7 @@ class TimeTrackingAPI(MethodView):
         # Fetch OSM changesets (best-effort)
         osm_username = getattr(g.user, "osm_username", None)
         if osm_username:
-            changeset_count, changes_count = self._fetch_osm_changesets(
+            changeset_count, changes_count = TimeTrackingHelpers._fetch_osm_changesets(
                 osm_username, entry.clock_in
             )
             entry.changeset_count = changeset_count
@@ -823,7 +557,7 @@ class TimeTrackingAPI(MethodView):
             "message": "Clocked out successfully",
             "status": 200,
             "duration_seconds": entry.duration_seconds,
-            "session": self._format_entry(entry),
+            "session": TimeTrackingHelpers._format_entry(entry),
         }), 200
 
     def my_active_session(self):
@@ -845,7 +579,7 @@ class TimeTrackingAPI(MethodView):
                 f"[CLOCK] active_session CHECK — user={g.user.id} NO active session"
             )
 
-        session_data = self._format_entry(entry) if entry else None
+        session_data = TimeTrackingHelpers._format_entry(entry) if entry else None
 
         # Include server-computed elapsed seconds so the frontend never
         # compares server timestamps against the client clock.
@@ -859,25 +593,25 @@ class TimeTrackingAPI(MethodView):
         }), 200
 
     def my_history(self):
-        """Get the current user's time entry history with optional filters."""
+        """Get the current user's time entry history with cursor-based pagination.
+
+        Returns PAGE_SIZE entries per page ordered newest-first. Pass the
+        returned ``nextCursor`` as ``cursor`` in the next request to fetch
+        the following page. Omit ``cursor`` (or pass null) to start from
+        the most recent entries.
+        """
         if not hasattr(g, "user") or not g.user:
             return jsonify({"message": "Unauthorized", "status": 401}), 401
 
         data = request.get_json() or {}
-        limit = data.get("limit", 500)
-        offset = data.get("offset", 0)
 
-        query = self._build_filtered_query(
-            g.user.org_id, data, restrict_user_id=g.user.id
-        )
-
-        total = query.count()
-        entries = query.limit(limit).offset(offset).all()
+        query = TimeEntryQuery(g.user.org_id, data, viewer=g.user)
+        page, next_cursor = query.fetch_page()
 
         return jsonify({
             "status": 200,
-            "entries": [self._format_entry(e) for e in entries],
-            "total": total,
+            "entries": [TimeTrackingHelpers._format_entry(e) for e in page],
+            "nextCursor": next_cursor,
         }), 200
 
     def my_monthly_summary(self):
@@ -1010,13 +744,13 @@ class TimeTrackingAPI(MethodView):
                 query = query.filter(TimeEntry.user_id == None)  # noqa: E711
 
         # team_admin: force-narrow to managed teams
-        query = self._apply_team_admin_scope(query, g.user, team_id)
+        query = TimeTrackingHelpers._apply_team_admin_scope(query, g.user, team_id)
 
         entries = query.order_by(TimeEntry.clock_in.desc()).limit(100).all()
 
         return jsonify({
             "status": 200,
-            "entries": [self._format_entry(e) for e in entries],
+            "entries": [TimeTrackingHelpers._format_entry(e) for e in entries],
         }), 200
 
     def request_adjustment(self):
@@ -1139,7 +873,7 @@ class TimeTrackingAPI(MethodView):
             }), 400
 
         try:
-            user_notes = self._normalize_user_notes(data.get("userNotes"))
+            user_notes = TimeTrackingHelpers._normalize_user_notes(data.get("userNotes"))
         except ValueError as e:
             return jsonify({"message": str(e), "status": 400}), 400
 
@@ -1158,7 +892,7 @@ class TimeTrackingAPI(MethodView):
 
         return jsonify({
             "status": 200,
-            "session": self._format_entry(entry),
+            "session": TimeTrackingHelpers._format_entry(entry),
         }), 200
 
     def fetch_custom_topics(self):
@@ -1214,35 +948,131 @@ class TimeTrackingAPI(MethodView):
                 query = query.filter(TimeEntry.user_id == None)  # noqa: E711
 
         # team_admin: force-narrow to managed teams
-        query = self._apply_team_admin_scope(query, g.user, team_id)
+        query = TimeTrackingHelpers._apply_team_admin_scope(query, g.user, team_id)
 
         entries = query.order_by(TimeEntry.clock_in.asc()).all()
 
         return jsonify({
             "status": 200,
-            "sessions": [self._format_entry(e) for e in entries],
+            "sessions": [TimeTrackingHelpers._format_entry(e) for e in entries],
         }), 200
 
     @requires_team_admin_or_above
-    def admin_history(self):
-        """Get time entry history for the admin's org with optional filters."""
+    def admin_time_stats(self):
+        """Aggregate time stats for the admin dashboard.
+
+        Returns exact this-week/last-week sums computed via DB aggregation —
+        not limited by pagination. Weeks are UTC Sunday-start.
+
+        Body: { teamId? }
+        """
         data = request.get_json() or {}
-        limit = data.get("limit", 500)
-        offset = data.get("offset", 0)
 
-        query = self._build_filtered_query(g.user.org_id, data)
+        now = datetime.utcnow()
+        # Most recent Sunday (UTC) — Python weekday: Mon=0 … Sun=6
+        days_since_sunday = (now.weekday() + 1) % 7
+        week_start = (now - timedelta(days=days_since_sunday)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        last_week_start = week_start - timedelta(days=7)
 
-        # team_admin: force-narrow to managed teams (overrides whatever
-        # teamId/userId filter the request specified)
-        query = self._apply_team_admin_scope(query, g.user, data.get("teamId"))
+        # Build user-scope conditions once, reused across all queries.
+        scope = [TimeEntry.org_id == g.user.org_id]
+        team_id = data.get("teamId")
 
-        total = query.count()
-        entries = query.limit(limit).offset(offset).all()
+        if not is_org_admin_or_above(g.user):
+            managed = managed_team_ids_for(g.user)
+            member_ids = [
+                tu.user_id
+                for tu in TeamUser.query.filter(TeamUser.team_id.in_(managed)).all()
+            ] if managed else []
+            scope.append(
+                TimeEntry.user_id.in_(member_ids) if member_ids
+                else (TimeEntry.user_id == None)  # noqa: E711
+            )
+        elif team_id:
+            member_ids = [
+                tu.user_id for tu in TeamUser.query.filter_by(team_id=team_id).all()
+            ]
+            scope.append(
+                TimeEntry.user_id.in_(member_ids) if member_ids
+                else (TimeEntry.user_id == None)  # noqa: E711
+            )
+
+        def sum_hours(start_dt, end_dt=None):
+            conds = scope + [TimeEntry.status == "completed", TimeEntry.clock_in >= start_dt]
+            if end_dt:
+                conds.append(TimeEntry.clock_in < end_dt)
+            seconds = db.session.query(
+                func.coalesce(func.sum(TimeEntry.duration_seconds), 0)
+            ).filter(*conds).scalar() or 0
+            return round((seconds / 3600) * 10) / 10
+
+        def count_adjustments(start_dt, end_dt=None):
+            conds = scope + [
+                TimeEntry.status == "completed",
+                TimeEntry.notes.like("[ADJUSTMENT REQUESTED]%"),
+                TimeEntry.clock_in >= start_dt,
+            ]
+            if end_dt:
+                conds.append(TimeEntry.clock_in < end_dt)
+            return db.session.query(func.count(TimeEntry.id)).filter(*conds).scalar() or 0
+
+        # Short-session clusters: user-day pairs with 3+ sessions < 5 min
+        # (covers both this week and last week)
+        cluster_conds = scope + [
+            TimeEntry.status == "completed",
+            TimeEntry.duration_seconds < 300,
+            TimeEntry.clock_in >= last_week_start,
+        ]
+        cluster_subq = db.session.query(
+            TimeEntry.user_id,
+            func.date(TimeEntry.clock_in).label("day"),
+        ).filter(*cluster_conds).group_by(
+            TimeEntry.user_id,
+            func.date(TimeEntry.clock_in),
+        ).having(func.count(TimeEntry.id) >= 3).subquery()
+        short_clusters = db.session.query(func.count()).select_from(cluster_subq).scalar() or 0
 
         return jsonify({
             "status": 200,
-            "entries": [self._format_entry(e) for e in entries],
-            "total": total,
+            "weekHours": sum_hours(week_start),
+            "lastWeekHours": sum_hours(last_week_start, week_start),
+            "pendingAdjustments": count_adjustments(week_start),
+            "lastWeekPendingAdjustments": count_adjustments(last_week_start, week_start),
+            "shortSessionClusters": short_clusters,
+        }), 200
+
+    @requires_team_admin_or_above
+    def admin_aggregate_stats(self):
+        """Aggregate stats for the active filter set on the time page.
+
+        Accepts the same body as /timetracking/history (startDate, endDate,
+        category, filters, teamId) and returns exact totals computed via SQL
+        aggregation — no pagination limit.
+        """
+        data = request.get_json() or {}
+        query = TimeEntryQuery(g.user.org_id, data, viewer=g.user)
+        return jsonify({"status": 200, **query.fetch_stats()}), 200
+
+    @requires_team_admin_or_above
+    def admin_history(self):
+        """Get time entry history for the admin's org with cursor-based pagination.
+
+        Returns PAGE_SIZE entries per page ordered newest-first. Pass the
+        returned ``nextCursor`` as ``cursor`` in the next request to fetch
+        the following page. Omit ``cursor`` (or pass null) to start from
+        the most recent entries.
+        """
+        data = request.get_json() or {}
+
+        query = TimeEntryQuery(g.user.org_id, data, viewer=g.user)
+        page, next_cursor = query.fetch_page()
+
+        return jsonify({
+            "status": 200,
+            "entries": [TimeTrackingHelpers._format_entry(e) for e in page],
+            "nextCursor": next_cursor,
         }), 200
 
     @requires_team_admin_or_above
@@ -1290,7 +1120,7 @@ class TimeTrackingAPI(MethodView):
         # Fetch OSM changesets (best-effort)
         user = User.query.get(entry.user_id)
         if user and user.osm_username:
-            changeset_count, changes_count = self._fetch_osm_changesets(
+            changeset_count, changes_count = TimeTrackingHelpers._fetch_osm_changesets(
                 user.osm_username, entry.clock_in
             )
             entry.changeset_count = changeset_count
@@ -1301,7 +1131,7 @@ class TimeTrackingAPI(MethodView):
         return jsonify({
             "message": "Force clock out successful",
             "status": 200,
-            "session": self._format_entry(entry),
+            "session": TimeTrackingHelpers._format_entry(entry),
         }), 200
 
     @requires_team_admin_or_above
@@ -1352,7 +1182,7 @@ class TimeTrackingAPI(MethodView):
         return jsonify({
             "message": "Entry voided",
             "status": 200,
-            "entry": self._format_entry(entry),
+            "entry": TimeTrackingHelpers._format_entry(entry),
         }), 200
 
     @requires_team_admin_or_above
@@ -1469,7 +1299,7 @@ class TimeTrackingAPI(MethodView):
         return jsonify({
             "message": "Entry updated",
             "status": 200,
-            "entry": self._format_entry(entry),
+            "entry": TimeTrackingHelpers._format_entry(entry),
         }), 200
 
     @requires_team_admin_or_above
@@ -1597,7 +1427,7 @@ class TimeTrackingAPI(MethodView):
         return jsonify({
             "message": "Entry created",
             "status": 200,
-            "entry": self._format_entry(entry),
+            "entry": TimeTrackingHelpers._format_entry(entry),
         }), 200
 
     @requires_admin
@@ -1643,7 +1473,7 @@ class TimeTrackingAPI(MethodView):
         return jsonify({
             "message": "Test entry created",
             "status": 200,
-            "entry": self._format_entry(entry),
+            "entry": TimeTrackingHelpers._format_entry(entry),
         }), 200
 
     @requires_team_admin_or_above
@@ -1662,13 +1492,7 @@ class TimeTrackingAPI(MethodView):
         if not isinstance(omit_columns, list):
             omit_columns = []
 
-        # Build filtered query (no limit/offset for export — get all matching)
-        query = self._build_filtered_query(g.user.org_id, data)
-
-        # team_admin: force-narrow to managed teams
-        query = self._apply_team_admin_scope(query, g.user, data.get("teamId"))
-
-        entries = query.all()
+        entries = TimeEntryQuery(g.user.org_id, data, viewer=g.user).fetch_all()
 
         today_str = datetime.utcnow().strftime("%Y-%m-%d")
 
@@ -1678,14 +1502,6 @@ class TimeTrackingAPI(MethodView):
             return self._export_json(entries, today_str)
         elif export_format == "pdf":
             return self._export_pdf(entries, data, today_str, omit_columns=omit_columns)
-
-    @staticmethod
-    def _format_duration_hours(duration_seconds):
-        """Format duration in seconds to a human-readable hours string."""
-        if duration_seconds is None:
-            return ""
-        hours = duration_seconds / 3600
-        return f"{hours:.2f}"
 
     def _export_columns(self):
         """Single source of truth for export column order, labels, and value
@@ -1702,7 +1518,7 @@ class TimeTrackingAPI(MethodView):
             ("task",          "Task",             lambda u, p, e: e.task_name or ""),
             ("clock_in",      "Clock In",         lambda u, p, e: e.clock_in.isoformat() + "Z" if e.clock_in else ""),
             ("clock_out",     "Clock Out",        lambda u, p, e: e.clock_out.isoformat() + "Z" if e.clock_out else ""),
-            ("duration_hours","Duration (hours)", lambda u, p, e: self._format_duration_hours(e.duration_seconds)),
+            ("duration_hours","Duration (hours)", lambda u, p, e: TimeTrackingHelpers._format_duration_hours(e.duration_seconds)),
             ("status",        "Status",           lambda u, p, e: e.status or ""),
             ("changesets",    "Changesets",       lambda u, p, e: e.changeset_count or 0),
             ("changes",       "Changes",          lambda u, p, e: e.changes_count or 0),
@@ -1745,7 +1561,7 @@ class TimeTrackingAPI(MethodView):
 
     def _export_json(self, entries, today_str):
         """Generate a JSON export of time entries."""
-        formatted = [self._format_entry(e) for e in entries]
+        formatted = [TimeTrackingHelpers._format_entry(e) for e in entries]
         resp = jsonify(formatted)
         resp.headers["Content-Disposition"] = (
             f'attachment; filename="time-report-{today_str}.json"'
@@ -1761,21 +1577,6 @@ class TimeTrackingAPI(MethodView):
           reportlab Paragraph so multi-byte / long values flow into
           multiple lines instead of being chopped at 20 chars.
         """
-        try:
-            from reportlab.lib.pagesizes import letter, landscape
-            from reportlab.lib import colors
-            from reportlab.platypus import (
-                SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
-            )
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.units import inch
-        except ImportError:
-            return jsonify({
-                "message": "PDF export requires the reportlab library. Install with: pip install reportlab",
-                "status": 500,
-            }), 500
-
-        from xml.sax.saxutils import escape as xml_escape
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
@@ -1877,7 +1678,7 @@ class TimeTrackingAPI(MethodView):
         # was omitted.
         totals_by_key = {
             "user_name":      "TOTALS",
-            "duration_hours": self._format_duration_hours(total_seconds),
+            "duration_hours": TimeTrackingHelpers._format_duration_hours(total_seconds),
             "status":         f"{len(entries)} entries",
             "changesets":     str(total_changesets),
             "changes":        str(total_changes),
@@ -2182,45 +1983,6 @@ class TimeTrackingAPI(MethodView):
     # SSOT'd in the module-level helpers `_visible_subcategories_query`
     # and `_can_manage_subcategory` above — do not reimplement here.
 
-    @staticmethod
-    def _format_subcategory(sub):
-        """Format an ActivitySubcategory for JSON response."""
-        if sub.team_id is not None:
-            scope = "team"
-        elif sub.org_id is not None:
-            scope = "org"
-        else:
-            scope = "global"
-        return {
-            "id": sub.id,
-            "activity": sub.activity,
-            "name": sub.name,
-            "slug": sub.slug,
-            "scope": scope,
-            "orgId": sub.org_id,
-            "teamId": sub.team_id,
-            "isActive": sub.is_active,
-            "sortOrder": sub.sort_order,
-            "requiresProject": sub.requires_project,
-            "allowEventFields": sub.allow_event_fields,
-            "createdBy": sub.created_by,
-            "createdAt": sub.created_at.isoformat() + "Z" if sub.created_at else None,
-            "updatedAt": sub.updated_at.isoformat() + "Z" if sub.updated_at else None,
-        }
-
-    @staticmethod
-    def _slugify(name):
-        """Lowercase + non-alphanumeric runs collapsed to underscore.
-
-        Matches the SQL slug derivation in the d5a0b1c2e3f4 seed
-        migration so subs created at runtime have the same shape as
-        seeded ones.
-        """
-        if not name:
-            return ""
-        import re
-        return re.sub(r"[^a-zA-Z0-9]+", "_", name.strip()).strip("_").lower()
-
     def subcategories_list(self):
         """List subcategories visible to the caller (clock-in dropdown).
 
@@ -2238,7 +2000,7 @@ class TimeTrackingAPI(MethodView):
         subs = _visible_subcategories_query(g.user, activity=activity).all()
         return jsonify({
             "status": 200,
-            "subcategories": [self._format_subcategory(s) for s in subs],
+            "subcategories": [TimeTrackingHelpers._format_subcategory(s) for s in subs],
         })
 
     @requires_team_admin_or_above
@@ -2290,7 +2052,7 @@ class TimeTrackingAPI(MethodView):
         ).all()
         return jsonify({
             "status": 200,
-            "subcategories": [self._format_subcategory(s) for s in subs],
+            "subcategories": [TimeTrackingHelpers._format_subcategory(s) for s in subs],
         })
 
     @requires_team_admin_or_above
@@ -2355,7 +2117,7 @@ class TimeTrackingAPI(MethodView):
                 "status": 403,
             }), 403
 
-        slug = self._slugify(name)
+        slug = TimeTrackingHelpers._slugify(name)
         if not slug:
             return jsonify({"message": "Name must contain at least one alphanumeric character", "status": 400}), 400
 
@@ -2386,7 +2148,7 @@ class TimeTrackingAPI(MethodView):
         return jsonify({
             "status": 200,
             "message": "Subcategory created",
-            "subcategory": self._format_subcategory(sub),
+            "subcategory": TimeTrackingHelpers._format_subcategory(sub),
         })
 
     @requires_team_admin_or_above
@@ -2438,7 +2200,7 @@ class TimeTrackingAPI(MethodView):
         return jsonify({
             "status": 200,
             "message": "Subcategory updated",
-            "subcategory": self._format_subcategory(sub),
+            "subcategory": TimeTrackingHelpers._format_subcategory(sub),
         })
 
     @requires_team_admin_or_above
@@ -2466,5 +2228,5 @@ class TimeTrackingAPI(MethodView):
         return jsonify({
             "status": 200,
             "message": "Subcategory disabled",
-            "subcategory": self._format_subcategory(sub),
+            "subcategory": TimeTrackingHelpers._format_subcategory(sub),
         })

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { useMyTimeHistory, useRequestTimeAdjustment, useUpdateMyNotes } from "@/hooks";
+import { useCursorHistory, useRequestTimeAdjustment, useUpdateMyNotes } from "@/hooks";
 import { NotesButton } from "./NotesButton";
 import { formatDurationHM } from "@/lib/timeTracking";
 
@@ -32,16 +32,21 @@ export function UserTimeHistory() {
   const [adjustmentReason, setAdjustmentReason] = useState("");
   const [adjustmentSuccess, setAdjustmentSuccess] = useState<string | null>(null);
 
-  const { data: historyData, loading: historyLoading, refetch: refetchHistory } = useMyTimeHistory();
+  const history = useCursorHistory("/timetracking/my_history");
   const { mutate: requestAdjustment, loading: submitting } = useRequestTimeAdjustment();
   const { mutate: updateMyNotes } = useUpdateMyNotes();
 
+  useEffect(() => {
+    history.fetchPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSaveNotes = async (entryId: number, value: string | null) => {
     await updateMyNotes({ entry_id: entryId, userNotes: value });
-    await refetchHistory();
+    await history.fetchPage();
   };
 
-  const entries = historyData?.entries || [];
+  const entries = history.entries;
   const recentEntries = entries.slice(0, 5);
 
   const handleRequestAdjustment = async () => {
@@ -55,7 +60,7 @@ export function UserTimeHistory() {
       setAdjustmentSuccess("Adjustment request submitted. An admin will review it.");
       setAdjustmentEntryId(null);
       setAdjustmentReason("");
-      await refetchHistory();
+      await history.fetchPage();
       setTimeout(() => setAdjustmentSuccess(null), 4000);
     } catch {
       // error is set by the hook
@@ -63,7 +68,7 @@ export function UserTimeHistory() {
   };
 
   // Loading state
-  if (historyLoading) {
+  if (history.loading) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">

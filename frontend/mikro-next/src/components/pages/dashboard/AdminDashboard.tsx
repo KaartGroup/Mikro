@@ -10,8 +10,8 @@ import {
   usePurgeTaskStats,
   useAdminSyncAllTasks,
   useCheckSyncStatus,
-  useAdminTimeHistory,
   useAdminActiveSessions,
+  useAdminTimeStats,
   useCurrentUserRole,
   useManagedTeams,
 } from "@/hooks";
@@ -51,20 +51,16 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
   const { data: stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useAdminDashboardStats();
   const { data: transactions, loading: transactionsLoading } = useOrgTransactions();
   const { data: users, loading: usersLoading } = useUsersList();
-  const { data: timeHistory, loading: timeHistoryLoading, refetch: refetchTimeHistory } = useAdminTimeHistory();
+  const { data: serverTimeStats, loading: timeHistoryLoading, refetch: refetchTimeStats } = useAdminTimeStats();
   const { data: activeSessions, refetch: refetchActiveSessions } = useAdminActiveSessions();
 
-  // When the team scope changes, refetch the time-related panels with
-  // the new scope. Other dashboard panels stay org-wide for now —
-  // they need backend work to support team scoping (tracked under F23).
+  // When the team scope changes, refetch the time-related panels.
   useEffect(() => {
-    refetchTimeHistory(teamId ? { teamId } : undefined).catch(() => {});
+    refetchTimeStats(teamId ? { teamId } : undefined).catch(() => {});
     refetchActiveSessions(teamId ? { teamId } : undefined).catch(() => {});
-  }, [teamId, refetchTimeHistory, refetchActiveSessions]);
+  }, [teamId, refetchTimeStats, refetchActiveSessions]);
 
-  // Region filter — refetch stats when admin picks a country. Project
-  // and task counts narrow to that region. Payment totals stay
-  // org-wide (user-scoped, not project-scoped).
+  // Region filter — refetch stats when admin picks a country.
   useEffect(() => {
     refetchStats(regionCountryId != null ? { country_id: regionCountryId } : undefined).catch(() => {});
   }, [regionCountryId, refetchStats]);
@@ -76,83 +72,24 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
   // Snapshot timestamp — records when this data was loaded
   const [snapshotTime] = useState(() => new Date());
 
-  // Time management quick stats
+  // Merge server-aggregated time stats with client-derived active-session counts.
   const timeStats = useMemo(() => {
-    const entries = timeHistory?.entries || [];
     const sessions = activeSessions?.sessions || [];
     const now = new Date();
-
-    // This week (Sunday start)
-    const dayOfWeek = now.getDay();
-    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
-    const lastWeekStart = new Date(weekStart);
-    lastWeekStart.setDate(weekStart.getDate() - 7);
-
-    // Split entries into this-week vs last-week buckets for the delta.
-    let weekSec = 0;
-    let lastWeekSec = 0;
-    let pendingAdjustments = 0;
-    let lastWeekPendingAdjustments = 0;
-
-    for (const e of entries) {
-      if (!e.clockIn) continue;
-      const t = new Date(e.clockIn).getTime();
-      const inThisWeek = t >= weekStart.getTime();
-      const inLastWeek = t >= lastWeekStart.getTime() && t < weekStart.getTime();
-      if (e.status === "completed") {
-        if (inThisWeek) weekSec += e.durationSeconds ?? 0;
-        else if (inLastWeek) lastWeekSec += e.durationSeconds ?? 0;
-      }
-      if (
-        e.status === "completed" &&
-        e.notes?.startsWith("[ADJUSTMENT REQUESTED]")
-      ) {
-        if (inThisWeek) pendingAdjustments += 1;
-        else if (inLastWeek) lastWeekPendingAdjustments += 1;
-      }
-    }
-
-    const weekHours = Math.round((weekSec / 3600) * 10) / 10;
-    const lastWeekHours = Math.round((lastWeekSec / 3600) * 10) / 10;
-
-    // Suspicious long sessions: active sessions running 10+ hours
     const longRunning = sessions.filter((s) => {
       if (!s.clockIn) return false;
-      const elapsed = (now.getTime() - new Date(s.clockIn).getTime()) / 1000;
-      return elapsed > 10 * 3600; // 10+ hours
+      return (now.getTime() - new Date(s.clockIn).getTime()) / 1000 > 10 * 3600;
     }).length;
-
-    // Active session count
-    const activeCount = sessions.length;
-
-    // Short-session clusters (UI6). A "cluster" = one user logging 3 or
-    // more completed sessions under 5 minutes on the same calendar day.
-    // Catches the "forgot to clock out / kept bouncing" pattern Aaron
-    // flagged (Andre's 3×1-minute sessions).
-    const SHORT_CUTOFF_SEC = 5 * 60;
-    const CLUSTER_MIN_COUNT = 3;
-    const shortByUserDay: Record<string, number> = {};
-    for (const e of entries) {
-      if (!e.clockIn || e.status !== "completed") continue;
-      if ((e.durationSeconds ?? 0) >= SHORT_CUTOFF_SEC) continue;
-      const day = (e.clockIn || "").slice(0, 10);
-      const key = `${e.userId || "?"}::${day}`;
-      shortByUserDay[key] = (shortByUserDay[key] ?? 0) + 1;
-    }
-    const shortSessionClusters = Object.values(shortByUserDay).filter(
-      (n) => n >= CLUSTER_MIN_COUNT,
-    ).length;
-
     return {
-      weekHours,
-      lastWeekHours,
-      pendingAdjustments,
-      lastWeekPendingAdjustments,
+      weekHours: serverTimeStats?.weekHours ?? 0,
+      lastWeekHours: serverTimeStats?.lastWeekHours ?? 0,
+      pendingAdjustments: serverTimeStats?.pendingAdjustments ?? 0,
+      lastWeekPendingAdjustments: serverTimeStats?.lastWeekPendingAdjustments ?? 0,
+      shortSessionClusters: serverTimeStats?.shortSessionClusters ?? 0,
       longRunning,
-      activeCount,
-      shortSessionClusters,
+      activeCount: sessions.length,
     };
-  }, [timeHistory, activeSessions]);
+  }, [serverTimeStats, activeSessions]);
   const [purgeConfirm, setPurgeConfirm] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -613,36 +550,6 @@ function DashboardStats({ teamId, onTeamIdChange, regionCountryId, onRegionCount
           <p className="text-xs text-red-600 mt-2">
             Deletes all tasks, user_tasks, validator_task_actions and resets all user/project task counts to 0.
           </p>
-          {/* Sync Org IDs button — disabled, migration complete
-          <hr className="my-3 border-border" />
-          <div className="flex items-center gap-4">
-            <button
-              onClick={async () => {
-                try {
-                  const res = await fetch("/backend/user/sync_org_ids", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                  });
-                  const data = await res.json();
-                  if (data.status === 200) {
-                    toast.success(data.message);
-                  } else {
-                    toast.error(data.message || "Failed to sync org IDs");
-                  }
-                } catch {
-                  toast.error("Failed to sync org IDs");
-                }
-              }}
-              className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors bg-blue-100 text-blue-700 hover:bg-blue-200"
-            >
-              Sync Org IDs from Auth0
-            </button>
-          </div>
-          <p className="text-xs text-blue-600 mt-2">
-            Sets org_id on all users, projects, tasks, and time entries. Also patches Auth0 app_metadata with roles and org_id for users missing it.
-          </p>
-          */}
         </CardContent>
       </Card>
       )}

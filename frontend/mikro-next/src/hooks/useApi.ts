@@ -9,7 +9,6 @@ import type {
   ProjectsResponse,
   TransactionsResponse,
   TrainingsResponse,
-  ChecklistsResponse,
   UserPayableResponse,
   UserDetailsResponse,
   TimeEntry,
@@ -29,7 +28,6 @@ import type {
   TeamMembersResponse,
   ProjectTeamsResponse,
   TeamTrainingsResponse,
-  TeamChecklistsResponse,
   TeamProfileData,
   UserTeamsResponse,
   EditingStatsResponse,
@@ -62,6 +60,8 @@ import type {
   ReimbursementUploadUrlResponse,
   ReimbursementAttachmentUrlResponse,
   ElementAnalysisResponse,
+  AdminTimeStatsResponse,
+  AdminAggregateStatsResponse,
 } from "@/types";
 
 /**
@@ -203,21 +203,6 @@ export function useOrgTrainings() {
 // User Trainings
 export function useUserTrainings() {
   return useApiCall<TrainingsResponse>("/training/fetch_user_trainings");
-}
-
-// Checklists (Admin)
-export function useAdminChecklists() {
-  return useApiCall<ChecklistsResponse>("/checklist/fetch_admin_checklists");
-}
-
-// User Checklists
-export function useUserChecklists() {
-  return useApiCall<ChecklistsResponse>("/checklist/fetch_user_checklists");
-}
-
-// Validator Checklists
-export function useValidatorChecklists() {
-  return useApiCall<ChecklistsResponse>("/checklist/fetch_validator_checklists");
 }
 
 // User Details
@@ -532,26 +517,6 @@ export function useDeleteTraining() {
   return useApiMutation("/training/delete_training");
 }
 
-export function useCreateChecklist() {
-  return useApiMutation("/checklist/create_checklist");
-}
-
-export function useDeleteChecklist() {
-  return useApiMutation("/checklist/delete_checklist");
-}
-
-export function useStartChecklist() {
-  return useApiMutation("/checklist/start_checklist");
-}
-
-export function useCompleteChecklistItem() {
-  return useApiMutation("/checklist/complete_list_item");
-}
-
-export function useConfirmChecklistItem() {
-  return useApiMutation("/checklist/confirm_list_item");
-}
-
 export function useUpdateTraining() {
   return useApiMutation("/training/update_training");
 }
@@ -560,46 +525,10 @@ export function useModifyTraining() {
   return useApiMutation("/training/modify_training");
 }
 
-export function useUpdateChecklist() {
-  return useApiMutation("/checklist/update_checklist");
-}
-
-export function useSubmitChecklist() {
-  return useApiMutation("/checklist/submit_checklist");
-}
-
-export function useConfirmChecklist() {
-  return useApiMutation("/checklist/confirm_checklist");
-}
-
 export function useSubmitTrainingQuiz() {
   return useApiMutation<{ score: number; passed: boolean; status: number }>(
     "/training/submit_quiz"
   );
-}
-
-export function useAddChecklistComment() {
-  return useApiMutation("/checklist/add_comment");
-}
-
-export function useAssignUserChecklist() {
-  return useApiMutation("/checklist/assign_user_checklist");
-}
-
-export function useUnassignUserChecklist() {
-  return useApiMutation("/checklist/unassign_user_checklist");
-}
-
-export function useFetchChecklistUsers() {
-  return useApiMutation<{
-    users: Array<{
-      id: string;
-      name: string;
-      role: string;
-      assigned: string;
-    }>;
-    status: number;
-  }>("/checklist/fetch_checklist_users");
 }
 
 // DEV ONLY: Purge all task stats
@@ -610,16 +539,6 @@ export function usePurgeTaskStats() {
     projects_reset: number;
     status: number;
   }>("/task/purge_all_task_stats");
-}
-
-// DEV ONLY: Purge all checklists
-export function usePurgeChecklists() {
-  return useApiMutation<{
-    message: string;
-    checklists_deleted: number;
-    users_reset: number;
-    status: number;
-  }>("/checklist/purge_all_checklists");
 }
 
 // DEV ONLY: Purge all trainings
@@ -740,6 +659,18 @@ export function useMyMonthlySummary() {
 // Admin: get all active sessions
 export function useAdminActiveSessions() {
   return useApiCall<TimeTrackingActiveSessionsResponse>("/timetracking/active_sessions");
+}
+
+// Admin: aggregate week/last-week stats (hours, adjustments, clusters) —
+// computed server-side, not limited by history pagination.
+export function useAdminTimeStats() {
+  return useApiCall<AdminTimeStatsResponse>("/timetracking/time_stats");
+}
+
+// Admin: aggregate stats for the active filter set on the time page —
+// same filters as history but returns totals only, no pagination limit.
+export function useAdminAggregateStats() {
+  return useApiMutation<AdminAggregateStatsResponse>("/timetracking/aggregate_stats");
 }
 
 // Admin: get every entry with a pending adjustment request, regardless
@@ -1028,18 +959,6 @@ export function useUnassignTrainingFromTeam() {
   return useApiMutation<{ message: string; status: number }>("/team/unassign_training_from_team");
 }
 
-export function useFetchTeamChecklists() {
-  return useApiMutation<TeamChecklistsResponse>("/team/fetch_team_checklists");
-}
-
-export function useAssignChecklistToTeam() {
-  return useApiMutation<{ message: string; status: number }>("/team/assign_checklist_to_team");
-}
-
-export function useUnassignChecklistFromTeam() {
-  return useApiMutation<{ message: string; status: number }>("/team/unassign_checklist_from_team");
-}
-
 export function useFetchTeamProfile() {
   return useApiMutation<TeamProfileData>("/team/fetch_team_profile");
 }
@@ -1132,19 +1051,6 @@ export function useAssignTrainingLocations() {
 }
 export function useUnassignTrainingLocation() {
   return useApiMutation("/region/unassign_training_location");
-}
-
-// Checklist locations
-export function useFetchChecklistLocations() {
-  return useApiMutation<LocationsResponse>("/region/fetch_checklist_locations");
-}
-export function useAssignChecklistLocations() {
-  return useApiMutation<{ message: string; created: number; skipped: number; status: number }>(
-    "/region/assign_checklist_locations"
-  );
-}
-export function useUnassignChecklistLocation() {
-  return useApiMutation("/region/unassign_checklist_location");
 }
 
 // Project trainings

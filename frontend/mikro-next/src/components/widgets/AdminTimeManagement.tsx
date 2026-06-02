@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -10,7 +10,7 @@ import { sortProjectsAlphabetical } from "@/lib/sortProjects";
 import { formatDurationHM, resolveCategoryKey } from "@/lib/timeTracking";
 import {
   useAdminActiveSessions,
-  useAdminTimeHistory,
+  useApiMutation,
   useForceClockOut,
   useVoidTimeEntry,
   useEditTimeEntry,
@@ -19,7 +19,7 @@ import {
   useUsersList,
   useOrgProjects,
 } from "@/hooks";
-import type { TimeEntry } from "@/types";
+import type { TimeEntry, TimeTrackingHistoryResponse } from "@/types";
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -82,7 +82,11 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
   const [addError, setAddError] = useState<string | null>(null);
 
   const { data: activeSessions, loading: sessionsLoading, refetch: refetchSessions } = useAdminActiveSessions();
-  const { data: historyData, loading: historyLoading, refetch: refetchHistory } = useAdminTimeHistory();
+  const { mutate: fetchHistoryPage } = useApiMutation<TimeTrackingHistoryResponse>("/timetracking/history");
+  const [allHistoryEntries, setAllHistoryEntries] = useState<TimeEntry[]>([]);
+  const [historyNextCursor, setHistoryNextCursor] = useState<{ clockIn: string; id: number } | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const { mutate: forceClockOut, loading: forcingClockOut } = useForceClockOut();
   const { mutate: voidEntry, loading: voiding } = useVoidTimeEntry();
   const { mutate: editEntry, loading: editing } = useEditTimeEntry();
@@ -97,7 +101,29 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
   const projects = projectsData?.org_active_projects || [];
 
   const sessions = activeSessions?.sessions || [];
-  const historyEntries = historyData?.entries || [];
+
+  const refreshHistory = useCallback(async (params: Record<string, unknown> = {}) => {
+    setHistoryLoading(true);
+    try {
+      const result = await fetchHistoryPage(params);
+      setAllHistoryEntries(result?.entries ?? []);
+      setHistoryNextCursor(result?.nextCursor ?? null);
+    } catch { /* errors surfaced by mutation */ }
+    finally { setHistoryLoading(false); }
+  }, [fetchHistoryPage]);
+
+  const loadMoreHistory = useCallback(async () => {
+    if (!historyNextCursor) return;
+    setLoadingMore(true);
+    try {
+      const params: Record<string, unknown> = teamId ? { teamId } : {};
+      params.cursor = historyNextCursor;
+      const result = await fetchHistoryPage(params);
+      setAllHistoryEntries((prev) => [...prev, ...(result?.entries ?? [])]);
+      setHistoryNextCursor(result?.nextCursor ?? null);
+    } catch { /* errors surfaced by mutation */ }
+    finally { setLoadingMore(false); }
+  }, [fetchHistoryPage, historyNextCursor, teamId]);
 
   // Search matches userName / projectName / category. One-field design so
   // the widget stays visually compact on the dashboard; the /admin/time
@@ -114,13 +140,13 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
 
   const filteredHistory = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return historyEntries;
-    return historyEntries.filter((e) =>
+    if (!q) return allHistoryEntries;
+    return allHistoryEntries.filter((e) =>
       (e.userName || "").toLowerCase().includes(q) ||
       (e.projectName || "").toLowerCase().includes(q) ||
       (e.category || "").toLowerCase().includes(q)
     );
-  }, [historyEntries, search]);
+  }, [allHistoryEntries, search]);
 
   // Refetch when sidebar clock or time widget triggers a state change.
   // The teamId param is passed through so the widget stays in lock-step
@@ -129,18 +155,18 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
     const handler = () => {
       setTimeout(() => {
         refetchSessions(teamId ? { teamId } : undefined);
-        refetchHistory(teamId ? { teamId } : undefined);
+        refreshHistory(teamId ? { teamId } : {});
       }, 500);
     };
     window.addEventListener("clock-state-changed", handler);
     return () => window.removeEventListener("clock-state-changed", handler);
-  }, [refetchSessions, refetchHistory, teamId]);
+  }, [refetchSessions, refreshHistory, teamId]);
 
-  // Re-fetch whenever the team scope changes.
+  // Re-fetch (and reset cursor) whenever the team scope changes.
   useEffect(() => {
     refetchSessions(teamId ? { teamId } : undefined);
-    refetchHistory(teamId ? { teamId } : undefined);
-  }, [teamId, refetchSessions, refetchHistory]);
+    refreshHistory(teamId ? { teamId } : {});
+  }, [teamId, refetchSessions, refreshHistory]);
 
   // Live duration ticker for active sessions
   useEffect(() => {
@@ -163,7 +189,7 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
     try {
       await forceClockOut({ session_id: id });
       await refetchSessions();
-      await refetchHistory();
+      await refreshHistory(teamId ? { teamId } : {});
     } catch (err) {
       console.error("Force clock out failed:", err);
     }
@@ -172,7 +198,7 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
   const handleVoidEntry = async (id: number) => {
     try {
       await voidEntry({ entry_id: id });
-      await refetchHistory();
+      await refreshHistory(teamId ? { teamId } : {});
     } catch (err) {
       console.error("Void entry failed:", err);
     }
@@ -203,7 +229,7 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
         category: editCategory,
       });
       setEditingEntry(null);
-      await refetchHistory();
+      await refreshHistory(teamId ? { teamId } : {});
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Failed to update entry");
     }
@@ -236,7 +262,7 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
         notes: addNotes,
       });
       setShowAddEntry(false);
-      await refetchHistory();
+      await refreshHistory(teamId ? { teamId } : {});
     } catch (err) {
       setAddError(err instanceof Error ? err.message : "Failed to create entry");
     }
@@ -247,7 +273,7 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
       await purgeEntries({});
       setShowPurgeConfirm(false);
       await refetchSessions();
-      await refetchHistory();
+      await refreshHistory(teamId ? { teamId } : {});
     } catch (err) {
       console.error("Purge failed:", err);
     }
@@ -422,7 +448,7 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
               <p className="text-sm text-muted-foreground py-4 text-center">
                 Loading history...
               </p>
-            ) : historyEntries.length > 0 ? (
+            ) : allHistoryEntries.length > 0 ? (
               <div className="overflow-auto max-h-[70vh]">
                 <table className="w-full text-sm" style={{ minWidth: 500 }}>
                   <thead className="sticky top-0 bg-background z-10">
@@ -520,6 +546,18 @@ export function AdminTimeManagement({ teamId = null }: AdminTimeManagementProps 
                     ))}
                   </tbody>
                 </table>
+                {historyNextCursor && (
+                  <div className="flex justify-center py-3 border-t border-border">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadMoreHistory}
+                      isLoading={loadingMore}
+                    >
+                      Load more
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground py-4 text-center">

@@ -694,7 +694,7 @@ export default function AdminRegionsPage() {
         onClose={() => setShowPurgeModal(false)}
         onConfirm={handlePurgeRegions}
         title="Purge All Regions"
-        message="This will DELETE all regions, countries, and all user/project/training/checklist location assignments. Users will have their country unset. This action cannot be undone!"
+        message="This will DELETE all regions, countries, and all user/project/training location assignments. Users will have their country unset. This action cannot be undone!"
         confirmText="Purge All"
         variant="destructive"
         isLoading={purging}

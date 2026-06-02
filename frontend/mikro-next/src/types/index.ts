@@ -238,82 +238,6 @@ export interface TrainingsResponse {
   status: number;
 }
 
-// Checklist types
-export interface Checklist {
-  id: number;
-  name: string;
-  author?: string;
-  description?: string;
-  difficulty: "Easy" | "Medium" | "Hard";
-  active_status?: boolean;
-  visibility?: boolean;
-  completion_rate: number;
-  validation_rate: number;
-  due_date?: string;
-  list_items?: ChecklistItem[];
-  assigned_users?: number;
-  assigned_user?: string;
-  assigned_user_id?: number;
-  status?: "active" | "inactive" | "pending" | "completed" | "confirmed" | "stale";
-  user_name?: string;
-  user_id?: string;
-  comments?: ChecklistComment[];
-}
-
-export interface ChecklistItem {
-  id?: number;
-  number: number;
-  action: string;
-  link?: string;
-  completed?: boolean;
-  confirmed?: boolean;
-  completion_date?: string;
-  confirmation_date?: string;
-}
-
-export interface ChecklistComment {
-  id: number;
-  comment: string;
-  author: string;
-  role: string;
-  date: string;
-}
-
-export interface UserChecklist extends Checklist {
-  user_id: string;
-  checklist_id: number;
-  date_created: string;
-  completed: boolean;
-  confirmed: boolean;
-  last_completion_date?: string;
-  last_confirmation_date?: string;
-  final_completion_date?: string;
-  final_confirmation_date?: string;
-  comments?: ChecklistComment[];
-}
-
-export interface UserChecklistItem extends ChecklistItem {
-  user_id: string;
-  checklist_id: number;
-}
-
-export interface ChecklistsResponse {
-  // Admin response format (all checklist types)
-  checklists?: Checklist[];
-  active_checklists?: Checklist[];
-  inactive_checklists?: Checklist[];
-  ready_for_confirmation?: Checklist[];
-  confirmed_and_completed?: Checklist[];
-  stale_started_checklists?: Checklist[];
-  pending_checklists?: Checklist[];
-  // User response format
-  user_started_checklists?: Checklist[];
-  user_completed_checklists?: Checklist[];
-  user_confirmed_checklists?: Checklist[];
-  user_available_checklists?: Checklist[];
-  status: number;
-}
-
 // Dashboard Stats types
 export interface AdminDashboardStats {
   month_contribution_change: number;
@@ -482,6 +406,7 @@ export interface TimeTrackingSessionResponse {
 export interface TimeTrackingHistoryResponse {
   status: number;
   entries: TimeEntry[];
+  nextCursor?: { clockIn: string; id: number } | null;
   total?: number;
 }
 
@@ -495,6 +420,7 @@ export interface TimeHistoryFilterParams {
   /** Snapshot subcategory name filter (matches entry.subcategoryName). */
   subcategoryName?: string;
   filters?: Record<string, string[]>;
+  cursor?: { clockIn: string; id: number };
   limit?: number;
   offset?: number;
 }
@@ -762,20 +688,6 @@ export interface TeamTrainingsResponse {
   status: number;
 }
 
-export interface TeamChecklistItem {
-  id: number;
-  name: string;
-  description: string | null;
-  difficulty: string;
-  active_status: boolean;
-  assigned: string;
-}
-
-export interface TeamChecklistsResponse {
-  checklists: TeamChecklistItem[];
-  status: number;
-}
-
 // Team Profile types
 export interface TeamProfileMember {
   id: string;
@@ -806,13 +718,6 @@ export interface TeamProfileTraining {
   point_value: number;
 }
 
-export interface TeamProfileChecklist {
-  id: number;
-  name: string;
-  difficulty: string;
-  active_status: boolean;
-}
-
 export interface TeamProfileData {
   team: {
     id: number;
@@ -831,17 +736,14 @@ export interface TeamProfileData {
     total_tasks_mapped: number;
     total_tasks_validated: number;
     total_tasks_invalidated: number;
-    total_checklists_completed: number;
     mapping_payable_total?: number;
     validation_payable_total?: number;
-    checklist_payable_total?: number;
     payable_total?: number;
     requested_total?: number;
     paid_total?: number;
   };
   projects: TeamProfileProject[];
   assigned_trainings: TeamProfileTraining[];
-  assigned_checklists: TeamProfileChecklist[];
   status: number;
 }
 
@@ -1030,6 +932,22 @@ export interface ProjectProfileResponse {
   assigned_trainings: ProjectProfileTraining[];
   assigned_locations: ProjectProfileLocation[];
   avg_time_per_task: number | null;
+}
+
+export interface AdminAggregateStatsResponse {
+  status: number;
+  totalHours: number;
+  pendingAdjustments: number;
+  voidedEntries: number;
+}
+
+export interface AdminTimeStatsResponse {
+  status: number;
+  weekHours: number;
+  lastWeekHours: number;
+  pendingAdjustments: number;
+  lastWeekPendingAdjustments: number;
+  shortSessionClusters: number;
 }
 
 export interface TimekeepingStatsResponse {

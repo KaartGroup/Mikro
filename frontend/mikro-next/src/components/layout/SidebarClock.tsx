@@ -134,8 +134,8 @@ export function SidebarClock() {
       try {
         const dayEnd = localDayEndIsoUtc();
         const [todayResult, weekResult] = await Promise.all([
-          fetchHistory({ startDate: localDayStartIsoUtc(), endDate: dayEnd, limit: 1000 }),
-          fetchHistory({ startDate: localWeekStartIsoUtc(), endDate: dayEnd, limit: 1000 }),
+          fetchHistory({ startDate: localDayStartIsoUtc(), endDate: dayEnd }),
+          fetchHistory({ startDate: localWeekStartIsoUtc(), endDate: dayEnd }),
         ]);
         const sumCompleted = (entries: { status: string; durationSeconds: number | null }[] | undefined) =>
           (entries || [])

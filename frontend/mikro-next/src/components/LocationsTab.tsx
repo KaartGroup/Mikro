@@ -19,9 +19,6 @@ import {
   useFetchTrainingLocations,
   useAssignTrainingLocations,
   useUnassignTrainingLocation,
-  useFetchChecklistLocations,
-  useAssignChecklistLocations,
-  useUnassignChecklistLocation,
   type LocationsResponse,
 } from "@/hooks/useApi";
 
@@ -29,7 +26,7 @@ import {
 
 interface LocationsTabProps {
   resourceId: number | string;
-  resourceType: "project" | "training" | "checklist";
+  resourceType: "project" | "training";
   onClose?: () => void;
 }
 
@@ -54,7 +51,7 @@ interface Region {
 
 // ─── Hook selector ──────────────────────────────────────────
 
-function useLocationHooks(resourceType: "project" | "training" | "checklist") {
+function useLocationHooks(resourceType: "project" | "training") {
   const projectFetch = useFetchProjectLocations();
   const projectAssign = useAssignProjectLocations();
   const projectUnassign = useUnassignProjectLocation();
@@ -63,22 +60,11 @@ function useLocationHooks(resourceType: "project" | "training" | "checklist") {
   const trainingAssign = useAssignTrainingLocations();
   const trainingUnassign = useUnassignTrainingLocation();
 
-  const checklistFetch = useFetchChecklistLocations();
-  const checklistAssign = useAssignChecklistLocations();
-  const checklistUnassign = useUnassignChecklistLocation();
-
   if (resourceType === "training") {
     return {
       fetchLocations: trainingFetch,
       assignLocations: trainingAssign,
       unassignLocation: trainingUnassign,
-    };
-  }
-  if (resourceType === "checklist") {
-    return {
-      fetchLocations: checklistFetch,
-      assignLocations: checklistAssign,
-      unassignLocation: checklistUnassign,
     };
   }
   return {

@@ -33,7 +33,6 @@ export function TeamProfile({ isAdmin = false }: Props) {
   const [membersPage, setMembersPage] = useState(1);
   const [projectsPage, setProjectsPage] = useState(1);
   const [trainingsPage, setTrainingsPage] = useState(1);
-  const [checklistsPage, setChecklistsPage] = useState(1);
 
   useEffect(() => {
     if (!teamId) return;
@@ -82,7 +81,7 @@ export function TeamProfile({ isAdmin = false }: Props) {
 
   if (!profile) return null;
 
-  const { team, members, aggregated_stats, projects, assigned_trainings, assigned_checklists } = profile;
+  const { team, members, aggregated_stats, projects, assigned_trainings } = profile;
 
   return (
     <div className="space-y-6">
@@ -126,7 +125,6 @@ export function TeamProfile({ isAdmin = false }: Props) {
         <StatCard label="Tasks Mapped" value={formatNumber(aggregated_stats.total_tasks_mapped)} />
         <StatCard label="Tasks Validated" value={formatNumber(aggregated_stats.total_tasks_validated)} />
         <StatCard label="Tasks Invalidated" value={formatNumber(aggregated_stats.total_tasks_invalidated)} />
-        <StatCard label="Checklists Completed" value={formatNumber(aggregated_stats.total_checklists_completed)} />
       </div>
 
       {/* Admin-only: Payment Summary */}
@@ -140,7 +138,6 @@ export function TeamProfile({ isAdmin = false }: Props) {
               {[
                 { label: "Mapping", value: aggregated_stats.mapping_payable_total, color: "" },
                 { label: "Validation", value: aggregated_stats.validation_payable_total, color: "" },
-                { label: "Checklists", value: aggregated_stats.checklist_payable_total, color: "" },
                 { label: "Payable", value: aggregated_stats.payable_total, color: "text-green-600" },
                 { label: "Requested", value: aggregated_stats.requested_total, color: "text-yellow-600" },
                 { label: "Paid", value: aggregated_stats.paid_total, color: "text-blue-600" },
@@ -346,72 +343,6 @@ export function TeamProfile({ isAdmin = false }: Props) {
         </Card>
       )}
 
-      {/* Assigned Checklists */}
-      {assigned_checklists.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Assigned Checklists (<Val>{formatNumber(assigned_checklists.length)}</Val>)</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-muted border-b border-border">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Name</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Difficulty</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border bg-card">
-                  {assigned_checklists
-                    .slice((checklistsPage - 1) * ROWS_PER_PAGE_LOCAL, checklistsPage * ROWS_PER_PAGE_LOCAL)
-                    .map((checklist) => (
-                      <tr
-                        key={checklist.id}
-                        className="cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => router.push("/checklists")}
-                      >
-                        <td className="px-6 py-4 font-medium text-kaart-orange">{checklist.name}</td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              checklist.difficulty === "Hard"
-                                ? "bg-red-100 text-red-800"
-                                : checklist.difficulty === "Medium"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-green-100 text-green-800"
-                            }`}
-                          >
-                            {checklist.difficulty}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              checklist.active_status ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {checklist.active_status ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-            {assigned_checklists.length > ROWS_PER_PAGE_LOCAL && (
-              <div className="flex items-center justify-between px-6 py-3 text-sm text-muted-foreground">
-                <span>Showing {(checklistsPage - 1) * ROWS_PER_PAGE_LOCAL + 1}–{Math.min(checklistsPage * ROWS_PER_PAGE_LOCAL, assigned_checklists.length)} of {assigned_checklists.length}</span>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={checklistsPage === 1} onClick={() => setChecklistsPage((p) => p - 1)}>Previous</Button>
-                  <span className="flex items-center px-2">Page {checklistsPage} of {Math.ceil(assigned_checklists.length / ROWS_PER_PAGE_LOCAL)}</span>
-                  <Button variant="outline" size="sm" disabled={checklistsPage === Math.ceil(assigned_checklists.length / ROWS_PER_PAGE_LOCAL)} onClick={() => setChecklistsPage((p) => p + 1)}>Next</Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

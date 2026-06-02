@@ -16,7 +16,7 @@ import {
   Val,
 } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
-import { useMyTimeHistory, useRequestTimeAdjustment, useUpdateMyNotes, useUserProjects } from "@/hooks";
+import { useCursorHistory, useRequestTimeAdjustment, useUpdateMyNotes, useUserProjects } from "@/hooks";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import {
   formatDurationHM,
@@ -33,7 +33,6 @@ import {
   localDayEndIsoUtc,
 } from "@/lib/timeTracking";
 import { TimeTrackingWidget } from "@/components/widgets/TimeTrackingWidget";
-import type { TimeEntry } from "@/types";
 
 // --- Date range presets ---
 
@@ -136,29 +135,25 @@ export function UserTime() {
   const [adjustmentReason, setAdjustmentReason] = useState("");
 
   // Data fetching
-  const { data: historyData, loading, refetch } = useMyTimeHistory();
+  const history = useCursorHistory("/timetracking/my_history");
   const { mutate: requestAdjustment, loading: submitting } = useRequestTimeAdjustment();
   const { mutate: updateMyNotes } = useUpdateMyNotes();
 
   const handleSaveNotes = async (entryId: number, value: string | null) => {
     await updateMyNotes({ entry_id: entryId, userNotes: value });
-    await refetch();
+    fetchWithFilters();
   };
 
-  const allEntries: TimeEntry[] = historyData?.entries || [];
-
-  // Build filter body and refetch when filters change
-  const fetchWithFilters = useCallback(() => {
+  // Build filter body and refetch when filters change — resets to page 1
+  const fetchWithFilters = useCallback(async () => {
     const { startDate, endDate } = getDateRange(datePreset);
     const body: Record<string, unknown> = {};
     if (startDate) body.startDate = startDate;
     if (endDate) body.endDate = endDate;
     const categoryKey = resolveCategoryKey(category);
     if (categoryKey) body.category = categoryKey;
-    body.limit = 500;
-    body.offset = 0;
-    refetch(body).catch(() => {});
-  }, [datePreset, category, refetch]);
+    await history.fetchPage(body);
+  }, [datePreset, category, history.fetchPage]);
 
   useEffect(() => {
     fetchWithFilters();
@@ -180,7 +175,7 @@ export function UserTime() {
 
   // Filtered entries (client-side fallback if backend doesn't filter yet)
   const filteredEntries = useMemo(() => {
-    let entries = allEntries;
+    let entries = history.entries;
 
     // Client-side date filtering (fallback)
     const { startDate, endDate } = getDateRange(datePreset);
@@ -200,22 +195,22 @@ export function UserTime() {
     }
 
     return entries;
-  }, [allEntries, datePreset, category]);
+  }, [history.entries, datePreset, category]);
 
   // Stat computations
   const stats = useMemo(() => {
-    const totalSeconds = allEntries.reduce(
+    const totalSeconds = history.entries.reduce(
       (sum, e) => sum + (e.durationSeconds ?? 0),
       0
     );
 
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisMonthSeconds = allEntries
+    const thisMonthSeconds = history.entries
       .filter((e) => e.clockIn && new Date(e.clockIn) >= monthStart)
       .reduce((sum, e) => sum + (e.durationSeconds ?? 0), 0);
 
-    const pendingAdjustments = allEntries.filter(
+    const pendingAdjustments = history.entries.filter(
       (e) => e.notes?.startsWith("[ADJUSTMENT REQUESTED]")
     ).length;
 
@@ -224,7 +219,7 @@ export function UserTime() {
       thisMonthHours: secondsToHours(thisMonthSeconds),
       pendingAdjustments,
     };
-  }, [allEntries]);
+  }, [history.entries]);
 
   // Pagination
   const totalEntries = filteredEntries.length;
@@ -255,7 +250,7 @@ export function UserTime() {
   };
 
   // Loading state
-  if (loading && !historyData) {
+  if (history.loading && history.entries.length === 0) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         <Skeleton className="h-8 w-48" />
@@ -535,8 +530,16 @@ export function UserTime() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
+              isLoading={history.loadingMore}
+              disabled={page >= totalPages - 1 && !history.nextCursor}
+              onClick={async () => {
+                if (page < totalPages - 1) {
+                  setPage((p) => p + 1);
+                } else if (history.nextCursor) {
+                  await history.loadMore();
+                  setPage((p) => p + 1);
+                }
+              }}
             >
               Next
             </Button>

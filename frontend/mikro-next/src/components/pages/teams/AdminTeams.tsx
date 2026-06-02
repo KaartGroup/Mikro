@@ -38,9 +38,6 @@ import {
   useFetchTeamTrainings,
   useAssignTrainingToTeam,
   useUnassignTrainingFromTeam,
-  useFetchTeamChecklists,
-  useAssignChecklistToTeam,
-  useUnassignChecklistFromTeam,
   useUsersList,
   useFilters,
   useFetchFilterOptions,
@@ -48,7 +45,7 @@ import {
   useManagedTeams,
 } from "@/hooks";
 import { isOrgAdminOrAbove } from "@/types";
-import type { Team, TeamMemberItem, TeamTrainingItem, TeamChecklistItem } from "@/types";
+import type { Team, TeamMemberItem, TeamTrainingItem } from "@/types";
 
 export function AdminTeams() {
   const { data: teamsData, loading, refetch } = useFetchTeams();
@@ -90,15 +87,6 @@ export function AdminTeams() {
   const [teamTrainings, setTeamTrainings] = useState<TeamTrainingItem[]>([]);
   const [trainingsLoading, setTrainingsLoading] = useState(false);
   const [trainingsSearch, setTrainingsSearch] = useState("");
-
-  // Checklists modal state
-  const { mutate: fetchTeamChecklists } = useFetchTeamChecklists();
-  const { mutate: assignChecklistToTeam } = useAssignChecklistToTeam();
-  const { mutate: unassignChecklistFromTeam } = useUnassignChecklistFromTeam();
-  const [checklistsTeam, setChecklistsTeam] = useState<Team | null>(null);
-  const [teamChecklists, setTeamChecklists] = useState<TeamChecklistItem[]>([]);
-  const [checklistsLoading, setChecklistsLoading] = useState(false);
-  const [checklistsSearch, setChecklistsSearch] = useState("");
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -269,41 +257,6 @@ export function AdminTeams() {
 
   const filteredTrainings = teamTrainings.filter((t) =>
     t.title?.toLowerCase().includes(trainingsSearch.toLowerCase())
-  );
-
-  // Checklists handlers
-  const openChecklistsModal = async (team: Team) => {
-    setChecklistsTeam(team);
-    setChecklistsSearch("");
-    setChecklistsLoading(true);
-    try {
-      const res = await fetchTeamChecklists({ teamId: team.id });
-      setTeamChecklists(res?.checklists ?? []);
-    } catch {
-      toast.error("Failed to fetch team checklists");
-      setTeamChecklists([]);
-    } finally {
-      setChecklistsLoading(false);
-    }
-  };
-
-  const handleToggleChecklist = async (checklistId: number, currentStatus: string) => {
-    if (!checklistsTeam) return;
-    try {
-      if (currentStatus === "Assigned") {
-        await unassignChecklistFromTeam({ teamId: checklistsTeam.id, checklistId });
-      } else {
-        await assignChecklistToTeam({ teamId: checklistsTeam.id, checklistId });
-      }
-      const res = await fetchTeamChecklists({ teamId: checklistsTeam.id });
-      setTeamChecklists(res?.checklists ?? []);
-    } catch {
-      toast.error("Failed to update checklist assignment");
-    }
-  };
-
-  const filteredChecklists = teamChecklists.filter((c) =>
-    c.name?.toLowerCase().includes(checklistsSearch.toLowerCase())
   );
 
   if ((loading && !teamsData) ) {
@@ -495,13 +448,6 @@ export function AdminTeams() {
                               onClick={() => openTrainingsModal(team)}
                             >
                               Trainings
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openChecklistsModal(team)}
-                            >
-                              Checklists
                             </Button>
                             {canCreateOrDeleteTeams && (
                               <Button
@@ -842,113 +788,6 @@ export function AdminTeams() {
                           }
                         >
                           {training.assigned === "Assigned"
-                            ? "Remove"
-                            : "Assign"}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
-      </Modal>
-
-      {/* Checklists Modal */}
-      <Modal
-        isOpen={!!checklistsTeam}
-        onClose={() => {
-          setChecklistsTeam(null);
-          setTeamChecklists([]);
-        }}
-        title={`Team Checklists — ${checklistsTeam?.name}`}
-        description="Assign or remove checklists from this team"
-        size="5xl"
-        footer={
-          <Button
-            variant="outline"
-            onClick={() => {
-              setChecklistsTeam(null);
-              setTeamChecklists([]);
-            }}
-          >
-            Close
-          </Button>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            placeholder="Search checklists..."
-            value={checklistsSearch}
-            onChange={(e) => setChecklistsSearch(e.target.value)}
-          />
-          {checklistsLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : filteredChecklists.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              {checklistsSearch
-                ? "No checklists match your search"
-                : "No checklists in organization"}
-            </p>
-          ) : (
-            <div className="max-h-96 overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Difficulty</TableHead>
-                    <TableHead className="text-center">Active</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredChecklists.map((checklist) => (
-                    <TableRow key={checklist.id}>
-                      <TableCell className="font-medium">
-                        {checklist.name}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {checklist.difficulty || "—"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          variant={checklist.active_status ? "success" : "secondary"}
-                        >
-                          {checklist.active_status ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          variant={
-                            checklist.assigned === "Assigned"
-                              ? "success"
-                              : "secondary"
-                          }
-                        >
-                          {checklist.assigned}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant={
-                            checklist.assigned === "Assigned"
-                              ? "destructive"
-                              : "primary"
-                          }
-                          onClick={() =>
-                            handleToggleChecklist(checklist.id, checklist.assigned)
-                          }
-                        >
-                          {checklist.assigned === "Assigned"
                             ? "Remove"
                             : "Assign"}
                         </Button>

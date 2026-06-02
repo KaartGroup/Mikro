@@ -90,7 +90,7 @@ export function TimeTrackingWidget({
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [discardError, setDiscardError] = useState<string | null>(null);
 
-  // Lazy-loaded data for training and checklist topics
+  // Lazy-loaded data for training topics
   const {
     data: trainingData,
     refetch: fetchTrainings,
@@ -100,15 +100,6 @@ export function TimeTrackingWidget({
     validation_trainings: Array<{ id: number; title: string }>;
     project_trainings: Array<{ id: number; title: string }>;
   }>("/training/fetch_user_trainings", { immediate: false });
-
-  const {
-    data: checklistData,
-    refetch: fetchChecklists,
-  } = useApiCall<{
-    status: number;
-    user_started_checklists: Array<{ id: number; name: string }>;
-    user_available_checklists: Array<{ id: number; name: string }>;
-  }>("/checklist/fetch_user_checklists", { immediate: false });
 
   const { data: customTopicsData } = useCustomTopics();
   const { mutate: fetchHistory } = useFetchMyTimeHistory();
@@ -169,14 +160,12 @@ export function TimeTrackingWidget({
     };
   }, [isClockedIn, timerStartedAt, initialElapsed]);
 
-  // Lazy-load training/checklist data when topic changes
+  // Lazy-load training data when topic changes
   useEffect(() => {
     if (selectedTopic === "training") {
       fetchTrainings().catch(() => {});
-    } else if (selectedTopic === "checklist") {
-      fetchChecklists().catch(() => {});
     }
-  }, [selectedTopic, fetchTrainings, fetchChecklists]);
+  }, [selectedTopic, fetchTrainings]);
 
   // Reset task / project / sub fields when topic changes, then fetch
   // the tier-2 subcategories visible to this user for the new activity.
@@ -237,12 +226,10 @@ export function TimeTrackingWidget({
         fetchHistory({
           startDate: localDayStartIsoUtc(),
           endDate: dayEnd,
-          limit: 1000,
         }),
         fetchHistory({
           startDate: localWeekStartIsoUtc(),
           endDate: dayEnd,
-          limit: 1000,
         }),
       ]);
 
@@ -420,23 +407,6 @@ export function TimeTrackingWidget({
     [trainingData]
   );
 
-  // Handle task selection for checklist
-  const handleChecklistSelect = useCallback(
-    (checklistId: string) => {
-      const allChecklists = [
-        ...(checklistData?.user_started_checklists || []),
-        ...(checklistData?.user_available_checklists || []),
-      ];
-      const checklist = allChecklists.find(
-        (c) => c.id.toString() === checklistId
-      );
-      setTaskRefType("checklist");
-      setTaskRefId(checklist ? checklist.id : null);
-      setTaskName(checklist ? checklist.name : "");
-    },
-    [checklistData]
-  );
-
   // Handle custom topic selection
   const handleCustomTopicSelect = useCallback(
     (value: string) => {
@@ -472,14 +442,6 @@ export function TimeTrackingWidget({
     label: t.title,
   }));
 
-  const checklistOptions: SelectOption[] = [
-    ...(checklistData?.user_started_checklists || []),
-    ...(checklistData?.user_available_checklists || []),
-  ].map((c) => ({
-    value: c.id.toString(),
-    label: c.name,
-  }));
-
   const customTopicOptions: SelectOption[] = [
     ...(customTopicsData?.topics || []).map((t) => ({
       value: t.id.toString(),
@@ -506,19 +468,6 @@ export function TimeTrackingWidget({
           value={taskRefId ? taskRefId.toString() : ""}
           onChange={handleTrainingSelect}
           placeholder="Select training (optional)"
-        />
-      );
-    }
-
-    // Checklist
-    if (selectedTopic === "checklist") {
-      return (
-        <Select
-          label="Checklist"
-          options={checklistOptions}
-          value={taskRefId ? taskRefId.toString() : ""}
-          onChange={handleChecklistSelect}
-          placeholder="Select checklist (optional)"
         />
       );
     }

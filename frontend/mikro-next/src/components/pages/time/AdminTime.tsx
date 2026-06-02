@@ -22,7 +22,7 @@ import {
 import { useToastActions } from "@/components/ui";
 import { StandaloneFilter } from "@/components/admin/StandaloneFilter";
 import {
-  useAdminTimeHistory,
+  useApiMutation,
   useAdminActiveSessions,
   useEditTimeEntry,
   useVoidTimeEntry,
@@ -32,6 +32,7 @@ import {
   useFetchFilterOptions,
   useUsersList,
   useOrgProjects,
+  useAdminAggregateStats,
 } from "@/hooks/useApi";
 import { useCurrentUserRole, useManagedTeams } from "@/hooks";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
@@ -46,7 +47,7 @@ import {
   dateInputToLocalStartIsoUtc,
   dateInputToLocalEndIsoUtc,
 } from "@/lib/timeTracking";
-import type { TimeEntry } from "@/types";
+import type { TimeEntry, TimeTrackingHistoryResponse } from "@/types";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { AdminTimeCategoriesView } from "./_categories";
 import { NotesButton } from "@/components/widgets/NotesButton";
@@ -176,22 +177,6 @@ const CATEGORY_OPTIONS = Object.keys(CATEGORY_LABELS);
 
 // --- Formatting helpers ---
 
-function formatDateDisplay(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
     month: "short",
@@ -214,10 +199,6 @@ function formatLiveDuration(clockIn: string): string {
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-}
-
-function secondsToHours(seconds: number): number {
-  return Math.round((seconds / 3600) * 10) / 10;
 }
 
 /** Convert ISO string to datetime-local input value (local timezone) */
@@ -318,11 +299,14 @@ export function AdminTime() {
   const [addError, setAddError] = useState<string | null>(null);
 
   // Data fetching
-  const {
-    data: historyData,
-    loading: historyLoading,
-    refetch: refetchHistory,
-  } = useAdminTimeHistory();
+  const { mutate: fetchHistoryPage } = useApiMutation<TimeTrackingHistoryResponse>("/timetracking/history");
+  const { mutate: fetchAggregateStats } = useAdminAggregateStats();
+  const [allEntries, setAllEntries] = useState<TimeEntry[]>([]);
+  const [nextCursor, setNextCursor] = useState<{ clockIn: string; id: number } | null>(null);
+  const [serverStats, setServerStats] = useState<{ totalHours: number; pendingAdjustments: number; voidedEntries: number } | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const currentFiltersRef = useRef<Record<string, unknown>>({});
   const {
     data: sessionsData,
     loading: sessionsLoading,
@@ -335,15 +319,13 @@ export function AdminTime() {
   const { mutate: forceClockOut, loading: forcingClockOut } =
     useForceClockOut();
   const { exportEntries, loading: exporting } = useExportTimeEntries();
-  const { data: filterOptions, loading: filterOptionsLoading } =
-    useFetchFilterOptions();
+  const { data: filterOptions } = useFetchFilterOptions();
   const { data: usersData } = useUsersList();
   const { data: projectsData } = useOrgProjects();
 
   const users = usersData?.users || [];
   const projects = projectsData?.org_active_projects || [];
   const sessions = sessionsData?.sessions || [];
-  const allEntries: TimeEntry[] = historyData?.entries || [];
 
   // Role-aware UI (F3 Phase 3.4): team_admin's view is server-scoped
   // to managed-team users. The team filter dropdown is restricted
@@ -367,11 +349,9 @@ export function AdminTime() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Build filter body and refetch when filters change. Each standalone
-  // dropdown writes a single-element values array into `filters` so the
-  // backend's resolve_filtered_user_ids handles every dimension via the
-  // existing pipeline.
-  const fetchWithFilters = useCallback(() => {
+  // Build filter body and refetch when filters change. Resets the
+  // accumulated entry list and cursor back to page 1.
+  const fetchWithFilters = useCallback(async () => {
     const { startDate, endDate } = getDateRange(datePreset, {
       start: customStart,
       end: customEnd,
@@ -388,9 +368,18 @@ export function AdminTime() {
     if (filterRole) filters.role = [filterRole];
     if (filterTimezone) filters.timezone = [filterTimezone];
     if (Object.keys(filters).length > 0) body.filters = filters;
-    body.limit = 500;
-    body.offset = 0;
-    refetchHistory(body).catch(() => {});
+    currentFiltersRef.current = body;
+    setHistoryLoading(true);
+    try {
+      const [result, statsResult] = await Promise.all([
+        fetchHistoryPage(body),
+        fetchAggregateStats(body),
+      ]);
+      setAllEntries(result?.entries ?? []);
+      setNextCursor(result?.nextCursor ?? null);
+      setServerStats(statsResult ?? null);
+    } catch { /* errors surfaced by mutation */ }
+    finally { setHistoryLoading(false); }
   }, [
     datePreset,
     customStart,
@@ -401,8 +390,21 @@ export function AdminTime() {
     filterTeamId,
     filterRole,
     filterTimezone,
-    refetchHistory,
+    fetchHistoryPage,
+    fetchAggregateStats,
   ]);
+
+  const loadMoreHistory = useCallback(async () => {
+    if (!nextCursor) return;
+    setLoadingMore(true);
+    try {
+      const body = { ...currentFiltersRef.current, cursor: nextCursor };
+      const result = await fetchHistoryPage(body);
+      setAllEntries((prev) => [...prev, ...(result?.entries ?? [])]);
+      setNextCursor(result?.nextCursor ?? null);
+    } catch { /* errors surfaced by mutation */ }
+    finally { setLoadingMore(false); }
+  }, [fetchHistoryPage, nextCursor]);
 
   useEffect(() => {
     fetchWithFilters();
@@ -504,28 +506,14 @@ export function AdminTime() {
     return filtered;
   }, [sessions, category, userSearch]);
 
-  // Stat computations
-  const stats = useMemo(() => {
-    const totalSeconds = filteredEntries.reduce(
-      (sum, e) => sum + (e.durationSeconds ?? 0),
-      0
-    );
-
-    const pendingAdjustments = filteredEntries.filter((e) =>
-      e.notes?.startsWith("[ADJUSTMENT REQUESTED]")
-    ).length;
-
-    const voidedEntries = filteredEntries.filter(
-      (e) => e.status === "voided"
-    ).length;
-
-    return {
-      totalHours: secondsToHours(totalSeconds),
-      activeSessions: filteredSessions.length,
-      pendingAdjustments,
-      voidedEntries,
-    };
-  }, [filteredEntries, filteredSessions]);
+  // Stat computations — totals come from the server aggregate endpoint so
+  // they're exact regardless of how many pages have been loaded.
+  const stats = useMemo(() => ({
+    totalHours: serverStats?.totalHours ?? 0,
+    activeSessions: filteredSessions.length,
+    pendingAdjustments: serverStats?.pendingAdjustments ?? 0,
+    voidedEntries: serverStats?.voidedEntries ?? 0,
+  }), [serverStats, filteredSessions]);
 
   // Stat-card subtitle echoing the active date filter. Honest about what
   // the number is for ("For This Month" vs the old "For filtered period"
@@ -613,7 +601,7 @@ export function AdminTime() {
       await forceClockOut({ session_id: id });
       toast.success("User has been clocked out");
       await refetchSessions();
-      await refetchHistory();
+      fetchWithFilters();
     } catch {
       toast.error("Failed to force clock out");
     }
@@ -742,7 +730,7 @@ export function AdminTime() {
   };
 
   // Loading state
-  if ((historyLoading && !historyData) ) {
+  if (historyLoading && allEntries.length === 0) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         <Skeleton className="h-8 w-48" />
@@ -1533,7 +1521,7 @@ export function AdminTime() {
         >
           <p className="text-sm text-muted-foreground">
             Showing {formatNumber(showingFrom).text}-{formatNumber(showingTo).text} of{" "}
-            {formatNumber(totalEntries).text}
+            {formatNumber(totalEntries).text}{nextCursor ? "+" : ""}
           </p>
           <div style={{ display: "flex", gap: 8 }}>
             <Button
@@ -1547,8 +1535,16 @@ export function AdminTime() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
+              isLoading={loadingMore}
+              disabled={page >= totalPages - 1 && !nextCursor}
+              onClick={async () => {
+                if (page < totalPages - 1) {
+                  setPage((p) => p + 1);
+                } else if (nextCursor) {
+                  await loadMoreHistory();
+                  setPage((p) => p + 1);
+                }
+              }}
             >
               Next
             </Button>
