@@ -10,6 +10,7 @@ from flask import g, request
 
 from ..utils import requires_admin, requires_auth, requires_team_admin_or_above
 from ..auth import (
+    is_admin_tier,
     is_org_admin_or_above,
     managed_team_ids_for,
     team_admin_can_access_team,
@@ -101,6 +102,35 @@ def _extract_lead_ids_from_request(req_json):
     if "leadId" in req_json:
         legacy = req_json.get("leadId")
         return [str(legacy)] if legacy else []
+    return None
+
+
+def _validate_lead_ids(lead_ids, org_id):
+    """Ensure every proposed team lead is an in-org user with an admin role.
+
+    A team lead inherits managed-teams access via ``Team.lead_id``; assigning a
+    non-admin (a plain mapper) as lead would leave them a lead with no
+    permissions to act on the team. Reject any lead_id that isn't an admin-tier
+    user (super_admin / admin / team_admin) in this org.
+
+    Returns an error-response dict on failure, or ``None`` if every lead is valid.
+    """
+    for uid in lead_ids or []:
+        user = User.query.filter_by(id=uid, org_id=org_id).first()
+        if not user:
+            return {"message": f"Lead user {uid} not found in your org", "status": 400}
+        if not is_admin_tier(user):
+            name = (
+                f"{user.first_name or ''} {user.last_name or ''}".strip()
+                or user.email
+            )
+            return {
+                "message": (
+                    f"{name} is not an admin and cannot be a team lead. "
+                    "Give them an admin role first."
+                ),
+                "status": 400,
+            }
     return None
 
 
@@ -210,6 +240,10 @@ class TeamAPI(MethodView):
         team_description = request.json.get("teamDescription")
         lead_ids_input = _extract_lead_ids_from_request(request.json) or []
 
+        lead_error = _validate_lead_ids(lead_ids_input, g.user.org_id)
+        if lead_error is not None:
+            return lead_error
+
         team = Team.create(
             name=team_name,
             description=team_description,
@@ -262,6 +296,10 @@ class TeamAPI(MethodView):
             # Only Org Admin / super_admin can change team leads.
             if not is_org_admin_or_above(g.user):
                 return {"message": "Only Org Admin can change team leads", "status": 403}
+            # Every lead must be an in-org admin-tier user.
+            lead_error = _validate_lead_ids(lead_ids_input, g.user.org_id)
+            if lead_error is not None:
+                return lead_error
 
         if updates:
             team.update(**updates)
