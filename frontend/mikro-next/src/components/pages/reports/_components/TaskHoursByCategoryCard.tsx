@@ -12,7 +12,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { WEEKLY_TASK_COLORS } from "@/lib/chartColors";
+import { TIMEKEEPING_CATEGORY_COLORS, WEEKLY_TASK_COLORS } from "@/lib/chartColors";
 import { chartNumberFmt, chartTooltipFmt } from "./reportUtils";
 import type { TimekeepingStatsResponse } from "@/types";
 
@@ -65,7 +65,7 @@ export function TaskHoursByCategoryCard({ data, granularity }: TaskHoursByCatego
                     key={cat}
                     dataKey={cat}
                     stackId="a"
-                    fill={WEEKLY_TASK_COLORS[i % WEEKLY_TASK_COLORS.length]}
+                    fill={TIMEKEEPING_CATEGORY_COLORS[cat] ?? WEEKLY_TASK_COLORS[i % WEEKLY_TASK_COLORS.length]}
                     stroke="#ffffff"
                     strokeWidth={0.5}
                   />

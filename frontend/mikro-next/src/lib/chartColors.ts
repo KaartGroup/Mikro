@@ -68,23 +68,46 @@ export const CATEGORY_COLORS: Record<string, string> = {
   other: "#9ca3af",
 };
 
-/** Qualitative 9-color scale for stacked weekly-task charts. */
+/**
+ * Key-based color map for the weekly/daily task-hours stacked bar chart.
+ * Keyed by the snake_case category names returned by the backend
+ * `_categorize_activity` function so each category always gets the same
+ * color regardless of its alphabetical sort position in the data.
+ */
+export const TIMEKEEPING_CATEGORY_COLORS: Record<string, string> = {
+  editing: "#f97316",
+  meeting: "#93c5fd",
+  qc: "#d1d5db",
+  imagery_capture: "#9ca3af",
+  project_creation: "#3b82f6",
+  community_qc: "#111827",
+  community_documentation: "#ec4899",
+  community_meeting: "#a855f7",
+  community_outreach: "#10b981",
+  community_training: "#7c3aed",
+  training: "#f59e0b",
+  documentation: "#f472b6",
+  other: "#6b7280",
+};
+
+/** Fallback qualitative scale for any category not in TIMEKEEPING_CATEGORY_COLORS. */
 export const WEEKLY_TASK_COLORS = [
-  "#8b5cf6", // Management
-  "#f59e0b", // Kaart Training / Meetings
-  "#3b82f6", // Kaart QC
-  "#64748b", // Imagery Capture
-  "#06b6d4", // Project Creation / Team Planning
-  "#14b8a6", // Community QC
-  "#ec4899", // Wiki / OSM Documentation
-  "#a855f7", // Community Events / Trainings / Meetings
-  "#10b981", // Community Outreach - General
+  "#f97316",
+  "#93c5fd",
+  "#d1d5db",
+  "#9ca3af",
+  "#3b82f6",
+  "#111827",
+  "#ec4899",
+  "#a855f7",
+  "#10b981",
 ];
 
-/** Community outreach sub-category colors — used on the stacked area chart. */
-export const COMMUNITY_OUTREACH_COLORS = {
-  "Wiki / OSM Documentation": "#ec4899",
-  "Community QC": "#14b8a6",
-  "Community Events / Trainings / Meetings": "#a855f7",
-  "Community Outreach - General": "#10b981",
+/** Community category colors — keyed by backend snake_case category names. */
+export const COMMUNITY_OUTREACH_COLORS: Record<string, string> = {
+  community_documentation: "#f97316",
+  community_qc: "#1f2937",
+  community_meeting: "#f59e0b",
+  community_training: "#f59e0b",
+  community_outreach: "#fdba74",
 };

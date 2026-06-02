@@ -6,6 +6,7 @@ from sqlalchemy import func
 from ...database import db, TimeEntry, User
 from ...utils.tz import parse_filter_datetime
 from .helpers import resolve_member_id_filter
+from ..TimeTracking import ACTIVITY_SLUGS
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +227,64 @@ def _get_daily_activity(org_id, start_date, end_date, member_ids):
         })
     return result
 
+def _categorize_activity(activity=None, subcategory_name=None) -> str:
+    """
+    Categorizes a raw activity string into a broader category for reporting purposes.
+
+    Management
+    Kaart Training/Meetings
+    Kaart QC
+    Imagery Capture
+    Project Creation/ Team Planning
+    Wiki / OSM Documentation
+    Community QC
+    Community Events / Training / Meetings
+
+    """
+    activity = activity.lower() if activity else ""
+    subcategory_name = subcategory_name.lower() if subcategory_name else ""
+    # Check qc/validation family before ACTIVITY_SLUGS because "validating" is
+    # a legacy slug not in the current set but still present in historical rows.
+    if activity in ("qc_review", "validating"):
+        if subcategory_name in ("community qc", "community project"):
+            return "community_qc"
+        return "qc"
+
+    if activity not in ACTIVITY_SLUGS:
+        return "other"
+
+    if activity == "editing":
+        return "editing"
+
+    if activity == "documentation":
+        if subcategory_name == "wiki documentation":
+            return "community_documentation"
+        return "documentation"
+
+    if activity == "imagery_capture":
+        return "imagery_capture"
+
+    if activity == "project_creation":
+        return "project_creation"
+
+    if activity == "training":
+        if subcategory_name == "community":
+            return "community_training"
+        return "training"
+
+    if activity == "meeting":
+        if subcategory_name == "community":
+            return "community_meeting"
+        return "meeting"
+
+    if activity == "other":
+        sub = (subcategory_name or "").lower()
+        if "communi" in sub or "outreach" in sub:
+            return "community_outreach"
+        return "other"
+
+    raise ValueError(f"Unexpected activity: {activity}")
+
 
 def _get_daily_category_hours(org_id, start_date, end_date, member_ids):
     """Returns (daily_category_hours list, all_category_names set)."""
@@ -234,10 +293,11 @@ def _get_daily_category_hours(org_id, start_date, end_date, member_ids):
         db.session.query(
             func.date_trunc("day", TimeEntry.clock_in).label("day"),
             TimeEntry.activity,
+            TimeEntry.subcategory_name,
             func.sum(TimeEntry.duration_seconds).label("seconds"),
         )
         .filter(*f)
-        .group_by("day", TimeEntry.activity)
+        .group_by("day", TimeEntry.activity, TimeEntry.subcategory_name)
         .order_by("day")
         .all()
     )
@@ -246,10 +306,12 @@ def _get_daily_category_hours(org_id, start_date, end_date, member_ids):
     all_cats = set()
     for row in rows:
         day_key = row.day.strftime("%Y-%m-%d")
-        cat = row.activity or "other"
+        cat = _categorize_activity(row.activity, row.subcategory_name)
         all_cats.add(cat)
         daily_cat_map.setdefault(day_key, {"day": day_key})
-        daily_cat_map[day_key][cat] = round((row.seconds or 0) / 3600, 1)
+        daily_cat_map[day_key][cat] = round(
+            daily_cat_map[day_key].get(cat, 0) + (row.seconds or 0) / 3600, 1
+        )
 
     return sorted(daily_cat_map.values(), key=lambda x: x["day"]), all_cats
 
@@ -304,10 +366,11 @@ def _get_weekly_category_hours(org_id, start_date, end_date, member_ids):
         db.session.query(
             (func.date_trunc("week", TimeEntry.clock_in + timedelta(days=1)) - timedelta(days=1)).label("week"),
             TimeEntry.activity,
+            TimeEntry.subcategory_name,
             func.sum(TimeEntry.duration_seconds).label("seconds"),
         )
         .filter(*f)
-        .group_by("week", TimeEntry.activity)
+        .group_by("week", TimeEntry.activity, TimeEntry.subcategory_name)
         .order_by("week")
         .all()
     )
@@ -319,10 +382,12 @@ def _get_weekly_category_hours(org_id, start_date, end_date, member_ids):
         week_key = row.week.strftime("%Y-%m-%d")
         if week_key >= end_date_str:
             continue
-        cat = row.activity or "other"
+        cat = _categorize_activity(row.activity, row.subcategory_name)
         all_cats.add(cat)
         weekly_cat_map.setdefault(week_key, {"week": week_key})
-        weekly_cat_map[week_key][cat] = round((row.seconds or 0) / 3600, 1)
+        weekly_cat_map[week_key][cat] = round(
+            weekly_cat_map[week_key].get(cat, 0) + (row.seconds or 0) / 3600, 1
+        )
 
     return sorted(weekly_cat_map.values(), key=lambda x: x["week"]), all_cats
 

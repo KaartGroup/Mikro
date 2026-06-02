@@ -511,7 +511,10 @@ export function AdminReports() {
                   data={timekeepingData}
                   granularity={timekeepingGranularity}
                 />
-                <CommunityOutreachCard />
+                <CommunityOutreachCard
+                  data={timekeepingData}
+                  granularity={timekeepingGranularity}
+                />
               </>
             ) : timekeepingLoading ? (
               <div className="col-span-3"><LoadingSpinner /></div>
