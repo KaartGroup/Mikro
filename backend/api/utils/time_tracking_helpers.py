@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import logging
+from datetime import datetime
 
 import requests as http_requests
 
@@ -7,6 +8,13 @@ from ..database import TimeEntry, User, Project, TeamUser
 from ..auth import managed_team_ids_for, team_member_ids_for
 
 logger = logging.getLogger(__name__)
+
+# Long-session threshold (SSOT). A session running longer than this —
+# whether still active or already closed — is flagged as a probable
+# forgotten clock-out. Referenced by TimeTracking.admin_long_sessions and
+# the effectiveDurationSeconds field below; never hardcode the value
+# elsewhere.
+LONG_SESSION_THRESHOLD_SECONDS = 10 * 3600
 
 # Tier-1 activity slugs (the renamed `category` enum). Stored in
 # `time_entries.activity`. Mirrors the SSOT on the frontend at
@@ -97,6 +105,18 @@ class TimeTrackingHelpers:
             seconds = entry.duration_seconds % 60
             duration = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
+        # Effective elapsed seconds: recorded duration for closed entries,
+        # live elapsed for still-active ones, else None. Used by the
+        # long-sessions endpoint to sort/flag across both cases.
+        if entry.duration_seconds is not None:
+            effective_duration_seconds = entry.duration_seconds
+        elif entry.status == "active" and entry.clock_in:
+            effective_duration_seconds = int(
+                (datetime.utcnow() - entry.clock_in).total_seconds()
+            )
+        else:
+            effective_duration_seconds = None
+
         return {
             "id": entry.id,
             "userId": entry.user_id,
@@ -123,6 +143,7 @@ class TimeTrackingHelpers:
             "clockOut": entry.clock_out.isoformat() + "Z" if entry.clock_out else None,
             "duration": duration,
             "durationSeconds": entry.duration_seconds,
+            "effectiveDurationSeconds": effective_duration_seconds,
             "status": entry.status,
             "changesetCount": entry.changeset_count or 0,
             "changesCount": entry.changes_count or 0,

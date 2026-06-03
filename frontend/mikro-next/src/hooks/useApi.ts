@@ -718,6 +718,13 @@ export function useAdminActiveSessions() {
   );
 }
 
+// Admin: get long-running sessions (active >10h OR closed with duration >10h)
+export function useAdminLongSessions() {
+  return useApiCall<TimeTrackingActiveSessionsResponse>(
+    "/timetracking/long_sessions",
+  );
+}
+
 // Admin: aggregate week/last-week stats (hours, adjustments, clusters) —
 // computed server-side, not limited by history pagination.
 export function useAdminTimeStats() {

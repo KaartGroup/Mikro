@@ -391,6 +391,10 @@ export interface TimeEntry {
   clockOut: string | null;
   duration: string | null;
   durationSeconds: number | null;
+  /** Session length in seconds — for open sessions it's now−clockIn, for
+   *  closed ones the recorded duration. Populated by the long_sessions
+   *  endpoint; optional elsewhere. */
+  effectiveDurationSeconds?: number | null;
   elapsedSeconds?: number;
   status: "active" | "completed" | "voided";
   changesetCount: number;
