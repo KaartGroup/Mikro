@@ -24,6 +24,7 @@ import { StandaloneFilter } from "@/components/admin/StandaloneFilter";
 import {
   useApiMutation,
   useAdminActiveSessions,
+  useAdminLongSessions,
   useEditTimeEntry,
   useVoidTimeEntry,
   useAdminAddTimeEntry,
@@ -198,6 +199,13 @@ function formatDuration(seconds: number | null): string {
   return formatDurationHM(seconds);
 }
 
+/** Compact h/m label for the Long Sessions queue (e.g. "11h 4m"). No
+ *  threshold logic here — the endpoint decides what counts as "long". */
+function formatLongDuration(seconds: number | null | undefined): string {
+  if (seconds == null) return "—";
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
 function formatLiveDuration(clockIn: string): string {
   const now = new Date();
   const start = new Date(clockIn);
@@ -275,6 +283,9 @@ export function AdminTime() {
   // Active sessions collapsible
   const [sessionsExpanded, setSessionsExpanded] = useState(true);
 
+  // Long sessions collapsible
+  const [longSessionsExpanded, setLongSessionsExpanded] = useState(true);
+
   // Export dropdown
   const [exportOpen, setExportOpen] = useState(false);
   const [hideOsmUsername, setHideOsmUsername] = useState(false);
@@ -327,6 +338,11 @@ export function AdminTime() {
     loading: sessionsLoading,
     refetch: refetchSessions,
   } = useAdminActiveSessions();
+  const {
+    data: longSessionsData,
+    loading: longSessionsLoading,
+    refetch: refetchLongSessions,
+  } = useAdminLongSessions();
   const { mutate: editEntry, loading: editing } = useEditTimeEntry();
   const { mutate: voidEntry, loading: voiding } = useVoidTimeEntry();
   const { mutate: addTimeEntry, loading: addingEntry } = useAdminAddTimeEntry();
@@ -340,6 +356,7 @@ export function AdminTime() {
   const users = usersData?.users || [];
   const projects = projectsData?.org_active_projects || [];
   const sessions = sessionsData?.sessions || [];
+  const longSessions = longSessionsData?.sessions || [];
 
   // Role-aware UI (F3 Phase 3.4): team_admin's view is server-scoped
   // to managed-team users. The team filter dropdown is restricted
@@ -438,11 +455,12 @@ export function AdminTime() {
       setTimeout(() => {
         fetchWithFilters();
         refetchSessions().catch(() => {});
+        refetchLongSessions().catch(() => {});
       }, 500);
     };
     window.addEventListener("clock-state-changed", handler);
     return () => window.removeEventListener("clock-state-changed", handler);
-  }, [fetchWithFilters, refetchSessions]);
+  }, [fetchWithFilters, refetchSessions, refetchLongSessions]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -629,6 +647,7 @@ export function AdminTime() {
       await forceClockOut({ session_id: id });
       toast.success("User has been clocked out");
       await refetchSessions();
+      refetchLongSessions().catch(() => {});
       fetchWithFilters();
     } catch {
       toast.error("Failed to force clock out");
@@ -1198,6 +1217,188 @@ export function AdminTime() {
               </div>
             </Card>
           </div>
+
+          {/* Long Sessions (collapsible) — alerts for sessions that ran
+          longer than the backend's threshold (both still-open and
+          recently-closed, last 30 days). Always rendered so the queue is
+          discoverable even when empty. The threshold lives server-side;
+          the frontend just renders whatever the endpoint returns. */}
+          <Card style={{ padding: 0 }}>
+            <div
+              style={{
+                padding: "12px 16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+              }}
+              onClick={() => setLongSessionsExpanded(!longSessionsExpanded)}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="relative flex h-2 w-2">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+                <h2 className="text-base font-semibold">
+                  Long Sessions ({longSessions.length})
+                </h2>
+              </div>
+              <svg
+                className={`w-5 h-5 text-muted-foreground transition-transform ${longSessionsExpanded ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+
+            {longSessionsExpanded && (
+              <CardContent
+                style={{ padding: 0, borderTop: "1px solid var(--border)" }}
+              >
+                {longSessionsLoading ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Loading long sessions...
+                  </p>
+                ) : longSessions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    No long sessions in the last 30 days.
+                  </p>
+                ) : (
+                  <div className="overflow-auto">
+                    <table className="w-full text-sm" style={{ minWidth: 600 }}>
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-1.5 px-2 text-xs whitespace-nowrap font-medium text-muted-foreground">
+                            User
+                          </th>
+                          <th className="text-left py-1.5 px-2 text-xs whitespace-nowrap font-medium text-muted-foreground">
+                            Project
+                          </th>
+                          <th className="text-left py-1.5 px-2 text-xs whitespace-nowrap font-medium text-muted-foreground">
+                            Category
+                          </th>
+                          <th className="text-left py-1.5 px-2 text-xs whitespace-nowrap font-medium text-muted-foreground">
+                            Clocked In
+                          </th>
+                          <th className="text-left py-1.5 px-2 text-xs whitespace-nowrap font-medium text-muted-foreground">
+                            Clocked Out
+                          </th>
+                          <th className="text-left py-1.5 px-2 text-xs whitespace-nowrap font-medium text-muted-foreground">
+                            Duration
+                          </th>
+                          <th className="text-left py-1.5 px-2 text-xs whitespace-nowrap font-medium text-muted-foreground">
+                            Status
+                          </th>
+                          <th className="text-left py-1.5 px-2 text-xs whitespace-nowrap font-medium text-muted-foreground">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {longSessions.map((session) => {
+                          const isActive = session.status === "active";
+                          return (
+                            <tr
+                              key={session.id}
+                              className="border-b border-border last:border-0"
+                            >
+                              <td className="py-2 px-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="relative flex h-2 w-2">
+                                    <span
+                                      className={`relative inline-flex rounded-full h-2 w-2 ${isActive ? "bg-red-500" : "bg-amber-500"}`}
+                                    ></span>
+                                  </span>
+                                  <span className="font-medium">
+                                    {session.userName}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-2 px-2">
+                                {session.projectName || "--"}
+                              </td>
+                              <td className="py-2 px-2">
+                                <Badge variant="secondary">
+                                  {session.category}
+                                </Badge>
+                              </td>
+                              <td className="py-2 px-2 text-muted-foreground">
+                                {session.clockIn
+                                  ? formatDateTime(session.clockIn)
+                                  : "--"}
+                              </td>
+                              <td className="py-2 px-2 text-muted-foreground">
+                                {session.clockOut
+                                  ? formatDateTime(session.clockOut)
+                                  : "still open"}
+                              </td>
+                              <td className="py-2 px-2 whitespace-nowrap">
+                                <span className="font-mono font-medium">
+                                  {formatLongDuration(
+                                    session.effectiveDurationSeconds,
+                                  )}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2">
+                                <Badge
+                                  variant={isActive ? "destructive" : "warning"}
+                                >
+                                  {isActive ? "Active" : "Closed"}
+                                </Badge>
+                              </td>
+                              <td className="py-2 px-2">
+                                {isActive ? (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleForceClockOut(session.id)
+                                    }
+                                    disabled={forcingClockOut}
+                                    className="whitespace-nowrap"
+                                  >
+                                    Clock Out
+                                  </Button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEdit(session)}
+                                    disabled={editing}
+                                    className="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                                    title="Edit entry"
+                                  >
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                      />
+                                    </svg>
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
 
           {/* Active Sessions (collapsible) */}
           {filteredSessions.length > 0 && (

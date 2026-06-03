@@ -30,7 +30,7 @@ except ImportError:
 
 from ..utils import requires_admin, requires_team_admin_or_above
 from ..utils.tz import org_month_bounds_utc, parse_filter_datetime
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
 from ..database import (
     TimeEntry, User, Project, Task, Team, TeamUser, TeamLead,
     CustomTopic, ActivitySubcategory, HourlyPayment, db,
@@ -42,7 +42,10 @@ from ..auth import (
     team_admin_can_access_user,
     team_member_ids_for,
 )
-from ..utils.time_tracking_helpers import TimeTrackingHelpers, ACTIVITY_SLUGS, ACTIVITY_DISPLAY_MAP
+from ..utils.time_tracking_helpers import (
+    TimeTrackingHelpers, ACTIVITY_SLUGS, ACTIVITY_DISPLAY_MAP,
+    LONG_SESSION_THRESHOLD_SECONDS,
+)
 from ..utils.time_entry_query import TimeEntryQuery
 
 logger = logging.getLogger(__name__)
@@ -301,6 +304,8 @@ class TimeTrackingAPI(MethodView):
         # Admin endpoints
         elif path == "active_sessions":
             return self.admin_active_sessions()
+        elif path == "long_sessions":
+            return self.admin_long_sessions()
         elif path == "history":
             return self.admin_history()
         elif path == "force_clock_out":
@@ -956,6 +961,62 @@ class TimeTrackingAPI(MethodView):
             "status": 200,
             "sessions": [TimeTrackingHelpers._format_entry(e) for e in entries],
         }), 200
+
+    @requires_team_admin_or_above
+    def admin_long_sessions(self):
+        """Sessions that ran longer than the long-session threshold.
+
+        Covers BOTH currently-active sessions open longer than the
+        threshold AND already-closed sessions whose recorded duration
+        exceeded it, within the last 30 days. This is what surfaces a
+        forgotten clock-out even after the session has been closed.
+
+        Accepts optional `teamId`; for team_admin, forces scope to their
+        managed teams (mirrors admin_active_sessions).
+        """
+        data = request.get_json(silent=True) or {}
+        team_id = data.get("teamId")
+
+        now = datetime.utcnow()
+        active_cutoff = now - timedelta(seconds=LONG_SESSION_THRESHOLD_SECONDS)
+        window_start = now - timedelta(days=30)
+
+        query = TimeEntry.query.filter(
+            TimeEntry.org_id == g.user.org_id,
+            TimeEntry.status != "voided",
+            TimeEntry.clock_in >= window_start,
+            or_(
+                and_(
+                    TimeEntry.status == "active",
+                    TimeEntry.clock_in <= active_cutoff,
+                ),
+                and_(
+                    TimeEntry.duration_seconds.isnot(None),
+                    TimeEntry.duration_seconds > LONG_SESSION_THRESHOLD_SECONDS,
+                ),
+            ),
+        )
+
+        if team_id:
+            member_ids = [
+                tu.user_id
+                for tu in TeamUser.query.filter_by(team_id=team_id).all()
+            ]
+            if member_ids:
+                query = query.filter(TimeEntry.user_id.in_(member_ids))
+            else:
+                query = query.filter(TimeEntry.user_id == None)  # noqa: E711
+
+        query = TimeTrackingHelpers._apply_team_admin_scope(query, g.user, team_id)
+
+        entries = query.all()
+        sessions = [TimeTrackingHelpers._format_entry(e) for e in entries]
+        # Longest first (effective duration handles still-open sessions).
+        sessions.sort(
+            key=lambda s: s.get("effectiveDurationSeconds") or 0, reverse=True
+        )
+
+        return jsonify({"status": 200, "sessions": sessions}), 200
 
     @requires_team_admin_or_above
     def admin_time_stats(self):

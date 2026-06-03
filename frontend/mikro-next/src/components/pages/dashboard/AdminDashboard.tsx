@@ -22,6 +22,7 @@ import {
   useAdminSyncAllTasks,
   useCheckSyncStatus,
   useAdminActiveSessions,
+  useAdminLongSessions,
   useAdminTimeStats,
   useCurrentUserRole,
   useManagedTeams,
@@ -81,12 +82,15 @@ function DashboardStats({
   } = useAdminTimeStats();
   const { data: activeSessions, refetch: refetchActiveSessions } =
     useAdminActiveSessions();
+  const { data: longSessions, refetch: refetchLongSessions } =
+    useAdminLongSessions();
 
   // When the team scope changes, refetch the time-related panels.
   useEffect(() => {
     refetchTimeStats(teamId ? { teamId } : undefined).catch(() => {});
     refetchActiveSessions(teamId ? { teamId } : undefined).catch(() => {});
-  }, [teamId, refetchTimeStats, refetchActiveSessions]);
+    refetchLongSessions(teamId ? { teamId } : undefined).catch(() => {});
+  }, [teamId, refetchTimeStats, refetchActiveSessions, refetchLongSessions]);
 
   // Region filter — refetch stats when admin picks a country.
   useEffect(() => {
@@ -105,11 +109,10 @@ function DashboardStats({
   // Merge server-aggregated time stats with client-derived active-session counts.
   const timeStats = useMemo(() => {
     const sessions = activeSessions?.sessions || [];
-    const now = new Date();
-    const longRunning = sessions.filter((s) => {
-      if (!s.clockIn) return false;
-      return (now.getTime() - new Date(s.clockIn).getTime()) / 1000 > 10 * 3600;
-    }).length;
+    // Long-running count comes from the dedicated endpoint (10h threshold
+    // lives backend-side, SSOT) — covers both still-open sessions and
+    // recently-closed ones that recorded >10h.
+    const longRunning = longSessions?.sessions?.length ?? 0;
     return {
       weekHours: serverTimeStats?.weekHours ?? 0,
       lastWeekHours: serverTimeStats?.lastWeekHours ?? 0,
@@ -120,7 +123,7 @@ function DashboardStats({
       longRunning,
       activeCount: sessions.length,
     };
-  }, [serverTimeStats, activeSessions]);
+  }, [serverTimeStats, activeSessions, longSessions]);
   const [purgeConfirm, setPurgeConfirm] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -345,12 +348,12 @@ function DashboardStats({
           value={formatNumber(timeStats.longRunning)}
           subtitle={
             timeStats.longRunning > 0
-              ? "Sessions over 10 hours"
+              ? "Sessions over 10 hours (open now or recently closed)"
               : "No suspicious sessions"
           }
           href="/time"
           linkLabel="Review active sessions"
-          tooltip="Active clock-ins running longer than 10 hours — may indicate a user forgot to clock out"
+          tooltip="Sessions over 10 hours — open now or recently closed; may indicate a forgotten clock-out."
           severity={timeStats.longRunning > 0 ? "critical" : "neutral"}
           loading={timeHistoryLoading}
         />
