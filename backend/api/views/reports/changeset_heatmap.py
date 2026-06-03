@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 _EMPTY_RESPONSE = {
     "status": 200,
     "heatmapPoints": [],
-    "summary": {"totalChangesets": 0, "totalChanges": 0, "usersWithData": 0},
 }
 
 
@@ -65,24 +64,12 @@ def get_changeset_heatmap(org_id, viewer, start_date, end_date, start_date_str, 
     results = _fetch_all_user_changesets(osm_usernames, start_date_str, end_date_str)
 
     all_points = []
-    total_changesets = 0
-    total_changes = 0
-    users_with_data = 0
-    for _username, points, cs_count, changes in results:
-        if points:
-            all_points.extend(points)
-            users_with_data += 1
-        total_changesets += cs_count
-        total_changes += changes
+    for _username, points in results:
+        all_points.extend(points)
 
     return {
         "status": 200,
         "heatmapPoints": all_points,
-        "summary": {
-            "totalChangesets": total_changesets,
-            "totalChanges": total_changes,
-            "usersWithData": users_with_data,
-        },
     }
 
 
@@ -149,12 +136,8 @@ def _fetch_user_changeset_points(username, start_date_str, end_date_str):
         return username, [], 0, 0
 
     points = []
-    cs_count = 0
-    changes_total = 0
     for cs in root.findall("changeset"):
-        cs_count += 1
         changes = int(cs.get("changes_count", 0))
-        changes_total += changes
         min_lat, max_lat = cs.get("min_lat"), cs.get("max_lat")
         min_lon, max_lon = cs.get("min_lon"), cs.get("max_lon")
         if min_lat and max_lat and min_lon and max_lon:
@@ -162,7 +145,7 @@ def _fetch_user_changeset_points(username, start_date_str, end_date_str):
             lon = (float(min_lon) + float(max_lon)) / 2
             points.append([lat, lon, max(changes, 1)])
 
-    return username, points, cs_count, changes_total
+    return username, points
 
 
 def _fetch_all_user_changesets(osm_usernames, start_date_str, end_date_str):

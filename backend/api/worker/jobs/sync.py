@@ -80,6 +80,9 @@ def sync_project(project, org_id, target_user_id=None):
             )
             db.session.rollback()
 
+    project.last_sync_cursor = datetime.now(timezone.utc)
+    db.session.commit()
+
 
 def run_sync_job(job):
     """

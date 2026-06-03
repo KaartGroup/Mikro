@@ -248,10 +248,25 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
         if cat["title"] == "Highways":
             categories.append(hpr)
 
+    # Use the global most-recent adiff timestamp so freshness reflects when
+    # the pipeline last ran, not just the latest record in the selected window.
+    global_last = (
+        ChangesetAdiff.query
+        .with_entities(ChangesetAdiff.created_at)
+        .filter(
+            ChangesetAdiff.org_id == org_id,
+            ChangesetAdiff.adiff_xml.isnot(None),
+        )
+        .order_by(ChangesetAdiff.created_at.desc())
+        .limit(1)
+        .scalar()
+    )
+    effective_last = global_last if global_last else last_updated
+
     return {
         "status": 200,
         "categories": categories,
-        "lastUpdated": last_updated.isoformat() + "Z" if last_updated else None,
+        "lastUpdated": effective_last.isoformat() + "Z" if effective_last else None,
     }
 
 

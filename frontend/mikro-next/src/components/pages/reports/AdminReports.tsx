@@ -15,6 +15,7 @@ import {
   useQueueElementAnalysisBackfill,
   useCheckElementAnalysisBackfillStatus,
   useFetchMapillaryStats,
+  useOrgProjects,
 } from "@/hooks/useApi";
 import { useFilters, useCurrentUserRole, useManagedTeams } from "@/hooks";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
@@ -37,6 +38,9 @@ import { TeamActivityCard } from "./_components/TeamActivityCard";
 import { TaskHoursByCategoryCard } from "./_components/TaskHoursByCategoryCard";
 import { CommunityOutreachCard } from "./_components/CommunityOutreachCard";
 import { ExportDropdown } from "./_components/ExportDropdown";
+import { DataSourceStatusBar } from "./_components/DataSourceStatusBar";
+import { OsmClassificationPieChart } from "./_components/OsmClassificationPieChart";
+import { ProjectSnapshotTable } from "./_components/ProjectSnapshotTable";
 
 function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -102,11 +106,6 @@ export function AdminReports() {
     [number, number, number][]
   >([]);
   const [heatmapLoading, setHeatmapLoading] = useState(false);
-  const [heatmapSummary, setHeatmapSummary] = useState<{
-    totalChangesets: number;
-    totalChanges: number;
-    usersWithData: number;
-  } | null>(null);
 
   // ── Element analysis state ───────────────────────────────────
   const [elementCategories, setElementCategories] = useState<
@@ -151,6 +150,24 @@ export function AdminReports() {
   const { mutate: checkElementAnalysisBackfillStatus } =
     useCheckElementAnalysisBackfillStatus();
   const { mutate: fetchMapillaryStats } = useFetchMapillaryStats();
+  const { data: orgProjectsData } = useOrgProjects();
+
+  // Derive per-source last-synced timestamps from project list
+  const { tm4LastSynced, mrLastSynced } = useMemo(() => {
+    const all = [
+      ...(orgProjectsData?.org_active_projects ?? []),
+      ...(orgProjectsData?.org_inactive_projects ?? []),
+    ];
+    const maxDate = (dates: (string | null | undefined)[]) =>
+      dates
+        .filter(Boolean)
+        .sort()
+        .at(-1) ?? null;
+    return {
+      tm4LastSynced: maxDate(all.filter((p) => p.source !== "mr").map((p) => p.last_synced)),
+      mrLastSynced: maxDate(all.filter((p) => p.source === "mr").map((p) => p.last_synced)),
+    };
+  }, [orgProjectsData]);
 
   // ── Data fetching ────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -185,7 +202,6 @@ export function AdminReports() {
         .then((res) => {
           if (res?.status === 200) {
             setHeatmapPoints(res.heatmapPoints || []);
-            setHeatmapSummary(res.summary || null);
           }
         })
         .finally(() => setHeatmapLoading(false)),
@@ -386,6 +402,44 @@ export function AdminReports() {
     return { tkData, tkCmp, edData, edCmp };
   }, [timekeepingData, editingData, timekeepingGranularity]);
 
+  // ── KPI anomaly helpers ───────────────────────────────────────
+  const kpiStats = useMemo(() => {
+    function anomalyFor(currentVal: number, cmpWeekly: number[]) {
+      if (cmpWeekly.length === 0) return { delta: null, anomaly: false };
+      const cmpTotal = cmpWeekly.reduce((s, v) => s + v, 0);
+      const mean = cmpTotal / cmpWeekly.length;
+      const variance =
+        cmpWeekly.reduce((s, v) => s + (v - mean) ** 2, 0) / cmpWeekly.length;
+      const sigma = Math.sqrt(variance);
+      const delta = cmpTotal > 0 ? ((currentVal - cmpTotal) / cmpTotal) * 100 : null;
+      const currentAvg = currentVal / Math.max(1, cmpWeekly.length);
+      const anomaly = sigma > 0 && Math.abs(currentAvg - mean) > sigma;
+      return { delta, anomaly };
+    }
+
+    const cmpTkWeekly = timekeepingData?.comparison?.weekly_activity ?? [];
+    const cmpEdWeekly = editingData?.comparison?.tasks_over_time ?? [];
+
+    return {
+      hours: anomalyFor(
+        timekeepingData?.summary.total_hours ?? 0,
+        cmpTkWeekly.map((w) => w.hours),
+      ),
+      changesets: anomalyFor(
+        timekeepingData?.summary.total_changesets ?? 0,
+        cmpTkWeekly.map((w) => w.changesets),
+      ),
+      changes: anomalyFor(
+        timekeepingData?.summary.total_changes ?? 0,
+        cmpTkWeekly.map((w) => w.changes),
+      ),
+      tasksMapped: anomalyFor(
+        overallProgress?.totalMapped ?? 0,
+        cmpEdWeekly.map((w) => w.mapped),
+      ),
+    };
+  }, [timekeepingData, editingData, overallProgress]);
+
   // ── team_admin with no managed teams → empty state ───────────
   if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
     return (
@@ -511,6 +565,13 @@ export function AdminReports() {
               />
             </div>
           </div>
+          <DataSourceStatusBar
+            sources={[
+              { label: "TM4", lastSynced: tm4LastSynced, maxAgeHours: 4 },
+              { label: "MapRoulette", lastSynced: mrLastSynced, maxAgeHours: 24 },
+              { label: "Element Analysis", lastSynced: elementLastUpdated, maxAgeHours: 24 },
+            ]}
+          />
         </CardContent>
       </Card>
 
@@ -518,57 +579,71 @@ export function AdminReports() {
       <div ref={reportContentRef}>
         {/* KPI Summary */}
         <div className="flex flex-col gap-4">
-          <div className="flex flex-row gap-2">
-            {[
-              { label: "Total Hours", value: formatNumber(totalHours) },
-              {
-                label: "Total Changesets",
-                value: formatNumber(totalChangesets),
-              },
-              { label: "Total Changes", value: formatNumber(totalChanges) },
-              {
-                label: "Avg Changes / Changeset",
-                value:
-                  totalChangesets > 0
-                    ? formatNumber(totalChanges / totalChangesets)
-                    : "—",
-              },
-              {
-                label: "Avg Changes / Hour",
-                value:
-                  totalHours > 0
-                    ? formatNumber(totalChanges / totalHours)
-                    : "—",
-              },
-              {
-                label: "Total Tasks",
-                value: formatNumber(overallProgress?.totalTasks ?? 0),
-              },
-              {
-                label: "Tasks Completed",
-                value: formatNumber(overallProgress?.totalMapped ?? 0),
-              },
-              {
-                label: "% Complete",
-                value: formatNumber(overallProgress?.pct ?? 0),
-                suffix: "%",
-              },
-            ].map(({ label, value, suffix }) => {
-              const displayValue = suffix
-                ? typeof value === "string"
-                  ? `${value}${suffix}`
-                  : `${(value as any).text ?? String(value)}${suffix}`
-                : value;
-              return (
-                <KpiCard
-                  key={label}
-                  className="w-44"
-                  label={label}
-                  value={displayValue as any}
-                  subtitle=""
-                />
-              );
-            })}
+          <div className="grid grid-cols-8 gap-2">
+            <KpiCard
+              label="Total Hours"
+              value={formatNumber(totalHours)}
+              subtitle=""
+              delta={kpiStats.hours.delta}
+              anomalyFlag={kpiStats.hours.anomaly}
+              info="Sum of all logged timekeeping entries for the selected period and filtered scope."
+            />
+            <KpiCard
+              label="Total Changesets"
+              value={formatNumber(totalChangesets)}
+              subtitle=""
+              delta={kpiStats.changesets.delta}
+              anomalyFlag={kpiStats.changesets.anomaly}
+              info="Count of OSM changesets submitted by contributors in the selected period."
+            />
+            <KpiCard
+              label="Total Changes"
+              value={formatNumber(totalChanges)}
+              subtitle=""
+              delta={kpiStats.changes.delta}
+              anomalyFlag={kpiStats.changes.anomaly}
+              info="OSM element-level edits (added + modified + deleted) from linked changesets."
+            />
+            <KpiCard
+              label="Avg Changes / Changeset"
+              value={
+                totalChangesets > 0
+                  ? formatNumber(totalChanges / totalChangesets)
+                  : "—"
+              }
+              subtitle=""
+              info="Total changes divided by total changesets for the period."
+            />
+            <KpiCard
+              label="Avg Changes / Hour"
+              value={
+                totalHours > 0
+                  ? formatNumber(totalChanges / totalHours)
+                  : "—"
+              }
+              subtitle=""
+              info="Total changes divided by total logged hours for the period."
+            />
+            <KpiCard
+              label="Total Tasks"
+              value={formatNumber(overallProgress?.totalTasks ?? 0)}
+              subtitle=""
+              info="Sum of all task slots across active projects in the selected scope."
+            />
+            <KpiCard
+              label="Tasks Completed"
+              value={formatNumber(overallProgress?.totalMapped ?? 0)}
+              subtitle=""
+              delta={kpiStats.tasksMapped.delta}
+              anomalyFlag={kpiStats.tasksMapped.anomaly}
+              info="Tasks marked as mapped (completed) within the selected period and scope."
+            />
+            <KpiCard
+              label="% Complete"
+              value={`${overallProgress?.pct ?? 0}%`}
+              subtitle=""
+              info="Percentage of total task slots that have been mapped across all active projects."
+            />
           </div>
 
           {/* ── Trends + Activity ── */}
@@ -664,29 +739,32 @@ export function AdminReports() {
             </CardContent>
           </Card>
         ) : editingData ? (
-          <div className="space-y-6">
-            <ElementActivitySection
-              elementCategories={elementCategories}
-              elementLastUpdated={elementLastUpdated}
-              elementLoading={elementLoading}
-              elementRefreshing={elementRefreshing}
-              elementProgress={elementProgress}
-              showRefreshModal={showRefreshModal}
-              setShowRefreshModal={setShowRefreshModal}
-              showBackfillModal={showBackfillModal}
-              setShowBackfillModal={setShowBackfillModal}
-              onStartAnalysis={handleStartAnalysis}
-              onStartBackfill={handleStartBackfill}
-              granularity={timekeepingGranularity}
-            />
-          </div>
+          <ElementActivitySection
+            elementCategories={elementCategories}
+            elementLastUpdated={elementLastUpdated}
+            elementLoading={elementLoading}
+            elementRefreshing={elementRefreshing}
+            elementProgress={elementProgress}
+            showRefreshModal={showRefreshModal}
+            setShowRefreshModal={setShowRefreshModal}
+            showBackfillModal={showBackfillModal}
+            setShowBackfillModal={setShowBackfillModal}
+            onStartAnalysis={handleStartAnalysis}
+            onStartBackfill={handleStartBackfill}
+            granularity={timekeepingGranularity}
+          />
         ) : null}
       </div>
       {/* end reportContentRef */}
+
+      {/* ── Project Snapshot ── */}
+      {editingData && editingData.projects.length > 0 && (
+        <ProjectSnapshotTable projects={editingData.projects} />
+      )}
+
       <ChangesetHeatmapCard
         heatmapPoints={heatmapPoints}
         heatmapLoading={heatmapLoading}
-        heatmapSummary={heatmapSummary}
       />
     </div>
   );

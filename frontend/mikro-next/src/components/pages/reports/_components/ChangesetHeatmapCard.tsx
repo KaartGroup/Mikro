@@ -1,7 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, Val } from "@/components/ui";
-import { formatNumber } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import dynamic from "next/dynamic";
 
 const MappingHeatmap = dynamic(() => import("@/components/MappingHeatmap"), {
@@ -16,33 +15,18 @@ const MappingHeatmap = dynamic(() => import("@/components/MappingHeatmap"), {
 interface ChangesetHeatmapCardProps {
   heatmapPoints: [number, number, number][];
   heatmapLoading: boolean;
-  heatmapSummary: {
-    totalChangesets: number;
-    totalChanges: number;
-    usersWithData: number;
-  } | null;
 }
 
 export function ChangesetHeatmapCard({
   heatmapPoints,
   heatmapLoading,
-  heatmapSummary,
 }: ChangesetHeatmapCardProps) {
   return (
     <Card data-chart-export="Changeset Heatmap">
       <CardHeader className="pb-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">
-            Map of changeset centroids
-          </CardTitle>
-          {heatmapSummary && !heatmapLoading && (
-            <span className="text-xs text-muted-foreground">
-              {heatmapSummary.usersWithData} users &middot;{" "}
-              <Val>{formatNumber(heatmapSummary.totalChangesets)}</Val>{" "}
-              changesets
-            </span>
-          )}
-        </div>
+        <CardTitle className="text-base">
+          Map of changeset centroids
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {heatmapLoading ? (

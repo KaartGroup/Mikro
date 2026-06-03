@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import { ElementActivityChart } from "./ElementActivityChart";
 import { formatDateTime } from "./reportUtils";
 import type { ElementAnalysisCategory } from "@/types";
+import { OsmClassificationPieChart } from "./OsmClassificationPieChart";
 
 interface ElementActivitySectionProps {
   elementCategories: ElementAnalysisCategory[];
@@ -18,6 +19,7 @@ interface ElementActivitySectionProps {
   onStartAnalysis: () => void;
   onStartBackfill: () => void;
   granularity: "weekly" | "daily";
+  extraContent?: React.ReactNode;
 }
 
 export function ElementActivitySection({
@@ -33,6 +35,7 @@ export function ElementActivitySection({
   onStartAnalysis,
   onStartBackfill,
   granularity,
+  extraContent,
 }: ElementActivitySectionProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -134,19 +137,26 @@ export function ElementActivitySection({
         </div>
       </div>
 
+      <div className="flex flex-row w-full gap-6">
       {elementLoading ? (
-        <div className="flex items-center justify-center h-32 gap-2">
+        <div className="flex flex-1 items-center justify-center h-32 gap-2">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-kaart-orange" />
           <span className="text-sm text-muted-foreground">
             Loading cached data...
           </span>
         </div>
       ) : (
-        <ElementActivityChart
-          categories={elementCategories}
-          granularity={granularity}
-        />
+        <div className="flex-1 min-w-0">
+          <ElementActivityChart
+            categories={elementCategories}
+            granularity={granularity}
+          />
+        </div>
       )}
+      <div className="w-72 flex-shrink-0 self-stretch">
+        <OsmClassificationPieChart categories={elementCategories} />
+      </div>
+      </div>
 
       {showRefreshModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

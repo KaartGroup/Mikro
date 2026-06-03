@@ -1039,11 +1039,6 @@ export interface TimekeepingStatsResponse {
 export interface ChangesetHeatmapResponse {
   status: number;
   heatmapPoints: [number, number, number][];
-  summary: {
-    totalChangesets: number;
-    totalChanges: number;
-    usersWithData: number;
-  };
 }
 
 export interface StandardAnalysisCategory {

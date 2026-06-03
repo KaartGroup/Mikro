@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AprilFools } from "@/components/layout/AprilFools";
-import { WhatsNewModal } from "@/components/layout/WhatsNewModal";
 import { AuthGuard } from "@/components/AuthGuard";
 import { syncUserWithBackend } from "@/lib/syncUser";
 import { RoleProvider } from "@/contexts/RoleContext";
@@ -61,8 +60,6 @@ export default async function AuthenticatedLayout({
     paymentsVisible = true;
   }
 
-  const userId = (session.user.sub as string | undefined) ?? "";
-
   return (
     <RoleProvider
       initialRole={role as UserRole}
@@ -72,8 +69,7 @@ export default async function AuthenticatedLayout({
       <div style={{ minHeight: "100vh", backgroundColor: "var(--muted)" }}>
         <AuthGuard />
         <AprilFools />
-        <WhatsNewModal userId={userId} role={role} />
-        <Header displayName={displayName} />
+<Header displayName={displayName} />
         <Sidebar />
         <main
           className="main-content"
