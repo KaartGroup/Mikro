@@ -47,12 +47,11 @@ from ..utils import requires_admin, requires_team_admin_or_above
 
 # ─── DO Spaces helpers (receipt uploads / fetches) ──────────────────
 #
-# Mirrors the pattern in Transcription.py's ``_get_s3_client``. The
-# reimbursement-request flow uses these to issue short-lived signed
-# URLs for editor receipt uploads and admin receipt views. The bucket
-# stays private at the DO Spaces ACL level — every read is mediated
-# by a backend permission check (see _can_view_receipt below) followed
-# by a fresh GET URL signed for that one viewer.
+# Issues short-lived signed URLs for editor receipt uploads and admin
+# receipt views. The bucket stays private at the DO Spaces ACL level —
+# every read is mediated by a backend permission check (see
+# _can_view_receipt below) followed by a fresh GET URL signed for that
+# one viewer.
 #
 # Receipts whitelist:
 #   image/jpeg, image/png, image/heic, application/pdf
@@ -72,11 +71,7 @@ _RECEIPT_URL_EXPIRES_S = 300  # 5 minutes
 
 
 def _spaces_client():
-    """boto3 S3 client for DO Spaces.
-
-    Duplicated from Transcription.py for now — a future small refactor
-    can extract both call sites to ``backend/api/utils/spaces.py``.
-    """
+    """boto3 S3 client for DO Spaces."""
     return boto3.client(
         "s3",
         endpoint_url=current_app.config.get("DO_SPACES_ENDPOINT"),

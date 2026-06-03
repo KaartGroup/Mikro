@@ -695,7 +695,6 @@ export function AdminDashboard() {
   if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
         <TeamAdminEmptyState />
       </div>
     );
@@ -703,20 +702,6 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
-            Organization overview and management
-          </p>
-        </div>
-        {isTeamAdmin && (
-          <Badge variant="warning" className="mt-1">
-            Team Admin — viewing your managed teams
-          </Badge>
-        )}
-      </div>
-
       {/* Stat cards — first thing visible after the title. Deferred
           one animation frame so the page paints before the heavier
           stats render. */}

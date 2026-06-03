@@ -45,16 +45,9 @@ const adminNavItems: NavItem[] = [
   { label: "Regions", href: "/admin/regions", icon: "globe" },
   { label: "Punks List", href: "/admin/punks", icon: "shield" },
   { label: "Friends List", href: "/admin/friends", icon: "users" },
-  {
-    label: "Transcribe",
-    href: "/admin/transcribe",
-    icon: "mic",
-    tooltip: "New — Experimental Feature",
-  },
 ];
 
 // Team Admin sees a scoped subset: their teams' surface area only.
-// Excludes org-wide admin pages (Transcribe) which remain Org Admin+.
 const teamAdminNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "home" },
   { label: "Projects", href: "/projects", icon: "folder" },

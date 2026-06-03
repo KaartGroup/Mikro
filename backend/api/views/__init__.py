@@ -19,7 +19,6 @@ from .WeeklyReport import WeeklyReportAPI
 from .Friends import FriendAPI
 from .CommunityData import CommunityDataAPI
 from .ChannelMonitor import ChannelMonitorAPI
-from .Transcription import TranscriptionAPI
 
 __all__ = {
     "UserAPI",
@@ -41,5 +40,4 @@ __all__ = {
     "FriendAPI",
     "CommunityDataAPI",
     "ChannelMonitorAPI",
-    "TranscriptionAPI",
 }

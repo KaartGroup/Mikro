@@ -130,7 +130,6 @@ def _register_views(app):
         FriendAPI,
         CommunityDataAPI,
         ChannelMonitorAPI,
-        TranscriptionAPI,
     )
 
     # Authentication
@@ -211,12 +210,6 @@ def _register_views(app):
         view_func=ChannelMonitorAPI.as_view("channel"),
     )
 
-    # Transcription (server-side Whisper)
-    app.add_url_rule(
-        "/api/transcribe/<path>",
-        view_func=TranscriptionAPI.as_view("transcribe"),
-        methods=["GET", "POST"],
-    )
 
 
 # Create application instance for gunicorn

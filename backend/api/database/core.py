@@ -1524,8 +1524,6 @@ class ChannelPost(CRUDMixin, db.Model):
 
 
 class TranscriptionJob(CRUDMixin, db.Model):
-    """Audio transcription job tracking."""
-
     __tablename__ = "transcription_jobs"
 
     id = Column(String(8), primary_key=True)

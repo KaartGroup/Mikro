@@ -12,11 +12,7 @@ from .jobs.sync import run_sync_job
 from .sync_queue import SyncJobQueue
 from .jobs.element_analysis import run_element_analysis_job, run_element_analysis_backfill_job
 from .jobs.mr_backfill import run_mr_metadata_backfill
-from .jobs.transcription import (
-    run_transcription_job,
-    abandon_orphan_transcriptions,
-)
-from ..database import db, SyncJob, TranscriptionJob, User
+from ..database import db, SyncJob, User
 
 _STALE_JOB_TIMEOUT = timedelta(hours=1)
 _SHUTDOWN_MARKER = "/tmp/mikro_worker_clean_shutdown"
@@ -55,7 +51,7 @@ def _check_shutdown_marker():
         logger.warning(
             "[LIFECYCLE] No clean-shutdown marker found — previous worker lifetime ended "
             "UNGRACEFULLY (OOM, crash, or platform restart). "
-            "Any orphan transcriptions requeued below are a consequence of that ungraceful exit."
+            "Any orphaned jobs requeued below are a consequence of that ungraceful exit."
         )
 
 
@@ -177,53 +173,6 @@ def poll_for_jobs(app):
             db.session.rollback()
 
 
-def poll_for_transcription_jobs(app):
-    """Check for a queued transcription job and dispatch it if none is already transcribing."""
-    with app.app_context():
-        try:
-            running = TranscriptionJob.query.filter_by(status="transcribing").first()
-            if running:
-                if not running.started_at:
-                    logger.warning(
-                        f"[TRANSCRIBE-POLL] Job {running.id} has status=transcribing but no started_at"
-                    )
-                    return
-
-                age = datetime.now(timezone.utc) - running.started_at.replace(tzinfo=timezone.utc)
-                progress = running.progress or 0
-                is_stale = (progress == 0 and age > timedelta(minutes=60)) or age > timedelta(hours=6)
-                if not is_stale:
-                    return
-
-                reason = (
-                    "Stuck at progress=0 after 60 minutes"
-                    if progress == 0
-                    else "Exceeded 6 hours wall time"
-                )
-                logger.warning(
-                    f"[TRANSCRIBE-POLL] Marking stale job {running.id} as failed "
-                    f"(running for {age}, progress={progress}) — {reason}"
-                )
-                running.status = "error"
-                running.error = f"Timed out ({reason})"
-                running.completed_at = datetime.now(timezone.utc)
-                db.session.commit()
-
-            job = (
-                TranscriptionJob.query.filter_by(status="queued")
-                .order_by(TranscriptionJob.created_at.asc())
-                .first()
-            )
-            if job:
-                logger.info(
-                    f"[TRANSCRIBE-POLL] Found queued job {job.id} ({job.file_name}), starting..."
-                )
-                run_transcription_job(app, job)
-
-        except Exception as e:
-            logger.error(f"[TRANSCRIBE-POLL] Error polling: {e}\n{traceback.format_exc()}")
-            db.session.rollback()
-
 
 def _polling_loop(label, poll_fn, stop_event, interval=5):
     """Generic polling loop: calls poll_fn every interval seconds until stop_event is set."""
@@ -245,7 +194,7 @@ def main():
 
     logger.info("=" * 60)
     logger.info("MIKRO BACKGROUND WORKER STARTING")
-    logger.info("Handles task sync, element analysis, and transcription")
+    logger.info("Handles task sync and element analysis")
     logger.info("NOT bound by Gunicorn timeout")
     logger.info("=" * 60)
 
@@ -267,13 +216,8 @@ def main():
     logger.info("Worker running — polling for jobs every 5 seconds")
     logger.info("Nightly task sync + element analysis scheduled at midnight MST (07:00 UTC)")
 
-    abandon_orphan_transcriptions(app)
-
-    # threading.Thread(target=preload_whisper_model, daemon=True).start()
-
     for label, poll_fn in [
         ("SYNC-THREAD", lambda: poll_for_jobs(app)),
-        ("TRANSCRIBE-THREAD", lambda: poll_for_transcription_jobs(app)),
     ]:
         threading.Thread(
             target=_polling_loop,
