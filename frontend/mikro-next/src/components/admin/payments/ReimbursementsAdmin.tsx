@@ -3,7 +3,7 @@
 /**
  * Admin-side reimbursement queue UI.
  *
- * Two exports used by /admin/payments-v2:
+ * Two exports used by /admin/payments:
  *
  *   - <ReimbursementsAdminPanel />: the full Reimbursements tab —
  *     filter by status, table with approve/reject actions, modal

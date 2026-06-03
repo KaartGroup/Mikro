@@ -91,7 +91,7 @@ function lastOfLastMonthIso(d = new Date()): string {
 
 // ─── page ───────────────────────────────────────────────────────────
 
-export default function AdminPaymentsV2Page() {
+export default function AdminPaymentsPage() {
   const toast = useToastActions();
 
   // Page-level tab state for the Payments / Reimbursements split.
