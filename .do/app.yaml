@@ -43,6 +43,14 @@ services:
         value: ${AUTH0_DOMAIN}
       - key: API_AUDIENCE
         value: https://mikro/api/authorize
+      # The login app's client_id — used as the `client_id` when creating org
+      # invitations so the invitation is bound to the Regular Web App that
+      # users actually sign in with. Without it, invite_user falls back to the
+      # M2M client_id, and an invitation bound to a non-interactive M2M app
+      # fails signup ("Something went wrong"). Same value the frontend uses.
+      - key: AUTH0_APP_CLIENT_ID
+        type: SECRET
+        value: ${AUTH0_CLIENT_ID}
 
       # Tasking Manager 4
       - key: TM4_API_TOKEN

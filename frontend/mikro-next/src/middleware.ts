@@ -11,8 +11,10 @@ export default async function proxy(request: NextRequest) {
     return authRes;
   }
 
-  // Let the authorize route handle org invitation acceptance
-  if (request.nextUrl.pathname === "/api/authorize") {
+  // Let the invitation-acceptance route run for logged-out invitees instead
+  // of bouncing them to logout. (Lives at /accept-invitation, not /api/*,
+  // because /api/* is routed to the Flask backend on prod — see the route.)
+  if (request.nextUrl.pathname === "/accept-invitation") {
     return authRes;
   }
 
