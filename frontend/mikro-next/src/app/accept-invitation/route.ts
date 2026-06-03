@@ -27,7 +27,16 @@ export async function GET(request: NextRequest) {
   const invitation = searchParams.get("invitation");
   const organization = searchParams.get("organization");
 
-  const loginUrl = new URL("/auth/login", request.nextUrl.origin);
+  // Build the redirect against the PUBLIC base URL, not request.nextUrl.origin
+  // — behind DigitalOcean's proxy the latter resolves to the internal host
+  // (e.g. https://localhost:8080), which sends the invitee to a dead URL.
+  // APP_BASE_URL is the public origin (same var src/lib/auth0.ts onCallback
+  // relies on); fall back to the request origin only for local dev.
+  const baseUrl =
+    process.env.APP_BASE_URL ??
+    process.env.AUTH0_BASE_URL ??
+    request.nextUrl.origin;
+  const loginUrl = new URL("/auth/login", baseUrl);
 
   // Only an org invitation carries `organization`. If it's absent (e.g. a
   // bare third-party-initiated login hitting the Login URI), fall through to
