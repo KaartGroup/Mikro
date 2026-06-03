@@ -310,32 +310,6 @@ export function MapperDashboard({ isValidator = false }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isValidator ? "Validator Dashboard" : "Dashboard"}
-          </h1>
-          <p className="text-muted-foreground" style={{ marginTop: 4 }}>
-            Welcome back, {user?.name || user?.email}!
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleManualSync}
-          disabled={syncing}
-        >
-          {syncing ? "Syncing..." : "Sync Tasks"}
-        </Button>
-      </div>
-
       {/* Time Tracking */}
       <div
         style={{
