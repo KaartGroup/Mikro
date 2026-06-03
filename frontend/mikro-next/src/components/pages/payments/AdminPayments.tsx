@@ -54,12 +54,6 @@ import type {
 } from "@/types";
 import { CyclePicker } from "@/components/admin/payments/CyclePicker";
 
-// ─── helpers ────────────────────────────────────────────────────────
-
-// Role hierarchy — mirrors backend pay_visibility._ROLE_RANK. The Role
-// filter only offers roles ranking strictly below the viewer's own, so a
-// team_admin can't even attempt to isolate org/super/peer-admin pay
-// (the backend SSOT enforces it regardless; this keeps the UI honest).
 const ROLE_RANK: Record<string, number> = {
   user: 0,
   validator: 0,
@@ -89,16 +83,8 @@ function lastOfLastMonthIso(d = new Date()): string {
   return lastOfMonthIso(target);
 }
 
-// ─── page ───────────────────────────────────────────────────────────
-
-export default function AdminPaymentsPage() {
+export function AdminPayments() {
   const toast = useToastActions();
-
-  // Page-level tab state for the Payments / Reimbursements split.
-  // Synced to ?tab= so refreshes and shared links land on the same
-  // tab. The Reimbursements tab renders <ReimbursementsAdminPanel>
-  // (./components/admin/payments/ReimbursementsAdmin.tsx); the
-  // Payments tab keeps the existing single-page workspace.
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -161,10 +147,6 @@ export default function AdminPaymentsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Master page filter — mirrors the Users/Projects standard filters.
-  // Resolved server-side via the same `filters` body + resolve_filtered_
-  // user_ids, intersected with team scope so it can never conflict with
-  // the per-table chips (which only ever subset what this returns).
   const [filterRegionId, setFilterRegionId] = useState<string | null>(null);
   const [filterCountryId, setFilterCountryId] = useState<string | null>(null);
   const [filterTeamId, setFilterTeamId] = useState<string | null>(null);
@@ -172,7 +154,6 @@ export default function AdminPaymentsPage() {
   const [filterTimezone, setFilterTimezone] = useState<string | null>(null);
   const [filterComp, setFilterComp] = useState<string | null>(null);
   const [showCycleConfig, setShowCycleConfig] = useState(false);
-  // Column show/hide. Empty = all shown; resets each visit (no persistence).
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
   const { data: filterOptions } = useFetchFilterOptions();
 
@@ -194,7 +175,6 @@ export default function AdminPaymentsPage() {
     filterComp,
   ]);
 
-  // Load cycle + KPIs
   const reload = async () => {
     try {
       const [cycle, kpisRes] = await Promise.all([
@@ -219,9 +199,6 @@ export default function AdminPaymentsPage() {
     }
   };
 
-  // Forecast — cohort depends on master filters; cadence/today drive
-  // the periods (so it does NOT depend on cycleStart). Also refreshed
-  // explicitly after a cadence-config save.
   const reloadForecast = async () => {
     try {
       const res = await fetchForecast(
@@ -238,8 +215,6 @@ export default function AdminPaymentsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersBody]);
 
-  // Project dispensation — org/team-scoped, not affected by master
-  // filters or cycle, so fetch once on mount.
   useEffect(() => {
     fetchDispensation({})
       .then(setDispensation)
@@ -252,12 +227,10 @@ export default function AdminPaymentsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cycleStart, cycleEnd, includeZeroHours, filtersBody]);
 
-  // Reset to page 1 when filter / search / cycle changes
   useEffect(() => {
     setPage(1);
   }, [filter, search, cycleStart, cycleEnd, filtersBody]);
 
-  // Status setters
   const setRowStatus = async (
     row: PaymentCycleRow,
     status: PaymentCycleStatus,
@@ -305,7 +278,6 @@ export default function AdminPaymentsPage() {
     }
   };
 
-  // Derived KPIs (computed from rows when backend KPI doesn't provide them)
   const pendingTotal = rows
     .filter((r) => r.status === "pending")
     .reduce((s, r) => s + (r.total_payable || 0), 0);
@@ -323,10 +295,7 @@ export default function AdminPaymentsPage() {
         ratedRows.length
       : 0;
 
-  // Apply table filter + search
   const filteredRows = rows.filter((r) => {
-    // Filter chip — now backed by the real compensation_model field.
-    // These narrow WITHIN the master-filtered set (can't conflict).
     if (filter === "hourly" && r.compensation_model !== "hourly") return false;
     if (filter === "salaried" && r.compensation_model !== "salaried")
       return false;
@@ -334,14 +303,12 @@ export default function AdminPaymentsPage() {
       return false;
     if (filter === "hybrid" && r.compensation_model !== "hybrid") return false;
     if (filter === "on_hold" && r.status !== "held") return false;
-    // "Info needed": no pay basis configured at all.
     if (
       filter === "info_needed" &&
       ((r.hourly_rate ?? 0) > 0 || (r.monthly_salary ?? 0) > 0)
     )
       return false;
 
-    // Search
     if (search) {
       const q = search.toLowerCase();
       const hay =
@@ -359,7 +326,6 @@ export default function AdminPaymentsPage() {
 
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <Tabs
           value={activeTab}
@@ -385,10 +351,6 @@ export default function AdminPaymentsPage() {
         <ReimbursementsAdminPanel />
       ) : (
         <>
-          {/* Master filter bar — same standard filters as Users/Projects.
-          Page-wide: narrows the table AND the selected-contributor detail.
-          Server resolves via the universal `filters` body intersected with
-          team scope, so it can never conflict with the per-table chips. */}
           <Card>
             <CardContent className="py-3">
               <div className="flex flex-wrap items-end gap-3">
@@ -505,7 +467,6 @@ export default function AdminPaymentsPage() {
             </CardContent>
           </Card>
 
-          {/* KPI strip — 8 cards matching mockup */}
           <div className="flex flex-row gap-4 justify-between overflow-x-auto py-2">
             <KpiCard
               label="Total Payable"
@@ -514,11 +475,6 @@ export default function AdminPaymentsPage() {
               subtitle="All rows this cycle"
               trend={{ dir: "up", text: "+12%" }}
             />
-            {/* <KpiCard
-          label="Total Paid"
-          value={kpis ? formatCurrency(kpis.total_paid_lifetime) : null}
-          subtitle="Lifetime recorded payouts"
-        /> */}
             <KpiCard
               label="Pending Payment"
               className="w-44"
@@ -559,7 +515,6 @@ export default function AdminPaymentsPage() {
             />
           </div>
 
-          {/* Pending payments — filter chips + search + columns/export + table + pagination */}
           <Card>
             <CardHeader>
               <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -567,7 +522,6 @@ export default function AdminPaymentsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {/* Filter chips */}
               <div className="flex items-center gap-2 flex-wrap">
                 {(
                   [
@@ -595,7 +549,6 @@ export default function AdminPaymentsPage() {
                 ))}
               </div>
 
-              {/* Search + Columns + Export row */}
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="relative flex-1 min-w-[200px]">
                   <input
@@ -713,7 +666,6 @@ export default function AdminPaymentsPage() {
             </CardContent>
           </Card>
 
-          {/* Selected contributor detail (in-place, replaces modal) */}
           <Card>
             <CardHeader>
               <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -741,7 +693,6 @@ export default function AdminPaymentsPage() {
             </CardContent>
           </Card>
 
-          {/* Hold-reason modal */}
           <Modal
             isOpen={!!holdTarget}
             onClose={() => setHoldTarget(null)}
@@ -775,78 +726,6 @@ export default function AdminPaymentsPage() {
           />
         </>
       )}
-    </div>
-  );
-}
-
-// KpiCard moved to shared component: src/components/ui/KpiCard.tsx
-
-function StatusDonut({
-  segments,
-}: {
-  segments: { label: string; value: number; color: string }[];
-}) {
-  const total = segments.reduce((sum, s) => sum + s.value, 0);
-  let cum = 0;
-  const radius = 48;
-  const strokeWidth = 18;
-  const circumference = 2 * Math.PI * radius;
-  return (
-    <div className="flex items-center gap-4">
-      <svg viewBox="-60 -60 120 120" className="w-32 h-32 -rotate-90">
-        <circle
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          className="text-muted/30"
-          strokeWidth={strokeWidth}
-        />
-        {segments.map((s) => {
-          const len = total > 0 ? (s.value / total) * circumference : 0;
-          const offset = -cum;
-          cum += len;
-          return (
-            <circle
-              key={s.label}
-              r={radius}
-              fill="none"
-              stroke={s.color}
-              strokeWidth={strokeWidth}
-              strokeDasharray={`${len} ${circumference - len}`}
-              strokeDashoffset={offset}
-            />
-          );
-        })}
-        {/* svg is CSS -rotate-90; this single SVG-space +90 counter-
-            rotation about (0,0) puts the number upright (no extra CSS
-            rotate class — that double-rotated it to vertical). */}
-        <text
-          x="0"
-          y="0"
-          textAnchor="middle"
-          dominantBaseline="central"
-          className="fill-foreground text-xl font-bold"
-          transform="rotate(90)"
-        >
-          {total}
-        </text>
-      </svg>
-      <ul className="text-xs space-y-1 flex-1">
-        {segments.map((s) => (
-          <li key={s.label} className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2">
-              <span
-                className="w-2.5 h-2.5 rounded-sm"
-                style={{ backgroundColor: s.color }}
-              />
-              {s.label}
-            </span>
-            <span className="tabular-nums text-muted-foreground">
-              {s.value}
-            </span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
