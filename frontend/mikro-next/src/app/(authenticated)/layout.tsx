@@ -7,7 +7,6 @@ import { WhatsNewModal } from "@/components/layout/WhatsNewModal";
 import { AuthGuard } from "@/components/AuthGuard";
 import { syncUserWithBackend } from "@/lib/syncUser";
 import { RoleProvider } from "@/contexts/RoleContext";
-import { RolePreviewBanner } from "@/components/layout/RolePreviewBanner";
 import type { UserRole } from "@/types";
 
 export default async function AuthenticatedLayout({
@@ -83,8 +82,7 @@ export default async function AuthenticatedLayout({
             paddingBottom: 120,
           }}
         >
-          <RolePreviewBanner />
-          <div style={{ padding: 24 }}>{children}</div>
+<div style={{ padding: 24 }}>{children}</div>
         </main>
       </div>
     </RoleProvider>
