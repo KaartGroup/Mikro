@@ -1545,3 +1545,53 @@ class TranscriptionJob(CRUDMixin, db.Model):
 
     def __repr__(self):
         return f"<TranscriptionJob {self.id} user={self.user_id} status={self.status}>"
+
+
+class Organization(CRUDMixin, db.Model):
+    """
+    A tenant organization provisioned through Mikro (super_admin-managed).
+
+    The primary key IS the Auth0 Organization id (e.g. ``org_abc123``) — the
+    same value stored on ``User.org_id`` — so this table is the single source
+    of truth for which orgs exist in Mikro and whether they may log in.
+
+    "Delete" is a soft state (``status='disabled'``), never a row removal, so a
+    super_admin can restore a disabled org and the data/audit trail survives.
+    Disabled orgs stay visible in the admin list (this model deliberately does
+    NOT use the soft-delete query filter, which would hide them).
+    """
+
+    __tablename__ = "organizations"
+
+    # Auth0 Organization id (org_...). Mirrors User.org_id — the join key for
+    # every per-org scoped query in the app.
+    id = db.Column(db.String(255), primary_key=True, nullable=False)
+    # Auth0 org `name` slug (unique, lowercase). Distinct from display_name.
+    name = db.Column(db.String(255), nullable=False, unique=True)
+    display_name = db.Column(db.String(255), nullable=True)
+    # active | disabled. 'disabled' blocks login but retains all data.
+    # Indexed: both the admin list and the future login-validation lookup
+    # filter on status. SQLAlchemy auto-names this ix_organizations_status,
+    # matching the index created in migration f8e1d2c3b4a5.
+    status = db.Column(
+        db.String(20),
+        nullable=False,
+        default="active",
+        server_default="active",
+        index=True,
+    )
+    # Audit: the super_admin who provisioned it. Stored as a user-id string,
+    # matching the codebase's audit-column convention (no FK).
+    created_by_user_id = db.Column(db.String(255), nullable=True)
+    contact_name = db.Column(db.String(255), nullable=True)
+    contact_email = db.Column(db.String(255), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    # Reserved for future per-org Auth0 branding — a JSON blob stored as text
+    # so adding branding later needs no migration. Null = Mikro defaults.
+    branding = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    disabled_at = db.Column(db.DateTime, nullable=True)
+
+    def __repr__(self):
+        return f"<Organization {self.id}: {self.name} ({self.status})>"

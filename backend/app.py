@@ -130,6 +130,7 @@ def _register_views(app):
         FriendAPI,
         CommunityDataAPI,
         ChannelMonitorAPI,
+        OrganizationAPI,
     )
 
     # Authentication
@@ -180,6 +181,12 @@ def _register_views(app):
 
     # Regions & Countries
     app.add_url_rule("/api/region/<path>", view_func=RegionAPI.as_view("region"))
+
+    # Organization management (super_admin only — external-org provisioning)
+    app.add_url_rule(
+        "/api/organization/<path>",
+        view_func=OrganizationAPI.as_view("organization"),
+    )
 
     # Webhooks (HMAC-authenticated, not JWT)
     app.add_url_rule(
