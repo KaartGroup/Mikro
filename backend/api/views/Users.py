@@ -952,6 +952,103 @@ class UserAPI(MethodView):
             access_token = token_resp.json().get("access_token")
             headers = {"Authorization": f"Bearer {access_token}"}
 
+            # ── Existing-tenant user? Add them directly instead of inviting. ──
+            # Auth0's invitation email always routes to a SIGN-UP page. A user
+            # who already exists in the tenant (e.g. from Viewer) clicks the
+            # link, hits a "User already exists" error, and can never accept.
+            # So if the invitee already has an Auth0 account, skip the
+            # invitation entirely and add them straight to the org as a member
+            # (+ role) via the Management API — no signup page, no dead-end link.
+            existing_user_id = None
+            try:
+                lookup_resp = requests.get(
+                    f"https://{domain}/api/v2/users-by-email",
+                    params={"email": (email or "").lower()},
+                    headers=headers,
+                )
+                if lookup_resp.ok:
+                    matches = lookup_resp.json() or []
+                    if matches:
+                        existing_user_id = matches[0].get("user_id")
+            except Exception as lookup_e:
+                current_app.logger.warning(
+                    f"users-by-email lookup failed for {email!r}: {lookup_e}"
+                )
+
+            if existing_user_id:
+                # 1) Add to the org as a member (idempotent — 409 = already in).
+                member_resp = requests.post(
+                    f"https://{domain}/api/v2/organizations/{org_id}/members",
+                    json={"members": [existing_user_id]},
+                    headers=headers,
+                )
+                already_member = member_resp.status_code == 409
+                if not member_resp.ok and not already_member:
+                    current_app.logger.error(
+                        f"Add-member failed for {email!r}: {member_resp.text}"
+                    )
+                    return {
+                        "message": f"Failed to add {email} to the organization.",
+                        "status": member_resp.status_code,
+                    }
+
+                # 2) Assign the default org role (best-effort — don't fail the
+                # whole add just because the role grant hiccuped).
+                if user_role_id:
+                    role_resp = requests.post(
+                        f"https://{domain}/api/v2/organizations/{org_id}"
+                        f"/members/{existing_user_id}/roles",
+                        json={"roles": [user_role_id]},
+                        headers=headers,
+                    )
+                    if not role_resp.ok:
+                        current_app.logger.warning(
+                            f"Role assign failed for {email!r}: {role_resp.text}"
+                        )
+
+                # 3) Auto-join a target team on first login, same as invites.
+                if target_team_id is not None:
+                    try:
+                        PendingInvite.create(
+                            email=email,
+                            org_id=g.user.org_id,
+                            target_team_id=target_team_id,
+                            invited_by_user_id=g.user.id,
+                            auth0_invitation_id=None,
+                        )
+                    except Exception as persist_e:
+                        current_app.logger.warning(
+                            f"PendingInvite write failed for {email!r}: {persist_e}"
+                        )
+
+                # 4) Nudge them with a login email. Adding a member sends
+                # nothing on its own, so reuse the change-password email as a
+                # branded "you've got Mikro access" prompt (set-or-reset).
+                try:
+                    requests.post(
+                        f"https://{domain}/dbconnections/change_password",
+                        json={
+                            "client_id": app_client_id or client_id,
+                            "email": email,
+                            "connection": "Username-Password-Authentication",
+                        },
+                    )
+                except Exception as mail_e:
+                    current_app.logger.warning(
+                        f"Welcome email failed for {email!r}: {mail_e}"
+                    )
+
+                verb = "already in" if already_member else "added to"
+                current_app.logger.info(
+                    f"[INVITE] existing user {email!r} {verb} org "
+                    f"{org_id} via member endpoint (not invitation)"
+                )
+                return {
+                    "message": f"{email} now has access to Mikro.",
+                    "status": 200,
+                }
+            # ── Otherwise: brand-new user → standard invitation flow below. ──
+
             # Fetch connection ID for Username-Password-Authentication
             conn_resp = requests.get(f"https://{domain}/api/v2/connections", headers=headers)
             if not conn_resp.ok:
