@@ -15,7 +15,6 @@ import {
   useQueueElementAnalysisBackfill,
   useCheckElementAnalysisBackfillStatus,
   useFetchMapillaryStats,
-  useOrgProjects,
 } from "@/hooks/useApi";
 import { useFilters, useCurrentUserRole, useManagedTeams } from "@/hooks";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
@@ -38,7 +37,6 @@ import { TeamActivityCard } from "./_components/TeamActivityCard";
 import { TaskHoursByCategoryCard } from "./_components/TaskHoursByCategoryCard";
 import { CommunityOutreachCard } from "./_components/CommunityOutreachCard";
 import { ExportDropdown } from "./_components/ExportDropdown";
-import { DataSourceStatusBar } from "./_components/DataSourceStatusBar";
 import { OsmClassificationPieChart } from "./_components/OsmClassificationPieChart";
 import { ProjectSnapshotTable } from "./_components/ProjectSnapshotTable";
 
@@ -150,25 +148,6 @@ export function AdminReports() {
   const { mutate: checkElementAnalysisBackfillStatus } =
     useCheckElementAnalysisBackfillStatus();
   const { mutate: fetchMapillaryStats } = useFetchMapillaryStats();
-  const { data: orgProjectsData } = useOrgProjects();
-
-  // Derive per-source last-synced timestamps from project list
-  const { tm4LastSynced, mrLastSynced } = useMemo(() => {
-    const all = [
-      ...(orgProjectsData?.org_active_projects ?? []),
-      ...(orgProjectsData?.org_inactive_projects ?? []),
-    ];
-    const maxDate = (dates: (string | null | undefined)[]) =>
-      dates
-        .filter(Boolean)
-        .sort()
-        .at(-1) ?? null;
-    return {
-      tm4LastSynced: maxDate(all.filter((p) => p.source !== "mr").map((p) => p.last_synced)),
-      mrLastSynced: maxDate(all.filter((p) => p.source === "mr").map((p) => p.last_synced)),
-    };
-  }, [orgProjectsData]);
-
   // ── Data fetching ────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!customStart || !customEnd) return;
@@ -565,13 +544,6 @@ export function AdminReports() {
               />
             </div>
           </div>
-          <DataSourceStatusBar
-            sources={[
-              { label: "TM4", lastSynced: tm4LastSynced, maxAgeHours: 4 },
-              { label: "MapRoulette", lastSynced: mrLastSynced, maxAgeHours: 24 },
-              { label: "Element Analysis", lastSynced: elementLastUpdated, maxAgeHours: 24 },
-            ]}
-          />
         </CardContent>
       </Card>
 
