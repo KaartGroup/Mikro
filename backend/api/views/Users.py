@@ -15,6 +15,7 @@ from sqlalchemy import func
 
 from ..utils import requires_admin, requires_team_admin_or_above
 from ..utils.tz import parse_filter_datetime
+from ..utils.auth0_org import add_or_invite_user_to_org
 from ..auth import (
     is_org_admin_or_above,
     managed_team_ids_for,
@@ -53,7 +54,18 @@ from ..database import (
     db,
 )
 from ..filters import resolve_filtered_user_ids
-from ..stats import get_user_task_stats, get_batch_user_task_stats, get_user_payment_balances, get_batch_user_payment_balances, get_batch_user_task_stats_fast, get_batch_user_payment_balances_fast, _get_claimed_task_ids
+from .. import comms_client
+from ..comms_client import NotificationType
+from ..targeting import org_admin_users
+from ..stats import (
+    get_user_task_stats,
+    get_batch_user_task_stats,
+    get_user_payment_balances,
+    get_batch_user_payment_balances,
+    get_batch_user_task_stats_fast,
+    get_batch_user_payment_balances_fast,
+    _get_claimed_task_ids,
+)
 
 
 def _auto_assign_country(user, country_text):
@@ -88,9 +100,7 @@ def _auto_assign_country(user, country_text):
         user_id=user.id, country_id=country_obj.id
     ).first()
     if not existing:
-        UserCountry.create(
-            user_id=user.id, country_id=country_obj.id, is_primary=True
-        )
+        UserCountry.create(user_id=user.id, country_id=country_obj.id, is_primary=True)
 
 
 def _format_user_name(user):
@@ -279,15 +289,19 @@ class UserAPI(MethodView):
                 osm_username = user_data.get("osm_username", "").strip() or None
 
                 if not email:
-                    results["failed"].append({"email": "unknown", "error": "No email provided"})
+                    results["failed"].append(
+                        {"email": "unknown", "error": "No email provided"}
+                    )
                     continue
 
                 # Validate role
                 if role not in VALID_ROLES:
-                    results["failed"].append({
-                        "email": email,
-                        "error": f"Invalid role '{role}'. Must be one of: {', '.join(sorted(VALID_ROLES))}"
-                    })
+                    results["failed"].append(
+                        {
+                            "email": email,
+                            "error": f"Invalid role '{role}'. Must be one of: {', '.join(sorted(VALID_ROLES))}",
+                        }
+                    )
                     continue
 
                 # Use explicit first_name/last_name if provided, else parse from name
@@ -317,7 +331,9 @@ class UserAPI(MethodView):
                         "given_name": first_name,
                         "family_name": last_name,
                     }
-                    create_response = requests.post(create_url, json=user_payload, headers=headers)
+                    create_response = requests.post(
+                        create_url, json=user_payload, headers=headers
+                    )
 
                     auth0_created = True
                     auth0_user_id = None
@@ -333,16 +349,24 @@ class UserAPI(MethodView):
                         if lookup_resp.ok and lookup_resp.json():
                             auth0_user_id = lookup_resp.json()[0].get("user_id")
                     elif not create_response.ok:
-                        error_detail = create_response.json().get("message", create_response.text[:100])
-                        current_app.logger.error(f"Auth0 create user failed for {email}: {error_detail}")
-                        results["failed"].append({"email": email, "error": f"Auth0: {error_detail}"})
+                        error_detail = create_response.json().get(
+                            "message", create_response.text[:100]
+                        )
+                        current_app.logger.error(
+                            f"Auth0 create user failed for {email}: {error_detail}"
+                        )
+                        results["failed"].append(
+                            {"email": email, "error": f"Auth0: {error_detail}"}
+                        )
                         continue
                     else:
                         # New user created — get their Auth0 ID
                         auth0_user_id = create_response.json().get("user_id")
 
                     if not auth0_user_id:
-                        results["failed"].append({"email": email, "error": "Could not resolve Auth0 user ID"})
+                        results["failed"].append(
+                            {"email": email, "error": "Could not resolve Auth0 user ID"}
+                        )
                         continue
 
                     # Trigger password set email for all imported users
@@ -385,10 +409,14 @@ class UserAPI(MethodView):
                         if write_first or write_last:
                             record_name_change(
                                 existing_user,
-                                safe_updates.get("first_name", existing_user.first_name),
+                                safe_updates.get(
+                                    "first_name", existing_user.first_name
+                                ),
                                 safe_updates.get("last_name", existing_user.last_name),
                                 source="import",
-                                changed_by=g.user.id if getattr(g, "user", None) else None,
+                                changed_by=(
+                                    g.user.id if getattr(g, "user", None) else None
+                                ),
                                 details=f"csv_first={first_name!r} csv_last={last_name!r}",
                             )
                         existing_user.update(**safe_updates)
@@ -418,7 +446,9 @@ class UserAPI(MethodView):
                                 new_first_name=first_name or None,
                                 new_last_name=last_name or None,
                                 source="import",
-                                changed_by=g.user.id if getattr(g, "user", None) else None,
+                                changed_by=(
+                                    g.user.id if getattr(g, "user", None) else None
+                                ),
                                 details=f"csv_first={first_name!r} csv_last={last_name!r}",
                             )
                         except Exception as e:
@@ -426,7 +456,11 @@ class UserAPI(MethodView):
                                 f"[NAME-AUDIT] Failed audit for import (new user {email}): {e}"
                             )
 
-                    suffix = " (already in Auth0, synced locally)" if not auth0_created else ""
+                    suffix = (
+                        " (already in Auth0, synced locally)"
+                        if not auth0_created
+                        else ""
+                    )
                     results["success"].append(email + suffix)
 
                 except Exception as e:
@@ -462,8 +496,7 @@ class UserAPI(MethodView):
             except Exception:
                 pass
             current_app.logger.warning(
-                "[AUTH-TRACE] event=fetch_user_role_no_g_user "
-                f"sub={sub!r}"
+                "[AUTH-TRACE] event=fetch_user_role_no_g_user " f"sub={sub!r}"
             )
             response["message"] = "User not found"
             response["status"] = 304
@@ -598,7 +631,9 @@ class UserAPI(MethodView):
         # this body (filters.country = [id] etc.); resolve_filtered_user_ids
         # handles every dimension via the existing pipeline.
         filters = request.json.get("filters") if request.json else None
-        filtered_ids = resolve_filtered_user_ids(filters, g.user.org_id) if filters else None
+        filtered_ids = (
+            resolve_filtered_user_ids(filters, g.user.org_id) if filters else None
+        )
 
         # Get all the users from the database that belong to the same organization
         users_query = User.query.filter_by(org_id=g.user.org_id)
@@ -657,7 +692,9 @@ class UserAPI(MethodView):
                 "joined": user.create_time,
                 "total_payout": user.paid_total,
                 "awaiting_payment": user.requested_total,
-                "validated_tasks_amounts": batch_pay.get(user.id, {}).get("mapping_payable_total", 0)
+                "validated_tasks_amounts": batch_pay.get(user.id, {}).get(
+                    "mapping_payable_total", 0
+                )
                 + batch_pay.get(user.id, {}).get("validation_payable_total", 0),
                 "total_tasks_mapped": _ustats.get("total_tasks_mapped", 0),
                 "total_tasks_validated": _ustats.get("total_tasks_validated", 0),
@@ -704,9 +741,7 @@ class UserAPI(MethodView):
             return_obj["status"] = 304
             return return_obj
         project_id = (
-            request.json["project_id"]
-            if "project_id" in request.json
-            else None
+            request.json["project_id"] if "project_id" in request.json else None
         )
         # Check if the email address is not provided or is an empty string
         if not project_id or project_id == "":
@@ -720,9 +755,7 @@ class UserAPI(MethodView):
         ).all()
         assigned_user_ids = [r.user_id for r in all_assigned_user_relations]
         assigned_users = [u for u in users_in_org if u.id in assigned_user_ids]
-        unassigned_users = [
-            u for u in users_in_org if u.id not in assigned_user_ids
-        ]
+        unassigned_users = [u for u in users_in_org if u.id not in assigned_user_ids]
         # Batch-compute live task stats for all users (avoids N+1 queries)
         batch_stats = get_batch_user_task_stats(users_in_org, g.user.org_id)
 
@@ -753,7 +786,9 @@ class UserAPI(MethodView):
                     "awaiting_payment": user.requested_total,
                     "total_tasks_mapped": _ustats.get("total_tasks_mapped", 0),
                     "total_tasks_validated": _ustats.get("total_tasks_validated", 0),
-                    "total_tasks_invalidated": _ustats.get("total_tasks_invalidated", 0),
+                    "total_tasks_invalidated": _ustats.get(
+                        "total_tasks_invalidated", 0
+                    ),
                     "requesting_payment": user.requesting_payment,
                     "assigned_projects": assigned_projects_count,
                     "assigned": assigned,
@@ -782,13 +817,15 @@ class UserAPI(MethodView):
         out = []
         for u in users:
             name = _format_user_name(u)
-            out.append({
-                "id": u.id,
-                "name": name,
-                "email": u.email or "",
-                "osm_username": u.osm_username or "",
-                "role": u.role,
-            })
+            out.append(
+                {
+                    "id": u.id,
+                    "name": name,
+                    "email": u.email or "",
+                    "osm_username": u.osm_username or "",
+                    "role": u.role,
+                }
+            )
 
         return {"users": out, "status": 200}
 
@@ -812,22 +849,26 @@ class UserAPI(MethodView):
             "timezone",
         ]
         country_changed = False
+        payment_email_changed = False
         # Snapshot pre-write name values so we can audit after the loop.
         pre_first = g.user.first_name
         pre_last = g.user.last_name
         for field in fields:
             value = request.json.get(field)
-            if (
-                value is not None
-                and value != ""
-                and value != getattr(g.user, field)
-            ):
+            if value is not None and value != "" and value != getattr(g.user, field):
                 if field == "country":
                     country_changed = True
+                # payment_email is how mappers get paid (Payoneer). It's the
+                # closest thing Mikro has to "bank info" — treat a change as a
+                # bank-info-changed event for admin awareness.
+                if field == "payment_email":
+                    payment_email_changed = True
                 setattr(g.user, field, value)
                 g.user.update()
         # Audit name change (helper no-ops if nothing changed).
-        if (g.user.first_name or "") != (pre_first or "") or (g.user.last_name or "") != (pre_last or ""):
+        if (g.user.first_name or "") != (pre_first or "") or (
+            g.user.last_name or ""
+        ) != (pre_last or ""):
             # Construct a transient User-like object carrying the OLD values
             # so record_name_change compares correctly. Simpler: just write
             # a one-off audit row directly here.
@@ -854,6 +895,25 @@ class UserAPI(MethodView):
         # Auto-assign country when country text changes
         if country_changed:
             _auto_assign_country(g.user, g.user.country)
+
+        # Notify org admins when a user changes their payment ("bank") info.
+        if payment_email_changed:
+            try:
+                admins = org_admin_users(g.user.org_id, exclude_user_id=g.user.id)
+                actor_name = g.user.full_name or g.user.email or "A user"
+                comms_client.emit_batch(
+                    user_ids=[a.id for a in admins],
+                    org_id=g.user.org_id,
+                    type=NotificationType.BANK_INFO_CHANGED,
+                    message=f"{actor_name} updated their payment information.",
+                    link=f"/admin/users/{g.user.id}",
+                    actor_id=g.user.id,
+                    entity_type="user",
+                    entity_id=g.user.id,
+                )
+            except Exception:
+                pass
+
         # Return success response
         response = {"message": "User details updated", "status": 200}
         return response
@@ -929,11 +989,19 @@ class UserAPI(MethodView):
         client_id = current_app.config.get("AUTH0_M2M_CLIENT_ID")
         client_secret = current_app.config.get("AUTH0_M2M_CLIENT_SECRET")
         app_client_id = current_app.config.get("AUTH0_APP_CLIENT_ID")
-        org_id = current_app.config.get("AUTH0_ORG_ID")
+        # Invites target the INVITER's org — their org_id IS the Auth0 org id
+        # — falling back to the Kaart config. Identical to today for Kaart
+        # admins; lets a (future) non-Kaart admin invite into their own org.
+        org_id = getattr(g.user, "org_id", None) or current_app.config.get(
+            "AUTH0_ORG_ID"
+        )
         user_role_id = current_app.config.get("AUTH0_USER_ROLE_ID")
 
         if not all([domain, client_id, client_secret, org_id]):
-            return {"message": "Auth0 not fully configured (need DOMAIN, M2M creds, ORG_ID)", "status": 500}
+            return {
+                "message": "Auth0 not fully configured (need DOMAIN, M2M creds, ORG_ID)",
+                "status": 500,
+            }
 
         try:
             # Get Management API token
@@ -952,119 +1020,9 @@ class UserAPI(MethodView):
             access_token = token_resp.json().get("access_token")
             headers = {"Authorization": f"Bearer {access_token}"}
 
-            # ── Existing-tenant user? Add them directly instead of inviting. ──
-            # Auth0's invitation email always routes to a SIGN-UP page. A user
-            # who already exists in the tenant (e.g. from Viewer) clicks the
-            # link, hits a "User already exists" error, and can never accept.
-            # So if the invitee already has an Auth0 account, skip the
-            # invitation entirely and add them straight to the org as a member
-            # (+ role) via the Management API — no signup page, no dead-end link.
-            existing_user_id = None
-            try:
-                lookup_resp = requests.get(
-                    f"https://{domain}/api/v2/users-by-email",
-                    params={"email": (email or "").lower()},
-                    headers=headers,
-                )
-                if lookup_resp.ok:
-                    matches = lookup_resp.json() or []
-                    if matches:
-                        existing_user_id = matches[0].get("user_id")
-            except Exception as lookup_e:
-                current_app.logger.warning(
-                    f"users-by-email lookup failed for {email!r}: {lookup_e}"
-                )
-
-            if existing_user_id:
-                # 1) Add to the org as a member (idempotent — 409 = already in).
-                member_resp = requests.post(
-                    f"https://{domain}/api/v2/organizations/{org_id}/members",
-                    json={"members": [existing_user_id]},
-                    headers=headers,
-                )
-                already_member = member_resp.status_code == 409
-                if not member_resp.ok and not already_member:
-                    current_app.logger.error(
-                        f"Add-member failed for {email!r}: {member_resp.text}"
-                    )
-                    return {
-                        "message": f"Failed to add {email} to the organization.",
-                        "status": member_resp.status_code,
-                    }
-
-                # 2) Assign the default org role (best-effort — don't fail the
-                # whole add just because the role grant hiccuped).
-                if user_role_id:
-                    role_resp = requests.post(
-                        f"https://{domain}/api/v2/organizations/{org_id}"
-                        f"/members/{existing_user_id}/roles",
-                        json={"roles": [user_role_id]},
-                        headers=headers,
-                    )
-                    if not role_resp.ok:
-                        current_app.logger.warning(
-                            f"Role assign failed for {email!r}: {role_resp.text}"
-                        )
-
-                # 3) Auto-join a target team on first login, same as invites.
-                if target_team_id is not None:
-                    try:
-                        PendingInvite.create(
-                            email=email,
-                            org_id=g.user.org_id,
-                            target_team_id=target_team_id,
-                            invited_by_user_id=g.user.id,
-                            auth0_invitation_id=None,
-                        )
-                    except Exception as persist_e:
-                        current_app.logger.warning(
-                            f"PendingInvite write failed for {email!r}: {persist_e}"
-                        )
-
-                # 4) Nudge them with a login email. Adding a member sends
-                # nothing on its own, so reuse the change-password email as a
-                # branded "you've got Mikro access" prompt (set-or-reset).
-                try:
-                    requests.post(
-                        f"https://{domain}/dbconnections/change_password",
-                        json={
-                            "client_id": app_client_id or client_id,
-                            "email": email,
-                            "connection": "Username-Password-Authentication",
-                        },
-                    )
-                except Exception as mail_e:
-                    current_app.logger.warning(
-                        f"Welcome email failed for {email!r}: {mail_e}"
-                    )
-
-                verb = "already in" if already_member else "added to"
-                current_app.logger.info(
-                    f"[INVITE] existing user {email!r} {verb} org "
-                    f"{org_id} via member endpoint (not invitation)"
-                )
-                return {
-                    "message": f"{email} now has access to Mikro.",
-                    "status": 200,
-                }
-            # ── Otherwise: brand-new user → standard invitation flow below. ──
-
-            # Fetch connection ID for Username-Password-Authentication
-            conn_resp = requests.get(f"https://{domain}/api/v2/connections", headers=headers)
-            if not conn_resp.ok:
-                return {"message": "Failed to fetch Auth0 connections", "status": 500}
-
-            connections = conn_resp.json()
-            connection = next(
-                (c for c in connections if c.get("name") == "Username-Password-Authentication"),
-                None,
-            )
-            if not connection:
-                return {"message": "Username-Password-Authentication connection not found", "status": 500}
-
-            connection_id = connection["id"]
-
-            # Build invitation payload
+            # Member-vs-invite is the single source of truth in the shared
+            # helper (api/utils/auth0_org.py). Build the inviter display name,
+            # delegate, then record the team-join intent on success.
             inviter_name = "Mikro"
             if g.user:
                 name_parts = [g.user.first_name, g.user.last_name]
@@ -1072,68 +1030,41 @@ class UserAPI(MethodView):
                 if full_name:
                     inviter_name = full_name
 
-            invitation_payload = {
-                "inviter": {"name": inviter_name},
-                "invitee": {"email": email},
-                "client_id": app_client_id or client_id,
-                "connection_id": connection_id,
-                "ttl_sec": 604800,  # 7 days
-                "send_invitation_email": True,
-            }
-            if user_role_id:
-                invitation_payload["roles"] = [user_role_id]
-
-            # Send Organization Invitation
-            invite_resp = requests.post(
-                f"https://{domain}/api/v2/organizations/{org_id}/invitations",
-                json=invitation_payload,
+            result = add_or_invite_user_to_org(
+                domain=domain,
                 headers=headers,
+                org_id=org_id,
+                email=email,
+                role_id=user_role_id,
+                app_client_id=app_client_id,
+                client_id=client_id,
+                inviter_name=inviter_name,
             )
 
-            if invite_resp.ok:
-                # Persist a PendingInvite row so first-login can auto-
-                # join the new user to the target team. Skip when no
-                # target team was specified (org-admin invite without
-                # team context behaves as before).
-                if target_team_id is not None:
-                    try:
-                        invitation_id = invite_resp.json().get("id")
-                        PendingInvite.create(
-                            email=email,
-                            org_id=g.user.org_id,
-                            target_team_id=target_team_id,
-                            invited_by_user_id=g.user.id,
-                            auth0_invitation_id=invitation_id,
-                        )
-                    except Exception as persist_e:
-                        current_app.logger.warning(
-                            f"PendingInvite write failed for {email!r}: {persist_e}"
-                        )
-                return {
-                    "message": f"Invitation sent to {email}.",
-                    "status": 200,
-                }
+            # Persist a PendingInvite so first-login auto-joins the target team.
+            # Record for a member-add or a fresh invitation, but NOT when the
+            # invitation reported the user was already a member (mirrors the
+            # prior behavior exactly).
+            should_record_team = (
+                result["ok"]
+                and target_team_id is not None
+                and not (result["mode"] == "invitation" and result["already_member"])
+            )
+            if should_record_team:
+                try:
+                    PendingInvite.create(
+                        email=email,
+                        org_id=g.user.org_id,
+                        target_team_id=target_team_id,
+                        invited_by_user_id=g.user.id,
+                        auth0_invitation_id=result.get("invitation_id"),
+                    )
+                except Exception as persist_e:
+                    current_app.logger.warning(
+                        f"PendingInvite write failed for {email!r}: {persist_e}"
+                    )
 
-            # Handle errors
-            error_data = invite_resp.json()
-            error_msg = error_data.get("message", "")
-
-            # If user is already an org member, send a welcome email instead
-            if invite_resp.status_code == 409 or "already a member" in error_msg.lower():
-                # Send a password reset email as a "welcome to Mikro" nudge
-                reset_url = f"https://{domain}/dbconnections/change_password"
-                requests.post(reset_url, json={
-                    "client_id": app_client_id or client_id,
-                    "email": email,
-                    "connection": "Username-Password-Authentication",
-                })
-                return {
-                    "message": f"User is already in the org — welcome email sent to {email}.",
-                    "status": 200,
-                }
-
-            current_app.logger.error(f"Auth0 org invitation failed: {invite_resp.text}")
-            return {"message": f"Failed to send invitation: {error_msg}", "status": invite_resp.status_code}
+            return {"message": result["message"], "status": result["status"]}
 
         except Exception as e:
             current_app.logger.error(f"Error inviting user: {e}")
@@ -1190,7 +1121,9 @@ class UserAPI(MethodView):
 
                     # Also patch Auth0 app_metadata if user has an auth0_sub
                     if user.auth0_sub and user.auth0_sub.startswith("auth0|"):
-                        auth0_user_url = f"https://{domain}/api/v2/users/{user.auth0_sub}"
+                        auth0_user_url = (
+                            f"https://{domain}/api/v2/users/{user.auth0_sub}"
+                        )
                         get_resp = requests.get(auth0_user_url, headers=headers)
                         if get_resp.ok:
                             auth0_data = get_resp.json()
@@ -1218,17 +1151,34 @@ class UserAPI(MethodView):
                                     )
 
                 except Exception as e:
-                    current_app.logger.error(f"Error syncing org_id for {user.email}: {e}")
+                    current_app.logger.error(
+                        f"Error syncing org_id for {user.email}: {e}"
+                    )
                     errors += 1
 
             db.session.commit()
 
             # Update org_id on ALL tables — replace old values AND nulls
             all_models = [
-                Project, Task, TimeEntry, Team, Checklist, Training,
-                PayRequests, Payments, Region, Country, CustomTopic,
-                HourlyPayment, SyncJob, ElementAnalysisCache, Punk,
-                Friend, WeeklyReport, CommunityEntry, MonitoredChannel,
+                Project,
+                Task,
+                TimeEntry,
+                Team,
+                Checklist,
+                Training,
+                PayRequests,
+                Payments,
+                Region,
+                Country,
+                CustomTopic,
+                HourlyPayment,
+                SyncJob,
+                ElementAnalysisCache,
+                Punk,
+                Friend,
+                WeeklyReport,
+                CommunityEntry,
+                MonitoredChannel,
             ]
             for model in all_models:
                 model.query.filter(model.org_id != default_org_id).update(
@@ -1238,7 +1188,7 @@ class UserAPI(MethodView):
 
             return {
                 "message": f"Synced org_id '{default_org_id}' — {updated} users updated in DB, "
-                           f"{auth0_updated} users patched in Auth0, {errors} errors",
+                f"{auth0_updated} users patched in Auth0, {errors} errors",
                 "org_id": default_org_id,
                 "status": 200,
             }
@@ -1363,27 +1313,42 @@ class UserAPI(MethodView):
 
         # Handle additional profile fields
         if "osm_username" in request.json:
-            updates["osm_username"] = (request.json["osm_username"] or "").strip() or None
+            updates["osm_username"] = (
+                request.json["osm_username"] or ""
+            ).strip() or None
         if "email" in request.json:
             new_email = (request.json["email"] or "").strip()
             if new_email and new_email != user.email:
-                existing = User.query.filter(User.email == new_email, User.id != user_id).first()
+                existing = User.query.filter(
+                    User.email == new_email, User.id != user_id
+                ).first()
                 if existing:
-                    return {"message": f"Email '{new_email}' is already in use by another user", "status": 400}
+                    return {
+                        "message": f"Email '{new_email}' is already in use by another user",
+                        "status": 400,
+                    }
             updates["email"] = new_email
         if "timezone" in request.json:
             updates["timezone"] = (request.json["timezone"] or "").strip() or None
         if "mapillary_username" in request.json:
-            updates["mapillary_username"] = (request.json["mapillary_username"] or "").strip() or None
+            updates["mapillary_username"] = (
+                request.json["mapillary_username"] or ""
+            ).strip() or None
         if "micropayments_visible" in request.json:
-            updates["micropayments_visible"] = bool(request.json["micropayments_visible"])
+            updates["micropayments_visible"] = bool(
+                request.json["micropayments_visible"]
+            )
         if "hourly_rate" in request.json:
             val = request.json["hourly_rate"]
             updates["hourly_rate"] = float(val) if val is not None else None
         if "compensation_model" in request.json:
             cm = (request.json["compensation_model"] or "").strip() or None
             valid_cm = {
-                "per_task", "hourly", "salaried", "project_based", "hybrid",
+                "per_task",
+                "hourly",
+                "salaried",
+                "project_based",
+                "hybrid",
             }
             if cm is not None and cm not in valid_cm:
                 return {
@@ -1393,9 +1358,7 @@ class UserAPI(MethodView):
             updates["compensation_model"] = cm
         if "monthly_salary" in request.json:
             val = request.json["monthly_salary"]
-            updates["monthly_salary"] = (
-                float(val) if val not in (None, "") else None
-            )
+            updates["monthly_salary"] = float(val) if val not in (None, "") else None
 
         # Handle country_id change (with auto-timezone from country)
         if "country_id" in request.json:
@@ -1454,7 +1417,9 @@ class UserAPI(MethodView):
             response["message"] = "User_id required"
             response["status"] = 400
             return response
-        if g.user.role == "team_admin" and not team_admin_can_access_user(g.user, user_id):
+        if g.user.role == "team_admin" and not team_admin_can_access_user(
+            g.user, user_id
+        ):
             response["message"] = "User not on a team you manage"
             response["status"] = 403
             return response
@@ -1465,15 +1430,29 @@ class UserAPI(MethodView):
         # If relation exists, update deleted field to False
         if user_relation:
             user_relation.delete(soft=False)
-            response[
-                "message"
-            ] = f"User {user_id} unassigned from Project {project_id}"
+            response["message"] = f"User {user_id} unassigned from Project {project_id}"
         # If relation doesn't exist, create a new one
         else:
             ProjectUser.create(user_id=user_id, project_id=project_id)
-            response[
-                "message"
-            ] = f"User {user_id} assigned to Project {project_id}"
+            response["message"] = f"User {user_id} assigned to Project {project_id}"
+            # Notify the user they were assigned to the project.
+            try:
+                target_user = User.query.get(user_id)
+                project = Project.query.get(project_id)
+                project_name = getattr(project, "name", None) or f"Project {project_id}"
+                recipient_org = getattr(target_user, "org_id", None) or g.user.org_id
+                comms_client.emit(
+                    user_id=user_id,
+                    org_id=recipient_org,
+                    type=NotificationType.ASSIGNED_TO_PROJECT,
+                    message=f"You were assigned to {project_name}.",
+                    link=f"/user/projects/{project_id}",
+                    actor_id=g.user.id,
+                    entity_type="project",
+                    entity_id=project_id,
+                )
+            except Exception:
+                pass
         # Set status code for response
         response["status"] = 200
         return response
@@ -1506,8 +1485,7 @@ class UserAPI(MethodView):
 
         # Get all users except the admin
         users_to_delete = User.query.filter(
-            User.org_id == org_id,
-            User.id != admin_id
+            User.org_id == org_id, User.id != admin_id
         ).all()
 
         users_deleted = 0
@@ -1525,7 +1503,9 @@ class UserAPI(MethodView):
                 pu.delete(soft=False)
 
             # Delete user's checklist items
-            user_checklist_items = UserChecklistItem.query.filter_by(user_id=user_id).all()
+            user_checklist_items = UserChecklistItem.query.filter_by(
+                user_id=user_id
+            ).all()
             for uci in user_checklist_items:
                 uci.delete(soft=False)
 
@@ -1535,7 +1515,9 @@ class UserAPI(MethodView):
                 uc.delete(soft=False)
 
             # Delete user's training completions
-            training_completions = TrainingCompleted.query.filter_by(user_id=user_id).all()
+            training_completions = TrainingCompleted.query.filter_by(
+                user_id=user_id
+            ).all()
             for tc in training_completions:
                 tc.delete(soft=False)
 
@@ -1602,8 +1584,7 @@ class UserAPI(MethodView):
             return []
         project_ids = [r.project_id for r in relations]
         projects = {
-            p.id: p
-            for p in Project.query.filter(Project.id.in_(project_ids)).all()
+            p.id: p for p in Project.query.filter(Project.id.in_(project_ids)).all()
         }
 
         # Aggregation #1 — hours logged + last worked on, grouped by project
@@ -1652,16 +1633,18 @@ class UserAPI(MethodView):
             if not p:
                 continue
             t = time_map.get(pid, {"hours_logged": 0.0, "last_worked_on": None})
-            result.append({
-                "id": p.id,
-                "name": p.name,
-                "short_name": p.short_name,
-                "source": p.source,
-                "status": p.status,
-                "hours_logged": t["hours_logged"],
-                "last_worked_on": t["last_worked_on"],
-                "task_count": task_map.get(pid, 0),
-            })
+            result.append(
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "short_name": p.short_name,
+                    "source": p.source,
+                    "status": p.status,
+                    "hours_logged": t["hours_logged"],
+                    "last_worked_on": t["last_worked_on"],
+                    "task_count": task_map.get(pid, 0),
+                }
+            )
         return result
 
     @requires_team_admin_or_above
@@ -1744,39 +1727,79 @@ class UserAPI(MethodView):
             # Merge into per-project dict
             proj_map = {}
             for pid, cnt, earn in mapped_agg:
-                proj_map.setdefault(pid, {"mapped": 0, "validated": 0, "invalidated": 0, "map_earn": 0.0, "val_earn": 0.0})
+                proj_map.setdefault(
+                    pid,
+                    {
+                        "mapped": 0,
+                        "validated": 0,
+                        "invalidated": 0,
+                        "map_earn": 0.0,
+                        "val_earn": 0.0,
+                    },
+                )
                 proj_map[pid]["mapped"] = cnt
                 proj_map[pid]["map_earn"] = float(earn)
             for pid, cnt in validated_agg:
-                proj_map.setdefault(pid, {"mapped": 0, "validated": 0, "invalidated": 0, "map_earn": 0.0, "val_earn": 0.0})
+                proj_map.setdefault(
+                    pid,
+                    {
+                        "mapped": 0,
+                        "validated": 0,
+                        "invalidated": 0,
+                        "map_earn": 0.0,
+                        "val_earn": 0.0,
+                    },
+                )
                 proj_map[pid]["validated"] = cnt
             for pid, cnt in invalidated_agg:
-                proj_map.setdefault(pid, {"mapped": 0, "validated": 0, "invalidated": 0, "map_earn": 0.0, "val_earn": 0.0})
+                proj_map.setdefault(
+                    pid,
+                    {
+                        "mapped": 0,
+                        "validated": 0,
+                        "invalidated": 0,
+                        "map_earn": 0.0,
+                        "val_earn": 0.0,
+                    },
+                )
                 proj_map[pid]["invalidated"] = cnt
             for pid, cnt, earn in val_as_validator_agg:
-                proj_map.setdefault(pid, {"mapped": 0, "validated": 0, "invalidated": 0, "map_earn": 0.0, "val_earn": 0.0})
+                proj_map.setdefault(
+                    pid,
+                    {
+                        "mapped": 0,
+                        "validated": 0,
+                        "invalidated": 0,
+                        "map_earn": 0.0,
+                        "val_earn": 0.0,
+                    },
+                )
                 proj_map[pid]["val_earn"] = float(earn)
 
             # Bulk-load project names
             if proj_map:
-                proj_objs = {p.id: p for p in Project.query.filter(Project.id.in_(proj_map.keys())).all()}
+                proj_objs = {
+                    p.id: p
+                    for p in Project.query.filter(Project.id.in_(proj_map.keys())).all()
+                }
                 for pid, stats in proj_map.items():
                     proj = proj_objs.get(pid)
-                    projects_data.append({
-                        "id": pid,
-                        "name": proj.name if proj else f"Project {pid}",
-                        "url": proj.url if proj else "",
-                        "tasks_mapped": stats["mapped"],
-                        "tasks_validated": stats["validated"],
-                        "tasks_invalidated": stats["invalidated"],
-                        "mapping_earnings": round(stats["map_earn"], 2),
-                        "validation_earnings": round(stats["val_earn"], 2),
-                    })
+                    projects_data.append(
+                        {
+                            "id": pid,
+                            "name": proj.name if proj else f"Project {pid}",
+                            "url": proj.url if proj else "",
+                            "tasks_mapped": stats["mapped"],
+                            "tasks_validated": stats["validated"],
+                            "tasks_invalidated": stats["invalidated"],
+                            "mapping_earnings": round(stats["map_earn"], 2),
+                            "validation_earnings": round(stats["val_earn"], 2),
+                        }
+                    )
 
         # Get recent time entries (limited)
         time_entries = (
-            TimeEntry.query
-            .filter_by(user_id=user_id)
+            TimeEntry.query.filter_by(user_id=user_id)
             .filter(TimeEntry.status.in_(["completed", "voided"]))
             .order_by(TimeEntry.clock_in.desc())
             .limit(50)
@@ -1845,7 +1868,8 @@ class UserAPI(MethodView):
                 "paid_total": round(user.paid_total or 0, 2),
                 # Other
                 "total_checklists_completed": user.total_checklists_completed or 0,
-                "validator_total_checklists_confirmed": user.validator_total_checklists_confirmed or 0,
+                "validator_total_checklists_confirmed": user.validator_total_checklists_confirmed
+                or 0,
                 "mapper_level": user.mapper_level or 0,
                 "mapper_points": user.mapper_points or 0,
                 "validator_points": user.validator_points or 0,
@@ -1856,7 +1880,9 @@ class UserAPI(MethodView):
                 # Nested
                 "projects": projects_data,
                 "assigned_projects": self._get_assigned_projects(user),
-                "time_entries": [self._format_time_entry(e, te_project_cache) for e in time_entries],
+                "time_entries": [
+                    self._format_time_entry(e, te_project_cache) for e in time_entries
+                ],
             },
         }
 
@@ -1868,8 +1894,7 @@ class UserAPI(MethodView):
         profile page's "name last changed" badge.
         """
         row = (
-            UserNameAudit.query
-            .filter_by(user_id=user.id)
+            UserNameAudit.query.filter_by(user_id=user.id)
             .order_by(UserNameAudit.changed_at.desc())
             .first()
         )
@@ -1894,8 +1919,8 @@ class UserAPI(MethodView):
         return {
             "changed_at": row.changed_at.isoformat() + "Z" if row.changed_at else None,
             "source": row.source,
-            "changed_by": row.changed_by,           # raw id kept for debugging
-            "changed_by_name": changed_by_name,     # friendly label for UI
+            "changed_by": row.changed_by,  # raw id kept for debugging
+            "changed_by_name": changed_by_name,  # friendly label for UI
             "old_first_name": row.old_first_name,
             "old_last_name": row.old_last_name,
             "new_first_name": row.new_first_name,
@@ -1953,7 +1978,9 @@ class UserAPI(MethodView):
 
         # Handle mapillary_username
         if "mapillary_username" in data:
-            updates["mapillary_username"] = (data["mapillary_username"] or "").strip() or None
+            updates["mapillary_username"] = (
+                data["mapillary_username"] or ""
+            ).strip() or None
 
         if updates:
             user.update(**updates)
@@ -1969,7 +1996,10 @@ class UserAPI(MethodView):
         end_date_str = data.get("endDate")
 
         if not user_id or not start_date_str or not end_date_str:
-            return {"message": "userId, startDate, and endDate are required", "status": 400}
+            return {
+                "message": "userId, startDate, and endDate are required",
+                "status": 400,
+            }
 
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
@@ -1991,8 +2021,7 @@ class UserAPI(MethodView):
 
         # Query time entries in date range
         entries = (
-            TimeEntry.query
-            .filter(
+            TimeEntry.query.filter(
                 TimeEntry.user_id == user_id,
                 TimeEntry.status == "completed",
                 TimeEntry.clock_in >= start_date,
@@ -2024,7 +2053,7 @@ class UserAPI(MethodView):
                     "total_seconds": 0,
                     "entries_count": 0,
                 }
-            project_hours[pid]["total_seconds"] += (e.duration_seconds or 0)
+            project_hours[pid]["total_seconds"] += e.duration_seconds or 0
             project_hours[pid]["entries_count"] += 1
 
         projects_list = [
@@ -2034,7 +2063,9 @@ class UserAPI(MethodView):
                 "total_hours": round(v["total_seconds"] / 3600, 1),
                 "entries_count": v["entries_count"],
             }
-            for v in sorted(project_hours.values(), key=lambda x: x["total_seconds"], reverse=True)
+            for v in sorted(
+                project_hours.values(), key=lambda x: x["total_seconds"], reverse=True
+            )
         ]
 
         # Date-filtered task stats — use SQL aggregation instead of loading all rows
@@ -2054,15 +2085,17 @@ class UserAPI(MethodView):
                 Task.date_mapped < end_date,
             ).count()
 
-            mapping_earnings_row = db.session.query(
-                db.func.coalesce(db.func.sum(Task.mapping_rate), 0)
-            ).filter(
-                Task.mapped_by == osm_username,
-                Task.mapped == True,
-                Task.validated == True,
-                Task.date_mapped >= start_date,
-                Task.date_mapped < end_date,
-            ).scalar()
+            mapping_earnings_row = (
+                db.session.query(db.func.coalesce(db.func.sum(Task.mapping_rate), 0))
+                .filter(
+                    Task.mapped_by == osm_username,
+                    Task.mapped == True,
+                    Task.validated == True,
+                    Task.date_mapped >= start_date,
+                    Task.date_mapped < end_date,
+                )
+                .scalar()
+            )
             mapping_earnings_in_range = float(mapping_earnings_row or 0)
 
             tasks_validated_in_range = Task.query.filter(
@@ -2086,14 +2119,16 @@ class UserAPI(MethodView):
                 Task.date_validated < end_date,
             ).count()
 
-            validation_earnings_row = db.session.query(
-                db.func.coalesce(db.func.sum(Task.validation_rate), 0)
-            ).filter(
-                Task.validated_by == osm_username,
-                Task.validated == True,
-                Task.date_validated >= start_date,
-                Task.date_validated < end_date,
-            ).scalar()
+            validation_earnings_row = (
+                db.session.query(db.func.coalesce(db.func.sum(Task.validation_rate), 0))
+                .filter(
+                    Task.validated_by == osm_username,
+                    Task.validated == True,
+                    Task.date_validated >= start_date,
+                    Task.date_validated < end_date,
+                )
+                .scalar()
+            )
             validation_earnings_in_range = float(validation_earnings_row or 0)
 
         # Paginate time entries — return max 100, with total count
@@ -2107,7 +2142,9 @@ class UserAPI(MethodView):
                 "endDate": end_date_str,
                 "total_hours": total_hours,
                 "entries_count": len(entries),
-                "time_entries": [self._format_time_entry(e, project_cache) for e in paginated_entries],
+                "time_entries": [
+                    self._format_time_entry(e, project_cache) for e in paginated_entries
+                ],
                 "has_more_entries": len(entries) > page_size,
                 "projects": projects_list,
                 "tasks_mapped": tasks_mapped_in_range,
@@ -2145,8 +2182,7 @@ class UserAPI(MethodView):
 
         # Lifetime paid + recent payments
         all_payments = (
-            Payments.query
-            .filter_by(org_id=g.user.org_id, user_id=user_id)
+            Payments.query.filter_by(org_id=g.user.org_id, user_id=user_id)
             .order_by(Payments.date_paid.desc())
             .all()
         )
@@ -2155,8 +2191,7 @@ class UserAPI(MethodView):
 
         # Open pay requests (anything outstanding for this user)
         open_requests_raw = (
-            PayRequests.query
-            .filter_by(org_id=g.user.org_id, user_id=user_id)
+            PayRequests.query.filter_by(org_id=g.user.org_id, user_id=user_id)
             .order_by(PayRequests.date_requested.desc())
             .all()
         )
@@ -2176,8 +2211,7 @@ class UserAPI(MethodView):
         project_id_to_name = {}
         if all_recent_task_ids:
             for t in (
-                Task.query
-                .filter(Task.id.in_(all_recent_task_ids))
+                Task.query.filter(Task.id.in_(all_recent_task_ids))
                 .with_entities(Task.id, Task.project_id)
                 .all()
             ):
@@ -2185,8 +2219,7 @@ class UserAPI(MethodView):
             project_ids = {pid for pid in task_to_project.values() if pid}
             if project_ids:
                 for proj in (
-                    Project.query
-                    .filter(Project.id.in_(project_ids))
+                    Project.query.filter(Project.id.in_(project_ids))
                     .with_entities(Project.id, Project.name)
                     .all()
                 ):
@@ -2262,23 +2295,18 @@ class UserAPI(MethodView):
 
         # User's mapped tasks
         user_task_ids = set(
-            ut.task_id
-            for ut in UserTasks.query.filter_by(user_id=user.id).all()
+            ut.task_id for ut in UserTasks.query.filter_by(user_id=user.id).all()
         )
 
         anomaly_tasks = []
         anomaly_amount = 0.0
         if osm_un and (user_task_ids or True):
             # Mapping side: validated tasks the user mapped, > 30d ago
-            mapped_anom = (
-                Task.query
-                .filter(
-                    Task.org_id == g.user.org_id,
-                    Task.validated == True,  # noqa: E712
-                    Task.date_validated <= cutoff,
-                )
-                .all()
-            )
+            mapped_anom = Task.query.filter(
+                Task.org_id == g.user.org_id,
+                Task.validated == True,  # noqa: E712
+                Task.date_validated <= cutoff,
+            ).all()
             for t in mapped_anom:
                 if t.id in claimed:
                     continue
@@ -2286,31 +2314,35 @@ class UserAPI(MethodView):
                     continue
                 # Mapper-side claim: user owns this task via UserTasks
                 if t.id in user_task_ids and t.mapping_rate:
-                    anomaly_tasks.append({
-                        "task_id": t.id,
-                        "project_id": t.project_id,
-                        "date_validated": (
-                            t.date_validated.isoformat()
-                            if t.date_validated
-                            else None
-                        ),
-                        "rate": t.mapping_rate,
-                        "type": "mapping",
-                    })
+                    anomaly_tasks.append(
+                        {
+                            "task_id": t.id,
+                            "project_id": t.project_id,
+                            "date_validated": (
+                                t.date_validated.isoformat()
+                                if t.date_validated
+                                else None
+                            ),
+                            "rate": t.mapping_rate,
+                            "type": "mapping",
+                        }
+                    )
                     anomaly_amount += t.mapping_rate
                 # Validator-side claim: user validated this task
                 if t.validated_by == osm_un and t.validation_rate:
-                    anomaly_tasks.append({
-                        "task_id": t.id,
-                        "project_id": t.project_id,
-                        "date_validated": (
-                            t.date_validated.isoformat()
-                            if t.date_validated
-                            else None
-                        ),
-                        "rate": t.validation_rate,
-                        "type": "validation",
-                    })
+                    anomaly_tasks.append(
+                        {
+                            "task_id": t.id,
+                            "project_id": t.project_id,
+                            "date_validated": (
+                                t.date_validated.isoformat()
+                                if t.date_validated
+                                else None
+                            ),
+                            "rate": t.validation_rate,
+                            "type": "validation",
+                        }
+                    )
                     anomaly_amount += t.validation_rate
 
         # Resolve project names for the anomaly task list (capped at 50 in response)
@@ -2318,8 +2350,7 @@ class UserAPI(MethodView):
         anom_project_names = {}
         if anom_project_ids:
             for proj in (
-                Project.query
-                .filter(Project.id.in_(anom_project_ids))
+                Project.query.filter(Project.id.in_(anom_project_ids))
                 .with_entities(Project.id, Project.name)
                 .all()
             ):
@@ -2359,7 +2390,10 @@ class UserAPI(MethodView):
         end_date_str = data.get("endDate")
 
         if not user_id or not start_date_str or not end_date_str:
-            return {"message": "userId, startDate, and endDate are required", "status": 400}
+            return {
+                "message": "userId, startDate, and endDate are required",
+                "status": 400,
+            }
 
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
@@ -2376,8 +2410,11 @@ class UserAPI(MethodView):
                 "status": 200,
                 "changesets": [],
                 "summary": {
-                    "totalChangesets": 0, "totalChanges": 0,
-                    "totalAdded": 0, "totalModified": 0, "totalDeleted": 0,
+                    "totalChangesets": 0,
+                    "totalChanges": 0,
+                    "totalAdded": 0,
+                    "totalModified": 0,
+                    "totalDeleted": 0,
                 },
                 "hashtagSummary": {},
                 "message": "No OSM username set for this user",
@@ -2394,7 +2431,9 @@ class UserAPI(MethodView):
         try:
             resp = requests.get(osm_url, params=params, timeout=30)
             if not resp.ok:
-                current_app.logger.error(f"OSM API error: {resp.status_code} - {resp.text[:200]}")
+                current_app.logger.error(
+                    f"OSM API error: {resp.status_code} - {resp.text[:200]}"
+                )
                 return {"message": "Could not reach OSM API", "status": 502}
         except requests.RequestException as e:
             current_app.logger.error(f"OSM API request failed: {e}")
@@ -2440,27 +2479,31 @@ class UserAPI(MethodView):
                     "lon": (float(min_lon) + float(max_lon)) / 2,
                 }
 
-            changeset_metas.append({
-                "id": int(cs.get("id", 0)),
-                "createdAt": cs.get("created_at", ""),
-                "closedAt": cs.get("closed_at", ""),
-                "changesCount": int(cs.get("changes_count", 0)),
-                "comment": comment,
-                "hashtags": hashtags_from_comment,
-                "source": tags.get("source", ""),
-                "imageryUsed": tags.get("imagery_used", tags.get("source", "")),
-                "added": None,
-                "modified": None,
-                "deleted": None,
-                "elements": None,
-                "centroid": centroid,
-            })
+            changeset_metas.append(
+                {
+                    "id": int(cs.get("id", 0)),
+                    "createdAt": cs.get("created_at", ""),
+                    "closedAt": cs.get("closed_at", ""),
+                    "changesCount": int(cs.get("changes_count", 0)),
+                    "comment": comment,
+                    "hashtags": hashtags_from_comment,
+                    "source": tags.get("source", ""),
+                    "imageryUsed": tags.get("imagery_used", tags.get("source", "")),
+                    "added": None,
+                    "modified": None,
+                    "deleted": None,
+                    "elements": None,
+                    "centroid": centroid,
+                }
+            )
 
         # Fetch detail counts for each changeset concurrently
         def fetch_changeset_details(cs_id):
             """Fetch OsmChange XML and count create/modify/delete elements plus element types."""
             try:
-                detail_url = f"https://api.openstreetmap.org/api/0.6/changeset/{cs_id}/download"
+                detail_url = (
+                    f"https://api.openstreetmap.org/api/0.6/changeset/{cs_id}/download"
+                )
                 detail_resp = requests.get(detail_url, timeout=30)
                 if not detail_resp.ok:
                     return cs_id, None, None, None, None
@@ -2491,7 +2534,13 @@ class UserAPI(MethodView):
                         elif tag_name == "delete":
                             deleted += 1
 
-                return cs_id, added, modified, deleted, {"nodes": nodes, "ways": ways, "relations": relations}
+                return (
+                    cs_id,
+                    added,
+                    modified,
+                    deleted,
+                    {"nodes": nodes, "ways": ways, "relations": relations},
+                )
             except Exception:
                 return cs_id, None, None, None, None
 
@@ -2522,14 +2571,21 @@ class UserAPI(MethodView):
         total_added = sum(cs["added"] or 0 for cs in changeset_metas)
         total_modified = sum(cs["modified"] or 0 for cs in changeset_metas)
         total_deleted = sum(cs["deleted"] or 0 for cs in changeset_metas)
-        total_nodes = sum((cs.get("elements") or {}).get("nodes", 0) for cs in changeset_metas)
-        total_ways = sum((cs.get("elements") or {}).get("ways", 0) for cs in changeset_metas)
-        total_relations = sum((cs.get("elements") or {}).get("relations", 0) for cs in changeset_metas)
+        total_nodes = sum(
+            (cs.get("elements") or {}).get("nodes", 0) for cs in changeset_metas
+        )
+        total_ways = sum(
+            (cs.get("elements") or {}).get("ways", 0) for cs in changeset_metas
+        )
+        total_relations = sum(
+            (cs.get("elements") or {}).get("relations", 0) for cs in changeset_metas
+        )
 
         # Build heatmap points from centroids
         heatmap_points = [
             [cs["centroid"]["lat"], cs["centroid"]["lon"], cs["changesCount"]]
-            for cs in changeset_metas if cs.get("centroid")
+            for cs in changeset_metas
+            if cs.get("centroid")
         ]
 
         # Aggregate hashtags
@@ -2587,7 +2643,9 @@ class UserAPI(MethodView):
             try:
                 end_date = datetime.strptime(end_date_str, "%Y-%m-%dT%H:%M:%S")
             except ValueError:
-                end_date = datetime.strptime(end_date_str, "%Y-%m-%d") + timedelta(days=1)
+                end_date = datetime.strptime(end_date_str, "%Y-%m-%d") + timedelta(
+                    days=1
+                )
         except ValueError:
             return {"message": "Invalid date format", "status": 400}
 
@@ -2640,11 +2698,14 @@ class UserAPI(MethodView):
         for e in entries:
             day_key = e.clock_in.date().isoformat()
             if day_key in days:
-                days[day_key]["hoursWorked"] += round((e.duration_seconds or 0) / 3600, 1)
+                days[day_key]["hoursWorked"] += round(
+                    (e.duration_seconds or 0) / 3600, 1
+                )
 
         # Filter out days with no activity
         activity = [
-            v for v in sorted(days.values(), key=lambda x: x["date"])
+            v
+            for v in sorted(days.values(), key=lambda x: x["date"])
             if v["tasksMapped"] or v["tasksValidated"] or v["hoursWorked"]
         ]
 
@@ -2679,7 +2740,9 @@ class UserAPI(MethodView):
             try:
                 end_date = datetime.strptime(end_date_str, "%Y-%m-%dT%H:%M:%S")
             except ValueError:
-                end_date = datetime.strptime(end_date_str, "%Y-%m-%d") + timedelta(days=1)
+                end_date = datetime.strptime(end_date_str, "%Y-%m-%d") + timedelta(
+                    days=1
+                )
         except ValueError:
             return {"message": "Invalid date format", "status": 400}
 
@@ -2697,17 +2760,23 @@ class UserAPI(MethodView):
         ).all()
         for t in mapped:
             proj = Project.query.get(t.project_id)
-            history.append({
-                "taskId": t.task_id,
-                "projectId": t.project_id,
-                "projectName": proj.name if proj else f"Project {t.project_id}",
-                "projectShortName": (proj.short_name or "") if proj else "",
-                "action": "mapped",
-                "date": t.date_mapped.isoformat() if t.date_mapped else None,
-                "status": "validated" if t.validated else ("invalidated" if t.invalidated else "pending"),
-                "validatedBy": t.validated_by,
-                "mappingRate": t.mapping_rate,
-            })
+            history.append(
+                {
+                    "taskId": t.task_id,
+                    "projectId": t.project_id,
+                    "projectName": proj.name if proj else f"Project {t.project_id}",
+                    "projectShortName": (proj.short_name or "") if proj else "",
+                    "action": "mapped",
+                    "date": t.date_mapped.isoformat() if t.date_mapped else None,
+                    "status": (
+                        "validated"
+                        if t.validated
+                        else ("invalidated" if t.invalidated else "pending")
+                    ),
+                    "validatedBy": t.validated_by,
+                    "mappingRate": t.mapping_rate,
+                }
+            )
 
         # Tasks validated/invalidated by this user
         val_tasks = Task.query.filter(
@@ -2718,17 +2787,19 @@ class UserAPI(MethodView):
         for t in val_tasks:
             proj = Project.query.get(t.project_id)
             action = "validated" if t.validated else "invalidated"
-            history.append({
-                "taskId": t.task_id,
-                "projectId": t.project_id,
-                "projectName": proj.name if proj else f"Project {t.project_id}",
-                "projectShortName": (proj.short_name or "") if proj else "",
-                "action": action,
-                "date": t.date_validated.isoformat() if t.date_validated else None,
-                "status": action,
-                "mappedBy": t.mapped_by,
-                "validationRate": t.validation_rate,
-            })
+            history.append(
+                {
+                    "taskId": t.task_id,
+                    "projectId": t.project_id,
+                    "projectName": proj.name if proj else f"Project {t.project_id}",
+                    "projectShortName": (proj.short_name or "") if proj else "",
+                    "action": action,
+                    "date": t.date_validated.isoformat() if t.date_validated else None,
+                    "status": action,
+                    "mappedBy": t.mapped_by,
+                    "validationRate": t.validation_rate,
+                }
+            )
 
         # Sort by date descending
         history.sort(key=lambda x: x["date"] or "", reverse=True)

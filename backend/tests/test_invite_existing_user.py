@@ -1,16 +1,18 @@
 """
-Tests for the existing-tenant-user branch of UserAPI.invite_user().
+Tests for UserAPI.invite_user() and the shared org-invite helper it delegates to.
 
 Background: Auth0's organization-invitation email always routes to a SIGN-UP
 page, so a user who already exists in the tenant (e.g. from Viewer) hits a
 "User already exists" error and can never accept. invite_user() therefore
-looks the email up first and, when the user already exists, adds them straight
-to the org as a member (+ role) via the Management API instead of inviting.
+delegates to api/utils/auth0_org.add_or_invite_user_to_org, which looks the
+email up first and, when the user already exists, adds them straight to the org
+as a member (+ role) instead of inviting.
 
-These tests patch `api.views.Users.requests` and call the view method directly
-(it carries no auth decorator — auth is enforced in post() dispatch).
+The token fetch still happens in Users.py; everything else happens in the shared
+helper module — so these patch BOTH `api.views.Users.requests` (token) and
+`api.utils.auth0_org.requests` (the Auth0 org calls).
 """
-
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import flask
@@ -51,16 +53,25 @@ def _admin_user():
 
 @pytest.fixture
 def auth0_app():
-    """Minimal Flask app with Auth0 config.
+    """Minimal Flask app with Auth0 config — no Postgres needed.
 
-    invite_user()'s existing-user branch (no target team) touches only
-    current_app.config, request, g, and the patched `requests` module — never
-    the database — so a bare app keeps these as true unit tests with no
-    Postgres dependency.
+    invite_user()'s flow (no target team) touches only config, request, g, and
+    the patched `requests` in two modules, never the database.
     """
     app = flask.Flask(__name__)
     app.config.update(AUTH0_CONFIG)
     return app
+
+
+def _patch_requests(get_side_effect, post_side_effect):
+    """Patch `requests` in BOTH the view (token) and the helper (org calls)."""
+    ureq = patch("api.views.Users.requests")
+    hreq = patch("api.utils.auth0_org.requests")
+    u, h = ureq.start(), hreq.start()
+    for m in (u, h):
+        m.get.side_effect = get_side_effect
+        m.post.side_effect = post_side_effect
+    return (ureq, hreq), u, h
 
 
 def test_invite_existing_user_adds_as_member_not_invitation(auth0_app):
@@ -81,30 +92,29 @@ def test_invite_existing_user_adds_as_member_not_invitation(auth0_app):
             return _resp(status=204)
         if url.endswith("/change_password"):
             return _resp()
-        # An invitation must NOT be sent for an existing user.
         if "/invitations" in url:
             return _resp(payload={"id": "should-not-happen"})
         return _resp(ok=False, status=404)
 
     with auth0_app.test_request_context(json={"email": "Existing@Viewer.test"}):
         g.user = _admin_user()
-        with patch("api.views.Users.requests") as mock_req:
-            mock_req.get.side_effect = get_side_effect
-            mock_req.post.side_effect = post_side_effect
+        patchers, _ureq, hreq = _patch_requests(get_side_effect, post_side_effect)
+        try:
             result = UserAPI().invite_user()
+        finally:
+            for p in patchers:
+                p.stop()
 
     assert result["status"] == 200
     assert "now has access" in result["message"].lower()
 
-    posted_urls = [c.args[0] for c in mock_req.post.call_args_list]
-    # Member add + role assignment happened...
-    assert any(u.endswith("/members") for u in posted_urls)
-    assert any(u.endswith("/roles") for u in posted_urls)
-    # ...and no invitation was created.
-    assert not any("/invitations" in u for u in posted_urls)
+    helper_posts = [c.args[0] for c in hreq.post.call_args_list]
+    assert any(u.endswith("/members") for u in helper_posts)
+    assert any(u.endswith("/roles") for u in helper_posts)
+    assert not any("/invitations" in u for u in helper_posts)
 
     # Email lookup is lowercased (Auth0 stores DB emails lowercase).
-    get_url, get_kwargs = mock_req.get.call_args
+    _get_url, get_kwargs = hreq.get.call_args
     assert get_kwargs["params"]["email"] == "existing@viewer.test"
 
 
@@ -121,7 +131,9 @@ def test_invite_existing_user_already_member_is_ok(auth0_app):
         if url.endswith("/oauth/token"):
             return _resp(payload={"access_token": "tok"})
         if url.endswith("/members"):
-            return _resp(ok=False, status=409, payload={"message": "already a member"})
+            return _resp(
+                ok=False, status=409, payload={"message": "already a member"}
+            )
         if url.endswith("/roles"):
             return _resp(status=204)
         if url.endswith("/change_password"):
@@ -130,10 +142,12 @@ def test_invite_existing_user_already_member_is_ok(auth0_app):
 
     with auth0_app.test_request_context(json={"email": "dup@viewer.test"}):
         g.user = _admin_user()
-        with patch("api.views.Users.requests") as mock_req:
-            mock_req.get.side_effect = get_side_effect
-            mock_req.post.side_effect = post_side_effect
+        patchers, _ureq, _hreq = _patch_requests(get_side_effect, post_side_effect)
+        try:
             result = UserAPI().invite_user()
+        finally:
+            for p in patchers:
+                p.stop()
 
     assert result["status"] == 200
     assert "now has access" in result["message"].lower()
@@ -148,7 +162,9 @@ def test_invite_new_user_still_sends_invitation(auth0_app):
             return _resp(payload=[])  # no match
         if url.endswith("/connections"):
             return _resp(
-                payload=[{"name": "Username-Password-Authentication", "id": "con_db"}]
+                payload=[
+                    {"name": "Username-Password-Authentication", "id": "con_db"}
+                ]
             )
         return _resp(ok=False, status=404)
 
@@ -157,21 +173,61 @@ def test_invite_new_user_still_sends_invitation(auth0_app):
             return _resp(payload={"access_token": "tok"})
         if "/invitations" in url:
             return _resp(payload={"id": "inv_1"})
-        # Member endpoints must NOT be hit for a brand-new user.
         if url.endswith("/members") or url.endswith("/roles"):
             return _resp(ok=False, status=500, payload={"message": "unexpected"})
         return _resp(ok=False, status=404)
 
     with auth0_app.test_request_context(json={"email": "brandnew@example.test"}):
         g.user = _admin_user()
-        with patch("api.views.Users.requests") as mock_req:
-            mock_req.get.side_effect = get_side_effect
-            mock_req.post.side_effect = post_side_effect
+        patchers, _ureq, hreq = _patch_requests(get_side_effect, post_side_effect)
+        try:
             result = UserAPI().invite_user()
+        finally:
+            for p in patchers:
+                p.stop()
 
     assert result["status"] == 200
     assert "invitation sent" in result["message"].lower()
 
-    posted_urls = [c.args[0] for c in mock_req.post.call_args_list]
-    assert any("/invitations" in u for u in posted_urls)
-    assert not any(u.endswith("/members") for u in posted_urls)
+    helper_posts = [c.args[0] for c in hreq.post.call_args_list]
+    assert any("/invitations" in u for u in helper_posts)
+    assert not any(u.endswith("/members") for u in helper_posts)
+
+
+def test_invite_existing_user_with_team_records_pending_invite(auth0_app):
+    """When a target team is given, the member-add path records a PendingInvite
+    so first login auto-joins the team (the nuance the refactor preserved)."""
+
+    def get_side_effect(url, **kwargs):
+        if "users-by-email" in url:
+            return _resp(payload=[{"user_id": "auth0|existing"}])
+        return _resp(ok=False, status=404)
+
+    def post_side_effect(url, **kwargs):
+        if url.endswith("/oauth/token"):
+            return _resp(payload={"access_token": "tok"})
+        if url.endswith("/members") or url.endswith("/roles"):
+            return _resp(status=204)
+        if url.endswith("/change_password"):
+            return _resp()
+        return _resp(ok=False, status=404)
+
+    with auth0_app.test_request_context(
+        json={"email": "e@viewer.test", "targetTeamId": 7}
+    ):
+        g.user = _admin_user()
+        patchers, _ureq, _hreq = _patch_requests(get_side_effect, post_side_effect)
+        with patch("api.database.Team") as MockTeam, patch(
+            "api.database.PendingInvite"
+        ) as MockPending:
+            MockTeam.query.filter_by.return_value.first.return_value = (
+                SimpleNamespace(id=7)
+            )
+            try:
+                result = UserAPI().invite_user()
+            finally:
+                for p in patchers:
+                    p.stop()
+
+    assert result["status"] == 200
+    MockPending.create.assert_called_once()

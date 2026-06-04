@@ -33,6 +33,7 @@ export default async function AuthenticatedLayout({
   let role = "user";
   let paymentsVisible = false;
   let displayName = "";
+  let orgRejected = false;
   try {
     const tokenResponse = await auth0.getAccessToken();
     if (!tokenResponse?.token) {
@@ -48,9 +49,17 @@ export default async function AuthenticatedLayout({
     role = syncResult.role;
     paymentsVisible = syncResult.paymentsVisible;
     displayName = syncResult.displayName;
+    orgRejected = syncResult.orgRejected;
   } catch {
     // Token retrieval failed — session expired, force re-login
     redirect("/auth/logout");
+  }
+
+  // The backend rejected this org (disabled/unknown) — route to the friendly
+  // page. Done OUTSIDE the try/catch above so redirect()'s control-flow throw
+  // (NEXT_REDIRECT) isn't swallowed by that catch and turned into a logout.
+  if (orgRejected) {
+    redirect("/wrong-org");
   }
 
   // All admin tiers always see Payments. Per-page server scoping

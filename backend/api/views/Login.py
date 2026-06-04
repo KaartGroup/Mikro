@@ -76,6 +76,36 @@ class LoginAPI(MethodView):
         # Get org_id from custom claim (mikro/org_id)
         org_id = auth0_payload.get(f"{namespace}/org_id")
 
+        # ── Org gating (Phase B): the Organization table is the single source
+        # of truth for which orgs may log in — replacing the old frontend
+        # AUTH0_ORG_ID-only /wrong-org gate. The Kaart home org is always
+        # allowed (it may predate the organizations table / its seed); any
+        # OTHER org must exist and be 'active'. Disabled or unknown orgs are
+        # rejected here, BEFORE a user row is created, with a distinct
+        # reason the frontend routes to /wrong-org. A None org_id is left to
+        # the frontend /no-org handling.
+        kaart_org_id = current_app.config.get("AUTH0_ORG_ID")
+        if org_id and org_id != kaart_org_id:
+            from ..database import Organization
+
+            org_row = Organization.query.filter_by(id=org_id).first()
+            if not org_row or org_row.status != "active":
+                current_app.logger.warning(
+                    "[AUTH-TRACE] event=login_org_rejected "
+                    f"sub={auth0_sub!r} org_id={org_id!r} "
+                    f"found={org_row is not None}"
+                )
+                return (
+                    jsonify(
+                        {
+                            "message": "Your organization isn't active in Mikro.",
+                            "status": 403,
+                            "reason": "org_not_active",
+                        }
+                    ),
+                    403,
+                )
+
         # Try to get existing user
         user = User.query.filter_by(auth0_sub=auth0_sub).first()
 

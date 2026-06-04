@@ -47,6 +47,13 @@ const adminNavItems: NavItem[] = [
   { label: "Friends List", href: "/admin/friends", icon: "users" },
 ];
 
+// Super Admin sees everything an admin does plus cross-org Organizations
+// management (provisioning external orgs). super_admin only.
+const superAdminNavItems: NavItem[] = [
+  ...adminNavItems,
+  { label: "Organizations", href: "/admin/organizations", icon: "building" },
+];
+
 // Team Admin sees a scoped subset: their teams' surface area only.
 const teamAdminNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "home" },
@@ -243,6 +250,21 @@ const iconMap: Record<string, React.ReactNode> = {
       />
     </svg>
   ),
+  building: (
+    <svg
+      style={{ width: 20, height: 20 }}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2m-2 0h-4m-6 0H3m4 0h4m-4 0v-4a1 1 0 011-1h2a1 1 0 011 1v4m-4 0h4M9 7h1m-1 4h1m4-4h1m-1 4h1"
+      />
+    </svg>
+  ),
   mic: (
     <svg
       style={{ width: 20, height: 20 }}
@@ -292,11 +314,13 @@ export function Sidebar() {
   const allNavItems =
     role === "team_admin"
       ? teamAdminNavItems
-      : role === "admin" || role === "super_admin"
-        ? adminNavItems
-        : role === "validator"
-          ? validatorNavItems
-          : userNavItems;
+      : role === "super_admin"
+        ? superAdminNavItems
+        : role === "admin"
+          ? adminNavItems
+          : role === "validator"
+            ? validatorNavItems
+            : userNavItems;
 
   // Hide Payments link for non-admin users when payments not visible.
   // All admin tiers always see Payments (each tier's data is scoped
