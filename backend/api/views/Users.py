@@ -891,18 +891,25 @@ class UserAPI(MethodView):
         response = {"message": "User details updated", "status": 200}
         return response
 
-    @requires_admin
+    @requires_team_admin_or_above
     def invite_user(self):
         """
-        Invite a user via Auth0 Organization Invitations API.
-        Handles both new users and existing users (e.g. from Viewer).
-        Auth0 sends ONE branded email — the Organization Invitation template
-        with branding controlled by AUTH0_APP_CLIENT_ID.
+        Invite a user into the org with a chosen role, via the shared
+        add-or-invite helper.
 
-        team_admin viewers MUST supply `targetTeamId` and that team must
-        be one they manage. Org Admin / super_admin may supply
-        targetTeamId optionally; if present, the invitee will be auto-
-        added to that team on first login (consumed via PendingInvite).
+        Role authorization (invite at or below your own level; super_admin is
+        never invitable via the form):
+          - super_admin / org_admin: Org Admin, Team Admin, Validator, Mapper
+          - team_admin: Validator, Mapper ONLY, into team(s) they lead
+
+        Teams: required (>=1, all led) for team_admin, optional for org/super
+        admin. Multiple teams supported via `targetTeamIds` (list);
+        `targetTeamId` (single) still accepted. The invitee auto-joins each team
+        on first login (PendingInvite).
+
+        If the invitee is already a Mikro user in this org, their role is
+        REPLACED — Login doesn't refresh role on existing-user logins (admin UI
+        is canonical), so a promote-via-invite is written to User.role here.
         """
         from ..auth import (
             is_org_admin_or_above,
@@ -914,49 +921,68 @@ class UserAPI(MethodView):
         if not email:
             return {"message": "Email is required", "status": 400}
 
-        target_team_id = request.json.get("targetTeamId")
-        if target_team_id is not None:
+        # ── Role authorization ──
+        ROLE_RANK = {"user": 0, "validator": 1, "team_admin": 2, "admin": 3}
+        # Max rank each inviter may grant: super_admin/org_admin -> admin,
+        # team_admin -> validator. super_admin (rank 4) is grantable by no one.
+        MAX_GRANT = {"super_admin": 3, "admin": 3, "team_admin": 1}
+        AUTH0_ROLE_ID = {
+            "user": current_app.config.get("AUTH0_USER_ROLE_ID"),
+            "validator": current_app.config.get("AUTH0_VALIDATOR_ROLE_ID"),
+            "team_admin": current_app.config.get("AUTH0_TEAM_ADMIN_ROLE_ID"),
+            "admin": current_app.config.get("AUTH0_ADMIN_ROLE_ID"),
+        }
+
+        viewer_role = getattr(g.user, "role", None)
+        requested_role = (request.json.get("role") or "user").strip()
+        if requested_role not in ROLE_RANK:
+            return {"message": f"Unknown role '{requested_role}'", "status": 400}
+        if ROLE_RANK[requested_role] > MAX_GRANT.get(viewer_role, -1):
+            return {
+                "message": f"You are not allowed to invite a {requested_role}.",
+                "status": 403,
+            }
+        role_id = AUTH0_ROLE_ID.get(requested_role)
+        if requested_role != "user" and not role_id:
+            return {
+                "message": (
+                    f"The {requested_role} role isn't configured "
+                    "(missing its AUTH0_*_ROLE_ID)."
+                ),
+                "status": 500,
+            }
+
+        # ── Target teams (list, with single-value back-compat) ──
+        raw_team_ids = request.json.get("targetTeamIds")
+        if raw_team_ids is None:
+            single = request.json.get("targetTeamId")
+            raw_team_ids = [single] if single is not None else []
+        if not isinstance(raw_team_ids, list):
+            return {"message": "targetTeamIds must be a list", "status": 400}
+        target_team_ids = []
+        for t in raw_team_ids:
             try:
-                target_team_id = int(target_team_id)
+                target_team_ids.append(int(t))
             except (TypeError, ValueError):
-                return {"message": "targetTeamId must be an integer", "status": 400}
+                return {"message": "team ids must be integers", "status": 400}
 
-        # Team_admin requires a managed-team target; org_admin can
-        # invite without one.
-        if g.user and g.user.role == "team_admin":
-            if target_team_id is None:
-                return {
-                    "message": "Team Admin must specify targetTeamId",
-                    "status": 400,
-                }
-            if not team_admin_can_access_team(g.user, target_team_id):
-                return {
-                    "message": "Not in your managed teams",
-                    "status": 403,
-                }
-
-        # If a target team is given, validate it exists in the viewer's
-        # org. Cross-org targeting is rejected for everyone (including
-        # super_admin until cross-org invite flow ships).
-        if target_team_id is not None:
-            target_team = Team.query.filter_by(
-                id=target_team_id, org_id=g.user.org_id
-            ).first()
-            if not target_team:
-                return {
-                    "message": f"Team {target_team_id} not found",
-                    "status": 404,
-                }
-            # is_org_admin_or_above passes for admin and super_admin;
-            # team_admin already filtered above.
+        if viewer_role == "team_admin" and not target_team_ids:
+            return {
+                "message": "Team Admin must specify at least one team",
+                "status": 400,
+            }
+        # Every target team must exist in the org and the inviter must be
+        # allowed to target it (org/super admin: any team in their org;
+        # team_admin: only teams they lead).
+        for tid in target_team_ids:
+            team = Team.query.filter_by(id=tid, org_id=g.user.org_id).first()
+            if not team:
+                return {"message": f"Team {tid} not found", "status": 404}
             if not (
                 is_org_admin_or_above(g.user)
-                or team_admin_can_access_team(g.user, target_team_id)
+                or team_admin_can_access_team(g.user, tid)
             ):
-                return {
-                    "message": "Not authorized to target this team",
-                    "status": 403,
-                }
+                return {"message": f"Team {tid} is not one you lead", "status": 403}
 
         domain = current_app.config.get("AUTH0_DOMAIN")
         client_id = current_app.config.get("AUTH0_M2M_CLIENT_ID")
@@ -968,7 +994,6 @@ class UserAPI(MethodView):
         org_id = getattr(g.user, "org_id", None) or current_app.config.get(
             "AUTH0_ORG_ID"
         )
-        user_role_id = current_app.config.get("AUTH0_USER_ROLE_ID")
 
         if not all([domain, client_id, client_secret, org_id]):
             return {
@@ -993,9 +1018,6 @@ class UserAPI(MethodView):
             access_token = token_resp.json().get("access_token")
             headers = {"Authorization": f"Bearer {access_token}"}
 
-            # Member-vs-invite is the single source of truth in the shared
-            # helper (api/utils/auth0_org.py). Build the inviter display name,
-            # delegate, then record the team-join intent on success.
             inviter_name = "Mikro"
             if g.user:
                 name_parts = [g.user.first_name, g.user.last_name]
@@ -1003,39 +1025,55 @@ class UserAPI(MethodView):
                 if full_name:
                     inviter_name = full_name
 
+            # Member-vs-invite is the single source of truth in the shared
+            # helper (api/utils/auth0_org.py); pass the chosen role.
             result = add_or_invite_user_to_org(
                 domain=domain,
                 headers=headers,
                 org_id=org_id,
                 email=email,
-                role_id=user_role_id,
+                role_id=role_id,
                 app_client_id=app_client_id,
                 client_id=client_id,
                 inviter_name=inviter_name,
             )
 
-            # Persist a PendingInvite so first-login auto-joins the target team.
-            # Record for a member-add or a fresh invitation, but NOT when the
-            # invitation reported the user was already a member (mirrors the
-            # prior behavior exactly).
-            should_record_team = (
-                result["ok"]
-                and target_team_id is not None
-                and not (result["mode"] == "invitation" and result["already_member"])
-            )
-            if should_record_team:
-                try:
-                    PendingInvite.create(
-                        email=email,
-                        org_id=g.user.org_id,
-                        target_team_id=target_team_id,
-                        invited_by_user_id=g.user.id,
-                        auth0_invitation_id=result.get("invitation_id"),
-                    )
-                except Exception as persist_e:
-                    current_app.logger.warning(
-                        f"PendingInvite write failed for {email!r}: {persist_e}"
-                    )
+            if result["ok"]:
+                # Replace role for an already-existing Mikro user in this org.
+                # Login doesn't refresh role on existing-user logins, so an
+                # invite-to-promote must write User.role directly here.
+                existing = User.query.filter(
+                    func.lower(User.email) == email.lower(),
+                    User.org_id == g.user.org_id,
+                ).first()
+                if existing and existing.role != requested_role:
+                    try:
+                        existing.update(role=requested_role)
+                    except Exception as role_e:
+                        current_app.logger.warning(
+                            f"Role replace failed for {email!r}: {role_e}"
+                        )
+
+                # PendingInvite per target team (multi-team). Skip when the
+                # invitation reported the user was already a member (matches
+                # prior behavior — no re-trigger).
+                if not (
+                    result["mode"] == "invitation" and result["already_member"]
+                ):
+                    for tid in target_team_ids:
+                        try:
+                            PendingInvite.create(
+                                email=email,
+                                org_id=g.user.org_id,
+                                target_team_id=tid,
+                                invited_by_user_id=g.user.id,
+                                auth0_invitation_id=result.get("invitation_id"),
+                            )
+                        except Exception as persist_e:
+                            current_app.logger.warning(
+                                f"PendingInvite write failed for {email!r} "
+                                f"team {tid}: {persist_e}"
+                            )
 
             return {"message": result["message"], "status": result["status"]}
 

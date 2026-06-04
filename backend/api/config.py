@@ -39,6 +39,12 @@ class BaseConfig:
     # as an admin.
     AUTH0_ADMIN_ROLE_ID = os.environ.get("AUTH0_ADMIN_ROLE_ID")
 
+    # Auth0 role IDs for the remaining Mikro roles — used by role-based invites
+    # to assign the chosen role on the invitation. super_admin has no role id
+    # (not invitable via the form).
+    AUTH0_TEAM_ADMIN_ROLE_ID = os.environ.get("AUTH0_TEAM_ADMIN_ROLE_ID")
+    AUTH0_VALIDATOR_ROLE_ID = os.environ.get("AUTH0_VALIDATOR_ROLE_ID")
+
     # Max number of Auth0 Organizations the tenant's plan allows. Kaart is on a
     # B2C plan (hard cap of 10 orgs incl. Kaart itself). Single source of truth
     # for the provisioning capacity guard — bump the env var (or remove the cap)
