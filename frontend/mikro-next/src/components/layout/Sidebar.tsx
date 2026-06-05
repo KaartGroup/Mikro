@@ -26,7 +26,6 @@ const userNavItems: NavItem[] = [
 const validatorNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "home" },
   { label: "Projects", href: "/projects", icon: "folder" },
-  { label: "Time", href: "/time", icon: "clock" },
   { label: "Training", href: "/training", icon: "book" },
   { label: "Payments", href: "/payments", icon: "dollar" },
   { label: "Teams", href: "/teams", icon: "team" },

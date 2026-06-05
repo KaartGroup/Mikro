@@ -6,12 +6,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Skeleton,
-  Badge,
-  Button,
   useToastActions,
-  Tooltip,
-  Val,
 } from "@/components/ui";
 import {
   useAdminDashboardStats,
@@ -30,12 +25,12 @@ import {
 import { TimeTrackingWidget } from "@/components/widgets/TimeTrackingWidget";
 import { AdminTimeManagement } from "@/components/widgets/AdminTimeManagement";
 import { DashboardStatCard } from "@/components/admin/DashboardStatCard";
-import { TeamScopeSelector } from "@/components/admin/TeamScopeSelector";
-import { RegionFilter } from "@/components/admin/RegionFilter";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
+import { RecentTransactionCard } from "@/components/admin/RecentTransactionCard";
+import { DashboardLoadingSkeleton } from "@/components/admin/DashboardLoadingSkeleton";
+import { DashboardFilterToolbar } from "@/components/admin/DashboardFilterToolbar";
 import { isOrgAdminOrAbove } from "@/types";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
-import Link from "next/link";
 
 // --- Lower dashboard section (deferred) ---
 // This component manages its own data fetching so it doesn't block the time section above.
@@ -211,52 +206,16 @@ function DashboardStats({
 
   return (
     <>
-      {/* Toolbar: Region filter + Team scope selector + Sync button.
-          Region + Team share the same Select primitive (consistent
-          look). Sync button aligns to the bottom of the filter row
-          via items-end so its h-9 button visually sits with the
-          h-10 Select buttons (the labels above add ~24px). */}
-      <div className="flex items-end justify-end gap-3">
-        <div className="w-48">
-          <RegionFilter
-            value={regionCountryId}
-            onChange={onRegionCountryIdChange}
-          />
-        </div>
-        <div className="w-48">
-          <TeamScopeSelector
-            value={teamId}
-            onChange={onTeamIdChange}
-            managedOnly={isTeamAdmin}
-          />
-        </div>
-        {syncing && syncProgress && (
-          <span className="text-sm text-muted-foreground">{syncProgress}</span>
-        )}
-        <Tooltip
-          content="Pull latest task data from Tasking Manager and MapRoulette"
-          position="bottom"
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSyncAllTasks}
-            disabled={syncing}
-          >
-            {syncing ? "Syncing..." : "Sync All Tasks"}
-          </Button>
-        </Tooltip>
-      </div>
-
-      {/* Subtle scope indicator — makes it clear that only the time-related
-          panels below are filtered. Other panels (project counts, payment
-          totals) stay org-wide until F23/follow-up backend work. */}
-      {teamId !== null && (
-        <div className="text-xs text-muted-foreground italic -mt-2">
-          Time stats below are scoped to the selected team. Project counts and
-          payment totals remain org-wide.
-        </div>
-      )}
+      <DashboardFilterToolbar
+        teamId={teamId}
+        onTeamIdChange={onTeamIdChange}
+        regionCountryId={regionCountryId}
+        onRegionCountryIdChange={onRegionCountryIdChange}
+        isTeamAdmin={isTeamAdmin}
+        syncing={syncing}
+        syncProgress={syncProgress}
+        onSyncAllTasks={handleSyncAllTasks}
+      />
 
       {statsError && (
         <div className="rounded-lg bg-destructive/10 p-4 text-destructive">
@@ -466,110 +425,37 @@ function DashboardStats({
 
       {/* Recent Activity */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <Tooltip
-              content="Most recent payment requests from users — click View All to manage"
-              position="bottom"
-            >
-              <CardTitle>Recent Payment Requests</CardTitle>
-            </Tooltip>
-            <Link
-              href="/admin/payments"
-              className="text-sm text-kaart-orange hover:underline"
-            >
-              View all
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {transactionsLoading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : transactions?.requests && transactions.requests.length > 0 ? (
-              <div className="space-y-4">
-                {transactions.requests.slice(0, 5).map((request) => (
-                  <div
-                    key={request.id}
-                    className="flex items-center justify-between border-b border-border pb-3 last:border-0 last:pb-0"
-                  >
-                    <div>
-                      <p className="font-medium">{request.user}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {request.osm_username} •{" "}
-                        {formatDate(request.date_requested)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold">
-                        <Val>{formatCurrency(request.amount_requested)}</Val>
-                      </p>
-                      <Badge variant="warning">Pending</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No pending payment requests.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <Tooltip
-              content="Most recent completed payments to users"
-              position="bottom"
-            >
-              <CardTitle>Recent Payouts</CardTitle>
-            </Tooltip>
-            <Link
-              href="/admin/payments"
-              className="text-sm text-kaart-orange hover:underline"
-            >
-              View all
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {transactionsLoading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : transactions?.payments && transactions.payments.length > 0 ? (
-              <div className="space-y-4">
-                {transactions.payments.slice(0, 5).map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="flex items-center justify-between border-b border-border pb-3 last:border-0 last:pb-0"
-                  >
-                    <div>
-                      <p className="font-medium">{payment.user}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {payment.osm_username} • {formatDate(payment.date_paid)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-green-600">
-                        <Val>{formatCurrency(payment.amount_paid)}</Val>
-                      </p>
-                      <Badge variant="success">Paid</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No recent payouts to display.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <RecentTransactionCard
+          title="Recent Payment Requests"
+          tooltipContent="Most recent payment requests from users — click View All to manage"
+          href="/admin/payments"
+          loading={transactionsLoading}
+          items={(transactions?.requests ?? []).map((r) => ({
+            id: r.id,
+            name: r.user,
+            subtext: `${r.osm_username} • ${formatDate(r.date_requested)}`,
+            amount: formatCurrency(r.amount_requested),
+            badgeVariant: "warning" as const,
+            badgeLabel: "Pending",
+          }))}
+          emptyMessage="No pending payment requests."
+        />
+        <RecentTransactionCard
+          title="Recent Payouts"
+          tooltipContent="Most recent completed payments to users"
+          href="/admin/payments"
+          loading={transactionsLoading}
+          items={(transactions?.payments ?? []).map((p) => ({
+            id: p.id,
+            name: p.user,
+            subtext: `${p.osm_username} • ${formatDate(p.date_paid)}`,
+            amount: formatCurrency(p.amount_paid),
+            amountColorClass: "text-green-600",
+            badgeVariant: "success" as const,
+            badgeLabel: "Paid",
+          }))}
+          emptyMessage="No recent payouts to display."
+        />
       </div>
 
       {/* DEV ONLY: Danger Zone — Org Admin / Super Admin only.
@@ -714,20 +600,7 @@ export function AdminDashboard() {
           viewerRole={viewerRole}
         />
       ) : (
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i}>
-                <CardHeader className="pb-2">
-                  <Skeleton className="h-4 w-24" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-16" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+        <DashboardLoadingSkeleton />
       )}
 
       {/* Time Tracking — bottom-most row of the page. Moved below the
