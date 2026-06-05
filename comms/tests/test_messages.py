@@ -24,7 +24,7 @@ from comms.views.messages import MessagesAPI
 @pytest.fixture(autouse=True)
 def _no_email(monkeypatch):
     """Make every notification email a no-op regardless of prefs."""
-    import comms.email.mailer as mailer
+    import comms.mail.mailer as mailer
 
     monkeypatch.setattr(
         mailer, "send_notification_email", lambda *a, **k: None, raising=False

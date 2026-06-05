@@ -115,7 +115,7 @@ def create_notification(
 
     if email_wanted and identity is not None and identity.email:
         try:
-            from ..email import mailer
+            from ..mail import mailer
 
             mailer.send_notification_email(
                 to=identity.email,

@@ -119,7 +119,7 @@ def test_email_spy_invoked_when_opted_in(app, make_identity, monkeypatch):
     send_notification_email is invoked exactly once."""
     calls = []
 
-    from comms.email import mailer
+    from comms.mail import mailer
 
     monkeypatch.setattr(
         mailer,
@@ -142,7 +142,7 @@ def test_email_suppressed_for_second_within_hour_spy(app, make_identity, monkeyp
     """The rate limit suppresses the second email (send_email=None path),
     even though both bell rows are created."""
     calls = []
-    from comms.email import mailer
+    from comms.mail import mailer
 
     monkeypatch.setattr(
         mailer, "send_notification_email", lambda **kw: calls.append(kw)

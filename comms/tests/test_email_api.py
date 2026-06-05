@@ -31,7 +31,7 @@ def as_user(app, identity, body=None):
 @contextmanager
 def spy_mailer(monkeypatch):
     """Replace the async sends with spies; yield the captured-calls dict."""
-    from comms.email import mailer
+    from comms.mail import mailer
 
     calls = {"campaign": [], "notification": []}
     monkeypatch.setattr(
