@@ -77,7 +77,7 @@ COMMS_BASE_URL=http://localhost:3000 \
   flask --app comms.wsgi:app run -p 5005 --reload
 ```
 
-For production the app is served by gunicorn: `comms.wsgi:application`.
+For production the app is served by gunicorn (`wsgi:application` — App Platform runs from source_dir=comms/, so the top-level module; wsgi.py bootstraps the package).
 
 ### Environment variables
 
