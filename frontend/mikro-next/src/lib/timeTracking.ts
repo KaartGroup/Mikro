@@ -183,17 +183,7 @@ export const CATEGORY_FILTER_LABELS: string[] = [
   ...Object.values(CATEGORY_LABELS),
 ];
 
-/**
- * SSOT duration formatter — `HH:MM:SS` everywhere, app-wide.
- *
- * Both live timers and completed/aggregated durations share this format
- * so the time-tracking UI is visually consistent.
- *
- * Returns "--:--:--" for null/invalid input.
- *
- * Aliases `formatDurationHM` and `formatLiveDuration` are retained for
- * backwards compatibility with existing imports — they all resolve here.
- */
+/** Format seconds as `HH:MM:SS`. Returns "--:--:--" for null/invalid input. */
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds == null || isNaN(seconds) || seconds < 0) return "--:--:--";
   const safe = Math.max(0, Math.floor(seconds));
@@ -203,9 +193,14 @@ export function formatDuration(seconds: number | null | undefined): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-// Aliases — same function, kept so existing import sites still work.
-export const formatDurationHM = formatDuration;
-export const formatLiveDuration = formatDuration;
+/** Human-readable duration: "1h 23m". Null/invalid → "—". */
+export function formatDurationHuman(seconds: number | null | undefined): string {
+  if (seconds == null || isNaN(seconds) || seconds < 0) return "—";
+  const safe = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(safe / 3600);
+  const m = Math.floor((safe % 3600) / 60);
+  return `${h}h ${m.toString().padStart(2, "0")}m`;
+}
 
 /*
  * Timezone-correct filter-window helpers.

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button, Input, Select, useToastActions, Val } from "@/components/ui";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatDurationHuman } from "@/lib/timeTracking";
 import {
   useFetchPaymentContributor,
   useCreatePaymentAdjustment,
@@ -70,11 +71,6 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((s) => s[0]?.toUpperCase() ?? "")
     .join("");
-}
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return `${h}h ${m.toString().padStart(2, "0")}m`;
 }
 function formatDateTime(iso: string | null): string {
   if (!iso) return "—";
@@ -590,7 +586,7 @@ function PayrollSummaryTab({
                       <td className="px-2 py-1 capitalize">{s.category}</td>
                       <td className="px-2 py-1">{s.task_name || "—"}</td>
                       <td className="px-2 py-1 text-right tabular-nums">
-                        {formatDuration(s.duration_seconds)}
+                        {formatDurationHuman(s.duration_seconds)}
                       </td>
                     </tr>
                   ))}

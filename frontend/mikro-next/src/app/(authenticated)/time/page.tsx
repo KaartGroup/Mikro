@@ -55,7 +55,8 @@ import { NotesButton } from "@/components/widgets/NotesButton";
 import { PendingAdjustmentsStrip } from "@/components/admin/PendingAdjustmentsStrip";
 import { sortProjectsAlphabetical } from "@/lib/sortProjects";
 import {
-  formatDurationHM,
+  formatDuration,
+  formatDurationHuman,
   resolveCategoryKey,
   categoryLabel,
   CATEGORY_LABELS,
@@ -193,17 +194,6 @@ function formatDateTime(iso: string): string {
     minute: "2-digit",
     hour12: true,
   });
-}
-
-function formatDuration(seconds: number | null): string {
-  return formatDurationHM(seconds);
-}
-
-/** Compact h/m label for the Long Sessions queue (e.g. "11h 4m"). No
- *  threshold logic here — the endpoint decides what counts as "long". */
-function formatLongDuration(seconds: number | null | undefined): string {
-  if (seconds == null) return "—";
-  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 }
 
 function formatLiveDuration(clockIn: string): string {
@@ -1340,7 +1330,7 @@ export default function AdminTime() {
                               </td>
                               <td className="py-2 px-2 whitespace-nowrap">
                                 <span className="font-mono font-medium">
-                                  {formatLongDuration(
+                                  {formatDurationHuman(
                                     session.effectiveDurationSeconds,
                                   )}
                                 </span>

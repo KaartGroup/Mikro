@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { NotesButton } from "./NotesButton";
 import { sortProjectsAlphabetical } from "@/lib/sortProjects";
-import { formatDurationHM, resolveCategoryKey } from "@/lib/timeTracking";
+import { formatDuration, resolveCategoryKey } from "@/lib/timeTracking";
 import {
   useAdminActiveSessions,
   useApiMutation,
@@ -589,7 +589,7 @@ export function AdminTimeManagement({
                         </td>
                         <td className="py-3 px-3">
                           <span className="font-mono">
-                            {formatDurationHM(entry.durationSeconds)}
+                            {formatDuration(entry.durationSeconds)}
                           </span>
                         </td>
                         <td className="py-3 px-3">

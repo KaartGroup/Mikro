@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useAdminPendingAdjustments } from "@/hooks";
-import { formatDurationHM } from "@/lib/timeTracking";
+import { formatDuration } from "@/lib/timeTracking";
 import type { TimeEntry } from "@/types";
 
 const ADJUSTMENT_PREFIX = "[ADJUSTMENT REQUESTED] ";
@@ -116,7 +116,7 @@ export function PendingAdjustmentsStrip({
                   <span className="text-xs">{entry.projectName || "—"}</span>
                 </div>
                 <div className="text-xs font-mono">
-                  {formatDurationHM(entry.durationSeconds)}
+                  {formatDuration(entry.durationSeconds)}
                 </div>
                 <div className="flex-1 min-w-[200px] max-w-[480px] text-xs italic text-muted-foreground">
                   &ldquo;{reason}&rdquo;

@@ -35,8 +35,7 @@ import {
   localDayStartIsoUtc,
   localDayEndIsoUtc,
   localWeekStartIsoUtc,
-  formatDurationHM,
-  formatLiveDuration,
+  formatDuration,
 } from "@/lib/timeTracking";
 import { useFetchSubcategories } from "@/hooks";
 import type { Subcategory } from "@/types";
@@ -47,9 +46,6 @@ const TOPIC_OPTIONS: SelectOption[] = _TOPIC_OPTIONS.map((t) => ({
 }));
 
 // Duration helpers consolidated into @/lib/timeTracking:
-// formatElapsedTime → formatLiveDuration (HH:MM:SS)
-// formatHoursMinutes → formatDurationHM (HH:MM)
-
 export function TimeTrackingWidget({ projects = [] }: TimeTrackingWidgetProps) {
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null); // Date.now() when timer was initialized
@@ -644,7 +640,7 @@ export function TimeTrackingWidget({ projects = [] }: TimeTrackingWidgetProps) {
         <CardContent>
           <div className="text-center">
             <div className="text-4xl font-mono font-bold text-green-600 dark:text-green-400 mb-2">
-              {formatLiveDuration(elapsedSeconds)}
+              {formatDuration(elapsedSeconds)}
             </div>
             <p className="text-sm font-medium mb-1">
               {activeSessionProjectName}
@@ -659,11 +655,11 @@ export function TimeTrackingWidget({ projects = [] }: TimeTrackingWidgetProps) {
             )}
             <div className="flex justify-center gap-3 text-xs text-muted-foreground mb-3">
               <span>
-                Today: {formatDurationHM(todaySeconds + elapsedSeconds)}
+                Today: {formatDuration(todaySeconds + elapsedSeconds)}
               </span>
               <span>·</span>
               <span>
-                Week: {formatDurationHM(weekSeconds + elapsedSeconds)}
+                Week: {formatDuration(weekSeconds + elapsedSeconds)}
               </span>
             </div>
             <div className="flex justify-center mb-3">
@@ -776,7 +772,7 @@ export function TimeTrackingWidget({ projects = [] }: TimeTrackingWidgetProps) {
               Time logged successfully!
             </p>
             <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
-              Total: {formatDurationHM(elapsedSeconds)}
+              Total: {formatDuration(elapsedSeconds)}
             </p>
           </div>
         </CardContent>

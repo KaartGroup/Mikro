@@ -11,7 +11,7 @@ import {
   useUpdateMyNotes,
 } from "@/hooks";
 import { NotesButton } from "./NotesButton";
-import { formatDurationHM } from "@/lib/timeTracking";
+import { formatDuration } from "@/lib/timeTracking";
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -174,7 +174,7 @@ export function UserTimeHistory() {
                       </td>
                       <td className="py-2 px-2">
                         <span className="font-mono">
-                          {formatDurationHM(entry.durationSeconds)}
+                          {formatDuration(entry.durationSeconds)}
                         </span>
                       </td>
                       <td className="py-2 px-2">
@@ -288,7 +288,7 @@ export function UserTimeHistory() {
                     </td>
                     <td className="py-3 px-3">
                       <span className="font-mono">
-                        {formatDurationHM(entry.durationSeconds)}
+                        {formatDuration(entry.durationSeconds)}
                       </span>
                     </td>
                     <td className="py-3 px-3">

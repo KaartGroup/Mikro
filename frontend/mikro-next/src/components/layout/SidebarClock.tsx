@@ -17,8 +17,7 @@ import {
   localDayStartIsoUtc,
   localDayEndIsoUtc,
   localWeekStartIsoUtc,
-  formatDurationHM,
-  formatLiveDuration,
+  formatDuration,
 } from "@/lib/timeTracking";
 import type { Subcategory } from "@/types";
 import { NotesButton } from "@/components/widgets/NotesButton";
@@ -28,9 +27,6 @@ import { ConfirmDialog } from "@/components/ui/Modal";
 const DISCARD_WINDOW_SECONDS = 300;
 
 // Local helpers replaced by SSOT in @/lib/timeTracking:
-// formatHoursMinutes → formatDurationHM (HH:MM)
-// formatElapsedTime → formatLiveDuration (HH:MM:SS, live ticker only)
-
 const selectStyle: React.CSSProperties = {
   width: "100%",
   padding: "4px 6px",
@@ -363,7 +359,7 @@ export function SidebarClock() {
             />
           </svg>
           <span style={{ fontSize: 11, color: "#2563eb", fontWeight: 500 }}>
-            {formatDurationHM(elapsedSeconds)}
+            {formatDuration(elapsedSeconds)}
           </span>
         </div>
       </div>
@@ -382,8 +378,8 @@ export function SidebarClock() {
       >
         <div style={{ textAlign: "center", marginBottom: 2 }}>
           <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>
-            Today: {formatDurationHM(todaySeconds + elapsedSeconds)} · Week:{" "}
-            {formatDurationHM(weekSeconds + elapsedSeconds)}
+            Today: {formatDuration(todaySeconds + elapsedSeconds)} · Week:{" "}
+            {formatDuration(weekSeconds + elapsedSeconds)}
           </span>
         </div>
         <div
@@ -432,7 +428,7 @@ export function SidebarClock() {
               color: "#16a34a",
             }}
           >
-            {formatLiveDuration(elapsedSeconds)}
+            {formatDuration(elapsedSeconds)}
           </span>
         </div>
         <div

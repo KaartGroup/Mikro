@@ -23,7 +23,7 @@ import {
 } from "@/lib/utils";
 import type { ProjectProfileResponse } from "@/types";
 import { NotesButton } from "@/components/widgets/NotesButton";
-import { formatDurationHM } from "@/lib/timeTracking";
+import { formatDuration } from "@/lib/timeTracking";
 
 function ProgressBar({
   value,
@@ -45,11 +45,6 @@ function ProgressBar({
       </span>
     </div>
   );
-}
-
-function formatDuration(seconds: number | null): string {
-  if (!seconds || seconds <= 0) return "\u2014";
-  return formatDurationHM(seconds);
 }
 
 function formatDateTime(iso: string | null): string {

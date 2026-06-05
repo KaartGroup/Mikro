@@ -66,7 +66,7 @@ import { RecentActivityCard } from "@/components/admin/RecentActivityCard";
 import { AssignedProjectsTable } from "@/components/admin/AssignedProjectsTable";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import {
-  formatDurationHM,
+  formatDuration,
   resolveCategoryKey,
   localDayEndIsoUtc,
   localWeekStartIsoUtc,
@@ -114,10 +114,6 @@ function formatDateTime(iso: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function formatDuration(seconds: number | null): string {
-  return formatDurationHM(seconds);
 }
 
 // Calendar-aligned semantics — same spec as the rest of Mikro:
@@ -819,7 +815,7 @@ export function AdminUserProfile() {
         if (elapsedSec > TWELVE_HOURS) {
           anomalies.push({
             entry: e,
-            reason: `Active session running ${formatDurationHM(elapsedSec)} — likely forgot to clock out`,
+            reason: `Active session running ${formatDuration(elapsedSec)} — likely forgot to clock out`,
           });
         }
       } else if (
@@ -828,7 +824,7 @@ export function AdminUserProfile() {
       ) {
         anomalies.push({
           entry: e,
-          reason: `Completed session of ${formatDurationHM(e.durationSeconds ?? 0)} — unusually long`,
+          reason: `Completed session of ${formatDuration(e.durationSeconds ?? 0)} — unusually long`,
         });
       }
     }
@@ -1642,7 +1638,7 @@ export function AdminUserProfile() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <StatCard
                         label="Total Hours"
-                        value={formatDurationHM(timeStats.totalSeconds)}
+                        value={formatDuration(timeStats.totalSeconds)}
                       />
                       <StatCard
                         label="Sessions"
@@ -1652,7 +1648,7 @@ export function AdminUserProfile() {
                         label="Avg Session"
                         value={
                           timeStats.count > 0
-                            ? formatDurationHM(timeStats.avgSeconds)
+                            ? formatDuration(timeStats.avgSeconds)
                             : "—"
                         }
                       />
@@ -1660,7 +1656,7 @@ export function AdminUserProfile() {
                         label="Longest Session"
                         value={
                           timeStats.count > 0
-                            ? formatDurationHM(timeStats.longestSeconds)
+                            ? formatDuration(timeStats.longestSeconds)
                             : "—"
                         }
                       />
@@ -2391,17 +2387,17 @@ export function AdminUserProfile() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <StatCard
                   label="Hours This Week"
-                  value={formatDurationHM(timeTabComputed.hoursThisWeek)}
+                  value={formatDuration(timeTabComputed.hoursThisWeek)}
                 />
                 <StatCard
                   label="Hours This Month"
-                  value={formatDurationHM(timeTabComputed.hoursThisMonth)}
+                  value={formatDuration(timeTabComputed.hoursThisMonth)}
                 />
                 <StatCard
                   label="Average Session"
                   value={
                     timeTabComputed.avgSessionDenom > 0
-                      ? formatDurationHM(timeTabComputed.avgSessionSeconds)
+                      ? formatDuration(timeTabComputed.avgSessionSeconds)
                       : "—"
                   }
                 />
@@ -2508,7 +2504,7 @@ export function AdminUserProfile() {
                                   {entry.category || "—"}
                                 </td>
                                 <td className="px-3 py-2 font-mono whitespace-nowrap">
-                                  {formatDurationHM(entry.durationSeconds)}
+                                  {formatDuration(entry.durationSeconds)}
                                 </td>
                                 <td className="px-3 py-2">
                                   {entry.status === "completed" ? (

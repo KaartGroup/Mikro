@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import type { UserProfileData, Changeset } from "@/types";
 import { NotesButton } from "@/components/widgets/NotesButton";
-import { formatDurationHM } from "@/lib/timeTracking";
+import { formatDuration } from "@/lib/timeTracking";
 
 function formatRelative(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -21,11 +21,6 @@ function formatRelative(iso: string | null | undefined): string {
   const diffMo = Math.floor(diffDay / 30);
   if (diffMo < 12) return `${diffMo}mo ago`;
   return `${Math.floor(diffDay / 365)}y ago`;
-}
-
-function formatDuration(seconds: number | null | undefined): string {
-  if (seconds == null) return "—";
-  return formatDurationHM(seconds);
 }
 
 interface Props {
