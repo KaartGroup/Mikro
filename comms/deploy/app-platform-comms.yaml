@@ -53,14 +53,13 @@ services:
     # JWKS). Bump to professional-s only if campaign fan-out volume warrants it.
     instance_size_slug: professional-xs
     http_port: 8080
-    # gunicorn entrypoint is comms.wsgi:application. source_dir is comms/, so the
-    # package is importable as `comms` only if the buildpack runs from the repo
-    # root on PYTHONPATH. App Platform runs the command from source_dir; the
-    # module path `comms.wsgi:application` resolves because the repo root is the
-    # parent of source_dir and is on sys.path. If the buildpack cannot resolve
-    # the parent package, switch source_dir to the repo root and run
-    # `gunicorn -b 0.0.0.0:8080 comms.wsgi:application` from there.
-    run_command: gunicorn -b 0.0.0.0:8080 comms.wsgi:application
+    # IMPORTANT: source_dir is comms/, so App Platform runs the command with the
+    # working dir INSIDE the package (cwd = .../comms). At that point `comms` is
+    # NOT an importable package name (its parent isn't on sys.path), so the
+    # entrypoint must be the TOP-LEVEL module `wsgi:application` — not
+    # `comms.wsgi:application` (which would fail to import before wsgi.py loads).
+    # comms/wsgi.py self-bootstraps the package path, so `wsgi:application` works.
+    run_command: gunicorn -b 0.0.0.0:8080 wsgi:application
     routes:
       # PUBLIC route — so Viewer / TM4 (separate DO apps) can POST /emit/* over
       # HTTPS and browsers can hit /notifications/* and /email/*. App Platform
