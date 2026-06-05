@@ -12,13 +12,10 @@ Routes mounted under ``/api/payments/`` in ``app.py``.
 
 import csv
 import io
-import re
-import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-import boto3
-from flask import Response, current_app, g, request
+from flask import Response, g, request
 from flask.views import MethodView
 from sqlalchemy import cast, func, Date as SqlDate
 
@@ -30,131 +27,33 @@ from ..auth import (
 )
 from ..database import (
     PaymentAdjustment,
-    PaymentCycleStatus,
     Payments,
-    PayrollConfig,
     Project,
     ProjectTeam,
-    ReimbursementRequest,
     TimeEntry,
     User,
     db,
 )
 from ..filters import resolve_filtered_user_ids
 from ..payroll_periods import generate_cycles
+from ..services.payment_cycle import (
+    PaymentCycleService as PaymentService,
+    STATUS_APPROVED,
+    STATUS_HELD,
+    STATUS_PAID,
+    STATUS_PENDING,
+    VALID_COMP_MODELS,
+    VALID_STATUSES,
+)
 from ..utils import requires_admin, requires_team_admin_or_above
 
 
-# ─── DO Spaces helpers (receipt uploads / fetches) ──────────────────
-#
-# Issues short-lived signed URLs for editor receipt uploads and admin
-# receipt views. The bucket stays private at the DO Spaces ACL level —
-# every read is mediated by a backend permission check (see
-# _can_view_receipt below) followed by a fresh GET URL signed for that
-# one viewer.
-#
-# Receipts whitelist:
-#   image/jpeg, image/png, image/heic, application/pdf
-#   max 10 MB
-# Both checks are enforced at presign time (we refuse to issue a URL
-# for non-conforming uploads).
 
-
-_RECEIPT_ALLOWED_CONTENT_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/heic",
-    "application/pdf",
-}
-_RECEIPT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
-_RECEIPT_URL_EXPIRES_S = 300  # 5 minutes
-
-
-def _spaces_client():
-    """boto3 S3 client for DO Spaces."""
-    return boto3.client(
-        "s3",
-        endpoint_url=current_app.config.get("DO_SPACES_ENDPOINT"),
-        aws_access_key_id=current_app.config.get("DO_SPACES_KEY"),
-        aws_secret_access_key=current_app.config.get("DO_SPACES_SECRET"),
-        region_name=current_app.config.get("DO_SPACES_REGION"),
-    )
-
-
-_FILENAME_SAFE_RE = re.compile(r"[^a-zA-Z0-9._-]+")
-
-
-def _safe_filename(name):
-    """Sanitize a user-supplied filename for use in an object key.
-
-    Keep just a tail (extension preservation) — receipts don't need
-    the original name surfaced anywhere except admin view, where the
-    backend can derive a display name.
-    """
-    if not name:
-        return "receipt"
-    cleaned = _FILENAME_SAFE_RE.sub("_", name).strip("._-")
-    return cleaned[-80:] or "receipt"
-
-
-def _receipt_object_key(user_id, filename):
-    """Compose the Spaces object key for a reimbursement receipt.
-
-    Shape: ``reimbursements/<user_id>/<uuid4>/<safe-filename>``. The
-    UUID prefix guarantees uniqueness even if the editor uploads two
-    receipts named the same thing, and lets us regenerate the URL
-    without worrying about collisions.
-    """
-    return f"reimbursements/{user_id}/{uuid.uuid4()}/{_safe_filename(filename)}"
-
-
-def _presigned_put_url(key, content_type, max_bytes=_RECEIPT_MAX_BYTES):
-    """Short-lived presigned PUT URL for a single-file upload.
-
-    The browser uses this to upload the receipt directly to Spaces
-    without proxying the bytes through Flask. ``ContentLength`` here
-    constrains the PUT — Spaces refuses an upload bigger than this.
-    """
-    bucket = current_app.config.get("DO_SPACES_BUCKET")
-    if not bucket:
-        raise RuntimeError("DO_SPACES_BUCKET not configured")
-    s3 = _spaces_client()
-    return s3.generate_presigned_url(
-        "put_object",
-        Params={
-            "Bucket": bucket,
-            "Key": key,
-            "ContentType": content_type,
-            "ContentLength": max_bytes,
-            "ACL": "private",
-        },
-        ExpiresIn=_RECEIPT_URL_EXPIRES_S,
-        HttpMethod="PUT",
-    )
-
-
-def _presigned_get_url(key):
-    """Short-lived presigned GET URL so an authorized viewer can fetch
-    a receipt straight from Spaces (image rendering / PDF download).
-    """
-    bucket = current_app.config.get("DO_SPACES_BUCKET")
-    if not bucket:
-        raise RuntimeError("DO_SPACES_BUCKET not configured")
-    s3 = _spaces_client()
-    return s3.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": bucket, "Key": key},
-        ExpiresIn=_RECEIPT_URL_EXPIRES_S,
-        HttpMethod="GET",
-    )
-
-
-# Status state machine for the cycle row pill
-STATUS_PENDING = "pending"
-STATUS_APPROVED = "approved"
-STATUS_HELD = "held"
-STATUS_PAID = "paid"
-VALID_STATUSES = {STATUS_PENDING, STATUS_APPROVED, STATUS_HELD, STATUS_PAID}
+def _decimal(v):
+    """Convert a Decimal (or int) to float for JSON responses; pass None through."""
+    if v is None:
+        return None
+    return float(v)
 
 
 def _parse_iso_date(raw):
@@ -209,183 +108,6 @@ def _candidate_user_ids(viewer, filters):
     return scoped & resolved
 
 
-def _hours_by_user(user_ids, cycle_start, cycle_end):
-    """Aggregate completed-session seconds per user inside the cycle window.
-
-    Rules (per plan §2.2 / §10 risks):
-    - Only ``status = 'completed'`` time_entries (skip active + voided)
-    - ``clock_out`` must fall within [cycle_start, cycle_end] inclusive
-    - Cross-midnight sessions count toward the day on which they ended;
-      matches Aaron's existing Chrono Cards process
-
-    ``user_ids`` is either an iterable of ids (filter to that set) or
-    ``None`` (no per-user filter — caller has already org-scoped).
-    """
-    q = (
-        db.session.query(
-            TimeEntry.user_id,
-            func.coalesce(func.sum(TimeEntry.duration_seconds), 0).label("seconds"),
-        )
-        .filter(TimeEntry.status == "completed")
-        .filter(TimeEntry.clock_out.isnot(None))
-        .filter(cast(TimeEntry.clock_out, SqlDate) >= cycle_start)
-        .filter(cast(TimeEntry.clock_out, SqlDate) <= cycle_end)
-    )
-    if user_ids is not None:
-        ids = list(user_ids)
-        if not ids:
-            return {}
-        q = q.filter(TimeEntry.user_id.in_(ids))
-    return {row.user_id: int(row.seconds or 0) for row in q.group_by(TimeEntry.user_id).all()}
-
-
-def _adjustments_by_user(user_ids, cycle_start, cycle_end):
-    """Sum non-deleted adjustments per user for the cycle.
-
-    Returns ``{user_id: {"total": Decimal, "count": int}}``.
-    """
-    q = (
-        db.session.query(
-            PaymentAdjustment.user_id,
-            func.coalesce(func.sum(PaymentAdjustment.amount), 0).label("total"),
-            func.count(PaymentAdjustment.id).label("count"),
-        )
-        .filter(PaymentAdjustment.is_deleted.is_(False))
-        .filter(PaymentAdjustment.cycle_start == cycle_start)
-        .filter(PaymentAdjustment.cycle_end == cycle_end)
-    )
-    if user_ids is not None:
-        ids = list(user_ids)
-        if not ids:
-            return {}
-        q = q.filter(PaymentAdjustment.user_id.in_(ids))
-    out = {}
-    for row in q.group_by(PaymentAdjustment.user_id).all():
-        out[row.user_id] = {
-            "total": Decimal(row.total or 0),
-            "count": int(row.count or 0),
-        }
-    return out
-
-
-def _status_by_user(user_ids, cycle_start, cycle_end):
-    """Return ``{user_id: PaymentCycleStatus}`` for a cycle.
-
-    Missing rows are treated as ``pending`` by the caller.
-    """
-    q = PaymentCycleStatus.query.filter(
-        PaymentCycleStatus.cycle_start == cycle_start,
-        PaymentCycleStatus.cycle_end == cycle_end,
-    )
-    if user_ids is not None:
-        ids = list(user_ids)
-        if not ids:
-            return {}
-        q = q.filter(PaymentCycleStatus.user_id.in_(ids))
-    return {row.user_id: row for row in q.all()}
-
-
-def _user_display_name(user):
-    return (
-        f"{user.first_name or ''} {user.last_name or ''}".strip()
-        or user.email
-        or user.id
-    )
-
-
-def _decimal(value):
-    """Render a Decimal/float as a plain float for JSON; None stays None."""
-    if value is None:
-        return None
-    if isinstance(value, Decimal):
-        return float(value)
-    return float(value)
-
-
-VALID_COMP_MODELS = {
-    "per_task",
-    "hourly",
-    "salaried",
-    "project_based",
-    "hybrid",
-}
-
-
-def _effective_comp_model(user):
-    """Resolve a user's effective compensation model (SSOT).
-
-    NULL/unknown ``compensation_model`` is treated as legacy: hourly when
-    an ``hourly_rate`` is set, otherwise per_task (the core micropayment
-    flow). Explicit values pass through.
-    """
-    m = getattr(user, "compensation_model", None)
-    if m in VALID_COMP_MODELS:
-        return m
-    return "hourly" if getattr(user, "hourly_rate", None) is not None else "per_task"
-
-
-def _prorated_salary(user, cycle_start, cycle_end):
-    """Monthly salary prorated to the cycle window.
-
-    v1 rule: salary × (days in [cycle_start, cycle_end] inclusive) /
-    (days in cycle_start's calendar month). Good enough for monthly and
-    near-monthly cycles; refine when semi-/bi-weekly cadence math lands.
-    """
-    sal = getattr(user, "monthly_salary", None)
-    if sal is None:
-        return 0.0
-    sal = float(sal)
-    cycle_days = (cycle_end - cycle_start).days + 1
-    if cycle_start.month == 12:
-        nxt = date(cycle_start.year + 1, 1, 1)
-    else:
-        nxt = date(cycle_start.year, cycle_start.month + 1, 1)
-    month_first = date(cycle_start.year, cycle_start.month, 1)
-    days_in_month = (nxt - month_first).days
-    if days_in_month <= 0:
-        return round(sal, 2)
-    return round(sal * (cycle_days / days_in_month), 2)
-
-
-def _compute_payable(user, seconds, adj_total, cycle_start, cycle_end):
-    """Per-model base + total. Single source of truth used by the table,
-    KPIs, contributor detail, and CSV export so they always agree.
-
-    Returns ``(model, base, total)`` where total = base + adj_total.
-    - hourly:        hours × hourly_rate
-    - salaried:      monthly_salary prorated to the cycle
-    - per_task:      current unpaid micropayment balance (payable_total).
-                     Implemented (never skipped) but default-filtered off
-                     this page — results-based billing may be revisited.
-    - project_based: SCAFFOLD — adjustments only (base 0). Payout math
-                     pending Logan's milestone/bonus definition.
-    - hybrid:        SCAFFOLD — base = hourly (or prorated salary if no
-                     rate) + adjustments overlay. Incentive/QA layer
-                     pending Logan's definition.
-    """
-    hours = seconds / 3600.0 if seconds else 0.0
-    rate = float(user.hourly_rate) if user.hourly_rate is not None else None
-    model = _effective_comp_model(user)
-
-    if model == "salaried":
-        base = _prorated_salary(user, cycle_start, cycle_end)
-    elif model == "per_task":
-        base = float(getattr(user, "payable_total", 0) or 0)
-    elif model == "project_based":
-        base = 0.0  # scaffold: payout = adjustments only (definition pending)
-    elif model == "hybrid":
-        base = (
-            round(hours * rate, 2)
-            if rate is not None
-            else _prorated_salary(user, cycle_start, cycle_end)
-        )
-    else:  # hourly (and legacy resolved to hourly)
-        base = round(hours * rate, 2) if rate is not None else 0.0
-
-    total = round(base + (adj_total or 0.0), 2)
-    return model, round(base, 2), total
-
-
 def _comp_filter_from_body(body):
     """Extract the `compensation` master-filter values from a request body.
 
@@ -399,88 +121,6 @@ def _comp_filter_from_body(body):
     if isinstance(raw, str):
         raw = [raw]
     return {str(v) for v in raw if v}
-
-
-def _passes_comp_filter(model, comp_filter):
-    """Cohort rule for the payments page.
-
-    - Explicit ``compensation`` filter → include iff the user's model is in
-      it (this is the ONLY way per_task users surface — re-enabling
-      results-based billing is a filter default flip, no rework).
-    - No filter → default-exclude per_task; include everything else.
-    """
-    if comp_filter is not None:
-        return model in comp_filter
-    return model != "per_task"
-
-
-def _cycle_label(start, end, cadence):
-    """Human label for a forecast cycle bar."""
-    if cadence == "monthly":
-        return start.strftime("%b %Y")
-    if cadence == "semi_monthly":
-        return f"{start.strftime('%b')} {start.day}–{end.day}"
-    return f"{start.strftime('%b %d')}–{end.strftime('%d')}"
-
-
-def _confirmed_for_user(u, s, e):
-    """Deterministic (hours-independent) pay for a user in [s, e].
-
-    Mirrors `_compute_payable`'s salaried/hybrid branches: salaried is
-    fully prorated salary; hybrid with no hourly_rate falls back to
-    prorated salary (deterministic); everything else's pay depends on
-    hours/adjustments and is therefore NOT a confirmed commitment.
-    """
-    m = _effective_comp_model(u)
-    if m == "salaried":
-        return _prorated_salary(u, s, e)
-    if m == "hybrid" and u.hourly_rate is None:
-        return _prorated_salary(u, s, e)
-    return 0.0
-
-
-def _build_row(user, seconds, adj, status_row, cycle_start, cycle_end):
-    """Compose a single PaymentCycleRow dict for the table."""
-    hours = round(seconds / 3600.0, 2) if seconds else 0.0
-    rate = float(user.hourly_rate) if user.hourly_rate is not None else None
-    adj_total = float(adj["total"]) if adj else 0.0
-    adj_count = adj["count"] if adj else 0
-    model, base, total = _compute_payable(
-        user, seconds, adj_total, cycle_start, cycle_end
-    )
-    # calculated_wage keeps its hourly meaning for hourly/hybrid rows;
-    # for salaried/project_based it carries the model's base amount.
-    wage = base if model in ("hourly", "hybrid") and rate is not None else (
-        base if model in ("salaried", "per_task", "project_based") else None
-    )
-    return {
-        "user_id": user.id,
-        "name": _user_display_name(user),
-        "first_name": user.first_name or "",
-        "last_name": user.last_name or "",
-        "email": user.email,
-        "payment_email": user.payment_email,
-        "osm_username": user.osm_username,
-        "hours": hours,
-        "seconds": seconds,
-        "hourly_rate": rate,
-        "compensation_model": model,
-        "monthly_salary": (
-            float(user.monthly_salary)
-            if getattr(user, "monthly_salary", None) is not None
-            else None
-        ),
-        "calculated_wage": wage,
-        "adjustments_total": round(adj_total, 2),
-        "adjustments_count": adj_count,
-        "total_payable": round(total, 2),
-        "status": status_row.status if status_row else STATUS_PENDING,
-        "status_note": status_row.note if status_row else None,
-        "status_actor_id": status_row.actor_id if status_row else None,
-        "status_updated_at": (
-            status_row.updated_at.isoformat() if status_row and status_row.updated_at else None
-        ),
-    }
 
 
 class PaymentsAPI(MethodView):
@@ -509,23 +149,6 @@ class PaymentsAPI(MethodView):
             return self.fetch_payroll_config()
         elif path == "config":
             return self.save_payroll_config()
-        # ─── reimbursement workflow (Trello PkljPEJx) ────────────────
-        elif path == "reimbursement/submit":
-            return self.reimbursement_submit()
-        elif path == "reimbursement/my":
-            return self.reimbursement_my()
-        elif path == "reimbursement/withdraw":
-            return self.reimbursement_withdraw()
-        elif path == "reimbursement/upload-url":
-            return self.reimbursement_upload_url()
-        elif path == "reimbursement/pending":
-            return self.reimbursement_pending()
-        elif path == "reimbursement/approve":
-            return self.reimbursement_approve()
-        elif path == "reimbursement/reject":
-            return self.reimbursement_reject()
-        elif path == "reimbursement/attachment-url":
-            return self.reimbursement_attachment_url()
         return {"message": f"Unknown payments path: {path}", "status": 404}, 404
 
     # ────────────────────────── cycle table ──────────────────────────
@@ -538,9 +161,6 @@ class PaymentsAPI(MethodView):
         Pass ``include_zero_hours: true`` to show every hourly contractor
         regardless of activity in the period.
         """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
         body = request.json or {}
         cycle_start = _parse_iso_date(body.get("cycle_start"))
         cycle_end = _parse_iso_date(body.get("cycle_end"))
@@ -573,20 +193,24 @@ class PaymentsAPI(MethodView):
         ]
         candidate_ids = [u.id for u in candidate_users]
 
-        hours_map = _hours_by_user(candidate_ids, cycle_start, cycle_end)
-        adj_map = _adjustments_by_user(candidate_ids, cycle_start, cycle_end)
-        status_map = _status_by_user(candidate_ids, cycle_start, cycle_end)
+        svc = PaymentService(g.user.org_id)
+        hours_map = svc.hours_by_user(candidate_ids, cycle_start, cycle_end)
+        adj_map = svc.adjustments_by_user(candidate_ids, cycle_start, cycle_end)
+        status_map = svc.status_by_user(candidate_ids, cycle_start, cycle_end)
+        rate_map = svc.rates_by_user(candidate_ids, cycle_start)
+        for u in candidate_users:
+            u._active_hourly_rate = rate_map.get(u.id)
 
         comp_filter = _comp_filter_from_body(body)
         rows = []
         for u in candidate_users:
-            model = _effective_comp_model(u)
-            if not _passes_comp_filter(model, comp_filter):
+            model = PaymentService.effective_comp_model(u)
+            if not PaymentService.passes_comp_filter(model, comp_filter):
                 continue
             seconds = hours_map.get(u.id, 0)
             adj = adj_map.get(u.id)
             adj_total = float(adj["total"]) if adj else 0.0
-            row = _build_row(
+            row = PaymentService.build_row(
                 u, seconds, adj, status_map.get(u.id), cycle_start, cycle_end
             )
             # Cohort: skip zero-everything rows unless include_zero. A
@@ -626,9 +250,6 @@ class PaymentsAPI(MethodView):
     @requires_team_admin_or_above
     def fetch_cycle_kpis(self):
         """Return totals for the 3-card KPI strip + per-status counts."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
         body = request.json or {}
         cycle_start = _parse_iso_date(body.get("cycle_start"))
         cycle_end = _parse_iso_date(body.get("cycle_end"))
@@ -666,26 +287,30 @@ class PaymentsAPI(MethodView):
         candidate_ids = [u.id for u in candidate_users]
         user_by_id = {u.id: u for u in candidate_users}
 
-        hours_map = _hours_by_user(candidate_ids, cycle_start, cycle_end)
-        adj_map = _adjustments_by_user(candidate_ids, cycle_start, cycle_end)
-        status_map = _status_by_user(candidate_ids, cycle_start, cycle_end)
+        svc = PaymentService(g.user.org_id)
+        hours_map = svc.hours_by_user(candidate_ids, cycle_start, cycle_end)
+        adj_map = svc.adjustments_by_user(candidate_ids, cycle_start, cycle_end)
+        status_map = svc.status_by_user(candidate_ids, cycle_start, cycle_end)
+        rate_map = svc.rates_by_user(candidate_ids, cycle_start)
+        for u in candidate_users:
+            u._active_hourly_rate = rate_map.get(u.id)
 
         total_payable = 0.0
         approved_total = 0.0
         adjustments_total = 0.0
         counts = {STATUS_PENDING: 0, STATUS_APPROVED: 0, STATUS_HELD: 0, STATUS_PAID: 0}
 
-        # Mirror fetch_cycle's cohort EXACTLY (same _build_row / comp filter
+        # Mirror fetch_cycle's cohort EXACTLY (same build_row / comp filter
         # / zero-skip) so the KPI strip always reconciles with the table.
         comp_filter = _comp_filter_from_body(body)
         for u in candidate_users:
-            model = _effective_comp_model(u)
-            if not _passes_comp_filter(model, comp_filter):
+            model = PaymentService.effective_comp_model(u)
+            if not PaymentService.passes_comp_filter(model, comp_filter):
                 continue
             seconds = hours_map.get(u.id, 0)
             adj = adj_map.get(u.id)
             adj_total = float(adj["total"]) if adj else 0.0
-            row = _build_row(
+            row = PaymentService.build_row(
                 u, seconds, adj, status_map.get(u.id), cycle_start, cycle_end
             )
             row_total = row["total_payable"] or 0.0
@@ -732,7 +357,7 @@ class PaymentsAPI(MethodView):
             "hybrid": 0,
         }
         for u in candidate_users:
-            comp_distribution[_effective_comp_model(u)] += 1
+            comp_distribution[PaymentService.effective_comp_model(u)] += 1
 
         return {
             "kpis": {
@@ -756,8 +381,6 @@ class PaymentsAPI(MethodView):
         """Payroll forecast: exact confirmed (salaried) + flat trailing-avg
         variable over cadence-generated cycles. v1 is deliberately NOT
         trended (see .claude/payroll-forecast-plan.md)."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
         body = request.json or {}
         try:
             horizon = int(body.get("horizon", 3))
@@ -780,15 +403,24 @@ class PaymentsAPI(MethodView):
             u for u in users_q.all() if can_view_pay_for(g.user, u)
         ]
 
+        # Pre-populate today's active rate so effective_comp_model and
+        # confirmed_for_user use the history table rather than the deprecated column.
+        svc = PaymentService(g.user.org_id)
+        _today_rates = svc.rates_by_user([u.id for u in candidate_users], date.today())
+        for u in candidate_users:
+            u._active_hourly_rate = _today_rates.get(u.id)
+
         comp_filter = _comp_filter_from_body(body)
         cohort = [
             u
             for u in candidate_users
-            if _passes_comp_filter(_effective_comp_model(u), comp_filter)
+            if PaymentService.passes_comp_filter(
+                PaymentService.effective_comp_model(u), comp_filter
+            )
         ]
         cohort_ids = [u.id for u in cohort]
 
-        cfg = PayrollConfig.query.filter_by(org_id=g.user.org_id).first()
+        cfg = svc.get_payroll_config()
         cadence = cfg.cadence if cfg else "monthly"
         anchor_day = cfg.anchor_day if cfg else 1
         anchor_date = cfg.anchor_date if cfg else None
@@ -817,17 +449,21 @@ class PaymentsAPI(MethodView):
             )
 
         def actual_split(s, e):
-            hours_map = _hours_by_user(cohort_ids, s, e)
-            adj_map = _adjustments_by_user(cohort_ids, s, e)
+            hours_map = svc.hours_by_user(cohort_ids, s, e)
+            adj_map = svc.adjustments_by_user(cohort_ids, s, e)
+            # Per-cycle rate resolution: use rate active on cycle start.
+            cycle_rates = svc.rates_by_user(cohort_ids, s)
+            for u in cohort:
+                u._active_hourly_rate = cycle_rates.get(u.id)
             total = 0.0
             confirmed = 0.0
             for u in cohort:
                 seconds = hours_map.get(u.id, 0)
                 adj = adj_map.get(u.id)
                 adj_total = float(adj["total"]) if adj else 0.0
-                _m, _b, t = _compute_payable(u, seconds, adj_total, s, e)
+                _m, _b, t = PaymentService.compute_payable(u, seconds, adj_total, s, e)
                 total += t
-                confirmed += _confirmed_for_user(u, s, e)
+                confirmed += PaymentService.confirmed_for_user(u, s, e)
             return round(total, 2), round(confirmed, 2), round(
                 total - confirmed, 2
             )
@@ -839,7 +475,7 @@ class PaymentsAPI(MethodView):
 
         cycles = []
         for idx, (s, e) in enumerate(future):
-            label = _cycle_label(s, e, cadence)
+            label = PaymentService.cycle_label(s, e, cadence)
             if idx == 0:  # current cycle → actuals to date
                 total, confirmed, variable = actual_split(s, e)
                 cycles.append({
@@ -849,8 +485,11 @@ class PaymentsAPI(MethodView):
                     "variable": variable, "total": total,
                 })
             else:  # projected: exact confirmed + flat avg variable
+                proj_rates = svc.rates_by_user(cohort_ids, s)
+                for u in cohort:
+                    u._active_hourly_rate = proj_rates.get(u.id)
                 confirmed = round(
-                    sum(_confirmed_for_user(u, s, e) for u in cohort), 2
+                    sum(PaymentService.confirmed_for_user(u, s, e) for u in cohort), 2
                 )
                 cycles.append({
                     "label": label, "start": s.isoformat(),
@@ -900,8 +539,6 @@ class PaymentsAPI(MethodView):
         Team-admins see only projects on teams they lead (consistent with
         the project-list scoping); org-admins see all org projects.
         """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
         body = request.json or {}
         try:
             limit = int(body.get("limit", 8))
@@ -962,9 +599,6 @@ class PaymentsAPI(MethodView):
     @requires_team_admin_or_above
     def fetch_contributor(self):
         """Drill-in detail for one user × cycle (sessions, adjustments, status)."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
         body = request.json or {}
         target_id = body.get("user_id")
         cycle_start = _parse_iso_date(body.get("cycle_start"))
@@ -988,11 +622,13 @@ class PaymentsAPI(MethodView):
             return {"message": "User not in your scope", "status": 403}
 
         # Header row (reuse the cycle-row builder)
-        hours_map = _hours_by_user([user.id], cycle_start, cycle_end)
-        adj_map = _adjustments_by_user([user.id], cycle_start, cycle_end)
-        status_map = _status_by_user([user.id], cycle_start, cycle_end)
+        svc = PaymentService(g.user.org_id)
+        hours_map = svc.hours_by_user([user.id], cycle_start, cycle_end)
+        adj_map = svc.adjustments_by_user([user.id], cycle_start, cycle_end)
+        status_map = svc.status_by_user([user.id], cycle_start, cycle_end)
+        user._active_hourly_rate = svc.rates_by_user([user.id], cycle_start).get(user.id)
         seconds = hours_map.get(user.id, 0)
-        header = _build_row(
+        header = PaymentService.build_row(
             user,
             seconds,
             adj_map.get(user.id),
@@ -1055,7 +691,7 @@ class PaymentsAPI(MethodView):
                 "request_id": a.request_id,
                 "added_by": a.added_by,
                 "added_by_name": (
-                    _user_display_name(actors[a.added_by]) if a.added_by in actors else None
+                    PaymentService.display_name(actors[a.added_by]) if a.added_by in actors else None
                 ),
                 "created_at": a.created_at.isoformat() if a.created_at else None,
             }
@@ -1076,9 +712,6 @@ class PaymentsAPI(MethodView):
     @requires_admin
     def create_adjustment(self):
         """Create a new payment_adjustments row."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
         body = request.json or {}
         target_id = body.get("user_id")
         cycle_start = _parse_iso_date(body.get("cycle_start"))
@@ -1108,16 +741,17 @@ class PaymentsAPI(MethodView):
         if not user:
             return {"message": "User not found", "status": 404}
 
-        row = PaymentAdjustment.create(
+        svc = PaymentService(g.user.org_id)
+        row = svc.create_adjustment(
             user_id=target_id,
             cycle_start=cycle_start,
             cycle_end=cycle_end,
             amount=amount,
-            type=adj_type,
+            adj_type=adj_type,
             note=note,
+            added_by=g.user.id,
             source=source,
             request_id=request_id,
-            added_by=g.user.id,
         )
         return {
             "adjustment": {
@@ -1139,28 +773,21 @@ class PaymentsAPI(MethodView):
     @requires_admin
     def delete_adjustment(self):
         """Soft-delete an adjustment row (audit trail preserved)."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
         body = request.json or {}
         adj_id = body.get("adjustment_id")
         if not adj_id:
             return {"message": "adjustment_id required", "status": 400}
 
-        row = PaymentAdjustment.query.get(adj_id)
-        if not row or row.is_deleted:
+        # Cross-org safety: look up the adjustment, then verify its user is in this org
+        existing = PaymentAdjustment.query.get(adj_id)
+        if not existing or existing.is_deleted:
             return {"message": "Adjustment not found", "status": 404}
-
-        # Cross-org safety: confirm the adjustment's user belongs to this org
-        user = User.query.filter_by(id=row.user_id, org_id=g.user.org_id).first()
+        user = User.query.filter_by(id=existing.user_id, org_id=g.user.org_id).first()
         if not user:
             return {"message": "Adjustment not found", "status": 404}
 
-        row.update(
-            is_deleted=True,
-            deleted_at=datetime.utcnow(),
-            deleted_by=g.user.id,
-        )
+        svc = PaymentService(g.user.org_id)
+        svc.soft_delete_adjustment(adj_id, deleted_by=g.user.id)
         return {"message": "Adjustment removed", "adjustment_id": adj_id, "status": 200}
 
     # ──────────────────────── status setter ──────────────────────────
@@ -1168,9 +795,6 @@ class PaymentsAPI(MethodView):
     @requires_admin
     def set_status(self):
         """Set the cycle status for a user. Creates the row lazily."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
         body = request.json or {}
         target_id = body.get("user_id")
         cycle_start = _parse_iso_date(body.get("cycle_start"))
@@ -1196,22 +820,15 @@ class PaymentsAPI(MethodView):
         if not user:
             return {"message": "User not found", "status": 404}
 
-        row = PaymentCycleStatus.query.filter_by(
+        svc = PaymentService(g.user.org_id)
+        row = svc.upsert_cycle_status(
             user_id=target_id,
             cycle_start=cycle_start,
             cycle_end=cycle_end,
-        ).first()
-        if row:
-            row.update(status=new_status, note=note, actor_id=g.user.id)
-        else:
-            row = PaymentCycleStatus.create(
-                user_id=target_id,
-                cycle_start=cycle_start,
-                cycle_end=cycle_end,
-                status=new_status,
-                note=note,
-                actor_id=g.user.id,
-            )
+            status=new_status,
+            note=note,
+            actor_id=g.user.id,
+        )
 
         return {
             "status_row": {
@@ -1231,9 +848,6 @@ class PaymentsAPI(MethodView):
     @requires_admin
     def export_cycle(self):
         """Return a CSV of approved rows for the cycle (Aaron's worksheet)."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
         body = request.json or {}
         cycle_start = _parse_iso_date(body.get("cycle_start"))
         cycle_end = _parse_iso_date(body.get("cycle_end"))
@@ -1258,9 +872,13 @@ class PaymentsAPI(MethodView):
         candidate_ids = [u.id for u in candidate_users]
         user_by_id = {u.id: u for u in candidate_users}
 
-        hours_map = _hours_by_user(candidate_ids, cycle_start, cycle_end)
-        adj_map = _adjustments_by_user(candidate_ids, cycle_start, cycle_end)
-        status_map = _status_by_user(candidate_ids, cycle_start, cycle_end)
+        svc = PaymentService(g.user.org_id)
+        hours_map = svc.hours_by_user(candidate_ids, cycle_start, cycle_end)
+        adj_map = svc.adjustments_by_user(candidate_ids, cycle_start, cycle_end)
+        status_map = svc.status_by_user(candidate_ids, cycle_start, cycle_end)
+        rate_map = svc.rates_by_user(candidate_ids, cycle_start)
+        for u in candidate_users:
+            u._active_hourly_rate = rate_map.get(u.id)
 
         buffer = io.StringIO()
         writer = csv.writer(buffer)
@@ -1283,19 +901,20 @@ class PaymentsAPI(MethodView):
             u = user_by_id.get(uid)
             if not u:
                 continue
-            model = _effective_comp_model(u)
-            if not _passes_comp_filter(model, comp_filter):
+            model = PaymentService.effective_comp_model(u)
+            if not PaymentService.passes_comp_filter(model, comp_filter):
                 continue
             seconds = hours_map.get(uid, 0)
             adj = adj_map.get(uid)
             adj_total = float(adj["total"]) if adj else 0.0
             hours = round(seconds / 3600.0, 2) if seconds else 0.0
-            rate = float(u.hourly_rate) if u.hourly_rate is not None else 0.0
-            _m, base, total = _compute_payable(
+            _r = getattr(u, "_active_hourly_rate", None)
+            rate = float(_r) if _r is not None else 0.0
+            _m, base, total = PaymentService.compute_payable(
                 u, seconds, adj_total, cycle_start, cycle_end
             )
             writer.writerow([
-                _user_display_name(u),
+                PaymentService.display_name(u),
                 u.osm_username or "",
                 u.payment_email or "",
                 model,
@@ -1339,9 +958,7 @@ class PaymentsAPI(MethodView):
         (monthly / anchor day 1) so the cycle picker always works. The
         ``is_default`` flag tells the UI whether a config has been saved.
         """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-        cfg = PayrollConfig.query.filter_by(org_id=g.user.org_id).first()
+        cfg = PaymentService(g.user.org_id).get_payroll_config()
         if not cfg:
             return {
                 "config": {
@@ -1369,8 +986,6 @@ class PaymentsAPI(MethodView):
     @requires_admin
     def save_payroll_config(self):
         """Upsert the org's payroll cadence config (org_admin+ only)."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
         body = request.json or {}
         cadence = (body.get("cadence") or "").strip()
         if cadence not in self._VALID_CADENCE:
@@ -1400,16 +1015,14 @@ class PaymentsAPI(MethodView):
             anchor_day = None
             anchor_date = None
 
-        cfg = PayrollConfig.query.filter_by(org_id=g.user.org_id).first()
-        if not cfg:
-            cfg = PayrollConfig(org_id=g.user.org_id)
-            db.session.add(cfg)
-        cfg.cadence = cadence
-        cfg.anchor_day = anchor_day
-        cfg.anchor_date = anchor_date
-        cfg.timezone = (body.get("timezone") or None)
-        cfg.updated_by = g.user.id
-        db.session.commit()
+        svc = PaymentService(g.user.org_id)
+        cfg = svc.save_payroll_config(
+            cadence=cadence,
+            anchor_day=anchor_day,
+            anchor_date=anchor_date,
+            timezone=(body.get("timezone") or None),
+            updated_by=g.user.id,
+        )
 
         return {
             "config": {
@@ -1420,430 +1033,5 @@ class PaymentsAPI(MethodView):
             },
             "is_default": False,
             "message": "Payroll config saved",
-            "status": 200,
-        }
-
-    # ─── Reimbursement-request workflow (Trello PkljPEJx) ───────────
-    #
-    # Workflow rules (echoes the docstring on ReimbursementRequest):
-    #   - Editor submits a request -> row in pending state. user_id +
-    #     org_id always derived from g.user (never trusted from body).
-    #   - Editor can withdraw their own pending requests; not after
-    #     review.
-    #   - Admin can approve (creates paired PaymentAdjustment) or
-    #     reject (with reviewer_note). Admin picks the cycle at
-    #     approval time — the editor's submission has no cycle.
-    #   - Pay-visibility model: editors see their own rows only;
-    #     admins see rows for users they can view via
-    #     ``can_view_pay_for``.
-    #
-    # Notifications are stubbed (comms platform not yet built); the
-    # three trigger points are marked TODO comms-platform inline so
-    # wiring becomes a 5-minute follow-up per call site when comms
-    # lands.
-
-    # Helper — format one request for JSON. Single source of truth so
-    # editor + admin endpoints emit the same shape.
-    @staticmethod
-    def _format_reimbursement(req):
-        return {
-            "id": req.id,
-            "user_id": req.user_id,
-            "org_id": req.org_id,
-            "amount": float(req.amount) if req.amount is not None else None,
-            "description": req.description,
-            "attachment_url": req.attachment_url,  # Spaces object key — clients ask /attachment-url to get a signed URL.
-            "has_attachment": bool(req.attachment_url),
-            "status": req.status,
-            "submitted_at": req.submitted_at.isoformat() + "Z" if req.submitted_at else None,
-            "reviewed_by": req.reviewed_by,
-            "reviewed_at": req.reviewed_at.isoformat() + "Z" if req.reviewed_at else None,
-            "reviewer_note": req.reviewer_note,
-            "adjustment_id": req.adjustment_id,
-        }
-
-    @staticmethod
-    def _format_reimbursement_with_user(req, user):
-        """Same as _format_reimbursement plus a minimal user payload
-        for the admin queue (so the table can render name + osm
-        username without a second round-trip)."""
-        out = PaymentsAPI._format_reimbursement(req)
-        if user is not None:
-            out["user_name"] = _user_display_name(user)
-            out["user_osm_username"] = user.osm_username or ""
-        return out
-
-    # ── Editor endpoints ─────────────────────────────────────
-
-    def reimbursement_submit(self):
-        """Editor submits a new reimbursement request.
-
-        user_id + org_id come from the session — payload is ignored
-        for those fields. Amount must be > 0; description required.
-        """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        body = request.json or {}
-        try:
-            amount = Decimal(str(body.get("amount")))
-        except Exception:
-            return {"message": "amount must be a number", "status": 400}
-        if amount <= 0:
-            return {"message": "amount must be > 0", "status": 400}
-
-        description = (body.get("description") or "").strip()
-        if not description:
-            return {"message": "description is required", "status": 400}
-        if len(description) > 2000:
-            return {"message": "description exceeds 2000 characters", "status": 400}
-
-        attachment_url = (body.get("attachment_url") or "").strip() or None
-        if attachment_url and not attachment_url.startswith("reimbursements/"):
-            return {
-                "message": "attachment_url must be a reimbursements/ object key",
-                "status": 400,
-            }
-
-        row = ReimbursementRequest.create(
-            user_id=g.user.id,
-            org_id=g.user.org_id,
-            amount=amount,
-            description=description,
-            attachment_url=attachment_url,
-            status="pending",
-        )
-        # TODO comms-platform: notify org admins of new pending request.
-        return {
-            "request": self._format_reimbursement(row),
-            "message": "Reimbursement request submitted",
-            "status": 200,
-        }
-
-    def reimbursement_my(self):
-        """List the current user's own reimbursement requests.
-
-        Optional ``status`` filter; results ordered newest-first by
-        submitted_at.
-        """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        body = request.json or {}
-        status_filter = (body.get("status") or "").strip().lower() or None
-        if status_filter and status_filter not in {
-            "pending", "approved", "rejected", "withdrawn",
-        }:
-            return {"message": "invalid status filter", "status": 400}
-
-        q = ReimbursementRequest.query.filter(
-            ReimbursementRequest.user_id == g.user.id
-        )
-        if status_filter:
-            q = q.filter(ReimbursementRequest.status == status_filter)
-        rows = q.order_by(ReimbursementRequest.submitted_at.desc()).all()
-        return {
-            "requests": [self._format_reimbursement(r) for r in rows],
-            "status": 200,
-        }
-
-    def reimbursement_withdraw(self):
-        """Editor withdraws their own pending request.
-
-        Only the owner can withdraw, and only while still pending —
-        approved/rejected/already-withdrawn requests are terminal.
-        """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        body = request.json or {}
-        req_id = body.get("request_id")
-        if not req_id:
-            return {"message": "request_id required", "status": 400}
-
-        row = ReimbursementRequest.query.get(req_id)
-        if not row or row.user_id != g.user.id:
-            return {"message": "Request not found", "status": 404}
-        if row.status != "pending":
-            return {
-                "message": f"Cannot withdraw a request in '{row.status}' state",
-                "status": 409,
-            }
-
-        row.status = "withdrawn"
-        row.save()
-        return {
-            "request": self._format_reimbursement(row),
-            "message": "Reimbursement request withdrawn",
-            "status": 200,
-        }
-
-    def reimbursement_upload_url(self):
-        """Issue a short-lived presigned PUT URL for a receipt upload.
-
-        Body:
-            filename: required, used to derive a safe object key
-                      (the original name does NOT round-trip into
-                      anything user-visible)
-            content_type: required, must be in the whitelist
-                          (jpeg/png/heic/pdf)
-
-        Returns ``{ url, key }``. Editor PUTs the file to ``url``,
-        then includes ``key`` as ``attachment_url`` on the submit
-        call.
-        """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        body = request.json or {}
-        filename = (body.get("filename") or "").strip()
-        content_type = (body.get("content_type") or "").strip().lower()
-        if not filename:
-            return {"message": "filename required", "status": 400}
-        if content_type not in _RECEIPT_ALLOWED_CONTENT_TYPES:
-            return {
-                "message": (
-                    "content_type must be one of: "
-                    + ", ".join(sorted(_RECEIPT_ALLOWED_CONTENT_TYPES))
-                ),
-                "status": 400,
-            }
-
-        key = _receipt_object_key(g.user.id, filename)
-        try:
-            url = _presigned_put_url(key, content_type)
-        except RuntimeError as e:
-            return {"message": str(e), "status": 500}
-        return {
-            "url": url,
-            "key": key,
-            "expires_in_seconds": _RECEIPT_URL_EXPIRES_S,
-            "max_bytes": _RECEIPT_MAX_BYTES,
-            "status": 200,
-        }
-
-    # ── Admin endpoints ──────────────────────────────────────
-
-    @requires_team_admin_or_above
-    def reimbursement_pending(self):
-        """List pending reimbursement requests visible to this admin.
-
-        Scope: the viewer's org_id, filtered to user_ids the viewer
-        can ``can_view_pay_for``. Optional ``status`` filter (defaults
-        to 'pending' for the queue use-case but the UI can pass other
-        values to view history).
-        """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        body = request.json or {}
-        status_filter = (body.get("status") or "pending").strip().lower()
-        if status_filter not in {"pending", "approved", "rejected", "withdrawn", "all"}:
-            return {"message": "invalid status filter", "status": 400}
-
-        q = ReimbursementRequest.query.filter(
-            ReimbursementRequest.org_id == g.user.org_id
-        )
-        if status_filter != "all":
-            q = q.filter(ReimbursementRequest.status == status_filter)
-        rows = q.order_by(ReimbursementRequest.submitted_at.desc()).all()
-
-        # Pay-visibility filter. We load each row's owner once (small N
-        # for the pending queue; if this grows we batch via WHERE
-        # user_id IN (...) later).
-        out = []
-        for r in rows:
-            owner = User.query.get(r.user_id)
-            if owner is None:
-                continue
-            if not can_view_pay_for(g.user, owner):
-                continue
-            out.append(self._format_reimbursement_with_user(r, owner))
-        return {
-            "requests": out,
-            "pending_count": sum(1 for x in out if x["status"] == "pending"),
-            "status": 200,
-        }
-
-    @requires_team_admin_or_above
-    def reimbursement_approve(self):
-        """Approve a pending request → creates the paired
-        ``PaymentAdjustment`` row in the cycle the admin picks.
-
-        Body:
-            request_id: required
-            cycle_start, cycle_end: required, ISO dates
-            reviewer_note: optional
-        """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        body = request.json or {}
-        req_id = body.get("request_id")
-        cycle_start = _parse_iso_date(body.get("cycle_start"))
-        cycle_end = _parse_iso_date(body.get("cycle_end"))
-        reviewer_note = (body.get("reviewer_note") or "").strip() or None
-
-        if not req_id:
-            return {"message": "request_id required", "status": 400}
-        if not cycle_start or not cycle_end or cycle_end < cycle_start:
-            return {
-                "message": "cycle_start + cycle_end required",
-                "status": 400,
-            }
-        if reviewer_note and len(reviewer_note) > 2000:
-            return {
-                "message": "reviewer_note exceeds 2000 characters",
-                "status": 400,
-            }
-
-        row = ReimbursementRequest.query.get(req_id)
-        if row is None:
-            return {"message": "Request not found", "status": 404}
-        if row.org_id != g.user.org_id:
-            return {"message": "Cross-org request denied", "status": 403}
-        if row.status != "pending":
-            return {
-                "message": f"Cannot approve a request in '{row.status}' state",
-                "status": 409,
-            }
-
-        # Pay-visibility check: viewer must be allowed to act on this user.
-        owner = User.query.get(row.user_id)
-        if owner is None or not can_view_pay_for(g.user, owner):
-            return {"message": "Not authorized for this request", "status": 403}
-
-        # Create the paired PaymentAdjustment. Description carries into
-        # the adjustment's note so the cycle row shows the editor's
-        # reason without a join back.
-        adj = PaymentAdjustment.create(
-            user_id=row.user_id,
-            cycle_start=cycle_start,
-            cycle_end=cycle_end,
-            amount=row.amount,
-            type="reimbursement",
-            note=row.description,
-            source="approved_request",
-            request_id=row.id,
-            added_by=g.user.id,
-        )
-
-        row.status = "approved"
-        row.reviewed_by = g.user.id
-        row.reviewed_at = datetime.utcnow()
-        row.reviewer_note = reviewer_note
-        row.adjustment_id = adj.id
-        row.save()
-
-        # TODO comms-platform: notify editor that their request was approved.
-        return {
-            "request": self._format_reimbursement(row),
-            "adjustment_id": adj.id,
-            "message": "Reimbursement approved",
-            "status": 200,
-        }
-
-    @requires_team_admin_or_above
-    def reimbursement_reject(self):
-        """Reject a pending request with a required reviewer note.
-
-        No PaymentAdjustment is created. The request stays in the
-        rejected state for audit; the editor sees the reviewer note
-        in their own-history panel.
-        """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        body = request.json or {}
-        req_id = body.get("request_id")
-        reviewer_note = (body.get("reviewer_note") or "").strip()
-        if not req_id:
-            return {"message": "request_id required", "status": 400}
-        if not reviewer_note:
-            return {
-                "message": "reviewer_note is required when rejecting",
-                "status": 400,
-            }
-        if len(reviewer_note) > 2000:
-            return {
-                "message": "reviewer_note exceeds 2000 characters",
-                "status": 400,
-            }
-
-        row = ReimbursementRequest.query.get(req_id)
-        if row is None:
-            return {"message": "Request not found", "status": 404}
-        if row.org_id != g.user.org_id:
-            return {"message": "Cross-org request denied", "status": 403}
-        if row.status != "pending":
-            return {
-                "message": f"Cannot reject a request in '{row.status}' state",
-                "status": 409,
-            }
-
-        owner = User.query.get(row.user_id)
-        if owner is None or not can_view_pay_for(g.user, owner):
-            return {"message": "Not authorized for this request", "status": 403}
-
-        row.status = "rejected"
-        row.reviewed_by = g.user.id
-        row.reviewed_at = datetime.utcnow()
-        row.reviewer_note = reviewer_note
-        row.save()
-
-        # TODO comms-platform: notify editor of rejection with reason.
-        return {
-            "request": self._format_reimbursement(row),
-            "message": "Reimbursement rejected",
-            "status": 200,
-        }
-
-    def reimbursement_attachment_url(self):
-        """Issue a short-lived signed GET URL for a request's receipt.
-
-        Dual-audience endpoint — no role decorator on purpose. The
-        permission check is inline because:
-
-          - The editor (any authenticated user) needs access to their
-            own receipts (they uploaded them; they should be able to
-            re-view them from their own-history panel).
-
-          - An admin with ``can_view_pay_for`` access to the owner
-            also needs access (to review attached receipts during
-            approval triage).
-
-        Auth gating is the ``if not g.user`` check + the explicit
-        ownership-OR-pay-visibility branch below. Cross-org is hard-
-        denied first via the org_id match.
-        """
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        body = request.json or {}
-        req_id = body.get("request_id")
-        if not req_id:
-            return {"message": "request_id required", "status": 400}
-
-        row = ReimbursementRequest.query.get(req_id)
-        if row is None:
-            return {"message": "Request not found", "status": 404}
-        if not row.attachment_url:
-            return {"message": "This request has no attachment", "status": 404}
-
-        # Owner OR admin-with-pay-visibility-for-owner.
-        if row.user_id != g.user.id:
-            if row.org_id != g.user.org_id:
-                return {"message": "Cross-org access denied", "status": 403}
-            owner = User.query.get(row.user_id)
-            if owner is None or not can_view_pay_for(g.user, owner):
-                return {"message": "Not authorized for this request", "status": 403}
-
-        try:
-            url = _presigned_get_url(row.attachment_url)
-        except RuntimeError as e:
-            return {"message": str(e), "status": 500}
-        return {
-            "url": url,
-            "expires_in_seconds": _RECEIPT_URL_EXPIRES_S,
             "status": 200,
         }

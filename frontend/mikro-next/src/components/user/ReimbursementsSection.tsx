@@ -15,8 +15,8 @@
  *     successfully we bump the key so the new row shows up).
  *
  * Receipt uploads use the DO Spaces presigned-PUT pattern: client
- * calls /payments/reimbursement/upload-url, PUTs the file straight to
- * Spaces, then calls /payments/reimbursement/submit with the returned
+ * calls /reimbursements/upload-url, PUTs the file straight to
+ * Spaces, then calls /reimbursements/submit with the returned
  * object key. The receipt never proxies through Flask.
  *
  * Permission/visibility is enforced by the backend — this component

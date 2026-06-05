@@ -1,9 +1,9 @@
 """
 Unit tests for the reimbursement-flow helpers in
-``api/views/Payments.py``.
+``api/views/Reimbursements.py``.
 
 Scope: the pure module-level helpers and the static formatters on
-``PaymentsAPI``. The endpoint methods themselves rely on Flask's
+``ReimbursementsAPI``. The endpoint methods themselves rely on Flask's
 ``g`` and ``request`` globals plus SQLAlchemy session writes, so
 they're covered by manual smoke + future integration tests. The
 helpers tested here are the validation primitives + formatter
@@ -15,8 +15,8 @@ and test_payments_compute.py.
 
 from decimal import Decimal
 
-from api.views.Payments import (
-    PaymentsAPI,
+from api.views.Reimbursements import (
+    ReimbursementsAPI,
     _RECEIPT_ALLOWED_CONTENT_TYPES,
     _RECEIPT_MAX_BYTES,
     _receipt_object_key,
@@ -167,7 +167,7 @@ def test_format_reimbursement_returns_expected_shape():
     """Pin the JSON keys the frontend depends on. If anything renames
     here, the type in types/index.ts has to follow."""
     row = _FakeReimbursement()
-    out = PaymentsAPI._format_reimbursement(row)
+    out = ReimbursementsAPI._format_reimbursement(row)
     # Required keys present.
     for key in (
         "id", "user_id", "org_id", "amount", "description",
@@ -182,7 +182,7 @@ def test_format_reimbursement_coerces_decimal_amount_to_float():
     """Decimal serializes to JSON quirky in some stacks; cast to float
     at format time so the frontend's `amount: number` type holds."""
     row = _FakeReimbursement(amount=Decimal("123.45"))
-    out = PaymentsAPI._format_reimbursement(row)
+    out = ReimbursementsAPI._format_reimbursement(row)
     assert isinstance(out["amount"], float)
     assert out["amount"] == 123.45
 
@@ -190,8 +190,8 @@ def test_format_reimbursement_coerces_decimal_amount_to_float():
 def test_format_reimbursement_has_attachment_reflects_attachment_url_truthiness():
     no_attach = _FakeReimbursement(attachment_url=None)
     with_attach = _FakeReimbursement(attachment_url="reimbursements/abc/uuid/r.jpg")
-    assert PaymentsAPI._format_reimbursement(no_attach)["has_attachment"] is False
-    assert PaymentsAPI._format_reimbursement(with_attach)["has_attachment"] is True
+    assert ReimbursementsAPI._format_reimbursement(no_attach)["has_attachment"] is False
+    assert ReimbursementsAPI._format_reimbursement(with_attach)["has_attachment"] is True
 
 
 def test_format_reimbursement_emits_iso_z_timestamps_when_present_and_none_when_not():
@@ -200,7 +200,7 @@ def test_format_reimbursement_emits_iso_z_timestamps_when_present_and_none_when_
         submitted_at=datetime(2026, 5, 21, 14, 30, 0),
         reviewed_at=None,
     )
-    out = PaymentsAPI._format_reimbursement(row)
+    out = ReimbursementsAPI._format_reimbursement(row)
     assert out["submitted_at"].startswith("2026-05-21T14:30:00")
     assert out["submitted_at"].endswith("Z")
     assert out["reviewed_at"] is None
@@ -211,7 +211,7 @@ def test_format_reimbursement_with_user_adds_user_name_and_osm_username():
     handle inline so it can render without a second round-trip."""
     row = _FakeReimbursement(user_id="u1")
     user = _FakeUser("u1", first_name="Logan", last_name="Foo", osm_username="logan_osm")
-    out = PaymentsAPI._format_reimbursement_with_user(row, user)
+    out = ReimbursementsAPI._format_reimbursement_with_user(row, user)
     assert out["user_name"] == "Logan Foo"
     assert out["user_osm_username"] == "logan_osm"
 
@@ -221,7 +221,7 @@ def test_format_reimbursement_with_user_handles_missing_user_gracefully():
     formatter still produces a valid row — admin sees the request
     but with no user-display fields. Never crash."""
     row = _FakeReimbursement(user_id="u1")
-    out = PaymentsAPI._format_reimbursement_with_user(row, None)
+    out = ReimbursementsAPI._format_reimbursement_with_user(row, None)
     # Required keys still present.
     assert out["id"] == row.id
     # User-display keys are absent.
@@ -235,9 +235,9 @@ def test_format_reimbursement_with_user_handles_user_with_no_name_falls_back_to_
     whichever fallback _user_display_name decides on."""
     row = _FakeReimbursement(user_id="u1")
     user_email_only = _FakeUser("u1", email="logan@kaart.com")
-    out = PaymentsAPI._format_reimbursement_with_user(row, user_email_only)
+    out = ReimbursementsAPI._format_reimbursement_with_user(row, user_email_only)
     assert out["user_name"] == "logan@kaart.com"
 
     user_id_only = _FakeUser("u1")
-    out2 = PaymentsAPI._format_reimbursement_with_user(row, user_id_only)
+    out2 = ReimbursementsAPI._format_reimbursement_with_user(row, user_id_only)
     assert out2["user_name"] == "u1"

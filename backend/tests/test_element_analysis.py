@@ -318,6 +318,7 @@ class _MockColumn:
     def __lt__(self, _): return MagicMock()
     def isnot(self, _): return MagicMock()
     def in_(self, _): return MagicMock()
+    def desc(self): return MagicMock()
     def __hash__(self): return id(self)
 
 
@@ -354,7 +355,13 @@ def _db_run(rows, team_ids=None):
         xml_q.filter_by.return_value = xml_q
         xml_q.scalar.side_effect = xml_values
 
-        MockAdiff.query.with_entities.side_effect = [meta_q] + [xml_q] * len(rows)
+        global_q = MagicMock()
+        global_q.filter.return_value = global_q
+        global_q.order_by.return_value = global_q
+        global_q.limit.return_value = global_q
+        global_q.scalar.return_value = None
+
+        MockAdiff.query.with_entities.side_effect = [meta_q] + [xml_q] * len(rows) + [global_q]
 
         return get_element_analysis(ORG, team_ids, START, END)
 
@@ -389,7 +396,12 @@ class TestGetElementAnalysis:
             meta_q.filter.return_value = meta_q
             meta_q.order_by.return_value = meta_q
             meta_q.all.return_value = []
-            MockAdiff.query.with_entities.return_value = meta_q
+            global_q = MagicMock()
+            global_q.filter.return_value = global_q
+            global_q.order_by.return_value = global_q
+            global_q.limit.return_value = global_q
+            global_q.scalar.return_value = None
+            MockAdiff.query.with_entities.side_effect = [meta_q, global_q]
             get_element_analysis(ORG, None, START, END)
             assert meta_q.filter.call_count == 1  # initial conditions only, no team filter
 
@@ -404,6 +416,11 @@ class TestGetElementAnalysis:
             meta_q.filter.return_value = meta_q
             meta_q.order_by.return_value = meta_q
             meta_q.all.return_value = []
-            MockAdiff.query.with_entities.return_value = meta_q
+            global_q = MagicMock()
+            global_q.filter.return_value = global_q
+            global_q.order_by.return_value = global_q
+            global_q.limit.return_value = global_q
+            global_q.scalar.return_value = None
+            MockAdiff.query.with_entities.side_effect = [meta_q, global_q]
             get_element_analysis(ORG, [1, 2], START, END)
             assert meta_q.filter.call_count == 2  # initial conditions + team filter

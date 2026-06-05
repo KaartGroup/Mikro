@@ -298,6 +298,7 @@ export function AdminUserProfile() {
   const [editCountryId2, setEditCountryId2] = useState("");
   const [editPaymentsVisible, setEditPaymentsVisible] = useState(false);
   const [editHourlyRate, setEditHourlyRate] = useState<string>("");
+  const [editHourlyRateStartDate, setEditHourlyRateStartDate] = useState<string>("");
   const [editCompModel, setEditCompModel] = useState<string>("");
   const [editMonthlySalary, setEditMonthlySalary] = useState<string>("");
 
@@ -681,12 +682,17 @@ export function AdminUserProfile() {
     setEditCountryId2(user.country_id ? String(user.country_id) : "");
     setEditPaymentsVisible(user.micropayments_visible ?? false);
     setEditHourlyRate(user.hourly_rate?.toString() ?? "");
+    setEditHourlyRateStartDate("");
     setEditCompModel(user.compensation_model ?? "");
     setEditMonthlySalary(user.monthly_salary?.toString() ?? "");
     setEditModalOpen(true);
   };
 
   const handleSaveEditModal = async () => {
+    if (editHourlyRate && !editHourlyRateStartDate) {
+      toast.error("Effective from date is required when setting a rate");
+      return;
+    }
     try {
       await modifyUser({
         user_id: userId,
@@ -700,6 +706,7 @@ export function AdminUserProfile() {
         country_id: editCountryId2 ? Number(editCountryId2) : null,
         micropayments_visible: editPaymentsVisible,
         hourly_rate: editHourlyRate ? parseFloat(editHourlyRate) : null,
+        hourly_rate_start_date: editHourlyRate ? editHourlyRateStartDate : null,
         compensation_model: editCompModel || null,
         monthly_salary: editMonthlySalary
           ? parseFloat(editMonthlySalary)
@@ -3206,6 +3213,21 @@ export function AdminUserProfile() {
                 }
                 placeholder="Not set"
               />
+              {editHourlyRate && (
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Effective from
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                    value={editHourlyRateStartDate}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setEditHourlyRateStartDate(e.target.value)
+                    }
+                  />
+                </div>
+              )}
             </div>
           )}
           {(editCompModel === "salaried" || editCompModel === "hybrid") && (

@@ -8,11 +8,12 @@ Handles user management operations.
 import requests
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from flask.views import MethodView
 from flask import g, request, current_app
 from sqlalchemy import func
-
+from ..services.hourly_rate_history import HourlyRateHistoryService, OverlapError
+from ..services.payment_txn import PaymentTxnService
 from ..utils import requires_admin, requires_team_admin_or_above
 from ..utils.tz import parse_filter_datetime
 from ..utils.auth0_org import add_or_invite_user_to_org
@@ -54,15 +55,9 @@ from ..database import (
     db,
 )
 from ..filters import resolve_filtered_user_ids
-from ..stats import (
-    get_user_task_stats,
-    get_batch_user_task_stats,
-    get_user_payment_balances,
-    get_batch_user_payment_balances,
-    get_batch_user_task_stats_fast,
-    get_batch_user_payment_balances_fast,
-    _get_claimed_task_ids,
-)
+
+from ..stats import get_user_task_stats, get_batch_user_task_stats, get_batch_user_task_stats_fast
+from ..services.payment_balance import PaymentBalanceService
 
 
 def _auto_assign_country(user, country_text):
@@ -602,7 +597,8 @@ class UserAPI(MethodView):
 
         # Payment visibility
         response["micropayments_visible"] = user.micropayments_visible or False
-        response["hourly_rate"] = user.hourly_rate
+        _rate_row = HourlyRateHistoryService().get_active_rate(user.id, date.today())
+        response["hourly_rate"] = float(_rate_row.rate) if _rate_row else None
 
         # Stats for display
         _stats = get_user_task_stats(user)
@@ -660,7 +656,11 @@ class UserAPI(MethodView):
 
         # Batch-compute live task stats using SQL aggregation (fast path for list view)
         batch_stats = get_batch_user_task_stats_fast(users_in_org, g.user.org_id)
-        batch_pay = get_batch_user_payment_balances_fast(users_in_org, g.user.org_id)
+        batch_pay = PaymentBalanceService(g.user.org_id).batch_balances_fast(users_in_org)
+        # Bulk-fetch active hourly rates from history table
+        _rate_svc = HourlyRateHistoryService()
+        _today = date.today()
+        _rate_map = _rate_svc.rate_map_for_users([u.id for u in users_in_org], _today)
 
         # Initialize an empty list to store information about the users
         org_users = []
@@ -704,7 +704,7 @@ class UserAPI(MethodView):
                 "is_tracked_only": user.is_tracked_only or False,
                 "mapillary_username": user.mapillary_username,
                 "micropayments_visible": user.micropayments_visible or False,
-                "hourly_rate": user.hourly_rate,
+                "hourly_rate": _rate_map.get(user.id),
                 "compensation_model": user.compensation_model,
                 "monthly_salary": (
                     float(user.monthly_salary)
@@ -1277,7 +1277,7 @@ class UserAPI(MethodView):
         else:
             return {"message": "User entry not found", "status": 400}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def do_modify_users(self):
         # Initialize the return object
         return_obj = {}
@@ -1289,14 +1289,21 @@ class UserAPI(MethodView):
             return return_obj
 
         # Query the database for the user
-        user = User.query.filter_by(id=user_id).first()
+        user = User.query.filter_by(id=user_id, org_id=g.user.org_id).first()
         if not user:
             return {"message": "User Entry not found "}, 400
 
+        is_team_admin = g.user.role == "team_admin"
+
+        if is_team_admin and not team_admin_can_access_user(g.user, user.id):
+            return {"message": "User not on a team you manage", "status": 403}
+
         updates = {}
 
-        # Handle role update
+        # Handle role update — team admins cannot change roles
         new_role = request.json.get("role")
+        if new_role and new_role != user.role and is_team_admin:
+            return {"message": "Team admins cannot change user roles", "status": 403}
         if new_role:
             if new_role == "super_admin" and g.user.role != "super_admin":
                 return {
@@ -1304,6 +1311,24 @@ class UserAPI(MethodView):
                     "status": 403,
                 }
             updates["role"] = new_role
+
+        _TEAM_ADMIN_ALLOWED_FIELDS = {
+            "user_id",
+            "first_name", "last_name",
+            "email", "osm_username", "mapillary_username",
+            "timezone", "country_id",
+            "micropayments_visible",
+            "role",
+            "hourly_rate", "hourly_rate_start_date",
+            "compensation_model", "monthly_salary",
+        }
+        if is_team_admin:
+            disallowed = set(request.json.keys()) - _TEAM_ADMIN_ALLOWED_FIELDS
+            if disallowed:
+                return {
+                    "message": f"Team admins may only update payrate fields; disallowed: {sorted(disallowed)}",
+                    "status": 403,
+                }
 
         # Handle name updates
         if "first_name" in request.json:
@@ -1351,7 +1376,24 @@ class UserAPI(MethodView):
             )
         if "hourly_rate" in request.json:
             val = request.json["hourly_rate"]
-            updates["hourly_rate"] = float(val) if val is not None else None
+            new_rate = float(val) if val is not None else None
+            raw_start = request.json.get("hourly_rate_start_date")
+            if not raw_start:
+                return {"message": "hourly_rate_start_date is required when setting hourly_rate", "status": 400}
+            try:
+                rate_start = date.fromisoformat(str(raw_start))
+            except ValueError:
+                return {"message": "hourly_rate_start_date must be YYYY-MM-DD", "status": 400}
+            try:
+                HourlyRateHistoryService().set_current_rate(
+                    user_id=user.id,
+                    org_id=user.org_id,
+                    rate=new_rate,
+                    created_by=g.user.id,
+                    start_date=rate_start,
+                )
+            except OverlapError as exc:
+                return {"message": str(exc), "status": 409}
         if "compensation_model" in request.json:
             cm = (request.json["compensation_model"] or "").strip() or None
             valid_cm = {
@@ -1816,7 +1858,7 @@ class UserAPI(MethodView):
         )
 
         _stats = get_user_task_stats(user)
-        _pay = get_user_payment_balances(user)
+        _pay = PaymentBalanceService.user_balances(user)
         return {
             "status": 200,
             "user": {
@@ -1837,7 +1879,9 @@ class UserAPI(MethodView):
                 "timezone": user.timezone,
                 "is_tracked_only": user.is_tracked_only or False,
                 "micropayments_visible": user.micropayments_visible or False,
-                "hourly_rate": user.hourly_rate,
+                "hourly_rate": HourlyRateHistoryService().rate_map_for_users(
+                    [user.id], date.today()
+                ).get(user.id),
                 "compensation_model": user.compensation_model,
                 "monthly_salary": (
                     float(user.monthly_salary)
@@ -2151,14 +2195,9 @@ class UserAPI(MethodView):
 
     @requires_team_admin_or_above
     def fetch_user_payment_summary(self):
-        """Read-only payment summary for the admin user-profile Payment tab.
+        """Read-only payment summary for the admin user-profile Payment tab."""
 
-        Returns one bundle covering: lifetime paid, pending balance,
-        open requested total, last payment, hourly rate, recent payments
-        (last 25) with resolved project names, all open pay requests,
-        and an anomaly count for validated tasks > 30 days old that are
-        not yet attached to any PayRequest or Payment.
-        """
+
         data = request.get_json() or {}
         user_id = data.get("userId") or data.get("user_id")
         if not user_id:
@@ -2168,208 +2207,12 @@ class UserAPI(MethodView):
         if not user or user.org_id != g.user.org_id:
             return {"message": "User not found in your organization", "status": 404}
 
-        # team_admin: must be on a managed team (or self)
         if not is_org_admin_or_above(g.user):
             if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
                 return {"message": "Not in your managed teams", "status": 403}
 
-        # Lifetime paid + recent payments
-        all_payments = (
-            Payments.query.filter_by(org_id=g.user.org_id, user_id=user_id)
-            .order_by(Payments.date_paid.desc())
-            .all()
-        )
-        lifetime_paid = round(sum((p.amount_paid or 0) for p in all_payments), 2)
-        recent_raw = all_payments[:25]
-
-        # Open pay requests (anything outstanding for this user)
-        open_requests_raw = (
-            PayRequests.query.filter_by(org_id=g.user.org_id, user_id=user_id)
-            .order_by(PayRequests.date_requested.desc())
-            .all()
-        )
-        open_request_total = round(
-            sum((r.amount_requested or 0) for r in open_requests_raw), 2
-        )
-
-        # Resolve project names for recent payments in one batched query.
-        # Each payment.task_ids is an array; collect the union, look up
-        # Task → Project once, then for each payment derive a deduped
-        # list of project names.
-        all_recent_task_ids = set()
-        for p in recent_raw:
-            if p.task_ids:
-                all_recent_task_ids.update(p.task_ids)
-        task_to_project = {}
-        project_id_to_name = {}
-        if all_recent_task_ids:
-            for t in (
-                Task.query.filter(Task.id.in_(all_recent_task_ids))
-                .with_entities(Task.id, Task.project_id)
-                .all()
-            ):
-                task_to_project[t.id] = t.project_id
-            project_ids = {pid for pid in task_to_project.values() if pid}
-            if project_ids:
-                for proj in (
-                    Project.query.filter(Project.id.in_(project_ids))
-                    .with_entities(Project.id, Project.name)
-                    .all()
-                ):
-                    project_id_to_name[proj.id] = proj.name
-
-        def _project_names_for(task_ids):
-            if not task_ids:
-                return []
-            seen = []
-            for tid in task_ids:
-                pid = task_to_project.get(tid)
-                if not pid:
-                    continue
-                name = project_id_to_name.get(pid)
-                if name and name not in seen:
-                    seen.append(name)
-            return seen
-
-        recent_payments = [
-            {
-                "id": p.id,
-                "date": p.date_paid.isoformat() if p.date_paid else None,
-                "amount": p.amount_paid,
-                "projects": _project_names_for(p.task_ids),
-                "task_count": len(p.task_ids) if p.task_ids else 0,
-                "notes": p.notes or "",
-            }
-            for p in recent_raw
-        ]
-
-        last_payment_obj = recent_raw[0] if recent_raw else None
-        last_payment = None
-        if last_payment_obj:
-            last_payment = {
-                "date": (
-                    last_payment_obj.date_paid.isoformat()
-                    if last_payment_obj.date_paid
-                    else None
-                ),
-                "amount": last_payment_obj.amount_paid,
-                "payment_email": last_payment_obj.payment_email or "",
-                "notes": last_payment_obj.notes or "",
-            }
-
-        open_requests = [
-            {
-                "id": r.id,
-                "date_requested": (
-                    r.date_requested.isoformat() if r.date_requested else None
-                ),
-                "amount_requested": r.amount_requested,
-                "task_count": len(r.task_ids) if r.task_ids else 0,
-                "notes": r.notes or "",
-            }
-            for r in open_requests_raw
-        ]
-
-        # Live pending balance — same computation /transaction/fetch_user_payable
-        # uses, so the number matches what the user sees on their own page.
-        balances = get_user_payment_balances(user)
-        pending_balance = round(
-            (balances.get("mapping_payable_total") or 0)
-            + (balances.get("validation_payable_total") or 0)
-            + (user.checklist_payable_total or 0),
-            2,
-        )
-
-        # Anomalies: validated tasks > 30 days old, mapped or validated by
-        # this user, not yet attached to any PayRequest/Payment.
-        cutoff = datetime.utcnow() - timedelta(days=30)
-        claimed = _get_claimed_task_ids(user.id)
-        osm_un = user.osm_username
-
-        # User's mapped tasks
-        user_task_ids = set(
-            ut.task_id for ut in UserTasks.query.filter_by(user_id=user.id).all()
-        )
-
-        anomaly_tasks = []
-        anomaly_amount = 0.0
-        if osm_un and (user_task_ids or True):
-            # Mapping side: validated tasks the user mapped, > 30d ago
-            mapped_anom = Task.query.filter(
-                Task.org_id == g.user.org_id,
-                Task.validated == True,  # noqa: E712
-                Task.date_validated <= cutoff,
-            ).all()
-            for t in mapped_anom:
-                if t.id in claimed:
-                    continue
-                if getattr(t, "self_validated", False):
-                    continue
-                # Mapper-side claim: user owns this task via UserTasks
-                if t.id in user_task_ids and t.mapping_rate:
-                    anomaly_tasks.append(
-                        {
-                            "task_id": t.id,
-                            "project_id": t.project_id,
-                            "date_validated": (
-                                t.date_validated.isoformat()
-                                if t.date_validated
-                                else None
-                            ),
-                            "rate": t.mapping_rate,
-                            "type": "mapping",
-                        }
-                    )
-                    anomaly_amount += t.mapping_rate
-                # Validator-side claim: user validated this task
-                if t.validated_by == osm_un and t.validation_rate:
-                    anomaly_tasks.append(
-                        {
-                            "task_id": t.id,
-                            "project_id": t.project_id,
-                            "date_validated": (
-                                t.date_validated.isoformat()
-                                if t.date_validated
-                                else None
-                            ),
-                            "rate": t.validation_rate,
-                            "type": "validation",
-                        }
-                    )
-                    anomaly_amount += t.validation_rate
-
-        # Resolve project names for the anomaly task list (capped at 50 in response)
-        anom_project_ids = {a["project_id"] for a in anomaly_tasks if a["project_id"]}
-        anom_project_names = {}
-        if anom_project_ids:
-            for proj in (
-                Project.query.filter(Project.id.in_(anom_project_ids))
-                .with_entities(Project.id, Project.name)
-                .all()
-            ):
-                anom_project_names[proj.id] = proj.name
-        anomaly_list = [
-            {**a, "project": anom_project_names.get(a["project_id"]) or "—"}
-            for a in anomaly_tasks[:50]
-        ]
-
-        return {
-            "status": 200,
-            "summary": {
-                "lifetime_paid": lifetime_paid,
-                "pending_balance": pending_balance,
-                "open_request_total": open_request_total,
-                "last_payment": last_payment,
-                "hourly_rate": user.hourly_rate,
-                "recent_payments": recent_payments,
-                "open_requests": open_requests,
-                "anomalies": {
-                    "unpaid_over_30d_count": len(anomaly_tasks),
-                    "unpaid_over_30d_amount": round(anomaly_amount, 2),
-                    "tasks": anomaly_list,
-                },
-            },
-        }
+        summary = PaymentTxnService(g.user.org_id).user_payment_summary(user)
+        return {"status": 200, "summary": summary}
 
     @requires_team_admin_or_above
     def fetch_user_changesets(self):

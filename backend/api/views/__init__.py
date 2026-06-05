@@ -12,6 +12,7 @@ from .TimeTracking import TimeTrackingAPI
 from .Teams import TeamAPI
 from .reports import ReportsAPI
 from .Payments import PaymentsAPI
+from .Reimbursements import ReimbursementsAPI
 from .Regions import RegionAPI
 from .Webhook import WebhookAPI
 from .Punks import PunkAPI
@@ -20,6 +21,7 @@ from .Friends import FriendAPI
 from .CommunityData import CommunityDataAPI
 from .ChannelMonitor import ChannelMonitorAPI
 from .Organizations import OrganizationAPI
+from .HourlyRates import HourlyRatesAPI
 
 __all__ = {
     "UserAPI",
@@ -33,6 +35,7 @@ __all__ = {
     "TimeTrackingAPI",
     "TeamAPI",
     "PaymentsAPI",
+    "ReimbursementsAPI",
     "ReportsAPI",
     "RegionAPI",
     "WebhookAPI",
@@ -42,4 +45,5 @@ __all__ = {
     "CommunityDataAPI",
     "ChannelMonitorAPI",
     "OrganizationAPI",
+    "HourlyRatesAPI",
 }

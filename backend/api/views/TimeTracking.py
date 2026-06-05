@@ -10,7 +10,7 @@ import csv
 import io
 import logging
 import unicodedata
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
 from reportlab.platypus import (
@@ -32,7 +32,7 @@ from ..utils import requires_admin, requires_team_admin_or_above
 from ..utils.tz import org_month_bounds_utc, parse_filter_datetime
 from sqlalchemy import func, or_, and_
 from ..database import (
-    TimeEntry, User, Project, Task, Team, TeamUser, TeamLead,
+    TimeEntry, User, UserHourlyRate, Project, Task, Team, TeamUser, TeamLead,
     CustomTopic, ActivitySubcategory, HourlyPayment, db,
 )
 from ..auth import (
@@ -47,6 +47,7 @@ from ..utils.time_tracking_helpers import (
     LONG_SESSION_THRESHOLD_SECONDS,
 )
 from ..utils.time_entry_query import TimeEntryQuery
+from ..services.hourly_rate_history import HourlyRateHistoryService
 
 logger = logging.getLogger(__name__)
 
@@ -338,8 +339,6 @@ class TimeTrackingAPI(MethodView):
             return self.admin_aggregate_stats()
         elif path == "hourly_summary":
             return self.admin_hourly_summary()
-        elif path == "set_hourly_rate":
-            return self.admin_set_hourly_rate()
         elif path == "mark_hourly_paid":
             return self.admin_mark_hourly_paid()
         # ─── Subcategory management (tier-2 catalog) ────────────
@@ -688,7 +687,10 @@ class TimeTrackingAPI(MethodView):
         # "Amount owed" = the relevant earnings for this user's pay model.
         # Hourly contractors → hours × rate. Per-task mappers → sum of
         # task rates. If neither applies → zero, with pay_mode="none".
-        hourly_rate = user.hourly_rate
+        _rate_entry = HourlyRateHistoryService().get_active_rate(
+            user.id, date(start_dt.year, start_dt.month, 1)
+        )
+        hourly_rate = float(_rate_entry.rate) if _rate_entry else None
         hourly_earnings = (
             round(total_hours * hourly_rate, 2) if hourly_rate else None
         )
@@ -1807,10 +1809,21 @@ class TimeTrackingAPI(MethodView):
         year = data.get("year", datetime.now().year)
         org_id = g.user.org_id
 
-        # Get all hourly contractors in org
+        today = date.today()
+
+        # Get all hourly contractors: users with an active rate today
+        active_rate_user_ids = {
+            r.user_id for r in UserHourlyRate.query.filter(
+                UserHourlyRate.org_id == org_id,
+                UserHourlyRate.start_date <= today,
+                or_(UserHourlyRate.end_date.is_(None), UserHourlyRate.end_date >= today),
+            ).all()
+        }
+        if not active_rate_user_ids:
+            return jsonify({"status": 200, "year": year, "contractors": []})
         contractors = User.query.filter(
             User.org_id == org_id,
-            User.hourly_rate.isnot(None),
+            User.id.in_(active_rate_user_ids),
         ).all()
 
         # team_admin: narrow to managed-team contractors only
@@ -1825,6 +1838,12 @@ class TimeTrackingAPI(MethodView):
             return jsonify({"status": 200, "year": year, "contractors": []})
 
         contractor_ids = [c.id for c in contractors]
+        _rate_svc = HourlyRateHistoryService()
+        monthly_rate_maps = {
+            m: _rate_svc.rate_map_for_users(contractor_ids, date(year, m, 1))
+            for m in range(1, 13)
+        }
+        today_rate_map = _rate_svc.rate_map_for_users(contractor_ids, today)
 
         # Months are bucketed against the org timezone (America/Denver), not
         # UTC. A session worked Mar 31 9pm Manila (= Apr 1 01:00 UTC) lands
@@ -1885,10 +1904,10 @@ class TimeTrackingAPI(MethodView):
                         "notes": hp.notes,
                     }
                 else:
-                    # Unpaid: compute live from time entries + current rate
+                    # Unpaid: compute live from time entries + rate active that month
                     secs = time_lookup.get(c.id, {}).get(m, 0)
                     hrs = round(secs / 3600, 2)
-                    rate = c.hourly_rate or 0
+                    rate = monthly_rate_maps[m].get(c.id) or 0
                     earnings = round(hrs * rate, 2)
                     months[str(m)] = {
                         "totalSeconds": secs,
@@ -1909,7 +1928,7 @@ class TimeTrackingAPI(MethodView):
                 "name": c.full_name,
                 "osmUsername": c.osm_username or "",
                 "country": c.country or "",
-                "hourlyRate": c.hourly_rate,
+                "hourlyRate": today_rate_map.get(c.id),
                 "months": months,
                 "yearTotal": {
                     "totalSeconds": year_total_seconds,
@@ -1919,36 +1938,6 @@ class TimeTrackingAPI(MethodView):
             })
 
         return jsonify({"status": 200, "year": year, "contractors": result})
-
-    @requires_admin
-    def admin_set_hourly_rate(self):
-        """Set or update an hourly rate for a user."""
-        data = request.get_json(silent=True) or {}
-        user_id = data.get("userId")
-        hourly_rate = data.get("hourlyRate")
-
-        if not user_id:
-            return jsonify({"message": "userId is required", "status": 400}), 400
-
-        user = User.query.get(user_id)
-        if not user or user.org_id != g.user.org_id:
-            return jsonify({"message": "User not found", "status": 404}), 404
-
-        # Allow setting to None to remove hourly contractor status
-        if hourly_rate is not None:
-            try:
-                hourly_rate = float(hourly_rate)
-            except (ValueError, TypeError):
-                return jsonify({"message": "Invalid hourly rate", "status": 400}), 400
-
-        user.hourly_rate = hourly_rate
-        db.session.commit()
-
-        action = "removed" if hourly_rate is None else f"set to ${hourly_rate:.2f}"
-        return jsonify({
-            "status": 200,
-            "message": f"Hourly rate {action} for {user.full_name}",
-        })
 
     @requires_team_admin_or_above
     def admin_mark_hourly_paid(self):
@@ -1994,7 +1983,8 @@ class TimeTrackingAPI(MethodView):
                 TimeEntry.clock_in < month_end,
             ).scalar() or 0
 
-            rate = user.hourly_rate or 0
+            _rate_entry = HourlyRateHistoryService().get_active_rate(user_id, date(year, month, 1))
+            rate = float(_rate_entry.rate) if _rate_entry else 0
             hours = total_seconds / 3600
             amount = round(hours * rate, 2)
 

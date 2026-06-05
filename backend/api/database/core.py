@@ -153,8 +153,6 @@ class User(ModelWithSoftDeleteAndCRUD, SurrogatePK):
         db.Boolean, nullable=False, default=False, server_default="false"
     )
 
-    # Hourly contractor rate (if set, user is treated as hourly contractor)
-    hourly_rate = db.Column(db.Float, nullable=True, default=None)
     # Overtime placeholder columns (added 2026-05-12 ahead of payments-v1
     # rollout so we don't have to migrate again once overtime is actually
     # used). Nullable; threshold defaults to 40 (US standard) when set.
@@ -163,7 +161,8 @@ class User(ModelWithSoftDeleteAndCRUD, SurrogatePK):
         db.Integer, nullable=True, default=None
     )
     # Compensation model (added 2026-05-18). NULL = legacy/unspecified →
-    # resolver treats as per_task (core) + optional hourly_rate overlay.
+    # resolver treats as per_task (core). Active hourly rate from
+    # user_hourly_rates table determines whether a user is hourly.
     # Explicit values: per_task | hourly | salaried | project_based | hybrid
     compensation_model = db.Column(db.String(20), nullable=True, default=None)
     # Salaried base; prorated to the cycle by the payments computation.
@@ -1252,6 +1251,44 @@ class HourlyPayment(CRUDMixin, db.Model):
 
     def __repr__(self):
         return f"<HourlyPayment user={self.user_id} {self.year}-{self.month} paid={self.paid}>"
+
+
+class UserHourlyRate(CRUDMixin, db.Model):
+    """Time-bounded hourly rate for a user.
+
+    Only one rate may be active at any given date for a user; the service
+    layer enforces this — no DB-level exclusion constraint is used because
+    NULLable end_date makes that constraint awkward in standard SQL.
+    """
+
+    __tablename__ = "user_hourly_rates"
+
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        db.String(255),
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    org_id = db.Column(db.String(255), nullable=True, index=True)
+    rate = db.Column(db.Numeric(10, 4), nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=True)  # NULL = currently active / open-ended
+    created_by = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+
+    user = db.relationship("User", backref=db.backref("hourly_rates", passive_deletes=True))
+
+    __table_args__ = (
+        db.Index("ix_user_hourly_rates_user_start", "user_id", "start_date"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<UserHourlyRate user={self.user_id} "
+            f"rate={self.rate} {self.start_date}–{self.end_date or 'open'}>"
+        )
 
 
 class SyncJob(CRUDMixin, db.Model):

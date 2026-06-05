@@ -1599,7 +1599,7 @@ export interface ReimbursementRequest {
   amount: number;
   description: string;
   /** DO Spaces object key. NOT a fetchable URL — call
-   *  `/payment/reimbursement/attachment-url` to get a short-lived signed
+   *  `/reimbursements/attachment-url` to get a short-lived signed
    *  GET URL when rendering / downloading the receipt. */
   attachment_url: string | null;
   has_attachment: boolean;
@@ -1691,7 +1691,7 @@ export interface HourlyContractor {
   name: string;
   osmUsername: string;
   country: string;
-  hourlyRate: number;
+  hourlyRate: number | null;
   months: Record<string, HourlyMonthData>;
   yearTotal: { totalSeconds: number; hours: number; earnings: number };
 }
@@ -1700,4 +1700,27 @@ export interface HourlySummaryResponse {
   status: number;
   year: number;
   contractors: HourlyContractor[];
+}
+
+export interface HourlyRateEntry {
+  id: number;
+  user_id: string;
+  org_id: string | null;
+  rate: number;
+  start_date: string; // ISO date "YYYY-MM-DD"
+  end_date: string | null;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export interface HourlyRateHistoryResponse {
+  rates: HourlyRateEntry[];
+  status: number;
+}
+
+export interface HourlyRateMutationResponse {
+  rate?: HourlyRateEntry;
+  message?: string;
+  status: number;
 }

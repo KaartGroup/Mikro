@@ -62,6 +62,8 @@ import type {
   ElementAnalysisResponse,
   AdminTimeStatsResponse,
   AdminAggregateStatsResponse,
+  HourlyRateHistoryResponse,
+  HourlyRateMutationResponse,
 } from "@/types";
 
 /**
@@ -1339,12 +1341,6 @@ export function useHourlySummary() {
   });
 }
 
-export function useSetHourlyRate() {
-  return useApiMutation<{ message: string; status: number }>(
-    "/timetracking/set_hourly_rate",
-  );
-}
-
 export function useMarkHourlyPaid() {
   return useApiMutation<{ message: string; status: number }>(
     "/timetracking/mark_hourly_paid",
@@ -1415,54 +1411,53 @@ export function useSetPaymentCycleStatus() {
 //
 // Editor side: submit / my / withdraw / upload-url.
 // Admin side: pending / approve / reject + attachment-url (shared).
-// All hooks go through the same /payments/* prefix as the rest of
-// the Payments v2 API.
+// Routes are under /reimbursements/* (own API, split from payments).
 
 export function useSubmitReimbursementRequest() {
   return useApiMutation<ReimbursementMutationResponse>(
-    "/payments/reimbursement/submit",
+    "/reimbursements/submit",
   );
 }
 
 export function useMyReimbursementRequests() {
   return useApiMutation<ReimbursementListResponse>(
-    "/payments/reimbursement/my",
+    "/reimbursements/my",
   );
 }
 
 export function useWithdrawReimbursementRequest() {
   return useApiMutation<ReimbursementMutationResponse>(
-    "/payments/reimbursement/withdraw",
+    "/reimbursements/withdraw",
   );
 }
 
 export function useReimbursementUploadUrl() {
   return useApiMutation<ReimbursementUploadUrlResponse>(
-    "/payments/reimbursement/upload-url",
+    "/reimbursements/upload-url",
   );
 }
 
 export function usePendingReimbursements() {
   return useApiMutation<ReimbursementListResponse>(
-    "/payments/reimbursement/pending",
+    "/reimbursements/pending",
   );
 }
 
 export function useApproveReimbursementRequest() {
   return useApiMutation<ReimbursementMutationResponse>(
-    "/payments/reimbursement/approve",
+    "/reimbursements/approve",
   );
 }
 
 export function useRejectReimbursementRequest() {
   return useApiMutation<ReimbursementMutationResponse>(
-    "/payments/reimbursement/reject",
+    "/reimbursements/reject",
   );
 }
 
 export function useReimbursementAttachmentUrl() {
   return useApiMutation<ReimbursementAttachmentUrlResponse>(
-    "/payments/reimbursement/attachment-url",
+    "/reimbursements/attachment-url",
   );
 }
 
@@ -1519,4 +1514,73 @@ export function useExportPaymentCycle() {
   );
 
   return { download, loading, error };
+}
+
+// ─── Hourly Rate History ──────────────────────────────────────────────
+
+export function useFetchHourlyRates() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch_ = useCallback(async (userId: string): Promise<HourlyRateHistoryResponse> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/backend/hourly-rates?user_id=${encodeURIComponent(userId)}`);
+      const result = await response.json();
+      if (!response.ok || (result.status && result.status >= 300)) {
+        const msg = result.message || "Failed to fetch rate history";
+        setError(msg);
+        throw new Error(msg);
+      }
+      return result as HourlyRateHistoryResponse;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { fetch: fetch_, loading, error };
+}
+
+export function useCreateHourlyRate() {
+  return useApiMutation<HourlyRateMutationResponse>("/hourly-rates");
+}
+
+export function useDeleteHourlyRate() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const deleteRate = useCallback(
+    async (rateId: number, userId: string): Promise<HourlyRateMutationResponse> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch("/backend/hourly-rates", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rate_id: rateId, user_id: userId }),
+        });
+        const result = await response.json();
+        if (!response.ok || (result.status && result.status >= 300)) {
+          const msg = result.message || "Failed to delete rate entry";
+          setError(msg);
+          throw new Error(msg);
+        }
+        return result as HourlyRateMutationResponse;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        setError(msg);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  return { deleteRate, loading, error };
 }

@@ -21,7 +21,8 @@ from ..auth import (
     team_admin_can_access_user,
 )
 from ..filters import resolve_filtered_user_ids, get_user_country_ids, is_visible_by_location
-from ..stats import count_tasks_split_aware, get_project_stats, get_project_stats_from_tasks, get_batch_project_stats, get_user_task_stats, get_user_payment_balances, get_batch_project_stats_fast
+from ..stats import count_tasks_split_aware, get_project_stats, get_project_stats_from_tasks, get_batch_project_stats, get_user_task_stats, get_batch_project_stats_fast
+from ..services.payment_balance import PaymentBalanceService
 from .MapRoulette import MapRouletteSync
 from .TimeTracking import ACTIVITY_DISPLAY_MAP
 from ..database import (
@@ -1613,7 +1614,7 @@ class ProjectAPI(MethodView):
         validator_invalidated = validator_counts.invalidated or 0
 
         # Payment balances (payable = validated tasks not yet claimed)
-        _pay = get_user_payment_balances(g.user)
+        _pay = PaymentBalanceService.user_balances(g.user)
         payable_total = _pay["mapping_payable_total"] or 0
 
         # Payment sums via SQL
@@ -1774,7 +1775,7 @@ class ProjectAPI(MethodView):
         ).filter(Payments.org_id == org_id, Payments.user_id == user_id).scalar() or 0
 
         # Payment balances (payable = validated tasks not yet claimed)
-        _pay = get_user_payment_balances(g.user)
+        _pay = PaymentBalanceService.user_balances(g.user)
         payable_total = float(
             _pay["mapping_payable_total"] + _pay["validation_payable_total"]
         )

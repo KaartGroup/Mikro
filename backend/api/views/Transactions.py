@@ -16,7 +16,7 @@ from ..auth import (
     team_member_ids_for,
 )
 from ..database import db, User, PayRequests, Payments, UserTasks, Task, Project
-from ..stats import get_user_payment_balances
+from ..services.payment_balance import PaymentBalanceService
 
 
 class TransactionAPI(MethodView):
@@ -359,7 +359,7 @@ class TransactionAPI(MethodView):
             g.user.first_name.title(),
             g.user.last_name.title(),
         )
-        _pay = get_user_payment_balances(g.user)
+        _pay = PaymentBalanceService.user_balances(g.user)
         if g.user.role == "validator":
             request_amount = (
                 _pay["mapping_payable_total"] + _pay["validation_payable_total"]
@@ -397,7 +397,7 @@ class TransactionAPI(MethodView):
         target_user = User.query.filter_by(id=g.user.id).first()
         if not target_user:
             return {"message": "User not found", "status": 400}
-        _pay = get_user_payment_balances(target_user)
+        _pay = PaymentBalanceService.user_balances(target_user)
         mapping_payable_total = _pay["mapping_payable_total"]
         validation_payable_total = _pay["validation_payable_total"]
         checklist_payable_total = target_user.checklist_payable_total

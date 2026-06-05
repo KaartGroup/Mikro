@@ -18,7 +18,8 @@ from ..auth import (
 from ..database import Team, TeamUser, TeamLead, User, ProjectTeam, ProjectUser, Project, TeamTraining, Training, TeamChecklist, Checklist, Task
 from ..database.common import db
 from ..filters import resolve_filtered_user_ids
-from ..stats import get_batch_user_task_stats, get_batch_user_payment_balances
+from ..stats import get_batch_user_task_stats
+from ..services.payment_balance import PaymentBalanceService
 
 
 def _build_team_leads(team_ids):
@@ -801,7 +802,7 @@ class TeamAPI(MethodView):
         members = [User.query.get(uid) for uid in member_ids]
         members = [u for u in members if u is not None]
         _batch_stats = get_batch_user_task_stats(members, g.user.org_id)
-        _batch_pay = get_batch_user_payment_balances(members, g.user.org_id)
+        _batch_pay = PaymentBalanceService(g.user.org_id).batch_balances(members)
 
         for u in members:
             name = f"{u.first_name or ''} {u.last_name or ''}".strip() or u.email

@@ -122,6 +122,7 @@ def _register_views(app):
         TimeTrackingAPI,
         TeamAPI,
         PaymentsAPI,
+        ReimbursementsAPI,
         ReportsAPI,
         RegionAPI,
         WebhookAPI,
@@ -131,6 +132,7 @@ def _register_views(app):
         CommunityDataAPI,
         ChannelMonitorAPI,
         OrganizationAPI,
+        HourlyRatesAPI,
     )
 
     # Authentication
@@ -176,6 +178,12 @@ def _register_views(app):
         view_func=PaymentsAPI.as_view("payments"),
     )
 
+    # Reimbursements
+    app.add_url_rule(
+        "/api/reimbursements/<path:path>",
+        view_func=ReimbursementsAPI.as_view("reimbursements"),
+    )
+
     # Reports
     app.add_url_rule("/api/reports/<path>", view_func=ReportsAPI.as_view("reports"))
 
@@ -215,6 +223,13 @@ def _register_views(app):
     app.add_url_rule(
         "/api/channel/<path>",
         view_func=ChannelMonitorAPI.as_view("channel"),
+    )
+
+    # Hourly rate history
+    app.add_url_rule(
+        "/api/hourly-rates",
+        view_func=HourlyRatesAPI.as_view("hourly_rates"),
+        methods=["GET", "POST", "DELETE"],
     )
 
 
