@@ -37,7 +37,6 @@ class _FakeUser:
     def __init__(self, *, compensation_model=None, hourly_rate=None, id="auth0|test"):
         self.compensation_model = compensation_model
         self.hourly_rate = hourly_rate
-        self.monthly_salary = None
         self.payable_total = None
         self.first_name = ""
         self.last_name = ""

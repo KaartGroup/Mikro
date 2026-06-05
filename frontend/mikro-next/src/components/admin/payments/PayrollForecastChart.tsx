@@ -7,10 +7,9 @@ function fmt(n: number): string {
 }
 
 /**
- * Honest-by-construction forecast: stacked bars where the lower
- * (Confirmed = salaried, exact) segment is solid and the upper
- * (Projected variable = flat trailing average, an estimate) segment is
- * hatched. A dashed reference line marks the flat variable basis so the
+ * Honest-by-construction forecast: bars represent total payroll per cycle.
+ * Current cycle shows actuals to date; projected cycles show a flat trailing
+ * average (hatched). A dashed reference line marks the variable basis so the
  * "we did NOT extrapolate a trend" decision is visible on the chart.
  */
 export function PayrollForecastChart({
@@ -30,7 +29,6 @@ export function PayrollForecastChart({
 
   const max = Math.max(...cycles.map((c) => c.total), 1);
   const H = 120; // px chart height
-  const basisY = H - (stats.variable_basis / max) * H;
 
   const growthColor =
     stats.projected_growth > 0
@@ -45,38 +43,24 @@ export function PayrollForecastChart({
         {/* Bars */}
         <div className="flex-1 flex items-end gap-2" style={{ height: H }}>
           {cycles.map((c) => {
-            const confH = (c.confirmed / max) * H;
-            const varH = (c.variable / max) * H;
+            const barH = (c.total / max) * H;
             return (
               <div
                 key={c.start}
                 className="flex-1 flex flex-col items-center justify-end h-full"
-                title={`${c.label}: confirmed ${fmt(
-                  c.confirmed,
-                )} + ${c.is_projected ? "est. " : ""}variable ${fmt(
-                  c.variable,
-                )} = ${fmt(c.total)}`}
+                title={`${c.label}: ${c.is_projected ? "est. " : ""}${fmt(c.total)}`}
               >
                 <span className="text-[9px] tabular-nums text-muted-foreground mb-0.5">
                   {fmt(c.total)}
                 </span>
-                {/* variable (estimate) — hatched when projected */}
                 <div
                   className="w-full rounded-t-sm"
                   style={{
-                    height: Math.max(varH, c.variable > 0 ? 2 : 0),
+                    height: Math.max(barH, c.total > 0 ? 2 : 0),
                     backgroundColor: c.is_projected ? "#93c5fd" : "#3b82f6",
                     backgroundImage: c.is_projected
                       ? "repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(255,255,255,.45) 3px,rgba(255,255,255,.45) 6px)"
                       : undefined,
-                  }}
-                />
-                {/* confirmed (exact) — always solid */}
-                <div
-                  className="w-full"
-                  style={{
-                    height: Math.max(confH, c.confirmed > 0 ? 2 : 0),
-                    backgroundColor: "#1e3a8a",
                   }}
                 />
                 <span className="text-[9px] text-muted-foreground mt-1 truncate w-full text-center">
@@ -95,9 +79,6 @@ export function PayrollForecastChart({
         <div className="text-[10px] text-muted-foreground border-t border-dashed border-border pt-1">
           Variable held flat at {fmt(stats.variable_basis)} (avg of last 3
           cycles) — not trended.
-          {/* basisY referenced so intent is documented even though bars
-              are div-based; kept for a future SVG upgrade */}
-          <span className="hidden">{Math.round(basisY)}</span>
         </div>
       )}
 
@@ -106,9 +87,9 @@ export function PayrollForecastChart({
         <span className="flex items-center gap-1">
           <span
             className="w-2.5 h-2.5 rounded-sm"
-            style={{ backgroundColor: "#1e3a8a" }}
+            style={{ backgroundColor: "#3b82f6" }}
           />
-          Confirmed (exact)
+          Actuals
         </span>
         <span className="flex items-center gap-1">
           <span
@@ -119,7 +100,7 @@ export function PayrollForecastChart({
                 "repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(255,255,255,.45) 3px,rgba(255,255,255,.45) 6px)",
             }}
           />
-          Projected variable (est.)
+          Projected (est.)
         </span>
       </div>
 
@@ -146,8 +127,7 @@ export function PayrollForecastChart({
       </div>
 
       <div className="text-[10px] text-muted-foreground">
-        Confirmed = salaried, exact. Variable = average of last 3 cycles
-        (estimate, not trended).{" "}
+        Projected = flat average of last 3 cycles (not trended).{" "}
         <span
           className="text-primary/70 cursor-default"
           title="Full forecast detail view — not in v1"

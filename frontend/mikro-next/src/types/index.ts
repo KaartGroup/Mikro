@@ -505,7 +505,6 @@ export interface UserProfileData {
   micropayments_visible?: boolean;
   hourly_rate?: number | null;
   compensation_model?: CompensationModel | null;
-  monthly_salary?: number | null;
   mapillary_username?: string;
   is_active?: boolean;
   joined: string;
@@ -1462,7 +1461,6 @@ export interface PaymentCycleRow {
   seconds: number;
   hourly_rate: number | null;
   compensation_model: CompensationModel;
-  monthly_salary: number | null;
   calculated_wage: number | null;
   adjustments_total: number;
   adjustments_count: number;
@@ -1473,12 +1471,7 @@ export interface PaymentCycleRow {
   status_updated_at: string | null;
 }
 
-export type CompensationModel =
-  | "per_task"
-  | "hourly"
-  | "salaried"
-  | "project_based"
-  | "hybrid";
+export type CompensationModel = "per_task" | "hourly" | "project_based";
 
 export interface PayrollForecastCycle {
   label: string;
@@ -1554,9 +1547,7 @@ export interface PaymentCycleKpis {
   compensation_distribution: {
     per_task: number;
     hourly: number;
-    salaried: number;
     project_based: number;
-    hybrid: number;
   };
 }
 

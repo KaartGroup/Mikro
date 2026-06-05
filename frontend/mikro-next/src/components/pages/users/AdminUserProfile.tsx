@@ -300,7 +300,6 @@ export function AdminUserProfile() {
   const [editHourlyRate, setEditHourlyRate] = useState<string>("");
   const [editHourlyRateStartDate, setEditHourlyRateStartDate] = useState<string>("");
   const [editCompModel, setEditCompModel] = useState<string>("");
-  const [editMonthlySalary, setEditMonthlySalary] = useState<string>("");
 
   // Time entry edit modal state
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
@@ -683,8 +682,12 @@ export function AdminUserProfile() {
     setEditPaymentsVisible(user.micropayments_visible ?? false);
     setEditHourlyRate(user.hourly_rate?.toString() ?? "");
     setEditHourlyRateStartDate("");
-    setEditCompModel(user.compensation_model ?? "");
-    setEditMonthlySalary(user.monthly_salary?.toString() ?? "");
+    const validCompModels = new Set<string>(["per_task", "hourly", "project_based"]);
+    setEditCompModel(
+      user.compensation_model && validCompModels.has(user.compensation_model)
+        ? user.compensation_model
+        : ""
+    );
     setEditModalOpen(true);
   };
 
@@ -708,9 +711,6 @@ export function AdminUserProfile() {
         hourly_rate: editHourlyRate ? parseFloat(editHourlyRate) : null,
         hourly_rate_start_date: editHourlyRate ? editHourlyRateStartDate : null,
         compensation_model: editCompModel || null,
-        monthly_salary: editMonthlySalary
-          ? parseFloat(editMonthlySalary)
-          : null,
       });
       toast.success("User updated");
       setEditModalOpen(false);
@@ -3184,18 +3184,14 @@ export function AdminUserProfile() {
               <option value="">Unspecified (legacy)</option>
               <option value="per_task">Per-task (micro-paid)</option>
               <option value="hourly">Hourly</option>
-              <option value="salaried">Salaried</option>
               <option value="project_based">Project-based</option>
-              <option value="hybrid">Hybrid</option>
             </select>
             <p className="mt-1 text-xs text-muted-foreground">
               Unspecified behaves as before (per-task, or hourly if a rate is
-              set). Project-based &amp; hybrid payout math is still pending
-              definition — they total from adjustments for now.
+              set). Project-based totals from adjustments only.
             </p>
           </div>
           {(editCompModel === "hourly" ||
-            editCompModel === "hybrid" ||
             editCompModel === "" ||
             editCompModel === "per_task") && (
             <div>
@@ -3228,27 +3224,6 @@ export function AdminUserProfile() {
                   />
                 </div>
               )}
-            </div>
-          )}
-          {(editCompModel === "salaried" || editCompModel === "hybrid") && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Monthly Salary
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-                value={editMonthlySalary}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setEditMonthlySalary(e.target.value)
-                }
-                placeholder="Not set"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Prorated to the selected payroll cycle.
-              </p>
             </div>
           )}
         </div>

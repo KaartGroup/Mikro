@@ -163,10 +163,8 @@ class User(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     # Compensation model (added 2026-05-18). NULL = legacy/unspecified →
     # resolver treats as per_task (core). Active hourly rate from
     # user_hourly_rates table determines whether a user is hourly.
-    # Explicit values: per_task | hourly | salaried | project_based | hybrid
+    # Explicit values: per_task | hourly | project_based
     compensation_model = db.Column(db.String(20), nullable=True, default=None)
-    # Salaried base; prorated to the cycle by the payments computation.
-    monthly_salary = db.Column(db.Numeric(10, 2), nullable=True, default=None)
 
     def __repr__(self):
         return f"<User {self.email}>"

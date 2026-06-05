@@ -706,11 +706,6 @@ class UserAPI(MethodView):
                 "micropayments_visible": user.micropayments_visible or False,
                 "hourly_rate": _rate_map.get(user.id),
                 "compensation_model": user.compensation_model,
-                "monthly_salary": (
-                    float(user.monthly_salary)
-                    if user.monthly_salary is not None
-                    else None
-                ),
                 "is_active": bool(getattr(user, "is_active", True)),
             }
             # Per-user pay redaction (handles team_admin / cross-team members)
@@ -1320,7 +1315,7 @@ class UserAPI(MethodView):
             "micropayments_visible",
             "role",
             "hourly_rate", "hourly_rate_start_date",
-            "compensation_model", "monthly_salary",
+            "compensation_model",
         }
         if is_team_admin:
             disallowed = set(request.json.keys()) - _TEAM_ADMIN_ALLOWED_FIELDS
@@ -1399,9 +1394,7 @@ class UserAPI(MethodView):
             valid_cm = {
                 "per_task",
                 "hourly",
-                "salaried",
                 "project_based",
-                "hybrid",
             }
             if cm is not None and cm not in valid_cm:
                 return {
@@ -1409,10 +1402,6 @@ class UserAPI(MethodView):
                     "status": 400,
                 }
             updates["compensation_model"] = cm
-        if "monthly_salary" in request.json:
-            val = request.json["monthly_salary"]
-            updates["monthly_salary"] = float(val) if val not in (None, "") else None
-
         # Handle country_id change (with auto-timezone from country)
         if "country_id" in request.json:
             new_cid = request.json["country_id"]
@@ -1883,11 +1872,6 @@ class UserAPI(MethodView):
                     [user.id], date.today()
                 ).get(user.id),
                 "compensation_model": user.compensation_model,
-                "monthly_salary": (
-                    float(user.monthly_salary)
-                    if user.monthly_salary is not None
-                    else None
-                ),
                 "is_active": bool(getattr(user, "is_active", True)),
                 "joined": user.create_time.isoformat() if user.create_time else None,
                 # Task stats

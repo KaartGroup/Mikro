@@ -210,12 +210,8 @@ class PaymentsAPI(MethodView):
             seconds = hours_map.get(u.id, 0)
             adj = adj_map.get(u.id)
             adj_total = float(adj["total"]) if adj else 0.0
-            row = PaymentService.build_row(
-                u, seconds, adj, status_map.get(u.id), cycle_start, cycle_end
-            )
-            # Cohort: skip zero-everything rows unless include_zero. A
-            # model with a real payout (e.g. salaried) keeps its row even
-            # with no tracked hours.
+            row = PaymentService.build_row(u, seconds, adj, status_map.get(u.id))
+            # Cohort: skip zero-everything rows unless include_zero.
             if (
                 not include_zero
                 and seconds == 0
@@ -310,9 +306,7 @@ class PaymentsAPI(MethodView):
             seconds = hours_map.get(u.id, 0)
             adj = adj_map.get(u.id)
             adj_total = float(adj["total"]) if adj else 0.0
-            row = PaymentService.build_row(
-                u, seconds, adj, status_map.get(u.id), cycle_start, cycle_end
-            )
+            row = PaymentService.build_row(u, seconds, adj, status_map.get(u.id))
             row_total = row["total_payable"] or 0.0
             if (
                 seconds == 0
@@ -352,9 +346,7 @@ class PaymentsAPI(MethodView):
         comp_distribution = {
             "per_task": 0,
             "hourly": 0,
-            "salaried": 0,
             "project_based": 0,
-            "hybrid": 0,
         }
         for u in candidate_users:
             comp_distribution[PaymentService.effective_comp_model(u)] += 1
@@ -378,9 +370,8 @@ class PaymentsAPI(MethodView):
 
     @requires_team_admin_or_above
     def fetch_forecast(self):
-        """Payroll forecast: exact confirmed (salaried) + flat trailing-avg
-        variable over cadence-generated cycles. v1 is deliberately NOT
-        trended (see .claude/payroll-forecast-plan.md)."""
+        """Payroll forecast: flat trailing-avg variable over cadence-generated
+        cycles. v1 is deliberately NOT trended (see .claude/payroll-forecast-plan.md)."""
         body = request.json or {}
         try:
             horizon = int(body.get("horizon", 3))
@@ -403,8 +394,8 @@ class PaymentsAPI(MethodView):
             u for u in users_q.all() if can_view_pay_for(g.user, u)
         ]
 
-        # Pre-populate today's active rate so effective_comp_model and
-        # confirmed_for_user use the history table rather than the deprecated column.
+        # Pre-populate today's active rate so effective_comp_model uses
+        # the history table rather than the deprecated column.
         svc = PaymentService(g.user.org_id)
         _today_rates = svc.rates_by_user([u.id for u in candidate_users], date.today())
         for u in candidate_users:
@@ -456,17 +447,13 @@ class PaymentsAPI(MethodView):
             for u in cohort:
                 u._active_hourly_rate = cycle_rates.get(u.id)
             total = 0.0
-            confirmed = 0.0
             for u in cohort:
                 seconds = hours_map.get(u.id, 0)
                 adj = adj_map.get(u.id)
                 adj_total = float(adj["total"]) if adj else 0.0
-                _m, _b, t = PaymentService.compute_payable(u, seconds, adj_total, s, e)
+                _m, _b, t = PaymentService.compute_payable(u, seconds, adj_total)
                 total += t
-                confirmed += PaymentService.confirmed_for_user(u, s, e)
-            return round(total, 2), round(confirmed, 2), round(
-                total - confirmed, 2
-            )
+            return round(total, 2), 0.0, round(total, 2)
 
         past_vars = [actual_split(s, e)[2] for (s, e) in past]
         avg_variable = (
@@ -484,19 +471,13 @@ class PaymentsAPI(MethodView):
                     "is_projected": False, "confirmed": confirmed,
                     "variable": variable, "total": total,
                 })
-            else:  # projected: exact confirmed + flat avg variable
-                proj_rates = svc.rates_by_user(cohort_ids, s)
-                for u in cohort:
-                    u._active_hourly_rate = proj_rates.get(u.id)
-                confirmed = round(
-                    sum(PaymentService.confirmed_for_user(u, s, e) for u in cohort), 2
-                )
+            else:  # projected: flat avg variable (no model has a confirmed commitment)
                 cycles.append({
                     "label": label, "start": s.isoformat(),
                     "end": e.isoformat(), "is_current": False,
-                    "is_projected": True, "confirmed": confirmed,
+                    "is_projected": True, "confirmed": 0.0,
                     "variable": avg_variable,
-                    "total": round(confirmed + avg_variable, 2),
+                    "total": avg_variable,
                 })
 
         cur_total = cycles[0]["total"] if cycles else 0.0
@@ -629,12 +610,7 @@ class PaymentsAPI(MethodView):
         user._active_hourly_rate = svc.rates_by_user([user.id], cycle_start).get(user.id)
         seconds = hours_map.get(user.id, 0)
         header = PaymentService.build_row(
-            user,
-            seconds,
-            adj_map.get(user.id),
-            status_map.get(user.id),
-            cycle_start,
-            cycle_end,
+            user, seconds, adj_map.get(user.id), status_map.get(user.id)
         )
 
         # Session breakdown (raw completed time_entries inside the cycle)
@@ -910,9 +886,7 @@ class PaymentsAPI(MethodView):
             hours = round(seconds / 3600.0, 2) if seconds else 0.0
             _r = getattr(u, "_active_hourly_rate", None)
             rate = float(_r) if _r is not None else 0.0
-            _m, base, total = PaymentService.compute_payable(
-                u, seconds, adj_total, cycle_start, cycle_end
-            )
+            _m, base, total = PaymentService.compute_payable(u, seconds, adj_total)
             writer.writerow([
                 PaymentService.display_name(u),
                 u.osm_username or "",

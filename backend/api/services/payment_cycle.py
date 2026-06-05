@@ -15,7 +15,7 @@ Usage::
     svc = PaymentCycleService(g.user.org_id)
     hours = svc.hours_by_user(user_ids, cycle_start, cycle_end)
     adjs  = svc.adjustments_by_user(user_ids, cycle_start, cycle_end)
-    row   = PaymentCycleService.build_row(user, hours, adjs, status, s, e)
+    row   = PaymentCycleService.build_row(user, hours, adjs, status)
 """
 
 from datetime import date, datetime, timezone
@@ -37,9 +37,7 @@ from ..database import (
 VALID_COMP_MODELS = {
     "per_task",
     "hourly",
-    "salaried",
     "project_based",
-    "hybrid",
 }
 
 STATUS_PENDING = "pending"
@@ -100,79 +98,30 @@ class PaymentCycleService:
         return "hourly" if rate is not None else "per_task"
 
     @staticmethod
-    def prorated_salary(user, cycle_start: date, cycle_end: date) -> float:
-        """Monthly salary prorated to the cycle window.
-
-        v1 rule: salary × (days in [cycle_start, cycle_end] inclusive) /
-        (days in cycle_start's calendar month).
-        """
-        sal = getattr(user, "monthly_salary", None)
-        if sal is None:
-            return 0.0
-        sal = float(sal)
-        cycle_days = (cycle_end - cycle_start).days + 1
-        if cycle_start.month == 12:
-            nxt = date(cycle_start.year + 1, 1, 1)
-        else:
-            nxt = date(cycle_start.year, cycle_start.month + 1, 1)
-        month_first = date(cycle_start.year, cycle_start.month, 1)
-        days_in_month = (nxt - month_first).days
-        if days_in_month <= 0:
-            return round(sal, 2)
-        return round(sal * (cycle_days / days_in_month), 2)
-
-    @staticmethod
-    def compute_payable(
-        user, seconds, adj_total, cycle_start: date, cycle_end: date
-    ) -> tuple:
+    def compute_payable(user, seconds, adj_total) -> tuple:
         """Per-model base + total. Single source of truth used by the
         table, KPIs, contributor detail, and CSV export.
 
         Returns ``(model, base, total)`` where ``total = base + adj_total``.
 
         - hourly:        hours × hourly_rate
-        - salaried:      monthly_salary prorated to the cycle
         - per_task:      current unpaid micropayment balance (payable_total)
-        - project_based: SCAFFOLD — adjustments only (base 0)
-        - hybrid:        SCAFFOLD — base = hourly (or prorated salary if no rate)
+        - project_based: adjustments only (base 0)
         """
         hours = seconds / 3600.0 if seconds else 0.0
         _r = PaymentCycleService._resolve_hourly_rate(user)
         rate = float(_r) if _r is not None else None
         model = PaymentCycleService.effective_comp_model(user)
 
-        if model == "salaried":
-            base = PaymentCycleService.prorated_salary(user, cycle_start, cycle_end)
-        elif model == "per_task":
+        if model == "per_task":
             base = float(getattr(user, "payable_total", 0) or 0)
         elif model == "project_based":
             base = 0.0
-        elif model == "hybrid":
-            base = (
-                round(hours * rate, 2)
-                if rate is not None
-                else PaymentCycleService.prorated_salary(user, cycle_start, cycle_end)
-            )
         else:  # hourly (and legacy resolved to hourly)
             base = round(hours * rate, 2) if rate is not None else 0.0
 
         total = round(base + (adj_total or 0.0), 2)
         return model, round(base, 2), total
-
-    @staticmethod
-    def confirmed_for_user(u, s: date, e: date) -> float:
-        """Deterministic (hours-independent) pay for a user in [s, e].
-
-        Salaried is fully prorated; hybrid with no hourly_rate falls back to
-        prorated salary. Everything else depends on hours/adjustments and is
-        therefore not a confirmed commitment.
-        """
-        m = PaymentCycleService.effective_comp_model(u)
-        if m == "salaried":
-            return PaymentCycleService.prorated_salary(u, s, e)
-        if m == "hybrid" and PaymentCycleService._resolve_hourly_rate(u) is None:
-            return PaymentCycleService.prorated_salary(u, s, e)
-        return 0.0
 
     @staticmethod
     def passes_comp_filter(model: str, comp_filter) -> bool:
@@ -195,9 +144,7 @@ class PaymentCycleService:
         return f"{start.strftime('%b %d')}–{end.strftime('%d')}"
 
     @staticmethod
-    def build_row(
-        user, seconds, adj, status_row, cycle_start: date, cycle_end: date
-    ) -> dict:
+    def build_row(user, seconds, adj, status_row) -> dict:
         """Compose a single PaymentCycleRow dict for the table."""
         hours = round(seconds / 3600.0, 2) if seconds else 0.0
         _r = PaymentCycleService._resolve_hourly_rate(user)
@@ -205,11 +152,9 @@ class PaymentCycleService:
         adj_total = float(adj["total"]) if adj else 0.0
         adj_count = adj["count"] if adj else 0
         model, base, total = PaymentCycleService.compute_payable(
-            user, seconds, adj_total, cycle_start, cycle_end
+            user, seconds, adj_total
         )
-        wage = base if model in ("hourly", "hybrid") and rate is not None else (
-            base if model in ("salaried", "per_task", "project_based") else None
-        )
+        wage = base
         return {
             "user_id": user.id,
             "name": PaymentCycleService.display_name(user),
@@ -222,11 +167,6 @@ class PaymentCycleService:
             "seconds": seconds,
             "hourly_rate": rate,
             "compensation_model": model,
-            "monthly_salary": (
-                float(user.monthly_salary)
-                if getattr(user, "monthly_salary", None) is not None
-                else None
-            ),
             "calculated_wage": wage,
             "adjustments_total": round(adj_total, 2),
             "adjustments_count": adj_count,

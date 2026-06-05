@@ -137,9 +137,7 @@ export function AdminPayments() {
   type TableFilter =
     | "all"
     | "hourly"
-    | "salaried"
     | "project"
-    | "hybrid"
     | "on_hold"
     | "info_needed";
   const [filter, setFilter] = useState<TableFilter>("all");
@@ -297,17 +295,10 @@ export function AdminPayments() {
 
   const filteredRows = rows.filter((r) => {
     if (filter === "hourly" && r.compensation_model !== "hourly") return false;
-    if (filter === "salaried" && r.compensation_model !== "salaried")
-      return false;
     if (filter === "project" && r.compensation_model !== "project_based")
       return false;
-    if (filter === "hybrid" && r.compensation_model !== "hybrid") return false;
     if (filter === "on_hold" && r.status !== "held") return false;
-    if (
-      filter === "info_needed" &&
-      ((r.hourly_rate ?? 0) > 0 || (r.monthly_salary ?? 0) > 0)
-    )
-      return false;
+    if (filter === "info_needed" && (r.hourly_rate ?? 0) > 0) return false;
 
     if (search) {
       const q = search.toLowerCase();
@@ -438,9 +429,7 @@ export function AdminPayments() {
                     allLabel="All (excl. per-task)"
                     options={[
                       { value: "hourly", label: "Hourly" },
-                      { value: "salaried", label: "Salaried" },
                       { value: "project_based", label: "Project-based" },
-                      { value: "hybrid", label: "Hybrid" },
                       { value: "per_task", label: "Per-task (micro-paid)" },
                     ]}
                     value={filterComp}
@@ -527,9 +516,7 @@ export function AdminPayments() {
                   [
                     { id: "all", label: "All" },
                     { id: "hourly", label: "Hourly" },
-                    { id: "salaried", label: "Salaried" },
                     { id: "project", label: "Project-based" },
-                    { id: "hybrid", label: "Hybrid" },
                     { id: "on_hold", label: "On Hold" },
                     { id: "info_needed", label: "Info Needed" },
                   ] as { id: TableFilter; label: string }[]
