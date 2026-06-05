@@ -27,6 +27,8 @@ interface UserProfile {
   osm_verified: boolean;
   osm_verified_at: string | null;
   mapillary_username: string | null;
+  first_name: string | null;
+  last_name: string | null;
   payment_email: string;
   city: string;
   country: string;
@@ -64,6 +66,8 @@ export default function AccountPage() {
   const { paymentsVisible } = usePaymentsVisible();
 
   // Form state
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [paymentEmail, setPaymentEmail] = useState("");
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
@@ -114,6 +118,8 @@ export default function AccountPage() {
       if (response.ok) {
         const data = await response.json();
         setProfile(data);
+        setFirstName(data.first_name || "");
+        setLastName(data.last_name || "");
         setPaymentEmail(data.payment_email || "");
         setCity(data.city || "");
         setCountry(data.country || "");
@@ -149,6 +155,8 @@ export default function AccountPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          first_name: firstName,
+          last_name: lastName,
           payment_email: paymentEmail,
           city,
           country,
@@ -762,6 +770,61 @@ export default function AccountPage() {
                 )}
               </div>
             )}
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 16,
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    marginBottom: 6,
+                  }}
+                >
+                  First Name
+                </label>
+                {isEditing ? (
+                  <Input
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="First name"
+                  />
+                ) : (
+                  <p style={{ fontSize: 15, color: "var(--foreground)" }}>
+                    <Val fallback="-">{profile?.first_name}</Val>
+                  </p>
+                )}
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    marginBottom: 6,
+                  }}
+                >
+                  Last Name
+                </label>
+                {isEditing ? (
+                  <Input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Last name"
+                  />
+                ) : (
+                  <p style={{ fontSize: 15, color: "var(--foreground)" }}>
+                    <Val fallback="-">{profile?.last_name}</Val>
+                  </p>
+                )}
+              </div>
+            </div>
 
             <div
               style={{
