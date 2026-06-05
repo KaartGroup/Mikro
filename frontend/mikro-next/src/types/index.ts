@@ -508,7 +508,6 @@ export interface UserProfileData {
   joined: string;
   total_tasks_mapped: number;
   total_tasks_validated: number;
-  total_tasks_invalidated: number;
   validator_tasks_validated: number;
   validator_tasks_invalidated: number;
   mapping_payable_total: number;
@@ -703,7 +702,6 @@ export interface TeamProfileMember {
   osm_username: string | null;
   total_tasks_mapped: number;
   total_tasks_validated: number;
-  total_tasks_invalidated?: number;
   payable_total?: number;
 }
 
@@ -741,7 +739,6 @@ export interface TeamProfileData {
   aggregated_stats: {
     total_tasks_mapped: number;
     total_tasks_validated: number;
-    total_tasks_invalidated: number;
     mapping_payable_total?: number;
     validation_payable_total?: number;
     payable_total?: number;

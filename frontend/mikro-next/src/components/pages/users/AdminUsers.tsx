@@ -748,7 +748,6 @@ export function AdminUsers() {
                     { key: "projects", label: "Projects" },
                     { key: "mapped", label: "Mapped" },
                     { key: "validated", label: "Validated" },
-                    { key: "", label: "Invalidated" },
                     { key: "", label: "Awaiting" },
                     { key: "total_paid", label: "Total Paid" },
                   ].map((col, i) => (
@@ -860,9 +859,6 @@ export function AdminUsers() {
                     </td>
                     <td className="px-2 py-1.5 text-foreground">
                       <Val>{formatNumber(user.total_tasks_validated)}</Val>
-                    </td>
-                    <td className="px-2 py-1.5 text-foreground">
-                      <Val>{formatNumber(user.total_tasks_invalidated)}</Val>
                     </td>
                     <td className="px-2 py-1.5 text-foreground">
                       <Val>{formatCurrency(user.awaiting_payment)}</Val>

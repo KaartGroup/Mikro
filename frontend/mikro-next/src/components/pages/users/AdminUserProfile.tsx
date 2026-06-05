@@ -1308,10 +1308,7 @@ export function AdminUserProfile() {
               label="Tasks Validated"
               value={formatNumber(user.total_tasks_validated)}
             />
-            <StatCard
-              label="Tasks Invalidated"
-              value={formatNumber(user.total_tasks_invalidated)}
-            />
+
             <StatCard
               label="Total Earnings"
               value={formatCurrency(user.payable_total)}

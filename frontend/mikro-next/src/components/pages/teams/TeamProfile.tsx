@@ -176,10 +176,6 @@ export function TeamProfile({ isAdmin = false }: Props) {
           label="Tasks Validated"
           value={formatNumber(aggregated_stats.total_tasks_validated)}
         />
-        <StatCard
-          label="Tasks Invalidated"
-          value={formatNumber(aggregated_stats.total_tasks_invalidated)}
-        />
       </div>
 
       {/* Admin-only: Payment Summary */}
@@ -259,11 +255,6 @@ export function TeamProfile({ isAdmin = false }: Props) {
                     </th>
                     {isAdmin && (
                       <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">
-                        Invalidated
-                      </th>
-                    )}
-                    {isAdmin && (
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">
                         Earnings
                       </th>
                     )}
@@ -327,13 +318,7 @@ export function TeamProfile({ isAdmin = false }: Props) {
                             {formatNumber(member.total_tasks_validated)}
                           </Val>
                         </td>
-                        {isAdmin && (
-                          <td className="px-6 py-4 text-foreground">
-                            <Val>
-                              {formatNumber(member.total_tasks_invalidated)}
-                            </Val>
-                          </td>
-                        )}
+
                         {isAdmin && (
                           <td className="px-6 py-4 text-foreground">
                             <Val>{formatCurrency(member.payable_total)}</Val>
