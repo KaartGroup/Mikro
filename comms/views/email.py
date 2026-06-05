@@ -17,8 +17,8 @@ from flask import g, jsonify, request
 from flask.views import MethodView
 
 from ..database import EmailCampaign, Identity, db
-from ..email import mailer
-from ..email.audience import parse_audience
+from ..mail import mailer
+from ..mail.audience import parse_audience
 from ..auth import requires_admin
 
 
