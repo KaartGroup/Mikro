@@ -79,12 +79,7 @@ class User(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     # Timestamps
     create_time = Column(DateTime, default=func.now())
 
-    # Assignments
-    assigned_projects = Column(MutableList.as_mutable(ARRAY(Integer)))
-    assigned_checklists = Column(MutableList.as_mutable(ARRAY(Integer)))
-
     # Mapper stats
-    mapper_level = db.Column(db.Integer, default=0, nullable=True)
     mapper_points = db.Column(db.Integer, default=0, nullable=True)
     validator_points = db.Column(db.Integer, default=0, nullable=True)
     special_project_points = db.Column(db.Integer, default=0, nullable=True)
@@ -96,39 +91,9 @@ class User(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     mapping_payable_total = db.Column(
         db.Float, nullable=True, default=0, server_default="0"
     )
-    checklist_payable_total = db.Column(
-        db.Float, nullable=True, default=0, server_default="0"
-    )
     payable_total = db.Column(db.Float, nullable=True, default=0, server_default="0")
     requested_total = db.Column(db.Float, nullable=True, default=0, server_default="0")
     paid_total = db.Column(db.Float, nullable=True, default=0, server_default="0")
-
-    # Task stats
-    total_tasks_mapped = db.Column(
-        db.BigInteger, nullable=True, default=0, server_default="0"
-    )
-    total_tasks_validated = db.Column(
-        db.BigInteger, nullable=True, default=0, server_default="0"
-    )
-    total_tasks_invalidated = db.Column(
-        db.Integer, nullable=False, default=0, server_default="0"
-    )
-
-    # Checklist stats
-    total_checklists_completed = db.Column(
-        db.Integer, nullable=False, default=0, server_default="0"
-    )
-    validator_total_checklists_confirmed = db.Column(
-        db.Integer, nullable=False, default=0, server_default="0"
-    )
-
-    # Validator stats
-    validator_tasks_invalidated = db.Column(
-        db.Integer, nullable=True, default=0, server_default="0"
-    )
-    validator_tasks_validated = db.Column(
-        db.Integer, nullable=True, default=0, server_default="0"
-    )
 
     # Payment request status
     requesting_payment = db.Column(
@@ -153,13 +118,6 @@ class User(ModelWithSoftDeleteAndCRUD, SurrogatePK):
         db.Boolean, nullable=False, default=False, server_default="false"
     )
 
-    # Overtime placeholder columns (added 2026-05-12 ahead of payments-v1
-    # rollout so we don't have to migrate again once overtime is actually
-    # used). Nullable; threshold defaults to 40 (US standard) when set.
-    overtime_rate = db.Column(db.Numeric(10, 2), nullable=True, default=None)
-    overtime_threshold_hours = db.Column(
-        db.Integer, nullable=True, default=None
-    )
     # Compensation model (added 2026-05-18). NULL = legacy/unspecified →
     # resolver treats as per_task (core). Active hourly rate from
     # user_hourly_rates table determines whether a user is hourly.
@@ -345,109 +303,6 @@ class ValidatorTaskAction(CRUDMixin, db.Model):
 
     def __repr__(self):
         return f"<ValidatorTaskAction {self.action_type} by {self.validator_id} on Task {self.task_id}>"
-
-
-class Checklist(ModelWithSoftDeleteAndCRUD, SurrogatePK, db.Model):
-    """Checklist template model."""
-
-    __tablename__ = "checklists"
-
-    id = db.Column(db.BigInteger, primary_key=True, nullable=False)
-    name = db.Column(db.String(255), nullable=True)
-    author = db.Column(db.String(200), nullable=True)
-    description = db.Column(db.Text, nullable=True)
-    due_date = Column(DateTime, nullable=True)
-    org_id = db.Column(db.String(255), nullable=True)
-
-    # Rates
-    total_payout = db.Column(db.Float, nullable=True, default=0)
-    validation_rate = db.Column(db.Float, nullable=True, default=100)
-    completion_rate = db.Column(db.Float, nullable=True, default=100)
-
-    # Metadata
-    difficulty = db.Column(db.String(50), nullable=True, default="Intermediate")
-    visibility = db.Column(db.Boolean, nullable=True, server_default="False")
-    active_status = db.Column(db.Boolean, nullable=True, server_default="False")
-    completed = db.Column(db.Boolean, nullable=True, server_default="False")
-    confirmed = db.Column(db.Boolean, nullable=True, server_default="False")
-
-
-class ChecklistItem(ModelWithSoftDeleteAndCRUD, SurrogatePK, db.Model):
-    """Individual item within a checklist."""
-
-    __tablename__ = "checklist_item"
-
-    id = db.Column(db.BigInteger, primary_key=True, nullable=False)
-    checklist_id = db.Column(db.BigInteger, index=True)
-    item_number = db.Column(db.Integer)
-    item_action = db.Column(db.Text)
-    item_link = db.Column(db.String(500))
-
-
-class ChecklistComment(ModelWithSoftDeleteAndCRUD, SurrogatePK, db.Model):
-    """Comment on a checklist."""
-
-    __tablename__ = "checklist_comment"
-
-    id = db.Column(db.BigInteger, primary_key=True, nullable=False)
-    checklist_id = db.Column(db.BigInteger, index=True)
-    comment = db.Column(db.Text)
-    author = db.Column(db.String(200))
-    role = db.Column(db.String(50))
-    date = Column(DateTime, default=func.now())
-
-
-class UserChecklist(ModelWithSoftDeleteAndCRUD, SurrogatePK, db.Model):
-    """User's instance of a checklist."""
-
-    __tablename__ = "user_checklists"
-
-    id = db.Column(db.BigInteger, primary_key=True, nullable=False)
-    user_id = db.Column(db.String(255), index=True)  # Changed to String for Auth0
-    checklist_id = db.Column(db.BigInteger, index=True)
-    date_created = Column(DateTime, default=func.now())
-
-    # Copied from template
-    name = db.Column(db.String(255), nullable=True)
-    author = db.Column(db.String(200), nullable=True)
-    description = db.Column(db.Text, nullable=True)
-    due_date = Column(DateTime, nullable=True)
-    org_id = db.Column(db.String(255), nullable=True)
-
-    # Rates
-    total_payout = db.Column(db.Float, nullable=True, default=0)
-    validation_rate = db.Column(db.Float, nullable=True, default=100)
-    completion_rate = db.Column(db.Float, nullable=True, default=100)
-
-    # Metadata
-    difficulty = db.Column(db.String(50), nullable=True, default="Intermediate")
-    visibility = db.Column(db.Boolean, nullable=True, server_default="False")
-    active_status = db.Column(db.Boolean, nullable=True, server_default="False")
-    completed = db.Column(db.Boolean, nullable=True, server_default="False")
-    confirmed = db.Column(db.Boolean, nullable=True, server_default="False")
-
-    # Timestamps
-    last_completion_date = Column(DateTime, nullable=True)
-    last_confirmation_date = Column(DateTime, nullable=True)
-    final_completion_date = Column(DateTime, nullable=True)
-    final_confirmation_date = Column(DateTime, nullable=True)
-
-
-class UserChecklistItem(ModelWithSoftDeleteAndCRUD, SurrogatePK, db.Model):
-    """User's instance of a checklist item."""
-
-    __tablename__ = "user_checklist_item"
-
-    id = db.Column(db.BigInteger, primary_key=True, nullable=False)
-    user_id = db.Column(db.String(255), index=True)  # Changed to String for Auth0
-    checklist_id = db.Column(db.BigInteger, index=True)
-    item_number = db.Column(db.Integer)
-    item_action = db.Column(db.Text)
-    item_link = db.Column(db.String(500))
-    completed = db.Column(db.Boolean, default=False)
-    confirmed = db.Column(db.Boolean, default=False)
-    completion_date = Column(DateTime, nullable=True)
-    confirmation_date = Column(DateTime, nullable=True)
 
 
 class Training(ModelWithSoftDeleteAndCRUD, SurrogatePK, db.Model):
@@ -704,25 +559,6 @@ class TeamTraining(CRUDMixin, SurrogatePK, db.Model):
     )
 
 
-class TeamChecklist(CRUDMixin, SurrogatePK, db.Model):
-    """Association between teams and checklists."""
-
-    __tablename__ = "team_checklists"
-
-    team_id = db.Column(
-        db.Integer,
-        db.ForeignKey("teams.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    checklist_id = db.Column(
-        db.BigInteger,
-        db.ForeignKey("checklists.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-
-
 class Region(CRUDMixin, SurrogatePK, db.Model):
     """Geographic region grouping (e.g., Latin America, East Africa)."""
 
@@ -799,25 +635,6 @@ class TrainingCountry(CRUDMixin, SurrogatePK, db.Model):
     training_id = db.Column(
         db.Integer,
         db.ForeignKey("training.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    country_id = db.Column(
-        db.Integer,
-        db.ForeignKey("countries.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-
-
-class ChecklistCountry(CRUDMixin, SurrogatePK, db.Model):
-    """Association between checklists and countries for location-based visibility."""
-
-    __tablename__ = "checklist_countries"
-
-    checklist_id = db.Column(
-        db.BigInteger,
-        db.ForeignKey("checklists.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

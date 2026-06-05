@@ -141,8 +141,7 @@ class PaymentTxnService:
         balances = PaymentBalanceService.user_balances(user)
         pending_balance = round(
             (balances.get("mapping_payable_total") or 0)
-            + (balances.get("validation_payable_total") or 0)
-            + (user.checklist_payable_total or 0),
+            + (balances.get("validation_payable_total") or 0),
             2,
         )
 

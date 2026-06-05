@@ -1434,7 +1434,7 @@ export function AdminUsers() {
           <p className="text-muted-foreground">
             This will permanently delete ALL users in the organization except
             your own admin account. All related data (task assignments,
-            checklists, trainings, payments) will also be deleted.
+            trainings, payments) will also be deleted.
           </p>
           <p className="text-red-600 font-semibold">
             This action cannot be undone!

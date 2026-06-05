@@ -731,30 +731,6 @@ export function MapperDashboard({ isValidator = false }: Props) {
               </div>
             </Card>
           ))}
-          {!isValidator && (
-            <Card style={{ padding: 0 }}>
-              <div style={{ padding: "10px 14px", position: "relative" }}>
-                <div style={{ position: "absolute", top: 8, right: 10 }}>
-                  <StatCardLink
-                    href="/checklists"
-                    label="View your checklists"
-                  />
-                </div>
-                <p style={{ fontSize: 11, color: "#6b7280", marginBottom: 2 }}>
-                  Checklist Earnings
-                </p>
-                {payableLoading ? (
-                  <Skeleton className="h-6 w-20" />
-                ) : (
-                  <div
-                    style={{ fontSize: 18, fontWeight: 700, color: "#9333ea" }}
-                  >
-                    <Val>{formatCurrency(payable?.checklist_earnings)}</Val>
-                  </div>
-                )}
-              </div>
-            </Card>
-          )}
           <Card style={{ padding: 0 }}>
             <div style={{ padding: "10px 14px", position: "relative" }}>
               <div style={{ position: "absolute", top: 8, right: 10 }}>
@@ -1006,15 +982,7 @@ export function MapperDashboard({ isValidator = false }: Props) {
                   Payment History
                 </Link>
               )}
-              {isValidator ? (
-                <Link
-                  href="/checklists"
-                  className="inline-flex items-center rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors"
-                  title="View your checklists"
-                >
-                  Checklists
-                </Link>
-              ) : (
+              {!isValidator && (
                 <Link
                   href="/training"
                   className="inline-flex items-center rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors"

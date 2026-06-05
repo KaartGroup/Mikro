@@ -64,7 +64,6 @@ export interface User {
   assigned_projects?: number;
   total_tasks_mapped?: number;
   total_tasks_validated?: number;
-  total_tasks_invalidated?: number;
   awaiting_payment?: number;
   total_payout?: number;
   org_id?: string;
@@ -196,7 +195,6 @@ export interface TransactionsResponse {
 
 export interface UserPayableResponse {
   message: string;
-  checklist_earnings: number;
   mapping_earnings: number;
   validation_earnings: number;
   payable_total: number;
@@ -385,7 +383,7 @@ export interface TimeEntry {
   retainedParticipants?: number | null;
   newParticipants?: number | null;
   taskName?: string | null;
-  taskRefType?: string | null; // "project" | "training" | "checklist" | null
+  taskRefType?: string | null; // "project" | "training" | null
   taskRefId?: number | null;
   clockIn: string | null;
   clockOut: string | null;
@@ -515,13 +513,9 @@ export interface UserProfileData {
   validator_tasks_invalidated: number;
   mapping_payable_total: number;
   validation_payable_total: number;
-  checklist_payable_total: number;
   payable_total: number;
   requested_total: number;
   paid_total: number;
-  total_checklists_completed: number;
-  validator_total_checklists_confirmed: number;
-  mapper_level: number;
   mapper_points: number;
   validator_points: number;
   projects: UserProjectBreakdown[];

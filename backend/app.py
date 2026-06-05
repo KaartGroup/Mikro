@@ -117,7 +117,6 @@ def _register_views(app):
         TransactionAPI,
         TaskAPI,
         TrainingAPI,
-        ChecklistAPI,
         OSMAuthAPI,
         TimeTrackingAPI,
         TeamAPI,
@@ -154,11 +153,6 @@ def _register_views(app):
 
     # Training management
     app.add_url_rule("/api/training/<path>", view_func=TrainingAPI.as_view("training"))
-
-    # Checklist management
-    app.add_url_rule(
-        "/api/checklist/<path>", view_func=ChecklistAPI.as_view("checklist")
-    )
 
     # OSM OAuth management
     app.add_url_rule("/api/osm/<path>", view_func=OSMAuthAPI.as_view("osm"))

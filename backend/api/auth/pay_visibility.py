@@ -48,7 +48,6 @@ PAY_FIELDS: frozenset[str] = frozenset({
     "payable_total",
     "mapping_payable_total",
     "validation_payable_total",
-    "checklist_payable_total",
     "requested_total",
     "paid_total",
     "total_payout",             # alias used in fetch_user_details response
@@ -56,7 +55,6 @@ PAY_FIELDS: frozenset[str] = frozenset({
     "validated_tasks_amounts",  # computed earnings-like field
     "mapping_earnings",
     "validation_earnings",
-    "checklist_earnings",
     "earnings",
     "amount_due",
     "amount_paid",

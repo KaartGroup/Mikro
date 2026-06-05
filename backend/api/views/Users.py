@@ -32,14 +32,11 @@ from ..database import (
     Task,
     TimeEntry,
     UserTasks,
-    UserChecklist,
-    UserChecklistItem,
     TrainingCompleted,
     Country,
     Region,
     UserCountry,
     Team,
-    Checklist,
     Training,
     PayRequests,
     Payments,
@@ -657,6 +654,15 @@ class UserAPI(MethodView):
         # Batch-compute live task stats using SQL aggregation (fast path for list view)
         batch_stats = get_batch_user_task_stats_fast(users_in_org, g.user.org_id)
         batch_pay = PaymentBalanceService(g.user.org_id).batch_balances_fast(users_in_org)
+        # Batch project-assignment counts from ProjectUser (the authoritative table)
+        _user_ids = [u.id for u in users_in_org]
+        _proj_counts_q = (
+            db.session.query(ProjectUser.user_id, func.count(ProjectUser.project_id))
+            .filter(ProjectUser.user_id.in_(_user_ids))
+            .group_by(ProjectUser.user_id)
+            .all()
+        )
+        _proj_count_map = {uid: cnt for uid, cnt in _proj_counts_q}
         # Bulk-fetch active hourly rates from history table
         _rate_svc = HourlyRateHistoryService()
         _today = date.today()
@@ -667,10 +673,7 @@ class UserAPI(MethodView):
         # Loop over each user and extract relevant information
         for user in users_in_org:
             full_name = _format_user_name(user)
-            if user.assigned_projects is not None:
-                assigned_projects_count = len(user.assigned_projects)
-            else:
-                assigned_projects_count = 0
+            assigned_projects_count = _proj_count_map.get(user.id, 0)
 
             # Resolve country and region names
             country_name, region_name = _resolve_country_region(
@@ -750,6 +753,14 @@ class UserAPI(MethodView):
         unassigned_users = [u for u in users_in_org if u.id not in assigned_user_ids]
         # Batch-compute live task stats for all users (avoids N+1 queries)
         batch_stats = get_batch_user_task_stats(users_in_org, g.user.org_id)
+        _proj_cnts = {
+            uid: cnt for uid, cnt in (
+                db.session.query(ProjectUser.user_id, func.count(ProjectUser.project_id))
+                .filter(ProjectUser.user_id.in_([u.id for u in users_in_org]))
+                .group_by(ProjectUser.user_id)
+                .all()
+            )
+        }
 
         # Initialize an empty list to store information about the users
         org_users = []
@@ -760,10 +771,7 @@ class UserAPI(MethodView):
                 assigned = "Yes"
             if user in unassigned_users:
                 assigned = "No"
-            if user.assigned_projects is not None:
-                assigned_projects_count = len(user.assigned_projects)
-            else:
-                assigned_projects_count = 0
+            assigned_projects_count = _proj_cnts.get(user.id, 0)
             _ustats = batch_stats.get(user.id, {})
             # Append the user information to the org_users list
             org_users.append(
@@ -1170,7 +1178,6 @@ class UserAPI(MethodView):
                 Task,
                 TimeEntry,
                 Team,
-                Checklist,
                 Training,
                 PayRequests,
                 Payments,
@@ -1484,11 +1491,6 @@ class UserAPI(MethodView):
     def reset_test_user_stats(self):
         response = {}
         g.user.update(
-            total_tasks_mapped=0,
-            total_tasks_validated=0,
-            total_tasks_invalidated=0,
-            validator_tasks_validated=0,
-            validator_tasks_invalidated=0,
             payable_total=0,
             validation_payable_total=0,
             mapping_payable_total=0,
@@ -1525,18 +1527,6 @@ class UserAPI(MethodView):
             project_users = ProjectUser.query.filter_by(user_id=user_id).all()
             for pu in project_users:
                 pu.delete(soft=False)
-
-            # Delete user's checklist items
-            user_checklist_items = UserChecklistItem.query.filter_by(
-                user_id=user_id
-            ).all()
-            for uci in user_checklist_items:
-                uci.delete(soft=False)
-
-            # Delete user's checklists
-            user_checklists = UserChecklist.query.filter_by(user_id=user_id).all()
-            for uc in user_checklists:
-                uc.delete(soft=False)
 
             # Delete user's training completions
             training_completions = TrainingCompleted.query.filter_by(
@@ -1883,15 +1873,10 @@ class UserAPI(MethodView):
                 # Payment stats
                 "mapping_payable_total": _pay["mapping_payable_total"],
                 "validation_payable_total": _pay["validation_payable_total"],
-                "checklist_payable_total": round(user.checklist_payable_total or 0, 2),
                 "payable_total": round(user.payable_total or 0, 2),
                 "requested_total": round(user.requested_total or 0, 2),
                 "paid_total": round(user.paid_total or 0, 2),
                 # Other
-                "total_checklists_completed": user.total_checklists_completed or 0,
-                "validator_total_checklists_confirmed": user.validator_total_checklists_confirmed
-                or 0,
-                "mapper_level": user.mapper_level or 0,
                 "mapper_points": user.mapper_points or 0,
                 "validator_points": user.validator_points or 0,
                 # Most recent name-change audit row, if any — exposes the

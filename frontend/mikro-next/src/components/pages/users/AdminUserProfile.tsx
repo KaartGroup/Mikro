@@ -996,11 +996,6 @@ export function AdminUserProfile() {
                       >
                         {roleLabel(user.role)}
                       </span>
-                      {user.mapper_level > 0 && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Level {user.mapper_level}
-                        </span>
-                      )}
                       {user.is_active === false && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
                           Deactivated
@@ -1334,14 +1329,6 @@ export function AdminUserProfile() {
                 label="Invalidated by User"
                 value={formatNumber(user.validator_tasks_invalidated)}
               />
-              <StatCard
-                label="Checklists Completed"
-                value={formatNumber(user.total_checklists_completed)}
-              />
-              <StatCard
-                label="Checklists Confirmed"
-                value={formatNumber(user.validator_total_checklists_confirmed)}
-              />
             </div>
           )}
 
@@ -1362,12 +1349,6 @@ export function AdminUserProfile() {
                   <p className="text-sm text-muted-foreground">Validation</p>
                   <p className="text-lg font-semibold">
                     <Val>{formatCurrency(user.validation_payable_total)}</Val>
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground">Checklists</p>
-                  <p className="text-lg font-semibold">
-                    <Val>{formatCurrency(user.checklist_payable_total)}</Val>
                   </p>
                 </div>
                 <div className="text-center">

@@ -6,7 +6,6 @@ from .Projects import ProjectAPI
 from .Transactions import TransactionAPI
 from .Tasks import TaskAPI
 from .Training import TrainingAPI
-from .Checklists import ChecklistAPI
 from .OSMAuth import OSMAuthAPI
 from .TimeTracking import TimeTrackingAPI
 from .Teams import TeamAPI
@@ -30,7 +29,6 @@ __all__ = {
     "TransactionAPI",
     "TaskAPI",
     "TrainingAPI",
-    "ChecklistAPI",
     "OSMAuthAPI",
     "TimeTrackingAPI",
     "TeamAPI",

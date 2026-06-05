@@ -15,7 +15,7 @@ from ..auth import (
     managed_team_ids_for,
     team_admin_can_access_team,
 )
-from ..database import Team, TeamUser, TeamLead, User, ProjectTeam, ProjectUser, Project, TeamTraining, Training, TeamChecklist, Checklist, Task
+from ..database import Team, TeamUser, TeamLead, User, ProjectTeam, ProjectUser, Project, TeamTraining, Training, Task
 from ..database.common import db
 from ..filters import resolve_filtered_user_ids
 from ..stats import get_batch_user_task_stats
@@ -165,12 +165,6 @@ class TeamAPI(MethodView):
             return self.assign_training_to_team()
         elif path == "unassign_training_from_team":
             return self.unassign_training_from_team()
-        elif path == "fetch_team_checklists":
-            return self.fetch_team_checklists()
-        elif path == "assign_checklist_to_team":
-            return self.assign_checklist_to_team()
-        elif path == "unassign_checklist_from_team":
-            return self.unassign_checklist_from_team()
         elif path == "fetch_team_profile":
             return self.fetch_team_profile()
         elif path == "fetch_user_teams":
@@ -672,95 +666,6 @@ class TeamAPI(MethodView):
         return {"message": "Training removed from team", "status": 200}
 
     @requires_team_admin_or_above
-    def fetch_team_checklists(self):
-        """Get all org checklists with their assignment status for a team."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        team_id = request.json.get("teamId")
-        if not team_id:
-            return {"message": "teamId required", "status": 400}
-
-        team = Team.query.filter_by(id=team_id, org_id=g.user.org_id).first()
-        if not team:
-            return {"message": f"Team {team_id} not found", "status": 400}
-
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
-            return {"message": "Not in your managed teams", "status": 403}
-
-        assigned_ids = {
-            tc.checklist_id
-            for tc in TeamChecklist.query.filter_by(team_id=team_id).all()
-        }
-
-        org_checklists = Checklist.query.filter_by(org_id=g.user.org_id).all()
-
-        checklists = []
-        for c in org_checklists:
-            checklists.append({
-                "id": c.id,
-                "name": c.name,
-                "description": c.description,
-                "difficulty": c.difficulty,
-                "active_status": c.active_status,
-                "assigned": "Assigned" if c.id in assigned_ids else "Not Assigned",
-            })
-
-        return {"checklists": checklists, "status": 200}
-
-    @requires_team_admin_or_above
-    def assign_checklist_to_team(self):
-        """Assign a checklist to a team (idempotent)."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        team_id = request.json.get("teamId")
-        checklist_id = request.json.get("checklistId")
-        if not team_id:
-            return {"message": "teamId required", "status": 400}
-        if not checklist_id:
-            return {"message": "checklistId required", "status": 400}
-
-        team = Team.query.filter_by(id=team_id, org_id=g.user.org_id).first()
-        if not team:
-            return {"message": f"Team {team_id} not found", "status": 400}
-
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
-            return {"message": "Not in your managed teams", "status": 403}
-
-        existing = TeamChecklist.query.filter_by(
-            team_id=team_id, checklist_id=checklist_id
-        ).first()
-        if not existing:
-            TeamChecklist.create(team_id=team_id, checklist_id=checklist_id)
-
-        return {"message": "Checklist assigned to team", "status": 200}
-
-    @requires_team_admin_or_above
-    def unassign_checklist_from_team(self):
-        """Remove a checklist from a team."""
-        if not g.user:
-            return {"message": "Missing user info", "status": 304}
-
-        team_id = request.json.get("teamId")
-        checklist_id = request.json.get("checklistId")
-        if not team_id:
-            return {"message": "teamId required", "status": 400}
-        if not checklist_id:
-            return {"message": "checklistId required", "status": 400}
-
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
-            return {"message": "Not in your managed teams", "status": 403}
-
-        relation = TeamChecklist.query.filter_by(
-            team_id=team_id, checklist_id=checklist_id
-        ).first()
-        if relation:
-            relation.delete(soft=False)
-
-        return {"message": "Checklist removed from team", "status": 200}
-
-    @requires_team_admin_or_above
     def fetch_team_profile(self):
         """Fetch aggregated profile data for a team (admin only)."""
         if not g.user:
@@ -790,10 +695,8 @@ class TeamAPI(MethodView):
             "total_tasks_mapped": 0,
             "total_tasks_validated": 0,
             "total_tasks_invalidated": 0,
-            "total_checklists_completed": 0,
             "mapping_payable_total": 0.0,
             "validation_payable_total": 0.0,
-            "checklist_payable_total": 0.0,
             "payable_total": 0.0,
             "requested_total": 0.0,
             "paid_total": 0.0,
@@ -814,10 +717,8 @@ class TeamAPI(MethodView):
             agg["total_tasks_mapped"] += _ustats.get("total_tasks_mapped", 0)
             agg["total_tasks_validated"] += _ustats.get("total_tasks_validated", 0)
             agg["total_tasks_invalidated"] += _ustats.get("total_tasks_invalidated", 0)
-            agg["total_checklists_completed"] += u.total_checklists_completed or 0
             agg["mapping_payable_total"] += _upay.get("mapping_payable_total", 0)
             agg["validation_payable_total"] += _upay.get("validation_payable_total", 0)
-            agg["checklist_payable_total"] += u.checklist_payable_total or 0
             agg["payable_total"] += u.payable_total or 0
             agg["requested_total"] += u.requested_total or 0
             agg["paid_total"] += u.paid_total or 0
@@ -836,8 +737,7 @@ class TeamAPI(MethodView):
 
         # Round aggregated financial values
         for key in ["mapping_payable_total", "validation_payable_total",
-                     "checklist_payable_total", "payable_total",
-                     "requested_total", "paid_total"]:
+                     "payable_total", "requested_total", "paid_total"]:
             agg[key] = round(agg[key], 2)
 
         # Get projects via ProjectTeam
@@ -883,19 +783,6 @@ class TeamAPI(MethodView):
                     "point_value": t.point_value,
                 })
 
-        # Get assigned checklists
-        team_checklists = TeamChecklist.query.filter_by(team_id=team_id).all()
-        checklists_data = []
-        for tc in team_checklists:
-            c = Checklist.query.get(tc.checklist_id)
-            if c:
-                checklists_data.append({
-                    "id": c.id,
-                    "name": c.name,
-                    "difficulty": c.difficulty,
-                    "active_status": c.active_status,
-                })
-
         return {
             "team": {
                 "id": team.id,
@@ -909,7 +796,6 @@ class TeamAPI(MethodView):
             "aggregated_stats": agg,
             "projects": projects_data,
             "assigned_trainings": trainings_data,
-            "assigned_checklists": checklists_data,
             "status": 200,
         }
 
@@ -1013,7 +899,6 @@ class TeamAPI(MethodView):
             "total_tasks_mapped": 0,
             "total_tasks_validated": 0,
             "total_tasks_invalidated": 0,
-            "total_checklists_completed": 0,
         }
 
         members = [User.query.get(uid) for uid in member_ids]
@@ -1029,7 +914,6 @@ class TeamAPI(MethodView):
             agg["total_tasks_mapped"] += _ustats.get("total_tasks_mapped", 0)
             agg["total_tasks_validated"] += _ustats.get("total_tasks_validated", 0)
             agg["total_tasks_invalidated"] += _ustats.get("total_tasks_invalidated", 0)
-            agg["total_checklists_completed"] += u.total_checklists_completed or 0
 
             members_data.append({
                 "id": u.id,
@@ -1078,19 +962,6 @@ class TeamAPI(MethodView):
                     "point_value": t.point_value,
                 })
 
-        # Get assigned checklists
-        team_checklists = TeamChecklist.query.filter_by(team_id=team_id).all()
-        checklists_data = []
-        for tc in team_checklists:
-            c = Checklist.query.get(tc.checklist_id)
-            if c:
-                checklists_data.append({
-                    "id": c.id,
-                    "name": c.name,
-                    "difficulty": c.difficulty,
-                    "active_status": c.active_status,
-                })
-
         return {
             "team": {
                 "id": team.id,
@@ -1104,6 +975,5 @@ class TeamAPI(MethodView):
             "aggregated_stats": agg,
             "projects": projects_data,
             "assigned_trainings": trainings_data,
-            "assigned_checklists": checklists_data,
             "status": 200,
         }

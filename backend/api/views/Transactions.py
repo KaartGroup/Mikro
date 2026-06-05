@@ -400,15 +400,9 @@ class TransactionAPI(MethodView):
         _pay = PaymentBalanceService.user_balances(target_user)
         mapping_payable_total = _pay["mapping_payable_total"]
         validation_payable_total = _pay["validation_payable_total"]
-        checklist_payable_total = target_user.checklist_payable_total
-        payable_total = (
-            mapping_payable_total
-            + validation_payable_total
-            + checklist_payable_total
-        )
+        payable_total = mapping_payable_total + validation_payable_total
         return {
             "message": "payable total fetched",
-            "checklist_earnings": checklist_payable_total,
             "mapping_earnings": mapping_payable_total,
             "validation_earnings": validation_payable_total,
             "payable_total": payable_total,
@@ -658,7 +652,6 @@ class TransactionAPI(MethodView):
                 payable_total=0,
                 mapping_payable_total=0,
                 validation_payable_total=0,
-                checklist_payable_total=0,
                 requested_total=0,
                 paid_total=0,
                 requesting_payment=False,

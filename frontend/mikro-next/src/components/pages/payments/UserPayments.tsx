@@ -328,18 +328,6 @@ export function UserPayments() {
             <Val>{formatCurrency(payable?.validation_earnings)}</Val>
           </p>
         </div>
-        <div
-          style={{
-            padding: "12px 16px",
-            backgroundColor: "rgba(168, 85, 247, 0.1)",
-            borderRadius: 8,
-          }}
-        >
-          <p style={{ fontSize: 12, color: "#7c3aed" }}>Checklist Earnings</p>
-          <p style={{ fontSize: 20, fontWeight: 700, color: "#6d28d9" }}>
-            <Val>{formatCurrency(payable?.checklist_earnings)}</Val>
-          </p>
-        </div>
       </div>
 
       {/* Tabs for Requests, History, and Reimbursements. Controlled
@@ -578,12 +566,6 @@ export function UserPayments() {
                 <span>Validation:</span>
                 <span className="font-medium">
                   <Val>{formatCurrency(payable?.validation_earnings)}</Val>
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Checklist:</span>
-                <span className="font-medium">
-                  <Val>{formatCurrency(payable?.checklist_earnings)}</Val>
                 </span>
               </div>
               <div className="border-t border-border pt-1 mt-1 flex justify-between font-bold">

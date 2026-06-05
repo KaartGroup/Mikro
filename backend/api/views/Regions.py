@@ -17,7 +17,6 @@ from ..database import (
     UserCountry,
     ProjectCountry,
     TrainingCountry,
-    ChecklistCountry,
     User,
     Team,
     TeamUser,
@@ -67,12 +66,6 @@ class RegionAPI(MethodView):
             return self.unassign_training_location()
         elif path == "fetch_training_locations":
             return self.fetch_training_locations()
-        elif path == "assign_checklist_locations":
-            return self.assign_checklist_locations()
-        elif path == "unassign_checklist_location":
-            return self.unassign_checklist_location()
-        elif path == "fetch_checklist_locations":
-            return self.fetch_checklist_locations()
         # Seed / Purge
         elif path == "seed_defaults":
             return self.seed_defaults()
@@ -559,29 +552,6 @@ class RegionAPI(MethodView):
             return {"message": "resourceId is required", "status": 400}
         return self._fetch_locations(TrainingCountry, "training_id", resource_id)
 
-    # ── Checklist locations ──
-
-    @requires_team_admin_or_above
-    def assign_checklist_locations(self):
-        resource_id = request.json.get("resourceId")
-        if not resource_id:
-            return {"message": "resourceId is required", "status": 400}
-        return self._assign_locations(ChecklistCountry, "checklist_id", resource_id)
-
-    @requires_team_admin_or_above
-    def unassign_checklist_location(self):
-        resource_id = request.json.get("resourceId")
-        if not resource_id:
-            return {"message": "resourceId is required", "status": 400}
-        return self._unassign_location(ChecklistCountry, "checklist_id", resource_id)
-
-    @requires_team_admin_or_above
-    def fetch_checklist_locations(self):
-        resource_id = request.json.get("resourceId")
-        if not resource_id:
-            return {"message": "resourceId is required", "status": 400}
-        return self._fetch_locations(ChecklistCountry, "checklist_id", resource_id)
-
     # ─── Public Endpoints (no admin required) ──────────────
 
     def list_countries(self):
@@ -925,7 +895,6 @@ class RegionAPI(MethodView):
         # Delete all resource-country assignments
         pc_deleted = ProjectCountry.query.delete()
         tc_deleted = TrainingCountry.query.delete()
-        cc_deleted = ChecklistCountry.query.delete()
 
         # Delete all countries
         countries_deleted = Country.query.filter_by(org_id=org_id).delete()
@@ -941,5 +910,5 @@ class RegionAPI(MethodView):
             "regions_deleted": regions_deleted,
             "countries_deleted": countries_deleted,
             "users_reset": users_reset,
-            "assignments_deleted": uc_deleted + pc_deleted + tc_deleted + cc_deleted,
+            "assignments_deleted": uc_deleted + pc_deleted + tc_deleted,
         }
