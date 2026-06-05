@@ -3,7 +3,7 @@
 PaymentCycleService — payroll cycles, adjustments, statuses, and config.
 
 Handles all computation and database operations for the Payments v1 page:
-cycle row building, hourly/salaried/per-task payable calculation, adjustment
+cycle row building, hourly/per-task payable calculation, adjustment
 management, per-user cycle status, and payroll config.
 
 The Flask view delegates to this class; the view retains HTTP request parsing,
