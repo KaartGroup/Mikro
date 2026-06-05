@@ -33,6 +33,24 @@ class BaseConfig:
     # Auth0 default user role ID (for org invitations)
     AUTH0_USER_ROLE_ID = os.environ.get("AUTH0_USER_ROLE_ID")
 
+    # Auth0 admin role ID — assigned to the first admin of a newly provisioned
+    # external org. If unset, the first admin is added without an org role
+    # (they default to a regular user) — set this so provisioning seats them
+    # as an admin.
+    AUTH0_ADMIN_ROLE_ID = os.environ.get("AUTH0_ADMIN_ROLE_ID")
+
+    # Auth0 role IDs for the remaining Mikro roles — used by role-based invites
+    # to assign the chosen role on the invitation. super_admin has no role id
+    # (not invitable via the form).
+    AUTH0_TEAM_ADMIN_ROLE_ID = os.environ.get("AUTH0_TEAM_ADMIN_ROLE_ID")
+    AUTH0_VALIDATOR_ROLE_ID = os.environ.get("AUTH0_VALIDATOR_ROLE_ID")
+
+    # Max number of Auth0 Organizations the tenant's plan allows. Kaart is on a
+    # B2C plan (hard cap of 10 orgs incl. Kaart itself). Single source of truth
+    # for the provisioning capacity guard — bump the env var (or remove the cap)
+    # if/when the Auth0 plan is upgraded to B2B (unlimited).
+    AUTH0_ORG_LIMIT = int(os.environ.get("AUTH0_ORG_LIMIT", "10"))
+
     # Database Configuration
     # Supports both DATABASE_URL (DigitalOcean) and individual vars
     DB_USERNAME = os.environ.get("POSTGRES_USER")

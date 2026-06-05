@@ -56,6 +56,8 @@ export function AdminUsers() {
   const [sortKey, setSortKey] = useState<string>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("user");
+  const [inviteTeamIds, setInviteTeamIds] = useState<number[]>([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [csvUsers, setCsvUsers] = useState<CsvUser[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
@@ -91,6 +93,21 @@ export function AdminUsers() {
   const isTeamAdmin = viewerRole === "team_admin";
   const canEditRole = isOrgAdminOrAbove(viewerRole); // org_admin / super_admin
   const canImportOrPurge = isOrgAdminOrAbove(viewerRole);
+
+  // Roles this viewer may grant via invite — at or below their own level.
+  // team_admin can only invite Mapper/Validator (into teams they lead);
+  // org/super admin can invite up to Org Admin. super_admin is never offered.
+  const inviteRoleOptions = isTeamAdmin
+    ? [
+        { value: "user", label: "Mapper" },
+        { value: "validator", label: "Validator" },
+      ]
+    : [
+        { value: "user", label: "Mapper" },
+        { value: "validator", label: "Validator" },
+        { value: "team_admin", label: "Team Admin" },
+        { value: "admin", label: "Org Admin" },
+      ];
   const [orgUserSearchEmail, setOrgUserSearchEmail] = useState("");
   const [orgUserSearchResults, setOrgUserSearchResults] = useState<User[]>([]);
   const [orgUserSearching, setOrgUserSearching] = useState(false);
@@ -285,18 +302,29 @@ export function AdminUsers() {
       toast.error("Please enter an email address");
       return;
     }
+    // Team admins must drop the invitee into at least one team they lead.
+    if (isTeamAdmin && inviteTeamIds.length === 0) {
+      toast.error("Select at least one team");
+      return;
+    }
     setIsSaving(true);
     try {
       const response = await fetch("/backend/user/invite_user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail }),
+        body: JSON.stringify({
+          email: inviteEmail,
+          role: inviteRole,
+          targetTeamIds: inviteTeamIds,
+        }),
       });
       const data = await response.json();
       if (response.ok && data.status === 200) {
         toast.success(data.message || "Invitation sent successfully");
         setShowAddModal(false);
         setInviteEmail("");
+        setInviteRole("user");
+        setInviteTeamIds([]);
         fetchUsers();
       } else {
         toast.error(data.message || "Failed to send invitation");
@@ -958,6 +986,8 @@ export function AdminUsers() {
         onClose={() => {
           setShowAddModal(false);
           setInviteEmail("");
+          setInviteRole("user");
+          setInviteTeamIds([]);
         }}
         title="Invite User"
       >
@@ -974,6 +1004,48 @@ export function AdminUsers() {
               onChange={(e) => setInviteEmail(e.target.value)}
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Role</label>
+            <select
+              className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background"
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value)}
+            >
+              {inviteRoleOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {managedTeams.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {isTeamAdmin ? "Add to team(s)" : "Add to team(s) (optional)"}
+              </label>
+              <div className="max-h-40 overflow-y-auto border border-input rounded-lg p-2 space-y-1">
+                {managedTeams.map((t) => (
+                  <label
+                    key={t.id}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={inviteTeamIds.includes(t.id)}
+                      onChange={(e) =>
+                        setInviteTeamIds((prev) =>
+                          e.target.checked
+                            ? [...prev, t.id]
+                            : prev.filter((id) => id !== t.id),
+                        )
+                      }
+                    />
+                    {t.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground">
             The user will receive an email to set their password and complete
             registration.
@@ -988,6 +1060,8 @@ export function AdminUsers() {
               onClick={() => {
                 setShowAddModal(false);
                 setInviteEmail("");
+                setInviteRole("user");
+                setInviteTeamIds([]);
               }}
             >
               Cancel

@@ -9,6 +9,8 @@ export interface SyncResult {
   role: string;
   paymentsVisible: boolean;
   displayName: string;
+  /** Backend rejected this org (disabled/unknown) — caller routes to /wrong-org. */
+  orgRejected: boolean;
 }
 
 /**
@@ -42,12 +44,41 @@ export async function syncUserWithBackend(
         role: data.role || "user",
         paymentsVisible: data.micropayments_visible ?? false,
         displayName: data.name || "",
+        orgRejected: false,
       };
     }
+    // A 403 with reason "org_not_active" means this org is disabled/unknown —
+    // signal the caller to route to /wrong-org. ANY OTHER failure (500,
+    // network) must NOT lock users out, so it falls through to safe defaults.
+    if (response.status === 403) {
+      try {
+        const data = await response.json();
+        if (data?.reason === "org_not_active") {
+          return {
+            role: "user",
+            paymentsVisible: false,
+            displayName: "",
+            orgRejected: true,
+          };
+        }
+      } catch {
+        // Response wasn't JSON — fall through to safe defaults.
+      }
+    }
     console.error("Failed to sync user with backend:", response.status);
-    return { role: "user", paymentsVisible: false, displayName: "" };
+    return {
+      role: "user",
+      paymentsVisible: false,
+      displayName: "",
+      orgRejected: false,
+    };
   } catch (error) {
     console.error("Error syncing user with backend:", error);
-    return { role: "user", paymentsVisible: false, displayName: "" };
+    return {
+      role: "user",
+      paymentsVisible: false,
+      displayName: "",
+      orgRejected: false,
+    };
   }
 }
