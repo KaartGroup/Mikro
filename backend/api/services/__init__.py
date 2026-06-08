@@ -1,6 +1,7 @@
 from .payment_balance import PaymentBalanceService
 from .payment_cycle import PaymentCycleService
 from .payment_txn import PaymentTxnService
+from .project_service import ProjectService
 from .reimbursements import ReimbursementService
 from .time_entry import TimeEntryService
 from .hourly_payment import HourlyPaymentService
@@ -10,6 +11,7 @@ __all__ = [
     "PaymentBalanceService",
     "PaymentCycleService",
     "PaymentTxnService",
+    "ProjectService",
     "ReimbursementService",
     "TimeEntryService",
     "HourlyPaymentService",

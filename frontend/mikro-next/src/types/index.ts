@@ -108,14 +108,14 @@ export interface Project {
   max_payment?: number;
   payment_due?: number;
   total_payout?: number;
-  max_editors?: number;
-  max_validators?: number;
   total_editors?: number;
   total_validators?: number;
   visibility?: boolean;
   status?: boolean;
   payments_enabled?: boolean;
   difficulty?: "Easy" | "Medium" | "Hard";
+  community?: boolean;
+  priority?: "Low" | "Medium" | "High";
   completed?: boolean;
   // MR status breakdown: {status_code: count} for MR projects
   mr_status_breakdown?: Record<string, number>;

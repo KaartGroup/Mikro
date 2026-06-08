@@ -16,7 +16,8 @@ def run_mr_metadata_backfill(app, job):
     """
     from ...database import db, Project
     from ...views.MapRoulette import MapRouletteSync
-    from ...views.Projects import _strip_trailing_hashtags
+    from ...services.project_service import ProjectService
+    _strip_trailing_hashtags = ProjectService.strip_trailing_hashtags
 
     challenge_id = job.target_id
     max_retries = 3

@@ -196,8 +196,6 @@ class Project(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     payments_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default="true")
 
     # Capacity
-    max_editors = db.Column(db.Integer, nullable=True, default=5)
-    max_validators = db.Column(db.Integer, nullable=True, default=5)
     total_editors = db.Column(db.BigInteger, default=0)
     total_validators = db.Column(db.BigInteger, default=0)
 
@@ -210,6 +208,8 @@ class Project(ModelWithSoftDeleteAndCRUD, SurrogatePK):
 
     # Metadata
     difficulty = db.Column(db.String(50), nullable=True, default="Intermediate")
+    community = db.Column(db.Boolean, nullable=False, default=False, server_default="false")
+    priority = db.Column(db.String(50), nullable=True, default="Medium")
     visibility = db.Column(db.Boolean, nullable=True, server_default="False")
     status = db.Column(db.Boolean, nullable=True, server_default="False")
     completed = db.Column(db.Boolean, nullable=True, server_default="False")

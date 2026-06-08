@@ -23,6 +23,7 @@ from ..auth import (
 from ..filters import resolve_filtered_user_ids, get_user_country_ids, is_visible_by_location
 from ..stats import count_tasks_split_aware, get_project_stats, get_project_stats_from_tasks, get_batch_project_stats, get_user_task_stats, get_batch_project_stats_fast
 from ..services.payment_balance import PaymentBalanceService
+from ..services.project_service import ProjectService
 from .MapRoulette import MapRouletteSync
 from .TimeTracking import ACTIVITY_DISPLAY_MAP
 from ..database import (
@@ -45,109 +46,18 @@ from ..database import (
 )
 
 
-def _strip_trailing_hashtags(name):
-    """Return everything before the first ` #` in a project title.
-
-    MR titles routinely carry trailing hashtags (e.g. ``#Kaart``,
-    ``#Colombia``, ``#MR57669``) that don't always line up with the
-    actual project — whoever sets the MR challenge up picks them ad-hoc.
-    For Mikro's purposes the long name is the human-readable portion,
-    everything before the first space-hash boundary. Idempotent;
-    returns the input unchanged when no hashtags are present or when
-    the input is empty.
-    """
-    if not name:
-        return name
-    return re.split(r"\s+#", name, 1)[0].strip()
-
-
-def _auto_parse_project_name(name):
-    """Parse a project name to extract a short display name and country candidate.
-
-    Returns (short_name or None, country_name or None).
-    Country name is a *candidate* — caller must verify against the countries table.
-    """
-    if not name:
-        return None, None
-
-    short_name = None
-    country_name = None
-
-    # Pattern 1: MR naming convention
-    # "1_Philippines_2026-01-26_23-56-21_ConstructionCheck #Kaart 2026 #MR57669"
-    mr_match = re.match(
-        r"^\d+_([A-Za-z ]+)_\d{4}-\d{2}-\d{2}_[\d-]+_(\w+)\s*#",
-        name,
-    )
-    if mr_match:
-        country_name = mr_match.group(1).strip()
-        check_type = mr_match.group(2).strip()
-        readable_check = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", check_type)
-        short_name = f"{country_name} — {readable_check}"
-        return short_name, country_name
-
-    # Pattern 2: "PP - Location, Country. Date"
-    pp_match = re.match(
-        r"^PP\s*-\s*(.+?)\.?\s*"
-        r"(?:January|February|March|April|May|June|July|August|September|October|November|December)",
-        name,
-    )
-    if pp_match:
-        location = pp_match.group(1).strip().rstrip(".")
-        short_name = location
-        parts = location.split(",")
-        if len(parts) >= 2:
-            country_name = parts[-1].strip()
-        return short_name, country_name
-
-    # If the name is already short enough, don't generate a short_name
-    if len(name) <= 40:
-        return None, None
-
-    return short_name, country_name
-
-
-def _auto_assign_country(project_id, country_candidate):
-    """Look up country_candidate in the countries table (exact, case-insensitive).
-
-    If found, create a ProjectCountry link. Does nothing if no exact match or
-    if the link already exists.
-    """
-    if not country_candidate:
-        return
-    country_obj = Country.query.filter(
-        db.func.lower(Country.name) == country_candidate.lower()
-    ).first()
-    if not country_obj:
-        return
-    existing = ProjectCountry.query.filter_by(
-        project_id=project_id, country_id=country_obj.id
-    ).first()
-    if not existing:
-        ProjectCountry.create(project_id=project_id, country_id=country_obj.id)
-
 
 class ProjectAPI(MethodView):
     """Project management API endpoints."""
 
     def _get_tm4_base_url(self):
-        """Get TM4 API base URL from config."""
-        return current_app.config.get("TM4_API_URL", "https://tasks.kaart.com/api/v2")
+        return ProjectService.get_tm4_base_url()
 
     def _detect_source(self, url):
-        """Determine project source from URL pattern."""
-        if "maproulette" in url.lower():
-            return "mr"
-        return "tm4"
+        return ProjectService.detect_source(url)
 
     def _extract_mr_challenge_id(self, url):
-        """Extract challenge ID from MapRoulette URL."""
-        import re
-        m = re.match(r".*(?:challenges?|challenge)/(\d+)", url)
-        if m:
-            return int(m.group(1))
-        m = re.match(r"^.*\/(\d+)$", url)
-        return int(m.group(1)) if m else None
+        return ProjectService.extract_mr_challenge_id(url)
 
     def _calculate_task_payment(self, task, is_mapping=True):
         """
@@ -249,9 +159,7 @@ class ProjectAPI(MethodView):
         required_args = [
             "url",
             "rate_type",
-            "max_editors",
             "visibility",
-            "max_validators",
         ]
 
         for arg in required_args:
@@ -261,318 +169,81 @@ class ProjectAPI(MethodView):
         # Assign the data to variables
         url = request.json.get("url")
 
-        # Dispatch based on source
-        source = self._detect_source(url)
+        rate_type = request.json.get("rate_type")
+        mapping_rate = float(request.json.get("mapping_rate") or 0)
+        validation_rate = float(request.json.get("validation_rate") or 0)
+        _vis = request.json.get("visibility")
+        visibility = True if _vis is None else bool(_vis)
+        payments_enabled = request.json.get("payments_enabled", True)
+        short_name_input = request.json.get("short_name", "").strip()
+        community = bool(request.json.get("community", False))
+        priority = request.json.get("priority", "Medium")
+
+        svc = ProjectService()
+        source = svc.detect_source(url)
         if source == "mr":
-            return self._create_mr_project()
-
-        # --- TM4 path (unchanged) ---
-        rate_type = request.json.get("rate_type")
-        # Missing/None rate coerces to 0, which is valid when payments are
-        # disabled. When payments are enabled the $0.01-minimum check below
-        # rejects a 0 rate with a clearer message.
-        mapping_rate = float(request.json.get("mapping_rate") or 0)
-        validation_rate = float(request.json.get("validation_rate") or 0)
-        max_editors = request.json.get("max_editors")
-        max_validators = request.json.get("max_validators")
-        # New projects are visible by default — only hidden if the admin
-        # explicitly sends visibility=false. Prevents born-invisible
-        # projects that the creator then can't find.
-        _vis = request.json.get("visibility")
-        visibility = True if _vis is None else bool(_vis)
-
-        # Extract project ID from URL
-        m = re.match(r"^.*\/([0-9]+)$", url)
-        if not m:
-            return {
-                "message": "Cannot get project ID from URL",
-                "status": 400,
-            }
-        project_id = m.group(1)
-
-        # Check if project already exists. The ID is the upstream
-        # TM4/MR numeric ID stored as our PK, so collisions can come
-        # from another org in the same Mikro instance too — surface
-        # that distinction so the admin knows whether they own the
-        # record or it belongs elsewhere.
-        project_exists = Project.query.filter_by(id=project_id).first()
-        if project_exists:
-            same_org = project_exists.org_id == g.user.org_id
-            return {
-                "message": (
-                    "Project already exists in this org: "
-                    f"\"{project_exists.name}\" (#{project_exists.id})"
-                ) if same_org else (
-                    "Project source already imported by another organization; "
-                    "contact admin to share access."
-                ),
-                "status": 400,
-            }
-
-        # Fetch project data from TM4 API
-        base_url = self._get_tm4_base_url()
-        stats_api = f"{base_url}/projects/{project_id}/"
-
-        try:
-            current_app.logger.info(f"Fetching TM4 project data from: {stats_api}")
-            tm_fetch = requests.get(stats_api, timeout=30)
-            if not tm_fetch.ok:
-                current_app.logger.error(f"TM4 API returned {tm_fetch.status_code}: {tm_fetch.text[:500]}")
-                return {"message": f"TM4 API returned status {tm_fetch.status_code}", "status": 400}
-        except requests.RequestException as e:
-            current_app.logger.error(f"TM4 API request error: {e}")
-            return {"message": "TM4 API error", "status": 500}
-
-        try:
-            project_data = tm_fetch.json()
-        except requests.exceptions.JSONDecodeError:
-            current_app.logger.error(f"TM4 API returned non-JSON response: {tm_fetch.text[:500]}")
-            return {"message": "TM4 API returned invalid response - check project URL", "status": 400}
-
-        project_info = project_data.get("projectInfo", {})
-        project_name = project_info.get("name", f"Project {project_id}")
-        # Use totalTasks from projectInfo if available (more accurate than counting features)
-        total_tasks = project_info.get("totalTasks") or len(project_data.get("tasks", {}).get("features", []))
-        tasks_overlap = project_info.get("tasksOverlap", 0) or 0
-
-        # Calculate budget
-        if rate_type is True:
-            calculation = (mapping_rate + validation_rate) * total_tasks
-        else:
-            calculation = 0
-
-        # Create new project
-        payments_enabled = request.json.get("payments_enabled", True)
-        if payments_enabled:
-            if mapping_rate < 0.01 or validation_rate < 0.01:
-                return {"message": "Rate per task insufficient when payments enabled", "status": 400}
-        short_name_input = request.json.get("short_name", "").strip()
-        parsed_short, parsed_country = _auto_parse_project_name(project_name)
-        final_short_name = short_name_input or parsed_short or ""
-
-        Project.create(
-            id=project_id,
+            return svc.create_mr_project(
+                url=url,
+                rate_type=rate_type,
+                mapping_rate=mapping_rate,
+                validation_rate=validation_rate,
+                visibility=visibility,
+                payments_enabled=payments_enabled,
+                community=community,
+                priority=priority,
+                org_id=g.user.org_id,
+                created_by=g.user.id,
+            )
+        return svc.create_tm4_project(
+            url=url,
+            rate_type=rate_type,
+            mapping_rate=mapping_rate,
+            validation_rate=validation_rate,
+            visibility=visibility,
+            short_name_input=short_name_input,
+            payments_enabled=payments_enabled,
+            community=community,
+            priority=priority,
             org_id=g.user.org_id,
             created_by=g.user.id,
-            name=project_name,
-            short_name=final_short_name,
-            total_tasks=total_tasks,
-            tasks_overlap=tasks_overlap,
-            max_payment=float(calculation),
-            url=url,
-            validation_rate_per_task=validation_rate,
-            mapping_rate_per_task=mapping_rate,
-            max_editors=max_editors,
-            max_validators=max_validators,
-            visibility=visibility,
-            status=True,  # New projects are active by default
-            payments_enabled=payments_enabled,
         )
-
-        _auto_assign_country(project_id, parsed_country)
-
-        return {"message": "Project created", "project_id": project_id, "status": 200}
-
-    def _create_mr_project(self):
-        """Create a new MapRoulette project from a challenge URL.
-
-        Creates the project immediately with whatever metadata is available.
-        If the MR API is slow or times out, the project is still created with
-        a default name and 0 tasks, and a background job is queued to backfill
-        the metadata once the API responds.
-        """
-        url = request.json.get("url")
-        rate_type = request.json.get("rate_type")
-        # Missing/None rate coerces to 0, which is valid when payments are
-        # disabled. When payments are enabled the $0.01-minimum check below
-        # rejects a 0 rate with a clearer message.
-        mapping_rate = float(request.json.get("mapping_rate") or 0)
-        validation_rate = float(request.json.get("validation_rate") or 0)
-        max_editors = request.json.get("max_editors")
-        max_validators = request.json.get("max_validators")
-        # New projects are visible by default (see TM4 path note above).
-        _vis = request.json.get("visibility")
-        visibility = True if _vis is None else bool(_vis)
-
-        challenge_id = self._extract_mr_challenge_id(url)
-        if not challenge_id:
-            return {"message": "Cannot get challenge ID from MapRoulette URL", "status": 400}
-
-        # Check if project already exists. The MR challenge id is our
-        # PK so a collision can come from another org's import too —
-        # name the distinction.
-        project_exists = Project.query.filter_by(id=challenge_id).first()
-        if project_exists:
-            same_org = project_exists.org_id == g.user.org_id
-            return {
-                "message": (
-                    "Project already exists in this org: "
-                    f"\"{project_exists.name}\" (#{project_exists.id})"
-                ) if same_org else (
-                    "Project source already imported by another organization; "
-                    "contact admin to share access."
-                ),
-                "status": 400,
-            }
-
-        payments_enabled = request.json.get("payments_enabled", True)
-        if payments_enabled:
-            if mapping_rate < 0.01 or validation_rate < 0.01:
-                return {"message": "Rate per task insufficient when payments enabled", "status": 400}
-
-        # Create project immediately with defaults — metadata fetched by
-        # background worker (MR API is too slow/unreliable for web requests)
-        project_name = f"MR Challenge {challenge_id}"
-        total_tasks = 0
-
-        # Calculate budget
-        if rate_type is True:
-            calculation = (mapping_rate + validation_rate) * total_tasks
-        else:
-            calculation = 0
-
-        short_name_input = request.json.get("short_name", "").strip()
-        parsed_short, parsed_country = _auto_parse_project_name(project_name)
-        final_short_name = short_name_input or parsed_short or ""
-
-        Project.create(
-            id=challenge_id,
-            org_id=g.user.org_id,
-            created_by=g.user.id,
-            name=project_name,
-            short_name=final_short_name,
-            total_tasks=total_tasks,
-            max_payment=float(calculation),
-            url=url,
-            validation_rate_per_task=validation_rate,
-            mapping_rate_per_task=mapping_rate,
-            max_editors=max_editors,
-            max_validators=max_validators,
-            visibility=visibility,
-            status=True,
-            source="mr",
-            payments_enabled=payments_enabled,
-        )
-
-        _auto_assign_country(challenge_id, parsed_country)
-
-        # Queue background metadata backfill (name + task count from MR API)
-        from ..worker.sync_queue import SyncJobQueue
-        SyncJobQueue.enqueue_mr_backfill(g.user.org_id, challenge_id)
-
-        return {"message": "Project created — metadata loading in background", "project_id": challenge_id, "status": 200}
 
     @requires_team_admin_or_above
     def update_project(self):
-        """Update a project's payment rates, visibility, status, etc.
-
-        Open to all admin tiers — team_admin owners need to be able to
-        adjust their own projects' rates and settings. Cross-org safety
-        is enforced below via the ``org_id=g.user.org_id`` filter on
-        the target project lookup.
-        """
-        response = {}
-        # Check if user is authenticated
+        """Update a project's payment rates, visibility, status, etc."""
         if not hasattr(g, "user") or not g.user:
             return {"message": "Missing user info", "status": 304}
-        # Check if required data is provided
-        project_id = request.json.get("project_id")
-        difficulty = request.json.get("difficulty")
-        rate_type = request.json.get("rate_type")
-        # Missing/None rate coerces to 0, which is valid when payments are
-        # disabled. When payments are enabled the $0.01-minimum check below
-        # rejects a 0 rate with a clearer message.
-        mapping_rate = float(request.json.get("mapping_rate") or 0)
-        validation_rate = float(request.json.get("validation_rate") or 0)
-        max_editors = request.json.get("max_editors")
-        max_validators = request.json.get("max_validators")
-        visibility = request.json.get("visibility")
-        project_status = request.json.get("project_status")
-        # Rates are intentionally NOT required here — a project with payments
-        # disabled sends rate 0, and a blanket truthy check would reject 0 as
-        # "missing", blocking the disable-payments edit. The rate-persist block
-        # below already skips writing 0 rates.
-        required_args = [
-            "difficulty",
-            "max_editors",
-            "max_validators",
-            "project_id",
-        ]
+
+        required_args = ["difficulty", "project_id"]
         for arg in required_args:
             if not request.json.get(arg):
                 return {"message": f"{arg} required", "status": 400}
-        if not project_status:
-            project_status = False
-        else:
-            project_status = True
-        target_project = Project.query.filter_by(
-            org_id=g.user.org_id, id=project_id
-        ).first()
-        if not target_project:
-            response["message"] = "Project %s not found" % (project_id)
-            response["status"] = 400
-            return response
-        # Accept payments_enabled toggle
-        payments_enabled = request.json.get("payments_enabled", target_project.payments_enabled)
 
-        # Calculate payment rate and rate based on rate type
-        if mapping_rate != 0 and validation_rate != 0:
-            if rate_type is True:
-                mapping_calculation = mapping_rate * target_project.total_tasks
-            target_project.update(
-                mapping_rate_per_task=mapping_rate,
-                max_payment=float(mapping_calculation),
-                validation_rate_per_task=validation_rate,
-            )
-        short_name = request.json.get("short_name", target_project.short_name)
-        target_project.update(
-            visibility=visibility, difficulty=difficulty, status=project_status,
-            payments_enabled=payments_enabled, short_name=short_name,
+        project_status = bool(request.json.get("project_status", False))
+
+        return ProjectService.update_project(
+            project_id=request.json.get("project_id"),
+            org_id=g.user.org_id,
+            difficulty=request.json.get("difficulty"),
+            rate_type=request.json.get("rate_type"),
+            mapping_rate=float(request.json.get("mapping_rate") or 0),
+            validation_rate=float(request.json.get("validation_rate") or 0),
+            visibility=request.json.get("visibility"),
+            project_status=project_status,
+            payments_enabled=request.json.get("payments_enabled"),
+            short_name=request.json.get("short_name"),
+            community=request.json.get("community"),
+            priority=request.json.get("priority"),
         )
-        if max_editors and max_editors != 0:
-            target_project.update(
-                max_editors=max_editors,
-            )
-        if max_validators and max_validators != 0:
-            target_project.update(
-                max_validators=max_validators,
-            )
-        response["status"] = 200
-        return response
 
     @requires_team_admin_or_above
     def delete_project(self):
-        response = {}
-        # Check if user is authenticated
         if not g.user:
             return {"message": "Missing user info", "status": 304}
-        # Check if required data is provided
         project_id = request.json.get("project_id")
         if not project_id:
             return {"message": "project_id required", "status": 400}
-        target_project = Project.query.filter_by(
-            org_id=g.user.org_id, id=project_id
-        ).first()
-        if not target_project:
-            response["message"] = "Project %s not found" % (project_id)
-            response["status"] = 400
-            return response
-        else:
-            # Org Admins / Super Admins may delete any project in the org.
-            # Team Admins may only delete projects they created themselves.
-            if (
-                not is_org_admin_or_above(g.user)
-                and target_project.created_by != g.user.id
-            ):
-                return {
-                    "message": "Team admins can only delete projects they created",
-                    "status": 403,
-                }
-            # Put logic here to process remaining payouts or whatever else before deletion  # noqa: E501
-            target_project.delete(soft=False)
-            response["message"] = "Project %s deleted" % (project_id)
-            response["status"] = 200
-            return response
+        return ProjectService.delete_project(project_id=project_id, user=g.user)
 
     @requires_admin
     def calculate_budget(self):
@@ -935,107 +606,57 @@ class ProjectAPI(MethodView):
         # Batch-load task stats for all projects (single SQL query instead of N queries)
         _batch_task_stats = get_batch_project_stats_fast(all_project_ids)
 
-        # Add each project to the list
-        for project in active_projects:
-            task_counts = _batch_task_stats.get(project.id, {
-                "effective_mapped": 0, "effective_validated": 0, "effective_invalidated": 0,
-                "raw_mapped": 0, "raw_validated": 0, "raw_invalidated": 0,
-                "split_task_groups": 0, "split_task_count": 0, "mr_status_breakdown": {},
-            })
-            org_active_projects.append(
-                {
-                    "id": project.id,
-                    "name": project.name,
-                    "short_name": project.short_name or "",
-                    "visibility": project.visibility,
-                    "max_payment": project.max_payment,
-                    "payment_due": project.payment_due,
-                    "total_payout": project.total_payout,
-                    "validation_rate_per_task": project.validation_rate_per_task,  # noqa: E501
-                    "mapping_rate_per_task": project.mapping_rate_per_task,
-                    "max_editors": project.max_editors,
-                    "total_editors": project.total_editors,
-                    "max_validators": project.max_editors,
-                    "total_validators": project.total_editors,
-                    "total_tasks": project.total_tasks,
-                    "url": project.url,
-                    "difficulty": project.difficulty,
-                    "source": project.source,
-                    "created_by": project.created_by,
-                    # Org Admins can delete any org project; Team Admins only
-                    # the projects they created themselves. Drives the Delete
-                    # button's visibility on the frontend.
-                    "can_delete": (
-                        is_org_admin_or_above(g.user)
-                        or project.created_by == g.user.id
-                    ),
-                    # Use effective counts that handle split tasks
-                    "total_mapped": task_counts["effective_mapped"],
-                    "total_validated": task_counts["effective_validated"],
-                    "total_invalidated": task_counts["effective_invalidated"],
-                    # Also include raw counts for reference
-                    "raw_mapped": task_counts["raw_mapped"],
-                    "raw_validated": task_counts["raw_validated"],
-                    "raw_invalidated": task_counts["raw_invalidated"],
-                    "split_task_groups": task_counts["split_task_groups"],
-                    "mr_status_breakdown": task_counts.get("mr_status_breakdown", {}),
-                    "status": project.status,
-                    "payments_enabled": project.payments_enabled,
-                    "assigned_locations": _loc_counts.get(project.id, 0),
-                    "assigned_trainings": _trn_counts.get(project.id, 0),
-                    "last_synced": project.last_sync_cursor.isoformat() if project.last_sync_cursor else None,
-                }
-            )
-        for project in inactive_projects:
-            task_counts = _batch_task_stats.get(project.id, {
-                "effective_mapped": 0, "effective_validated": 0, "effective_invalidated": 0,
-                "raw_mapped": 0, "raw_validated": 0, "raw_invalidated": 0,
-                "split_task_groups": 0, "split_task_count": 0, "mr_status_breakdown": {},
-            })
-            org_inactive_projects.append(
-                {
-                    "id": project.id,
-                    "name": project.name,
-                    "short_name": project.short_name or "",
-                    "visibility": project.visibility,
-                    "max_payment": project.max_payment,
-                    "payment_due": project.payment_due,
-                    "total_payout": project.total_payout,
-                    "validation_rate_per_task": project.validation_rate_per_task,  # noqa: E501
-                    "mapping_rate_per_task": project.mapping_rate_per_task,
-                    "max_editors": project.max_editors,
-                    "total_editors": project.total_editors,
-                    "max_validators": project.max_editors,
-                    "total_validators": project.total_editors,
-                    "total_tasks": project.total_tasks,
-                    "url": project.url,
-                    "difficulty": project.difficulty,
-                    "source": project.source,
-                    "created_by": project.created_by,
-                    # Org Admins can delete any org project; Team Admins only
-                    # the projects they created themselves. Drives the Delete
-                    # button's visibility on the frontend.
-                    "can_delete": (
-                        is_org_admin_or_above(g.user)
-                        or project.created_by == g.user.id
-                    ),
-                    # Use effective counts that handle split tasks
-                    "total_mapped": task_counts["effective_mapped"],
-                    "total_validated": task_counts["effective_validated"],
-                    "total_invalidated": task_counts["effective_invalidated"],
-                    # Also include raw counts for reference
-                    "raw_mapped": task_counts["raw_mapped"],
-                    "raw_validated": task_counts["raw_validated"],
-                    "raw_invalidated": task_counts["raw_invalidated"],
-                    "split_task_groups": task_counts["split_task_groups"],
-                    "mr_status_breakdown": task_counts.get("mr_status_breakdown", {}),
-                    "status": project.status,
-                    "payments_enabled": project.payments_enabled,
-                    "assigned_locations": _loc_counts.get(project.id, 0),
-                    "assigned_trainings": _trn_counts.get(project.id, 0),
-                    "last_synced": project.last_sync_cursor.isoformat() if project.last_sync_cursor else None,
-                }
-            )
+        _empty_task_counts = {
+            "effective_mapped": 0, "effective_validated": 0, "effective_invalidated": 0,
+            "raw_mapped": 0, "raw_validated": 0, "raw_invalidated": 0,
+            "split_task_groups": 0, "split_task_count": 0, "mr_status_breakdown": {},
+        }
+
+        def _serialize(project):
+            tc = _batch_task_stats.get(project.id, _empty_task_counts)
+            return {
+                "id": project.id,
+                "name": project.name,
+                "short_name": project.short_name or "",
+                "visibility": project.visibility,
+                "max_payment": project.max_payment,
+                "payment_due": project.payment_due,
+                "total_payout": project.total_payout,
+                "validation_rate_per_task": project.validation_rate_per_task,
+                "mapping_rate_per_task": project.mapping_rate_per_task,
+                "total_editors": project.total_editors,
+                "total_validators": project.total_editors,
+                "total_tasks": project.total_tasks,
+                "url": project.url,
+                "difficulty": project.difficulty,
+                "community": project.community,
+                "priority": project.priority,
+                "source": project.source,
+                "created_by": project.created_by,
+                # Org Admins can delete any org project; Team Admins only
+                # the projects they created themselves. Drives the Delete
+                # button's visibility on the frontend.
+                "can_delete": (
+                    is_org_admin_or_above(g.user)
+                    or project.created_by == g.user.id
+                ),
+                "total_mapped": tc["effective_mapped"],
+                "total_validated": tc["effective_validated"],
+                "total_invalidated": tc["effective_invalidated"],
+                "raw_mapped": tc["raw_mapped"],
+                "raw_validated": tc["raw_validated"],
+                "raw_invalidated": tc["raw_invalidated"],
+                "split_task_groups": tc["split_task_groups"],
+                "mr_status_breakdown": tc.get("mr_status_breakdown", {}),
+                "status": project.status,
+                "payments_enabled": project.payments_enabled,
+                "assigned_locations": _loc_counts.get(project.id, 0),
+                "assigned_trainings": _trn_counts.get(project.id, 0),
+                "last_synced": project.last_sync_cursor.isoformat() if project.last_sync_cursor else None,
+            }
+
+        org_active_projects = [_serialize(p) for p in active_projects]
+        org_inactive_projects = [_serialize(p) for p in inactive_projects]
         return {
             "org_active_projects": org_active_projects,
             "org_inactive_projects": org_inactive_projects,
@@ -1386,6 +1007,8 @@ class ProjectAPI(MethodView):
                 "status": project.status,
                 "visibility": project.visibility,
                 "difficulty": project.difficulty,
+                "community": project.community,
+                "priority": project.priority,
                 "created_by": project.created_by,
                 "created_by_name": created_by_name,
                 "total_tasks": project.total_tasks,
@@ -1395,7 +1018,6 @@ class ProjectAPI(MethodView):
                 "payment_due": project.payment_due,
                 "total_payout": project.total_payout,
                 "payments_enabled": project.payments_enabled,
-                "max_editors": project.max_editors,
                 "total_editors": project.total_editors,
                 "last_synced": project.last_sync_cursor.isoformat() if project.last_sync_cursor else None,
                 **task_counts,
@@ -1945,13 +1567,13 @@ class ProjectAPI(MethodView):
                     "total_payout": project.total_payout,
                     "validation_rate_per_task": project.validation_rate_per_task,  # noqa: E501
                     "mapping_rate_per_task": project.mapping_rate_per_task,
-                    "max_editors": project.max_editors,
                     "total_editors": project.total_editors,
-                    "max_validators": project.max_editors,
                     "total_validators": project.total_editors,
                     "total_tasks": project.total_tasks,
                     "url": project.url,
                     "difficulty": project.difficulty,
+                    "community": project.community,
+                    "priority": project.priority,
                     "source": project.source,
                     "payments_enabled": project.payments_enabled,
                     "tasks_mapped": user_project_mapped_tasks,
@@ -2002,8 +1624,6 @@ class ProjectAPI(MethodView):
                 "message": "project %s not found" % (project_id),
                 "status": 400,
             }
-        if target_project.total_editors == target_project.max_editors:
-            return {"message": "Editor limit reached", "status": 400}
         ProjectUser.create(project_id=project_id, user_id=user_id)
         new_editor_count = target_project.total_editors + 1
         target_project.update(total_editors=new_editor_count)
@@ -2099,7 +1719,6 @@ class ProjectAPI(MethodView):
             ).all()
             if project.id not in all_user_project_ids
             and project.id not in unassigned_validation_project_ids
-            and project.total_editors < project.max_editors
         ]
 
         # Location visibility filter for available projects
@@ -2223,13 +1842,13 @@ class ProjectAPI(MethodView):
                     "total_payout": project.total_payout,
                     "validation_rate_per_task": project.validation_rate_per_task,  # noqa: E501
                     "mapping_rate_per_task": project.mapping_rate_per_task,
-                    "max_editors": project.max_editors,
                     "total_editors": project.total_editors,
-                    "max_validators": project.max_validators,
                     "total_validators": project.total_validators,
                     "total_tasks": project.total_tasks,
                     "url": project.url,
                     "difficulty": project.difficulty,
+                    "community": project.community,
+                    "priority": project.priority,
                     "source": project.source,
                     "payments_enabled": project.payments_enabled,
                     "tasks_mapped": user_project_mapped_tasks,
@@ -2254,13 +1873,13 @@ class ProjectAPI(MethodView):
                     "total_payout": project.total_payout,
                     "validation_rate_per_task": project.validation_rate_per_task,  # noqa: E501
                     "mapping_rate_per_task": project.mapping_rate_per_task,
-                    "max_editors": project.max_editors,
                     "total_editors": project.total_editors,
-                    "max_validators": project.max_validators,
                     "total_validators": project.total_validators,
                     "total_tasks": project.total_tasks,
                     "url": project.url,
                     "difficulty": project.difficulty,
+                    "community": project.community,
+                    "priority": project.priority,
                     "source": project.source,
                     "payments_enabled": project.payments_enabled,
                     # "tasks_mapped": user_project_mapped_tasks,
@@ -2332,13 +1951,13 @@ class ProjectAPI(MethodView):
                     "total_payout": project.total_payout,
                     "validation_rate_per_task": project.validation_rate_per_task,
                     "mapping_rate_per_task": project.mapping_rate_per_task,
-                    "max_editors": project.max_editors,
                     "total_editors": project.total_editors,
-                    "max_validators": project.max_validators,
                     "total_validators": project.total_validators,
                     "total_tasks": project.total_tasks,
                     "url": project.url,
                     "difficulty": project.difficulty,
+                    "community": project.community,
+                    "priority": project.priority,
                     "source": project.source,
                     "payments_enabled": project.payments_enabled,
                     "tasks_mapped": 0,  # Not assigned, so no mapping
