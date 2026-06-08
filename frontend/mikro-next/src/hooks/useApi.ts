@@ -1119,6 +1119,12 @@ export function useFetchChangesetHeatmap() {
   );
 }
 
+export function useFetchMyChangesetHeatmap() {
+  return useApiMutation<ChangesetHeatmapResponse>(
+    "/reports/my_changeset_heatmap",
+  );
+}
+
 // ─── Region & Filter hooks ──────────────────────────────────
 
 export function useFetchFilterOptions() {

@@ -17,13 +17,11 @@ export default function MappingHeatmap({
   const mapInstance = useRef<L.Map | null>(null);
 
   useEffect(() => {
-    if (!mapRef.current || points.length === 0) return;
+    if (!mapRef.current) return;
 
-    // Dynamically import leaflet.heat (only works client-side)
     import("leaflet.heat").then(() => {
       if (!mapRef.current) return;
 
-      // Initialize map if not already
       if (!mapInstance.current) {
         mapInstance.current = L.map(mapRef.current).setView([0, 0], 2);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -39,7 +37,8 @@ export default function MappingHeatmap({
         if (!(layer instanceof L.TileLayer)) map.removeLayer(layer);
       });
 
-      // Add heat layer
+      if (points.length === 0) return;
+
       const heat = (
         L as unknown as { heatLayer: typeof L.heatLayer }
       ).heatLayer(points, {
@@ -55,15 +54,21 @@ export default function MappingHeatmap({
       });
       heat.addTo(map);
 
-      // Fit bounds to points
-      if (points.length > 0) {
-        const bounds = L.latLngBounds(
-          points.map(([lat, lon]) => [lat, lon] as L.LatLngTuple),
-        );
-        map.fitBounds(bounds, { padding: [20, 20] });
-      }
+      const bounds = L.latLngBounds(
+        points.map(([lat, lon]) => [lat, lon] as L.LatLngTuple),
+      );
+      map.fitBounds(bounds, { padding: [20, 20] });
     });
   }, [points]);
+
+  useEffect(() => {
+    if (!mapRef.current || !mapInstance.current) return;
+    const observer = new ResizeObserver(() => {
+      mapInstance.current?.invalidateSize();
+    });
+    observer.observe(mapRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -73,14 +78,6 @@ export default function MappingHeatmap({
       }
     };
   }, []);
-
-  if (points.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground text-center py-8">
-        No geographic data available for this period.
-      </p>
-    );
-  }
 
   return (
     <div

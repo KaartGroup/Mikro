@@ -608,6 +608,9 @@ class TimeTrackingAPI(MethodView):
             return jsonify({"message": "Unauthorized", "status": 401}), 401
 
         data = request.get_json() or {}
+        # Always scope to the caller's own entries — admin org-wide views
+        # use the dedicated admin endpoints, not this one.
+        data["userId"] = g.user.id
 
         query = TimeEntryQuery(g.user.org_id, data, viewer=g.user)
         page, next_cursor = query.fetch_page()

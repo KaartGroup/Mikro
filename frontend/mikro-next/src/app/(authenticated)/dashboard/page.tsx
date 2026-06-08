@@ -2,11 +2,11 @@
 
 import { useRole } from "@/contexts/RoleContext";
 import { AdminDashboard } from "@/components/pages/dashboard/AdminDashboard";
-import { MapperDashboard } from "@/components/pages/dashboard/MapperDashboard";
+import { UserDashboard } from "@/components/pages/time/UserTime";
 import { isAnyAdmin } from "@/types";
 
 export default function DashboardPage() {
   const { role } = useRole();
   if (isAnyAdmin(role)) return <AdminDashboard />;
-  return <MapperDashboard isValidator={role === "validator"} />;
+  return <UserDashboard />;
 }

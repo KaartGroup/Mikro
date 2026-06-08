@@ -7,10 +7,10 @@ Handles editing statistics and timekeeping reports for admin dashboards.
 
 from flask.views import MethodView
 
-from ...utils import requires_admin, requires_team_admin_or_above
+from ...utils import requires_admin, requires_auth, requires_team_admin_or_above
 from .editing_stats import fetch_editing_stats
 from .timekeeping_stats import fetch_timekeeping_stats
-from .changeset_heatmap import fetch_changeset_heatmap
+from .changeset_heatmap import fetch_changeset_heatmap, fetch_my_changeset_heatmap
 from .element_analysis import (
     fetch_element_analysis,
     queue_element_analysis,
@@ -33,6 +33,8 @@ class ReportsAPI(MethodView):
             return self.fetch_timekeeping_stats()
         elif path == "fetch_changeset_heatmap":
             return self.fetch_changeset_heatmap()
+        elif path == "my_changeset_heatmap":
+            return self.my_changeset_heatmap()
         elif path == "fetch_element_analysis":
             return self.fetch_element_analysis()
         elif path == "queue_element_analysis":
@@ -58,6 +60,10 @@ class ReportsAPI(MethodView):
     @requires_team_admin_or_above
     def fetch_changeset_heatmap(self):
         return fetch_changeset_heatmap()
+
+    @requires_auth
+    def my_changeset_heatmap(self):
+        return fetch_my_changeset_heatmap()
 
     @requires_team_admin_or_above
     def fetch_element_analysis(self):
