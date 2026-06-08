@@ -8,6 +8,8 @@ Handles user management operations.
 import requests
 import secrets
 import string
+import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from flask.views import MethodView
 from flask import g, request, current_app
@@ -15,6 +17,7 @@ from sqlalchemy import func
 from ..services.hourly_rate_history import HourlyRateHistoryService, OverlapError
 from ..services.payment_txn import PaymentTxnService
 from ..utils import requires_admin, requires_team_admin_or_above
+from ..utils.changeset_fetcher import ChangesetFetcher, changesets_to_heatmap_points
 from ..utils.tz import parse_filter_datetime
 from ..utils.auth0_org import add_or_invite_user_to_org
 from ..auth import (
@@ -2184,9 +2187,6 @@ class UserAPI(MethodView):
     @requires_team_admin_or_above
     def fetch_user_changesets(self):
         """Fetch OSM changesets for a user within a date range."""
-        import xml.etree.ElementTree as ET
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
         data = request.get_json() or {}
         user_id = data.get("userId")
         start_date_str = data.get("startDate")
@@ -2223,37 +2223,22 @@ class UserAPI(MethodView):
                 "message": "No OSM username set for this user",
             }
 
-        # Fetch changesets from OSM API
-        osm_url = "https://api.openstreetmap.org/api/0.6/changesets"
-        params = {
-            "display_name": osm_username,
-            "time": f"{start_date_str},{end_date_str}",
-            "closed": "true",
-        }
+        start_date, _ = parse_filter_datetime(start_date_str)
+        end_date, end_was_date_only = parse_filter_datetime(end_date_str)
+        if start_date is None or end_date is None:
+            return {"message": "Invalid startDate or endDate", "status": 400}
+        if end_was_date_only:
+            end_date = end_date + timedelta(days=1)
 
         try:
-            resp = requests.get(osm_url, params=params, timeout=30)
-            if not resp.ok:
-                current_app.logger.error(
-                    f"OSM API error: {resp.status_code} - {resp.text[:200]}"
-                )
-                return {"message": "Could not reach OSM API", "status": 502}
-        except requests.RequestException as e:
-            current_app.logger.error(f"OSM API request failed: {e}")
-            return {"message": f"OSM API error: {str(e)}", "status": 502}
-
-        # Parse changeset list XML
-        try:
-            root = ET.fromstring(resp.text)
-        except ET.ParseError as e:
-            current_app.logger.error(f"Failed to parse OSM XML: {e}")
-            return {"message": "Failed to parse OSM API response", "status": 502}
+            raw_changesets = ChangesetFetcher().fetch([osm_username], since=start_date, until=end_date)
+        except Exception as e:
+            current_app.logger.error(f"ChangesetFetcher failed for {osm_username}: {e}")
+            return {"message": "Could not reach OSM API", "status": 502}
 
         changeset_metas = []
-        for cs in root.findall("changeset"):
-            tags = {}
-            for tag in cs.findall("tag"):
-                tags[tag.get("k", "")] = tag.get("v", "")
+        for cs in raw_changesets:
+            tags = cs.get("tags", {})
 
             # Extract hashtags from comment
             comment = tags.get("comment", "")
@@ -2270,7 +2255,6 @@ class UserAPI(MethodView):
                     if h and h not in hashtags_from_comment:
                         hashtags_from_comment.append(h)
 
-            # Extract bbox centroid for heatmap
             min_lat = cs.get("min_lat")
             max_lat = cs.get("max_lat")
             min_lon = cs.get("min_lon")
@@ -2384,12 +2368,7 @@ class UserAPI(MethodView):
             (cs.get("elements") or {}).get("relations", 0) for cs in changeset_metas
         )
 
-        # Build heatmap points from centroids
-        heatmap_points = [
-            [cs["centroid"]["lat"], cs["centroid"]["lon"], cs["changesCount"]]
-            for cs in changeset_metas
-            if cs.get("centroid")
-        ]
+        heatmap_points = changesets_to_heatmap_points(raw_changesets)
 
         # Aggregate hashtags
         hashtag_summary = {}

@@ -5,6 +5,22 @@ import requests
 _PAGE_SIZE = 100
 
 
+def changesets_to_heatmap_points(changesets):
+    """Convert OSM changeset JSON dicts to [[lat, lon, intensity], ...] heatmap points."""
+    points = []
+    for cs in changesets:
+        min_lat = cs.get("min_lat")
+        max_lat = cs.get("max_lat")
+        min_lon = cs.get("min_lon")
+        max_lon = cs.get("max_lon")
+        if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
+            lat = (float(min_lat) + float(max_lat)) / 2
+            lon = (float(min_lon) + float(max_lon)) / 2
+            intensity = max(int(cs.get("changes_count", 0)), 1)
+            points.append([lat, lon, intensity])
+    return points
+
+
 class ChangesetFetcher:
     """
     Fetches changeset metadata from the OSM API for a set of users and a time window.
