@@ -8,6 +8,7 @@ from flask import g, request
 
 from ...database import db, Task
 from ...filters import resolve_filtered_osm_usernames
+from ...utils.changeset_fetcher import ChangesetFetcher
 from ...utils.tz import parse_filter_datetime
 from .helpers import _team_admin_osm_usernames
 
@@ -19,9 +20,56 @@ _EMPTY_RESPONSE = {
 }
 
 
+def _changesets_to_heatmap_points(changesets):
+    """Convert OSM changeset JSON dicts to [[lat, lon, intensity], ...] heatmap points."""
+    points = []
+    for cs in changesets:
+        min_lat = cs.get("min_lat")
+        max_lat = cs.get("max_lat")
+        min_lon = cs.get("min_lon")
+        max_lon = cs.get("max_lon")
+        if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
+            lat = (float(min_lat) + float(max_lat)) / 2
+            lon = (float(min_lon) + float(max_lon)) / 2
+            intensity = max(int(cs.get("changes_count", 0)), 1)
+            points.append([lat, lon, intensity])
+    return points
+
+
 # ---------------------------------------------------------------------------
 # Controller
 # ---------------------------------------------------------------------------
+
+def fetch_my_changeset_heatmap():
+    """Self-scoped heatmap — returns only the current user's changeset centroids."""
+    if not g.user:
+        return {"message": "Unauthorized", "status": 401}
+
+    osm_username = getattr(g.user, "osm_username", None)
+    if not osm_username:
+        return _EMPTY_RESPONSE
+
+    start_date_str = request.json.get("startDate")
+    end_date_str = request.json.get("endDate")
+    if not start_date_str or not end_date_str:
+        return {"message": "startDate and endDate required", "status": 400}
+
+    start_date, _ = parse_filter_datetime(start_date_str)
+    end_date, end_was_date_only = parse_filter_datetime(end_date_str)
+    if start_date is None or end_date is None:
+        return {"message": "Invalid startDate or endDate", "status": 400}
+    if end_was_date_only:
+        end_date = end_date + timedelta(days=1)
+
+    try:
+        changesets = ChangesetFetcher().fetch([osm_username], since=start_date, until=end_date)
+    except Exception as e:
+        logger.warning(f"ChangesetFetcher failed for {osm_username}: {e}")
+        return _EMPTY_RESPONSE
+
+    points = _changesets_to_heatmap_points(changesets)
+    return {"status": 200, "heatmapPoints": points}
+
 
 def fetch_changeset_heatmap():
     """Reads Flask context and delegates to get_changeset_heatmap."""

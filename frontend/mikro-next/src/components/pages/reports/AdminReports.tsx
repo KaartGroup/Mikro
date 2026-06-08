@@ -31,7 +31,7 @@ import type {
 import { formatNumber } from "@/lib/utils";
 import TrendOverview from "./_components/TrendOverview";
 import { LoadingSpinner } from "./_components/LoadingSpinner";
-import { ChangesetHeatmapCard } from "./_components/ChangesetHeatmapCard";
+import { ChangesetHeatmapCard } from "../../compounds/ChangesetHeatmapCard";
 import { ElementActivitySection } from "./_components/ElementActivitySection";
 import { TeamActivityCard } from "./_components/TeamActivityCard";
 import { TaskHoursByCategoryCard } from "./_components/TaskHoursByCategoryCard";

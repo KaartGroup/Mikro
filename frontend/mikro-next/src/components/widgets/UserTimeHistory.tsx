@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Modal } from "@/components/ui/Modal";
 import {
   useCursorHistory,
   useRequestTimeAdjustment,
@@ -13,25 +12,10 @@ import {
 import { NotesButton } from "./NotesButton";
 import { formatDuration } from "@/lib/timeTracking";
 
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function formatDateShort(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
+const PAGE_SIZE = 10;
 
 export function UserTimeHistory() {
-  const [showFullHistory, setShowFullHistory] = useState(false);
+  const [page, setPage] = useState(1);
   const [adjustmentEntryId, setAdjustmentEntryId] = useState<number | null>(
     null,
   );
@@ -55,12 +39,8 @@ export function UserTimeHistory() {
     await history.fetchPage();
   };
 
-  const entries = history.entries;
-  const recentEntries = entries.slice(0, 5);
-
   const handleRequestAdjustment = async () => {
     if (!adjustmentEntryId || !adjustmentReason.trim()) return;
-
     try {
       await requestAdjustment({
         entry_id: adjustmentEntryId,
@@ -74,16 +54,25 @@ export function UserTimeHistory() {
       await history.fetchPage();
       setTimeout(() => setAdjustmentSuccess(null), 4000);
     } catch {
-      // error is set by the hook
+      // error surfaced by hook
     }
   };
 
-  // Loading state
+  const entries = history.entries;
+  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedEntries = entries.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+  const isLastClientPage = safePage >= totalPages;
+  const hasMoreServer = !!history.nextCursor;
+
   if (history.loading) {
     return (
-      <Card className="h-full">
+      <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Recent Activity</CardTitle>
+          <CardTitle className="text-lg">Time Entry History</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">Loading history...</p>
@@ -93,91 +82,81 @@ export function UserTimeHistory() {
   }
 
   return (
-    <>
-      {/* Compact dashboard view */}
-      <Card className="h-full">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <svg
-                className="w-4 h-4 text-muted-foreground"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
-              Recent Activity
-            </CardTitle>
-            {entries.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowFullHistory(true)}
-              >
-                View All ({entries.length})
-              </Button>
-            )}
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">Time Entry History</CardTitle>
+          {entries.length > 0 && (
+            <span className="text-sm text-muted-foreground">
+              {entries.length} entries{hasMoreServer ? "+" : ""}
+            </span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {adjustmentSuccess && (
+          <div className="mb-4 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-3">
+            <p className="text-sm text-green-700 dark:text-green-300">
+              {adjustmentSuccess}
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {recentEntries.length > 0 ? (
+        )}
+
+        {entries.length > 0 ? (
+          <>
             <div className="overflow-x-auto">
               <table className="w-full text-sm" style={{ minWidth: 500 }}>
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                <thead className="bg-muted border-b border-border">
+                  <tr>
+                    <th className="text-left py-2 px-3 font-semibold text-muted-foreground">
                       Date
                     </th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                    <th className="text-left py-2 px-3 font-semibold text-muted-foreground">
                       Project
                     </th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                    <th className="text-left py-2 px-3 font-semibold text-muted-foreground">
                       Category
                     </th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
-                      Subcategory
-                    </th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                    <th className="text-left py-2 px-3 font-semibold text-muted-foreground">
                       Duration
                     </th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                    <th className="text-left py-2 px-3 font-semibold text-muted-foreground">
                       Status
                     </th>
-                    <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">
+                    <th className="text-left py-2 px-3 font-semibold text-muted-foreground">
                       Notes
+                    </th>
+                    <th className="text-left py-2 px-3 font-semibold text-muted-foreground">
+                      Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody>
-                  {recentEntries.map((entry) => (
+                <tbody className="divide-y divide-border bg-card">
+                  {pagedEntries.map((entry) => (
                     <tr
                       key={entry.id}
-                      className={`border-b border-border last:border-0 ${
-                        entry.status === "voided" ? "opacity-50" : ""
-                      }`}
+                      className={entry.status === "voided" ? "opacity-50" : ""}
                     >
-                      <td className="py-2 px-2 text-muted-foreground">
-                        {entry.clockIn ? formatDateShort(entry.clockIn) : "—"}
+                      <td className="py-2 px-3 whitespace-nowrap text-muted-foreground">
+                        {entry.clockIn
+                          ? new Date(entry.clockIn).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              },
+                            )
+                          : "—"}
                       </td>
-                      <td className="py-2 px-2">{entry.projectName}</td>
-                      <td className="py-2 px-2">
+                      <td className="py-2 px-3">{entry.projectName || "—"}</td>
+                      <td className="py-2 px-3">
                         <Badge variant="secondary">{entry.category}</Badge>
                       </td>
-                      <td className="py-2 px-2 text-muted-foreground">
-                        {entry.subcategoryName || "—"}
+                      <td className="py-2 px-3 font-mono whitespace-nowrap">
+                        {formatDuration(entry.durationSeconds)}
                       </td>
-                      <td className="py-2 px-2">
-                        <span className="font-mono">
-                          {formatDuration(entry.durationSeconds)}
-                        </span>
-                      </td>
-                      <td className="py-2 px-2">
+                      <td className="py-2 px-3">
                         <Badge
                           variant={
                             entry.status === "completed"
@@ -189,8 +168,13 @@ export function UserTimeHistory() {
                         >
                           {entry.status}
                         </Badge>
+                        {entry.notes?.startsWith("[ADJUSTMENT REQUESTED]") && (
+                          <Badge variant="warning" className="ml-1">
+                            adjustment pending
+                          </Badge>
+                        )}
                       </td>
-                      <td className="py-2 px-2">
+                      <td className="py-2 px-3">
                         <NotesButton
                           notes={entry.userNotes}
                           editable={entry.status !== "voided"}
@@ -198,153 +182,80 @@ export function UserTimeHistory() {
                           size="xs"
                         />
                       </td>
+                      <td className="py-2 px-3">
+                        {entry.status === "completed" &&
+                          !entry.notes?.startsWith(
+                            "[ADJUSTMENT REQUESTED]",
+                          ) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="whitespace-nowrap"
+                              onClick={() => {
+                                setAdjustmentEntryId(entry.id);
+                                setAdjustmentReason("");
+                              }}
+                            >
+                              Request Adjustment
+                            </Button>
+                          )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-2">
-              No time entries yet. Clock in to start tracking your work.
-            </p>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Full history modal */}
-      <Modal
-        isOpen={showFullHistory}
-        onClose={() => {
-          setShowFullHistory(false);
-          setAdjustmentEntryId(null);
-          setAdjustmentReason("");
-        }}
-        title="Time History"
-        description="Your complete time tracking history"
-        size="xl"
-      >
-        {adjustmentSuccess && (
-          <div className="mb-4 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-3">
-            <p className="text-sm text-green-700 dark:text-green-300">
-              {adjustmentSuccess}
-            </p>
-          </div>
-        )}
-
-        {entries.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ minWidth: 500 }}>
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
-                    Project
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
-                    Category
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
-                    Subcategory
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
-                    Clock In
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
-                    Clock Out
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
-                    Duration
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
-                    Notes
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry) => (
-                  <tr
-                    key={entry.id}
-                    className={`border-b border-border last:border-0 ${
-                      entry.status === "voided" ? "opacity-50" : ""
-                    }`}
+            <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
+              <span>
+                Showing {(safePage - 1) * PAGE_SIZE + 1}–
+                {Math.min(safePage * PAGE_SIZE, entries.length)}
+                {hasMoreServer ? "+" : ` of ${entries.length}`}
+              </span>
+              <div className="flex gap-2 items-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safePage === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Previous
+                </Button>
+                <span className="px-2">
+                  Page {safePage} of {totalPages}
+                  {hasMoreServer ? "+" : ""}
+                </span>
+                {isLastClientPage && hasMoreServer ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    isLoading={history.loadingMore}
+                    onClick={async () => {
+                      await history.loadMore();
+                      setPage((p) => p + 1);
+                    }}
                   >
-                    <td className="py-3 px-3">{entry.projectName}</td>
-                    <td className="py-3 px-3">
-                      <Badge variant="secondary">{entry.category}</Badge>
-                    </td>
-                    <td className="py-3 px-3 text-muted-foreground">
-                      {entry.subcategoryName || "—"}
-                    </td>
-                    <td className="py-3 px-3 text-muted-foreground">
-                      {entry.clockIn ? formatDateTime(entry.clockIn) : "—"}
-                    </td>
-                    <td className="py-3 px-3 text-muted-foreground">
-                      {entry.clockOut ? formatDateTime(entry.clockOut) : "—"}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="font-mono">
-                        {formatDuration(entry.durationSeconds)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <Badge
-                        variant={
-                          entry.status === "completed"
-                            ? "success"
-                            : entry.status === "voided"
-                              ? "destructive"
-                              : "warning"
-                        }
-                      >
-                        {entry.status}
-                      </Badge>
-                      {entry.notes?.startsWith("[ADJUSTMENT REQUESTED]") && (
-                        <Badge variant="warning" className="ml-1">
-                          adjustment pending
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="py-3 px-3">
-                      <NotesButton
-                        notes={entry.userNotes}
-                        editable={entry.status !== "voided"}
-                        onSave={(v) => handleSaveNotes(entry.id, v)}
-                        size="xs"
-                      />
-                    </td>
-                    <td className="py-3 px-3">
-                      {entry.status === "completed" &&
-                        !entry.notes?.startsWith("[ADJUSTMENT REQUESTED]") && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="whitespace-nowrap"
-                            onClick={() => {
-                              setAdjustmentEntryId(entry.id);
-                              setAdjustmentReason("");
-                            }}
-                          >
-                            Request Adjustment
-                          </Button>
-                        )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    Next
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                )}
+              </div>
+            </div>
+          </>
         ) : (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            No time entries yet.
+          <p className="text-sm text-muted-foreground py-2">
+            No time entries yet. Clock in to start tracking your work.
           </p>
         )}
 
-        {/* Adjustment request inline form */}
         {adjustmentEntryId && (
           <div className="mt-4 rounded-lg border border-border p-4">
             <h4 className="text-sm font-medium mb-2">
@@ -384,7 +295,7 @@ export function UserTimeHistory() {
             </div>
           </div>
         )}
-      </Modal>
-    </>
+      </CardContent>
+    </Card>
   );
 }
