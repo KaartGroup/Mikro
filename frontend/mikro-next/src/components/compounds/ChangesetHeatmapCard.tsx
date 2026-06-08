@@ -26,7 +26,7 @@ export function ChangesetHeatmapCard({
   return (
     <Card
       data-chart-export="Changeset Heatmap"
-      className={`flex flex-col ${className ?? ""}`}
+      className={`flex flex-col isolate ${className ?? ""}`}
     >
       <CardHeader className="pb-0 flex-shrink-0">
         <CardTitle className="text-base">
