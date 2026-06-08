@@ -310,7 +310,7 @@ export function MapperDashboard({ isValidator = false }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Time Tracking */}
+                  {/* Time Tracking */}
       <div
         style={{
           display: "grid",
@@ -334,7 +334,6 @@ export function MapperDashboard({ isValidator = false }: Props) {
           <UserTimeHistory />
         </div>
       </div>
-
       {/* Validator: Self-Validation Warning */}
       {isValidator &&
         vs?.self_validated_count != null &&
@@ -364,6 +363,7 @@ export function MapperDashboard({ isValidator = false }: Props) {
             </p>
           </div>
         )}
+
 
       {/* Main Stats Cards */}
       <div

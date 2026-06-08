@@ -598,7 +598,7 @@ export function TimeTrackingWidget({ projects = [] }: TimeTrackingWidgetProps) {
   // Loading state while checking for active session
   if (sessionLoading) {
     return (
-      <Card className="h-full">
+      <Card className="h-[300px]">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <svg
@@ -627,7 +627,7 @@ export function TimeTrackingWidget({ projects = [] }: TimeTrackingWidgetProps) {
   // Clocked in state - show timer
   if (isClockedIn) {
     return (
-      <Card className="border-green-500 border-2 h-full">
+      <Card className="border-green-500 border-2 h-[300px]">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <span className="relative flex h-3 w-3">
@@ -747,7 +747,7 @@ export function TimeTrackingWidget({ projects = [] }: TimeTrackingWidgetProps) {
   // Confirmation state
   if (showConfirmation) {
     return (
-      <Card className="border-blue-500 bg-blue-50 dark:bg-blue-900 h-full">
+      <Card className="border-blue-500 bg-blue-50 dark:bg-blue-900 h-[300px]">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg text-blue-900 dark:text-blue-100">
             Time Tracking
@@ -782,7 +782,7 @@ export function TimeTrackingWidget({ projects = [] }: TimeTrackingWidgetProps) {
 
   // Default state - clock in form
   return (
-    <Card className="h-full">
+    <Card className="h-[450px]">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg flex items-center gap-2">
           <svg
