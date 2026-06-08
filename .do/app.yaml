@@ -73,6 +73,13 @@ services:
       - key: DO_SPACES_REGION
         value: ${DO_SPACES_REGION}
 
+      # Comms service (internal routing)
+      - key: COMMS_URL
+        value: http://comms:8080
+      - key: COMMS_WEBHOOK_SECRET
+        type: SECRET
+        value: ${COMMS_WEBHOOK_SECRET}
+
   # Frontend - Next.js
   - name: mikro-frontend
     github:
@@ -122,6 +129,89 @@ services:
       # Backend API (internal routing)
       - key: FLASK_BACKEND_URL
         value: http://mikro-backend:8080
+
+  # Comms - shared notifications / email service
+  - name: comms
+    github:
+      repo: KaartGroup/Mikro
+      branch: master
+      deploy_on_push: true
+    source_dir: comms
+    environment_slug: python
+    instance_count: 1
+    instance_size_slug: professional-xs
+    http_port: 8080
+    run_command: gunicorn -b 0.0.0.0:8080 wsgi:application
+    routes:
+      # Public route so Viewer/TM4 (separate DO apps) can reach comms over HTTPS.
+      # App Platform strips this prefix before forwarding.
+      - path: /comms
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 10
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    jobs:
+      - name: comms-migrate
+        kind: PRE_DEPLOY
+        github:
+          repo: KaartGroup/Mikro
+          branch: master
+          deploy_on_push: true
+        source_dir: comms
+        environment_slug: python
+        instance_count: 1
+        instance_size_slug: professional-xs
+        # cwd is comms/ (source_dir), so alembic.ini path is relative to that.
+        run_command: python -m alembic -c migrations/alembic.ini upgrade head
+        envs:
+          - key: COMMS_DATABASE_URL
+            scope: RUN_TIME
+            value: ${comms-db.DATABASE_URL}
+          - key: AUTH0_DOMAIN
+            type: SECRET
+            value: ${AUTH0_DOMAIN}
+          - key: API_AUDIENCES
+            value: ${COMMS_API_AUDIENCES}
+          - key: COMMS_WEBHOOK_SECRET
+            type: SECRET
+            value: ${COMMS_WEBHOOK_SECRET}
+    envs:
+      - key: COMMS_DATABASE_URL
+        scope: RUN_TIME
+        value: ${comms-db.DATABASE_URL}
+      - key: AUTH0_DOMAIN
+        type: SECRET
+        value: ${AUTH0_DOMAIN}
+      - key: API_AUDIENCES
+        value: ${COMMS_API_AUDIENCES}
+      - key: COMMS_WEBHOOK_SECRET
+        type: SECRET
+        value: ${COMMS_WEBHOOK_SECRET}
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        type: SECRET
+        value: ${SMTP_USERNAME}
+      - key: SMTP_PASSWORD
+        type: SECRET
+        value: ${SMTP_PASSWORD}
+      - key: SMTP_FROM_EMAIL
+        value: ${SMTP_FROM_EMAIL}
+      - key: SMTP_FROM_NAME
+        value: Kaart
+      - key: COMMS_BASE_URL
+        value: ${APP_BASE_URL}
+      - key: ORG_CLAIM_KEYS
+        value: mikro/org_id,tm/org_id,viewer/org_id,org_id
+      - key: ROLES_CLAIM_KEYS
+        value: mikro/roles,tm/roles,viewer/roles,roles
+      - key: NOTIFICATION_RETENTION_DAYS
+        value: "90"
 
 workers:
   # Background worker - nightly task sync, element analysis, MR backfill,
@@ -191,3 +281,8 @@ databases:
     version: "16"
     size: db-s-1vcpu-1gb
     num_nodes: 1
+  - name: comms-db
+    engine: PG
+    version: "16"
+    # cluster_name: <existing-mikro-pg-cluster-name>   # share the cluster
+    # production: true                                  # required when sharing

@@ -218,90 +218,6 @@ export function UserProjects() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-      {/* Header */}
-      <div style={{ marginBottom: 8 }}>
-        <h1 className="text-3xl font-bold tracking-tight">Your Projects</h1>
-        <p className="text-muted-foreground" style={{ marginTop: 8 }}>
-          Projects assigned to you for mapping and validation
-        </p>
-      </div>
-
-      {/* Stats Summary - Compact Row */}
-      <div
-        style={{
-          display: "grid",
-          gap: 16,
-          gridTemplateColumns: "repeat(4, 1fr)",
-        }}
-        className="grid-stats"
-      >
-        <Card style={{ padding: 0 }}>
-          <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
-              Active Projects
-            </p>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>
-              <Val>{formatNumber(activeProjects.length)}</Val>
-            </div>
-          </div>
-        </Card>
-        <Card style={{ padding: 0 }}>
-          <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
-              Total Tasks
-            </p>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>
-              <Val>
-                {formatNumber(
-                  activeProjects.reduce((sum, p) => sum + p.total_tasks, 0),
-                )}
-              </Val>
-            </div>
-          </div>
-        </Card>
-        <Card style={{ padding: 0 }}>
-          <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
-              Tasks Completed
-            </p>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#16a34a" }}>
-              <Val>
-                {formatNumber(
-                  activeProjects.reduce(
-                    (sum, p) => sum + (p.total_mapped ?? 0),
-                    0,
-                  ),
-                )}
-              </Val>
-            </div>
-          </div>
-        </Card>
-        {paymentsVisible && (
-          <Card style={{ padding: 0 }}>
-            <div style={{ padding: "12px 16px" }}>
-              <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
-                Potential Earnings
-              </p>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#ff6b35" }}>
-                <Val>
-                  {formatCurrency(
-                    activeProjects
-                      .filter((p) => p.payments_enabled !== false)
-                      .reduce(
-                        (sum, p) =>
-                          sum +
-                          (p.total_tasks - (p.total_mapped ?? 0)) *
-                            p.mapping_rate_per_task,
-                        0,
-                      ),
-                  )}
-                </Val>
-              </div>
-            </div>
-          </Card>
-        )}
-      </div>
-
       {/* Projects Grid */}
       {activeProjects.length > 0 ? (
         <>
@@ -344,7 +260,15 @@ export function UserProjects() {
           )}
         </>
       ) : (
-        <Card>
+        <EmptyUserProjectsPage />
+      )}
+    </div>
+  );
+}
+
+function EmptyUserProjectsPage() {
+  return (
+            <Card>
           <CardContent style={{ padding: "48px 24px", textAlign: "center" }}>
             <div
               style={{
@@ -382,7 +306,5 @@ export function UserProjects() {
             </p>
           </CardContent>
         </Card>
-      )}
-    </div>
-  );
+  )
 }

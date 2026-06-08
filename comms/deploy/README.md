@@ -1,14 +1,9 @@
 # Deploying Kaart Comms (DigitalOcean App Platform)
 
 Mikro deploys on **DigitalOcean App Platform**, not Kubernetes/GitLab. The live
-spec is at the repo root: `.do/app.yaml` (services `mikro-backend` /
-`mikro-frontend`, worker `mikro-worker`, database `db`). Comms ships as an
-**additional `service` component inside the same Mikro DO app**, with its own
-process, its own source dir (`comms/`), and its **own managed database**.
-
-The component fragment to merge is `comms/deploy/app-platform-comms.yaml`. It is
-not a standalone app spec — the header in that file documents exactly which
-blocks to append into `.do/app.yaml`.
+spec is at the repo root: `.do/app.yaml`. It includes all components: services
+`mikro-backend` / `mikro-frontend` / `comms`, worker `mikro-worker`, and
+databases `db` / `comms-db`.
 
 ---
 
@@ -63,14 +58,10 @@ Comms owns its **own Alembic chain** (`comms/migrations/`, chain root
 `flask db upgrade` for comms — that targets Mikro's chain.
 
 This runs automatically on every deploy via the `comms-migrate` **PRE_DEPLOY
-job** defined in the fragment:
-
-```
-python -m alembic -c comms/migrations/alembic.ini upgrade head
-```
+job** in `.do/app.yaml`.
 
 `comms/migrations/env.py` resolves the DB URL from `COMMS_DATABASE_URL` at
-runtime. To run it by hand against the managed DB:
+runtime. To run it by hand against the managed DB (from the repo root):
 
 ```bash
 COMMS_DATABASE_URL='<comms managed DB url>' \
