@@ -873,8 +873,14 @@ class ProjectAPI(MethodView):
         if not g.user:
             return {"message": "User not found", "status": 304}
 
+        body = request.get_json(silent=True) or {}
+        country_id = int(body["country_id"]) if body.get("country_id") else None
+        region_id = int(body["region_id"]) if body.get("region_id") else None
+
         svc = ProjectService()
-        active_projects = svc.get_user_assigned_projects(g.user)
+        active_projects = svc.get_user_assigned_projects(
+            g.user, country_id=country_id, region_id=region_id
+        )
 
         user_projects = []
         project_ids = [p.id for p in active_projects]

@@ -15,6 +15,7 @@ from ..database import (
     Region,
     Country,
     UserCountry,
+    Project,
     ProjectCountry,
     TrainingCountry,
     User,
@@ -352,8 +353,20 @@ class RegionAPI(MethodView):
         """
         org_id = g.user.org_id
 
-        # Countries
-        countries = Country.query.order_by(Country.name).all()
+        # Countries — only those linked to at least one project in this org
+        project_country_ids = (
+            db.session.query(ProjectCountry.country_id)
+            .join(Project, Project.id == ProjectCountry.project_id)
+            .filter(Project.org_id == org_id)
+            .distinct()
+            .subquery()
+        )
+        countries = (
+            Country.query
+            .filter(Country.id.in_(project_country_ids))
+            .order_by(Country.name)
+            .all()
+        )
         country_options = [
             {
                 "id": c.id,
@@ -363,8 +376,14 @@ class RegionAPI(MethodView):
             for c in countries
         ]
 
-        # Regions
-        regions = Region.query.order_by(Region.name).all()
+        # Regions — only those that contain at least one of the above countries
+        represented_region_ids = {c.region_id for c in countries if c.region_id}
+        regions = (
+            Region.query
+            .filter(Region.id.in_(represented_region_ids))
+            .order_by(Region.name)
+            .all()
+        )
         region_options = [{"id": r.id, "name": r.name} for r in regions]
 
         # Teams

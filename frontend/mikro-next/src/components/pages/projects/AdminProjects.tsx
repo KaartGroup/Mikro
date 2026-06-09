@@ -22,7 +22,6 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
-import { StandaloneFilter } from "@/components/admin/StandaloneFilter";
 import {
   useOrgProjects,
   useDeleteProject,
@@ -35,6 +34,8 @@ import {
 } from "@/hooks";
 import { AddProjectModal } from "./AddProjectModal";
 import { EditProjectModal } from "./EditProjectModal";
+import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
+import type { ProjectFiltersValue } from "./ProjectFilters";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import Link from "next/link";
 import {
@@ -56,6 +57,7 @@ export function AdminProjects() {
   const [syncingProjectId, setSyncingProjectId] = useState<number | null>(null);
   const toast = useToastActions();
 
+
   // Role-aware UI (F3 Phase 3.4):
   // - team_admin: list is server-scoped to managed teams' projects.
   //   No create/delete/purge buttons.
@@ -74,39 +76,24 @@ export function AdminProjects() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPurgeModal, setShowPurgeModal] = useState(false);
-  const [showMyProjects, setShowMyProjects] = useState(false);
-  // Standalone filter dropdowns. Each null = "All …" (no filter).
-  const [filterRegionId, setFilterRegionId] = useState<string | null>(null);
-  const [filterCountryId, setFilterCountryId] = useState<string | null>(null);
-  const [filterTeamId, setFilterTeamId] = useState<string | null>(null);
-  const [projectSearch, setProjectSearch] = useState("");
+  const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
   const [activePageNum, setActivePageNum] = useState(1);
   const [inactivePageNum, setInactivePageNum] = useState(1);
   const ROWS_PER_PAGE = 20;
-  // Reset pagination when search or filters change
+
   useEffect(() => {
     setActivePageNum(1);
     setInactivePageNum(1);
-  }, [
-    projectSearch,
-    showMyProjects,
-    filterRegionId,
-    filterCountryId,
-    filterTeamId,
-  ]);
+  }, [filters]);
 
-  // Build the request body from current filter state. Used both by
-  // the auto-refetch effect below and by post-mutation refetches
-  // (create / edit / delete / sync) so they all keep the active
-  // filters applied.
   const buildRefetchBody = useCallback((): Record<string, unknown> => {
     const body: Record<string, unknown> = {};
-    if (showMyProjects) body.created_by_me = true;
-    if (filterCountryId) body.country_id = Number(filterCountryId);
-    if (filterRegionId) body.region_id = Number(filterRegionId);
-    if (filterTeamId) body.team_id = Number(filterTeamId);
+    if (filters.showMyProjects) body.created_by_me = true;
+    if (filters.countryId) body.country_id = Number(filters.countryId);
+    if (filters.regionId) body.region_id = Number(filters.regionId);
+    if (filters.teamId) body.team_id = Number(filters.teamId);
     return body;
-  }, [showMyProjects, filterCountryId, filterRegionId, filterTeamId]);
+  }, [filters]);
 
   // Re-fetch projects when any filter changes. country_id, region_id,
   // and team_id are project-direct (look up via ProjectCountry /
@@ -270,17 +257,26 @@ export function AdminProjects() {
       .toLowerCase();
 
   const filterProjectsBySearch = (list: Project[]) => {
-    if (!projectSearch.trim()) return list;
-    const q = normalizeForSearch(projectSearch.trim());
+    if (!filters.search.trim()) return list;
+    const q = normalizeForSearch(filters.search.trim());
     return list.filter((p) => {
-      // Match against long name, short name, source URL, and source id.
-      // The source id is the integer project.id (Mikro stores the upstream
-      // TM4/MR id directly as the PK — see Project model).
       if (normalizeForSearch(p.name || "").includes(q)) return true;
       if (normalizeForSearch(p.short_name || "").includes(q)) return true;
       if (normalizeForSearch(p.url || "").includes(q)) return true;
       if (String(p.id).includes(q)) return true;
       return false;
+    });
+  };
+
+  const filterProjectsByCompletion = (list: Project[]) => {
+    if (!filters.completionFilter) return list;
+    return list.filter((p) => {
+      const pct = getCompletionPct(p) ?? 0;
+      if (filters.completionFilter === "not-started") return pct === 0;
+      if (filters.completionFilter === "in-progress") return pct >= 1 && pct <= 49;
+      if (filters.completionFilter === "almost-done") return pct >= 50 && pct <= 99;
+      if (filters.completionFilter === "complete") return pct === 100;
+      return true;
     });
   };
 
@@ -835,72 +831,13 @@ export function AdminProjects() {
         </Card>
       </div>
 
-      {/* Filters — each filterable dimension is its own visible
-          dropdown so admins don't have to discover an "Add filter"
-          menu. All default to "All …" (no filter). Project-direct
-          filtering: backend looks up ProjectCountry / ProjectTeam. */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col">
-          <label className="mb-1.5 block text-sm font-medium text-foreground">
-            Search
-          </label>
-          <input
-            type="text"
-            placeholder="Search projects..."
-            className="h-10 rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring w-48"
-            value={projectSearch}
-            onChange={(e) => setProjectSearch(e.target.value)}
-          />
-        </div>
-        <div className="w-44">
-          <StandaloneFilter
-            label="Region"
-            allLabel="All regions"
-            options={(filterOptions?.dimensions?.region ?? []).map((v) =>
-              typeof v === "string"
-                ? { value: v, label: v }
-                : { value: String(v.id ?? v.name), label: v.name },
-            )}
-            value={filterRegionId}
-            onChange={setFilterRegionId}
-          />
-        </div>
-        <div className="w-44">
-          <StandaloneFilter
-            label="Country"
-            allLabel="All countries"
-            options={(filterOptions?.dimensions?.country ?? []).map((v) =>
-              typeof v === "string"
-                ? { value: v, label: v }
-                : { value: String(v.id ?? v.name), label: v.name },
-            )}
-            value={filterCountryId}
-            onChange={setFilterCountryId}
-          />
-        </div>
-        <div className="w-44">
-          <StandaloneFilter
-            label="Team"
-            allLabel="All teams"
-            options={(filterOptions?.dimensions?.team ?? []).map((v) =>
-              typeof v === "string"
-                ? { value: v, label: v }
-                : { value: String(v.id ?? v.name), label: v.name },
-            )}
-            value={filterTeamId}
-            onChange={setFilterTeamId}
-          />
-        </div>
-        <div className="ml-auto">
-          <Button
-            variant={showMyProjects ? "primary" : "outline"}
-            size="sm"
-            onClick={() => setShowMyProjects(!showMyProjects)}
-          >
-            My Projects
-          </Button>
-        </div>
-      </div>
+      <ProjectFilters
+        filterOptions={filterOptions ?? null}
+        onChange={setFilters}
+        withTeam
+        withMyProjects
+        withCompletion
+      />
 
       {/* Projects Tabs */}
       <Tabs defaultValue="active">
@@ -917,7 +854,7 @@ export function AdminProjects() {
             <CardContent className="p-0">
               <ProjectTable
                 projectList={sortProjects(
-                  filterProjectsBySearch(activeProjects),
+                  filterProjectsByCompletion(filterProjectsBySearch(activeProjects)),
                 )}
                 currentPage={activePageNum}
                 setCurrentPage={setActivePageNum}
@@ -930,7 +867,7 @@ export function AdminProjects() {
             <CardContent className="p-0">
               <ProjectTable
                 projectList={sortProjects(
-                  filterProjectsBySearch(inactiveProjects),
+                  filterProjectsByCompletion(filterProjectsBySearch(inactiveProjects)),
                 )}
                 currentPage={inactivePageNum}
                 setCurrentPage={setInactivePageNum}

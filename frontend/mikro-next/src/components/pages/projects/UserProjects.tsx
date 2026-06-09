@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -12,7 +12,7 @@ import {
   Val,
   useToastActions,
 } from "@/components/ui";
-import { useUserProjects, usePaymentsVisible } from "@/hooks";
+import { useUserProjects, usePaymentsVisible, useFetchFilterOptions } from "@/hooks";
 import {
   getProjectExternalUrl,
   formatNumber,
@@ -20,6 +20,8 @@ import {
 } from "@/lib/utils";
 import Link from "next/link";
 import type { Project } from "@/types";
+import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
+import type { ProjectFiltersValue } from "./ProjectFilters";
 
 function ProjectCard({
   project,
@@ -174,10 +176,34 @@ function ProjectCard({
   );
 }
 
+const normalizeForSearch = (s: string): string =>
+  (s || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+
 export function UserProjects() {
-  const { data: projects, loading, error } = useUserProjects();
+  const { data: projects, loading, error, refetch } = useUserProjects();
+  const { data: filterOptions } = useFetchFilterOptions();
   const { paymentsVisible } = usePaymentsVisible();
   const toast = useToastActions();
+
+
+  const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
+
+  const buildRefetchBody = useCallback((): Record<string, unknown> => {
+    const body: Record<string, unknown> = {};
+    if (filters.countryId) body.country_id = Number(filters.countryId);
+    if (filters.regionId) body.region_id = Number(filters.regionId);
+    return body;
+  }, [filters.countryId, filters.regionId]);
+
+  useEffect(() => {
+    if (refetch) {
+      const body = buildRefetchBody();
+      refetch(Object.keys(body).length > 0 ? body : {});
+    }
+  }, [buildRefetchBody, refetch]);
 
   // Show error as toast instead of inline
   useEffect(() => {
@@ -189,7 +215,33 @@ export function UserProjects() {
   const ROWS_PER_PAGE = 20;
   const [currentPage, setCurrentPage] = useState(1);
 
-  const activeProjects = projects?.user_projects ?? [];
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  const getCompletionPct = (p: Project): number =>
+    p.total_tasks > 0 ? Math.round(((p.total_mapped ?? 0) / p.total_tasks) * 100) : 0;
+
+  const allProjects = projects?.user_projects ?? [];
+  const activeProjects = allProjects.filter((p) => {
+    if (filters.search.trim()) {
+      const q = normalizeForSearch(filters.search.trim());
+      const matches =
+        normalizeForSearch(p.name || "").includes(q) ||
+        normalizeForSearch(p.short_name || "").includes(q) ||
+        normalizeForSearch(p.url || "").includes(q) ||
+        String(p.id).includes(q);
+      if (!matches) return false;
+    }
+    if (filters.completionFilter) {
+      const pct = getCompletionPct(p);
+      if (filters.completionFilter === "not-started" && pct !== 0) return false;
+      if (filters.completionFilter === "in-progress" && (pct < 1 || pct > 49)) return false;
+      if (filters.completionFilter === "almost-done" && (pct < 50 || pct > 99)) return false;
+      if (filters.completionFilter === "complete" && pct !== 100) return false;
+    }
+    return true;
+  });
 
   const totalPages = Math.ceil(activeProjects.length / ROWS_PER_PAGE);
   const paginatedProjects = activeProjects.slice(
@@ -218,6 +270,11 @@ export function UserProjects() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+      <ProjectFilters
+        filterOptions={filterOptions ?? null}
+        onChange={setFilters}
+        withCompletion
+      />
       {/* Projects Grid */}
       {activeProjects.length > 0 ? (
         <>

@@ -551,7 +551,7 @@ class ProjectService:
             .outerjoin(subq, Project.id == subq.c.project_id)
         )
 
-    def get_user_assigned_projects(self, user) -> list[Project]:
+    def get_user_assigned_projects(self, user, country_id=None, region_id=None) -> list[Project]:
         """Return active projects assigned to the user, filtered by location visibility.
 
         Each project has a ``last_worked_on`` attribute (ISO string or None).
@@ -559,6 +559,10 @@ class ProjectService:
         query = db.session.query(Project).filter(Project.status == True)
         query = self.filter_by_assigned_user(query, user.id)
         query = self.filter_by_location_visibility(query, user.id)
+        if country_id is not None:
+            query = self.get_project_by_country(query, country_id)
+        if region_id is not None:
+            query = self.get_project_by_region(query, region_id)
         query = self.with_last_worked(query, user.id)
         projects = []
         for p, ts in query.all():
