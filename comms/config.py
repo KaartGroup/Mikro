@@ -17,10 +17,27 @@ def _split_csv(value: str) -> list[str]:
     return [v.strip() for v in (value or "").split(",") if v.strip()]
 
 
+def _normalize_db_url() -> str:
+    """Resolve COMMS_DATABASE_URL into a SQLAlchemy-parseable URL.
+
+    Tolerates the common deploy footguns:
+      - surrounding whitespace/newlines from copy-paste
+      - the `postgres://` scheme (DO/Heroku style) which SQLAlchemy rejects;
+        rewrite to `postgresql://`
+    Falls back to an in-memory SQLite when unset (create_app logs this loudly).
+    """
+    raw = (os.environ.get("COMMS_DATABASE_URL") or "").strip().strip('"').strip("'")
+    if not raw:
+        return "sqlite:///:memory:"
+    if raw.startswith("postgres://"):
+        raw = "postgresql://" + raw[len("postgres://") :]
+    return raw
+
+
 class Config:
     # ── Database ──────────────────────────────────────────────────
     # Its OWN database (separate logical DB on the shared managed cluster).
-    SQLALCHEMY_DATABASE_URI = os.environ.get("COMMS_DATABASE_URL", "sqlite:///:memory:")
+    SQLALCHEMY_DATABASE_URI = _normalize_db_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ── Auth0 (shared tenant) ─────────────────────────────────────

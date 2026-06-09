@@ -46,6 +46,33 @@ def create_app(config_object=Config) -> Flask:
             "COMMS_DATABASE_URL (e.g. ${comms-db.DATABASE_URL}) on this component."
         )
 
+    # If a value IS set but isn't a parseable URL, db.init_app() crashes the
+    # worker with an opaque ArgumentError. Diagnose it clearly first (this shows
+    # in the deploy logs), then let it fail so App Platform keeps the prior
+    # deploy rather than promoting a broken one.
+    if not app.config["DB_EPHEMERAL"]:
+        if "${" in db_uri:
+            app.logger.critical(
+                "[CONFIG] COMMS_DATABASE_URL looks like an UNEXPANDED binding "
+                "placeholder (%r...). The bound DB resource name likely doesn't "
+                "match - attach a database named to match the ${...} binding, or "
+                "set a literal connection string.",
+                db_uri[:30],
+            )
+        else:
+            from sqlalchemy.engine import make_url
+
+            try:
+                make_url(db_uri)
+            except Exception as e:
+                app.logger.critical(
+                    "[CONFIG] COMMS_DATABASE_URL is not a valid SQLAlchemy URL "
+                    "(prefix=%r, len=%d): %s",
+                    db_uri[:15],
+                    len(db_uri),
+                    e,
+                )
+
     db.init_app(app)
 
     # Import models so they register on db.metadata before create_all / migrations.
