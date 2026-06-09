@@ -321,9 +321,6 @@ class ProjectAPI(MethodView):
 
         return {"message": "rate_type must be true", "status": 400}
 
-    def _count_tasks_split_aware(self, tasks, condition_fn=None):
-        return count_tasks_split_aware(tasks, condition_fn)
-
     def _get_effective_task_counts(self, project_id):
         """
         Calculate effective task counts that properly handle split tasks.
@@ -879,45 +876,37 @@ class ProjectAPI(MethodView):
 
         svc = ProjectService()
         active_projects = svc.get_user_assigned_projects(g.user)
-        last_worked_map = svc.get_last_worked_map(g.user.id, active_projects)
 
         user_projects = []
+        project_ids = [p.id for p in active_projects]
+
         user_task_ids = {
-            relation.task_id
-            for relation in UserTasks.query.filter_by(user_id=g.user.id).all()
+            r.task_id
+            for r in UserTasks.query.filter_by(user_id=g.user.id).all()
         }
+        tasks_by_project: dict = {}
+        for t in Task.query.filter(Task.project_id.in_(project_ids)).all():
+            tasks_by_project.setdefault(t.project_id, []).append(t)
 
         for project in active_projects:
-            all_project_tasks = Task.query.filter_by(project_id=project.id).all()
+            all_project_tasks = tasks_by_project.get(project.id, [])
             _proj_stats = get_project_stats_from_tasks(all_project_tasks)
-            user_project_task_ids = [
-                task.id for task in all_project_tasks if task.id in user_task_ids
-            ]
-            user_project_tasks = [
-                task for task in all_project_tasks if task.id in user_project_task_ids
-            ]
+            user_project_tasks = [t for t in all_project_tasks if t.id in user_task_ids]
 
             # Use split-aware counting - only counts as 1 when ALL siblings complete
-            user_project_mapped_tasks = self._count_tasks_split_aware(
+            user_project_mapped_tasks = count_tasks_split_aware(
                 user_project_tasks,
                 lambda t: t.mapped is True and t.validated is False and t.invalidated is False
             )
-            user_project_approved_tasks = self._count_tasks_split_aware(
+            user_project_approved_tasks = count_tasks_split_aware(
                 user_project_tasks,
                 lambda t: t.mapped is True and t.validated is True and t.invalidated is False
             )
-            user_project_unapproved_tasks = self._count_tasks_split_aware(
+            user_project_unapproved_tasks = count_tasks_split_aware(
                 user_project_tasks,
                 lambda t: t.mapped is True and t.validated is False and t.invalidated is True
             )
 
-            # Calculate earnings using split-aware payment calculation
-            user_mapping_earnings = sum(
-                self._calculate_task_payment(task, is_mapping=True)
-                for task in user_project_tasks
-                if task.validated is True and not getattr(task, 'self_validated', False)
-            )
-            user_project_earnings = user_mapping_earnings
             user_projects.append(
                 {
                     "id": project.id,
@@ -944,13 +933,13 @@ class ProjectAPI(MethodView):
                     "total_mapped": _proj_stats["tasks_mapped"],
                     "total_validated": _proj_stats["tasks_validated"],
                     "total_invalidated": _proj_stats["tasks_invalidated"],
-                    "user_earnings": user_project_earnings,
+                    "user_earnings": 0,
                     "status": project.status,
                     # For F1 — frontend sorts the clock-in dropdown
                     # so the user's most-recent project pins to the
                     # top. null for projects they've never clocked
                     # into (sort to bottom on the client).
-                    "last_worked_on": last_worked_map.get(project.id),
+                    "last_worked_on": project.last_worked_on,
                 }
             )
 
