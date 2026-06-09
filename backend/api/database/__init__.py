@@ -3,7 +3,6 @@ from .IntegerIntFlag import IntegerIntFlag
 from .common import db
 from .core import (
     User,
-    UserNameAudit,
     Project,
     ProjectUser,
     ProjectTraining,
@@ -54,7 +53,6 @@ __all__ = [
     "db",
     "IntegerIntFlag",
     "User",
-    "UserNameAudit",
     "Project",
     "UserTasks",
     "ProjectUser",

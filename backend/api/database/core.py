@@ -133,46 +133,6 @@ class User(ModelWithSoftDeleteAndCRUD, SurrogatePK):
         return f"{self.first_name or ''} {self.last_name or ''}".strip()
 
 
-class UserNameAudit(CRUDMixin, db.Model):
-    """
-    Diagnostic audit log for every change to User.first_name / last_name.
-
-    Temporary instrumentation added 2026-04 while investigating reports
-    that admin-set user names revert to email addresses. Each write path
-    that touches first_name or last_name records a row here tagged with
-    the code path (`source`) and the actor (`changed_by`). Once the
-    regression is confirmed fixed this table can be dropped in a future
-    migration.
-    """
-
-    __tablename__ = "user_name_audits"
-
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    user_id = db.Column(
-        db.String(255),
-        db.ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    changed_at = db.Column(
-        DateTime, nullable=False, default=func.now(), server_default=func.now(),
-        index=True,
-    )
-    old_first_name = db.Column(db.String(100), nullable=True)
-    old_last_name = db.Column(db.String(100), nullable=True)
-    new_first_name = db.Column(db.String(100), nullable=True)
-    new_last_name = db.Column(db.String(100), nullable=True)
-    source = db.Column(db.String(50), nullable=False, index=True)
-    changed_by = db.Column(db.String(255), nullable=True)
-    details = db.Column(db.Text, nullable=True)
-
-    def __repr__(self):
-        return (
-            f"<UserNameAudit user={self.user_id} src={self.source} "
-            f"at={self.changed_at}>"
-        )
-
-
 class Project(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     """TM4 Project model."""
 

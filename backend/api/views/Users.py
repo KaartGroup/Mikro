@@ -29,7 +29,6 @@ from ..auth import (
 )
 from ..database import (
     User,
-    UserNameAudit,
     Project,
     ProjectUser,
     Task,
@@ -98,60 +97,6 @@ def _format_user_name(user):
     first = (user.first_name or "").title()
     last = (user.last_name or "").title()
     return f"{first} {last}".strip() or user.email or "Unknown"
-
-
-def record_name_change(
-    user,
-    new_first,
-    new_last,
-    source,
-    changed_by=None,
-    details=None,
-):
-    """
-    Audit a change to user.first_name / user.last_name. No-op when the
-    proposed values match the current values — avoids flooding the table
-    on every /api/login page-sync request.
-
-    Caller is responsible for performing the actual write; this function
-    only records the audit row. Emits a structured log line as well so
-    the event is visible in DO logs without DB access.
-
-    Added 2026-04 to diagnose reports of admin-set names reverting to
-    email addresses. Safe to drop once the regression is confirmed fixed.
-    """
-    old_first = user.first_name or ""
-    old_last = user.last_name or ""
-    nf = new_first or ""
-    nl = new_last or ""
-    if old_first == nf and old_last == nl:
-        return None
-    try:
-        row = UserNameAudit.create(
-            user_id=user.id,
-            old_first_name=old_first or None,
-            old_last_name=old_last or None,
-            new_first_name=nf or None,
-            new_last_name=nl or None,
-            source=source,
-            changed_by=changed_by,
-            details=details,
-        )
-        current_app.logger.info(
-            f"[NAME-AUDIT] user={user.id} source={source} "
-            f"from='{old_first} {old_last}'.strip() "
-            f"to='{nf} {nl}'.strip() by={changed_by or 'system'} "
-            f"details={details or ''}"
-        )
-        return row
-    except Exception as e:
-        # Auditing must never block the actual write — this is a debug
-        # tool, not a critical path.
-        current_app.logger.warning(
-            f"[NAME-AUDIT] Failed to record audit for user={user.id} "
-            f"source={source}: {e}"
-        )
-        return None
 
 
 def _resolve_country_region(country_id, country_cache, region_cache):
@@ -396,20 +341,6 @@ class UserAPI(MethodView):
                             safe_updates["first_name"] = first_name
                         if write_last:
                             safe_updates["last_name"] = last_name
-                        # Audit any name changes BEFORE the write
-                        if write_first or write_last:
-                            record_name_change(
-                                existing_user,
-                                safe_updates.get(
-                                    "first_name", existing_user.first_name
-                                ),
-                                safe_updates.get("last_name", existing_user.last_name),
-                                source="import",
-                                changed_by=(
-                                    g.user.id if getattr(g, "user", None) else None
-                                ),
-                                details=f"csv_first={first_name!r} csv_last={last_name!r}",
-                            )
                         existing_user.update(**safe_updates)
                     else:
                         # New row — safe to set names from CSV.
@@ -427,26 +358,6 @@ class UserAPI(MethodView):
                             email=email,
                             **create_fields,
                         )
-                        # Audit the creation so every user has a name-history
-                        # starting point.
-                        try:
-                            UserNameAudit.create(
-                                user_id=new_user.id,
-                                old_first_name=None,
-                                old_last_name=None,
-                                new_first_name=first_name or None,
-                                new_last_name=last_name or None,
-                                source="import",
-                                changed_by=(
-                                    g.user.id if getattr(g, "user", None) else None
-                                ),
-                                details=f"csv_first={first_name!r} csv_last={last_name!r}",
-                            )
-                        except Exception as e:
-                            current_app.logger.warning(
-                                f"[NAME-AUDIT] Failed audit for import (new user {email}): {e}"
-                            )
-
                     suffix = (
                         " (already in Auth0, synced locally)"
                         if not auth0_created
@@ -861,33 +772,6 @@ class UserAPI(MethodView):
                     country_changed = True
                 setattr(g.user, field, value)
                 g.user.update()
-        # Audit name change (helper no-ops if nothing changed).
-        if (g.user.first_name or "") != (pre_first or "") or (
-            g.user.last_name or ""
-        ) != (pre_last or ""):
-            # Construct a transient User-like object carrying the OLD values
-            # so record_name_change compares correctly. Simpler: just write
-            # a one-off audit row directly here.
-            try:
-                UserNameAudit.create(
-                    user_id=g.user.id,
-                    old_first_name=pre_first or None,
-                    old_last_name=pre_last or None,
-                    new_first_name=g.user.first_name or None,
-                    new_last_name=g.user.last_name or None,
-                    source="self_edit",
-                    changed_by=g.user.id,
-                )
-                current_app.logger.info(
-                    f"[NAME-AUDIT] user={g.user.id} source=self_edit "
-                    f"from='{(pre_first or '')} {(pre_last or '')}'.strip() "
-                    f"to='{g.user.first_name or ''} {g.user.last_name or ''}'.strip() "
-                    f"by={g.user.id}"
-                )
-            except Exception as e:
-                current_app.logger.warning(
-                    f"[NAME-AUDIT] Failed audit for self_edit user={g.user.id}: {e}"
-                )
         # Auto-assign country when country text changes
         if country_changed:
             _auto_assign_country(g.user, g.user.country)
@@ -1338,17 +1222,6 @@ class UserAPI(MethodView):
             updates["first_name"] = (request.json["first_name"] or "").strip()
         if "last_name" in request.json:
             updates["last_name"] = (request.json["last_name"] or "").strip()
-
-        # Audit the admin name edit BEFORE the write so we capture the
-        # old values. record_name_change no-ops if nothing changed.
-        if "first_name" in request.json or "last_name" in request.json:
-            record_name_change(
-                user,
-                updates.get("first_name", user.first_name),
-                updates.get("last_name", user.last_name),
-                source="admin_edit",
-                changed_by=g.user.id if getattr(g, "user", None) else None,
-            )
 
         # Handle additional profile fields
         if "osm_username" in request.json:
@@ -1880,10 +1753,6 @@ class UserAPI(MethodView):
                 # Other
                 "mapper_points": user.mapper_points or 0,
                 "validator_points": user.validator_points or 0,
-                # Most recent name-change audit row, if any — exposes the
-                # admin-facing "last edited" badge on the profile header
-                # so we can see who touched the name and through which path.
-                "name_last_change": self._get_last_name_change(user),
                 # Nested
                 "projects": projects_data,
                 "assigned_projects": self._get_assigned_projects(user),
@@ -1891,47 +1760,6 @@ class UserAPI(MethodView):
                     self._format_time_entry(e, te_project_cache) for e in time_entries
                 ],
             },
-        }
-
-    @staticmethod
-    def _get_last_name_change(user):
-        """
-        Return the most recent UserNameAudit row for this user as a small
-        dict, or None if there's no audit history. Used by the admin
-        profile page's "name last changed" badge.
-        """
-        row = (
-            UserNameAudit.query.filter_by(user_id=user.id)
-            .order_by(UserNameAudit.changed_at.desc())
-            .first()
-        )
-        if not row:
-            return None
-
-        # Resolve changed_by from an Auth0 id into a readable name. Raw
-        # Auth0 ids are noise in the admin UI — show the actor's actual
-        # name (or email as a fallback) instead. "system" passes through
-        # unchanged for login_* audit rows.
-        changed_by_name = None
-        if row.changed_by and row.changed_by != "system":
-            actor = User.query.filter_by(id=row.changed_by).first()
-            if actor:
-                changed_by_name = (
-                    _format_user_name(actor)
-                    if (actor.first_name or actor.last_name)
-                    else actor.email
-                )
-        elif row.changed_by == "system":
-            changed_by_name = "system"
-        return {
-            "changed_at": row.changed_at.isoformat() + "Z" if row.changed_at else None,
-            "source": row.source,
-            "changed_by": row.changed_by,  # raw id kept for debugging
-            "changed_by_name": changed_by_name,  # friendly label for UI
-            "old_first_name": row.old_first_name,
-            "old_last_name": row.old_last_name,
-            "new_first_name": row.new_first_name,
-            "new_last_name": row.new_last_name,
         }
 
     @requires_team_admin_or_above
