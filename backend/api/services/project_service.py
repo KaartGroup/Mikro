@@ -6,12 +6,23 @@ Extracted from ``api/views/Projects.py``. Accepts plain Python arguments
 (not request objects) so logic is decoupled from HTTP and is easily testable.
 """
 
+import logging
 import re
 
 import requests
+from ..database import Team, TeamLead, TeamUser, User
+from sqlalchemy import func
+from ..auth.team_scoping import is_org_admin_or_above
+from ..database.core import ProjectTeam, ProjectUser
+from ..stats import (
+    count_tasks_split_aware,
+    get_batch_project_stats_fast,
+    get_project_stats_from_tasks,
+)
 from flask import current_app
 
-from ..database import db, Country, Project, ProjectCountry
+from ..database import db, Country, Region, Project, ProjectCountry, ProjectTraining, TimeEntry
+from ..filters import get_user_country_ids, is_visible_by_location
 
 
 class ProjectService:
@@ -351,3 +362,202 @@ class ProjectService:
 
         target_project.delete(soft=False)
         return {"message": f"Project {project_id} deleted", "status": 200}
+    
+    @staticmethod
+    def role_scope_projects_query(query, user):
+        """Return a base Project query scoped to the user's role visibility."""
+        if is_org_admin_or_above(user):
+            return query
+        elif user.role == "team_admin":
+            managed_team_ids = (
+                db.select(TeamLead.team_id)
+                .where(TeamLead.user_id == user.id)
+                .scalar_subquery()
+            )
+            team_project_ids = (
+                db.select(ProjectTeam.project_id)
+                .where(ProjectTeam.team_id.in_(managed_team_ids))
+                .scalar_subquery()
+            )
+            query = query.filter(
+                db.or_(
+                    Project.id.in_(team_project_ids),
+                    Project.created_by == user.id,
+                )
+            )
+            return query
+        else:
+            query = query.join(ProjectUser, ProjectUser.project_id == Project.id).filter(
+                ProjectUser.user_id == user.id
+            )
+            return query
+
+    @staticmethod
+    def get_project_by_status(query, status: bool):
+        """Return a Project query filtered by active/inactive status."""
+        if isinstance(status, bool):
+            return query.filter(Project.status == status)
+        logging.info(f"Invalid status filter: {status}")
+        return query
+    
+    @staticmethod
+    def get_project_by_country(query, country_id: int):
+        project_ids = (
+            db.select(ProjectCountry.project_id)
+            .where(ProjectCountry.country_id == country_id)
+            .scalar_subquery()
+        )
+        return query.filter(Project.id.in_(project_ids))
+
+    @staticmethod
+    def get_project_by_region(query, region_id: int):
+        country_ids = (
+            db.select(Country.id)
+            .where(Country.region_id == region_id)
+            .scalar_subquery()
+        )
+        project_ids = (
+            db.select(ProjectCountry.project_id)
+            .where(ProjectCountry.country_id.in_(country_ids))
+            .scalar_subquery()
+        )
+        return query.filter(Project.id.in_(project_ids))
+
+    @staticmethod
+    def get_project_by_team(query, team_id: int):
+        project_ids = (
+            db.select(ProjectTeam.project_id)
+            .where(ProjectTeam.team_id == team_id)
+            .scalar_subquery()
+        )
+        return query.filter(Project.id.in_(project_ids))
+
+    @staticmethod
+    def get_project_by_created_by(query, user_id: str):
+        return query.filter(Project.created_by == user_id)
+
+    @staticmethod
+    def get_project_by_assigned_users(query, user_ids: list):
+        project_ids = (
+            db.select(ProjectUser.project_id)
+            .where(ProjectUser.user_id.in_(user_ids))
+            .scalar_subquery()
+        )
+        return query.filter(Project.id.in_(project_ids))
+
+    @staticmethod
+    def get_location_counts(project_ids: list) -> dict:
+        if not project_ids:
+            return {}
+        return dict(
+            db.session.query(ProjectCountry.project_id, func.count())
+            .filter(ProjectCountry.project_id.in_(project_ids))
+            .group_by(ProjectCountry.project_id)
+            .all()
+        )
+
+    @staticmethod
+    def get_training_counts(project_ids: list) -> dict:
+        if not project_ids:
+            return {}
+        return dict(
+            db.session.query(ProjectTraining.project_id, func.count())
+            .filter(ProjectTraining.project_id.in_(project_ids))
+            .group_by(ProjectTraining.project_id)
+            .all()
+        )
+
+    def get(self, org_id: str, user, filters: dict | None = None) -> list:
+        """Return projects visible to the user."""
+        filters = filters or {}
+        query = Project.query.filter(Project.org_id == org_id)
+
+        query = self.role_scope_projects_query(query, user)
+
+        if filters.get("status") is not None:
+            query = self.get_project_by_status(query, filters["status"])
+
+        if filters.get("country_id") is not None:
+            query = self.get_project_by_country(query, filters["country_id"])
+
+        if filters.get("region_id") is not None:
+            query = self.get_project_by_region(query, filters["region_id"])
+
+        if filters.get("team_id") is not None:
+            query = self.get_project_by_team(query, filters["team_id"])
+
+        if filters.get("created_by_me"):
+            query = self.get_project_by_created_by(query, user.id)
+
+        if filters.get("user_ids") is not None:
+            query = self.get_project_by_assigned_users(query, filters["user_ids"])
+
+        return query.all()
+
+    def get_user_assigned_projects(self, user) -> list:
+        """Return active projects for a user's personal/clock-in view.
+
+        Includes projects the user is directly assigned to. For team_admins,
+        also includes projects visible via role scope (led/created). Location
+        visibility is applied, but bypassed for team_admin role-scoped projects.
+        """
+        assigned_project_ids = {
+            r.project_id
+            for r in ProjectUser.query.filter_by(user_id=user.id).all()
+        }
+
+        ta_extra_ids = set()
+        if user.role == "team_admin":
+            ta_extra_ids = {
+                p.id for p in self.get(org_id=user.org_id, user=user, filters={"status": True})
+            }
+
+        all_relevant_ids = assigned_project_ids | ta_extra_ids
+        if not all_relevant_ids:
+            return []
+
+        projects = Project.query.filter(
+            Project.id.in_(all_relevant_ids),
+            Project.status == True,
+        ).all()
+
+        user_cids = get_user_country_ids(user.id)
+        all_pc = (
+            ProjectCountry.query.filter(
+                ProjectCountry.project_id.in_([p.id for p in projects])
+            ).all()
+            if projects
+            else []
+        )
+        proj_loc_map: dict = {}
+        for r in all_pc:
+            proj_loc_map.setdefault(r.project_id, set()).add(r.country_id)
+
+        return [
+            p for p in projects
+            if p.id in ta_extra_ids
+            or is_visible_by_location(proj_loc_map.get(p.id, set()), user_cids)
+        ]
+
+    def get_last_worked_map(self, user_id: str, projects: list) -> dict:
+        """Return {project_id: last_clock_out_iso_or_None} for a user's projects."""
+        if not projects:
+            return {}
+
+        rows = (
+            db.session.query(
+                TimeEntry.project_id,
+                func.max(TimeEntry.clock_out),
+            )
+            .filter(
+                TimeEntry.user_id == user_id,
+                TimeEntry.project_id.in_([p.id for p in projects]),
+                TimeEntry.status != "voided",
+            )
+            .group_by(TimeEntry.project_id)
+            .all()
+        )
+        return {
+            pid: (last_ts.isoformat() + "Z") if last_ts else None
+            for pid, last_ts in rows
+        }

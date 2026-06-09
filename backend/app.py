@@ -114,6 +114,8 @@ def _register_views(app):
         LoginAPI,
         UserAPI,
         ProjectAPI,
+        ProjectTrainingAPI,
+        DashboardAPI,
         TransactionAPI,
         TaskAPI,
         TrainingAPI,
@@ -142,6 +144,10 @@ def _register_views(app):
 
     # Project management
     app.add_url_rule("/api/project/<path>", view_func=ProjectAPI.as_view("project"))
+    app.add_url_rule("/api/project-training/<path>", view_func=ProjectTrainingAPI.as_view("project_training"))
+
+    # Dashboard stats
+    app.add_url_rule("/api/dashboard/<path>", view_func=DashboardAPI.as_view("dashboard"))
 
     # Transaction/payment management
     app.add_url_rule(

@@ -3,6 +3,8 @@
 from .Login import LoginAPI
 from .Users import UserAPI
 from .Projects import ProjectAPI
+from .ProjectTrainings import ProjectTrainingAPI
+from .Dashboard import DashboardAPI
 from .Transactions import TransactionAPI
 from .Tasks import TaskAPI
 from .Training import TrainingAPI
@@ -26,6 +28,8 @@ __all__ = {
     "UserAPI",
     "LoginAPI",
     "ProjectAPI",
+    "ProjectTrainingAPI",
+    "DashboardAPI",
     "TransactionAPI",
     "TaskAPI",
     "TrainingAPI",

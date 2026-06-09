@@ -133,12 +133,12 @@ def _fetch_all_user_changesets(osm_usernames, start_date, end_date, max_per_user
     all_changesets = []
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {
-            executor.submit(ChangesetFetcher().fetch, [un], start_date, end_date): un
+            executor.submit(ChangesetFetcher().fetch, [un], start_date, end_date, max_per_user): un
             for un in osm_usernames
         }
         for future in as_completed(futures):
             try:
-                all_changesets.extend(future.result()[:max_per_user])
+                all_changesets.extend(future.result())
             except Exception as e:
                 logger.warning(f"ChangesetFetcher failed: {e}")
     return all_changesets

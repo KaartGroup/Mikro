@@ -30,17 +30,17 @@ class ChangesetFetcher:
     def __init__(self, session=None):
         self.session = session or requests.Session()
 
-    def fetch(self, osm_usernames, since, until=None):
+    def fetch(self, osm_usernames, since, until=None, max_results=None):
         """Return a flat list of changeset dicts for all given usernames."""
         usernames = [u for u in osm_usernames if u]
         print(f"Collecting changesets for {len(usernames)} users...")
         all_changesets = []
         for username in usernames:
-            all_changesets.extend(self._fetch_for_user(username, since, until))
+            all_changesets.extend(self._fetch_for_user(username, since, until, max_results=max_results))
         print(f"Collection done: {len(all_changesets)} total changesets")
         return all_changesets
 
-    def _fetch_for_user(self, osm_username, since, until):
+    def _fetch_for_user(self, osm_username, since, until, max_results=None):
         print(f"  Fetching changesets for {osm_username}...")
         closed_after = since.strftime("%Y-%m-%dT%H:%M:%SZ")
         created_before = until.strftime("%Y-%m-%dT%H:%M:%SZ") if until else None
@@ -59,6 +59,9 @@ class ChangesetFetcher:
             changesets = resp.json().get("changesets", [])
             print(f"    Got {len(changesets)} changesets")
             all_changesets.extend(changesets)
+
+            if max_results and len(all_changesets) >= max_results:
+                return all_changesets[:max_results]
 
             if len(changesets) < _PAGE_SIZE:
                 break
