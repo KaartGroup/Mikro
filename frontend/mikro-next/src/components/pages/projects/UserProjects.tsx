@@ -8,7 +8,6 @@ import {
   CardTitle,
   Badge,
   Button,
-  Skeleton,
   Val,
   useToastActions,
 } from "@/components/ui";
@@ -18,7 +17,6 @@ import {
   formatNumber,
   formatCurrency,
 } from "@/lib/utils";
-import Link from "next/link";
 import type { Project } from "@/types";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
@@ -35,11 +33,21 @@ function ProjectCard({
       ? Math.round(((project.total_mapped ?? 0) / project.total_tasks) * 100)
       : 0;
 
+  const externalUrl = getProjectExternalUrl(project.id, project.source);
+
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card
+      className="hover:shadow-lg hover:-translate-y-0.5 hover:border-kaart-orange/50 transition-all duration-200 cursor-pointer"
+      onClick={() => window.open(externalUrl, "_blank", "noopener,noreferrer")}
+    >
       <CardHeader>
-        {/* Difficulty badge above project name, right-aligned */}
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-end gap-1.5 mb-2">
+          <Badge
+            variant="secondary"
+            className={project.community ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" : ""}
+          >
+            {project.community ? "Community" : "Internal"}
+          </Badge>
           <Badge
             variant={
               project.difficulty === "Easy"
@@ -51,46 +59,29 @@ function ProjectCard({
           >
             <Val fallback="Unknown">{project.difficulty}</Val>
           </Badge>
-        </div>
-        <div>
-          <div className="group relative">
-            <CardTitle
-              className="text-lg truncate"
-              style={{ maxHeight: "3.5rem", overflow: "hidden" }}
-            >
-              <Link
-                href={`/projects/${project.id}`}
-                className="text-kaart-orange hover:underline cursor-pointer"
-                title="View project details"
-              >
-                {project.name}
-              </Link>
-            </CardTitle>
-            {/* Tooltip on hover */}
-            <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block max-w-xs">
-              <div className="bg-gray-900 text-white text-sm rounded-md px-3 py-2 shadow-lg">
-                {project.name}
-              </div>
-            </div>
-          </div>
-          <a
-            href={getProjectExternalUrl(project.id, project.source)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-kaart-orange hover:underline"
-            title={
-              project.source === "mr"
-                ? "Open in MapRoulette"
-                : "Open in Tasking Manager"
+          <Badge
+            variant={
+              project.priority === "High"
+                ? "destructive"
+                : project.priority === "Low"
+                  ? "success"
+                  : "warning"
             }
           >
-            #{project.id} -{" "}
-            {project.source === "mr" ? "Open in MapRoulette" : "Open in TM4"}
-          </a>
+            {project.priority ?? "Medium"}
+          </Badge>
+        </div>
+        <div>
+          <CardTitle className="text-lg truncate" title={project.name}>
+            {project.name}
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            #{project.id} &mdash;{" "}
+            {project.source === "mr" ? "MapRoulette" : "Tasking Manager"}
+          </p>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Progress Bar */}
         <div>
           <div className="flex justify-between text-sm mb-1">
             <span className="text-muted-foreground">Progress</span>
@@ -104,7 +95,6 @@ function ProjectCard({
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-muted-foreground">Total Tasks</p>
@@ -132,7 +122,6 @@ function ProjectCard({
           </div>
         </div>
 
-        {/* Payment Rates */}
         {paymentsVisible && project.payments_enabled !== false && (
           <div className="border-t border-border pt-4">
             <p className="text-sm text-muted-foreground mb-2">Payment Rates</p>
@@ -156,21 +145,6 @@ function ProjectCard({
             </div>
           </div>
         )}
-
-        {/* Action */}
-        <a
-          href={getProjectExternalUrl(project.id, project.source)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full text-center py-2 px-4 bg-kaart-orange text-white rounded-lg hover:bg-kaart-orange-dark transition-colors font-medium"
-          title={
-            project.source === "mr"
-              ? "Open this project on MapRoulette"
-              : "Open this project on Tasking Manager"
-          }
-        >
-          Start Mapping
-        </a>
       </CardContent>
     </Card>
   );
@@ -240,6 +214,9 @@ export function UserProjects() {
       if (filters.completionFilter === "almost-done" && (pct < 50 || pct > 99)) return false;
       if (filters.completionFilter === "complete" && pct !== 100) return false;
     }
+    if (filters.communityFilter === "community" && !p.community) return false;
+    if (filters.communityFilter === "internal" && p.community) return false;
+    if (filters.priorityFilter && p.priority !== filters.priorityFilter) return false;
     return true;
   });
 
@@ -255,19 +232,6 @@ export function UserProjects() {
     activeProjects.length,
   );
 
-  if (loading) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-        <Skeleton className="h-10 w-48" />
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-80 w-full" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
       <ProjectFilters
@@ -275,8 +239,11 @@ export function UserProjects() {
         onChange={setFilters}
         withCompletion
       />
-      {/* Projects Grid */}
-      {activeProjects.length > 0 ? (
+      {loading && !projects ? (
+        <div className="flex justify-center py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-kaart-orange" />
+        </div>
+      ) : activeProjects.length > 0 ? (
         <>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {paginatedProjects.map((project) => (

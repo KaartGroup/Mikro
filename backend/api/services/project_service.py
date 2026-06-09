@@ -10,8 +10,8 @@ import logging
 import re
 
 import requests
-from ..database import Team, TeamLead, TeamUser, User, UserCountry
-from sqlalchemy import exists, func
+from ..database import Team, TeamLead, TeamUser
+from sqlalchemy import func
 from ..auth.team_scoping import is_org_admin_or_above
 from ..database.core import ProjectTeam, ProjectUser
 from ..stats import (
@@ -21,7 +21,7 @@ from ..stats import (
 )
 from flask import current_app
 
-from ..database import db, Country, Region, Project, ProjectCountry, ProjectTraining, TimeEntry
+from ..database import db, Country, Region, Project, ProjectCountry, ProjectTraining
 
 
 class ProjectService:
@@ -455,37 +455,6 @@ class ProjectService:
         return query.filter(Project.id.in_(project_ids))
 
     @staticmethod
-    def _has_no_country_restriction():
-        """Clause: project has no country assignments (visible to everyone)."""
-        return ~exists(
-            db.select(ProjectCountry.project_id)
-            .where(ProjectCountry.project_id == Project.id)
-        )
-
-    @staticmethod
-    def _has_matching_user_country(user_id: str):
-        """Clause: project shares at least one country with the user."""
-        user_cids = db.union(
-            db.select(UserCountry.country_id).where(UserCountry.user_id == user_id),
-            db.select(User.country_id).where(User.id == user_id, User.country_id.isnot(None)),
-        )
-        return exists(
-            db.select(ProjectCountry.project_id)
-            .where(
-                ProjectCountry.project_id == Project.id,
-                ProjectCountry.country_id.in_(user_cids),
-            )
-        )
-
-    @staticmethod
-    def filter_by_location_visibility(query, user_id: str):
-        """Restrict a Project query to projects visible to the user by location."""
-        return query.filter(db.or_(
-            ProjectService._has_no_country_restriction(),
-            ProjectService._has_matching_user_country(user_id),
-        ))
-
-    @staticmethod
     def get_location_counts(project_ids: list) -> dict:
         if not project_ids:
             return {}
@@ -508,11 +477,18 @@ class ProjectService:
         )
 
     def get(self, org_id: str, user, filters: dict | None = None) -> list:
-        """Return projects visible to the user."""
+        """Return projects visible to the user.
+
+        Pass ``for_user_id`` in filters to fetch a specific user's assigned
+        projects (bypasses role scoping; uses ProjectUser as the scope gate).
+        """
         filters = filters or {}
         query = Project.query.filter(Project.org_id == org_id)
 
-        query = self.role_scope_projects_query(query, user)
+        if filters.get("for_user_id"):
+            query = self.filter_by_assigned_user(query, filters["for_user_id"])
+        else:
+            query = self.role_scope_projects_query(query, user)
 
         if filters.get("status") is not None:
             query = self.get_project_by_status(query, filters["status"])
@@ -533,39 +509,3 @@ class ProjectService:
             query = self.get_project_by_assigned_users(query, filters["user_ids"])
 
         return query.all()
-
-    @staticmethod
-    def with_last_worked(query, user_id: str):
-        """Annotate a Project query with each project's last non-voided clock-out for the user."""
-        subq = (
-            db.select(
-                TimeEntry.project_id,
-                func.max(TimeEntry.clock_out).label("last_clock_out"),
-            )
-            .where(TimeEntry.user_id == user_id, TimeEntry.status != "voided")
-            .group_by(TimeEntry.project_id)
-            .subquery()
-        )
-        return (
-            query.add_columns(subq.c.last_clock_out)
-            .outerjoin(subq, Project.id == subq.c.project_id)
-        )
-
-    def get_user_assigned_projects(self, user, country_id=None, region_id=None) -> list[Project]:
-        """Return active projects assigned to the user, filtered by location visibility.
-
-        Each project has a ``last_worked_on`` attribute (ISO string or None).
-        """
-        query = db.session.query(Project).filter(Project.status == True)
-        query = self.filter_by_assigned_user(query, user.id)
-        query = self.filter_by_location_visibility(query, user.id)
-        if country_id is not None:
-            query = self.get_project_by_country(query, country_id)
-        if region_id is not None:
-            query = self.get_project_by_region(query, region_id)
-        query = self.with_last_worked(query, user.id)
-        projects = []
-        for p, ts in query.all():
-            p.last_worked_on = (ts.isoformat() + "Z") if ts else None
-            projects.append(p)
-        return projects

@@ -205,7 +205,7 @@ class Project(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     # Metadata
     difficulty = db.Column(db.String(50), nullable=True, default="Intermediate")
     community = db.Column(db.Boolean, nullable=False, default=False, server_default="false")
-    priority = db.Column(db.String(50), nullable=True, default="Medium")
+    priority = db.Column(db.String(50), nullable=False, default="Medium", server_default="Medium")
     visibility = db.Column(db.Boolean, nullable=True, server_default="False")
     status = db.Column(db.Boolean, nullable=True, server_default="False")
 

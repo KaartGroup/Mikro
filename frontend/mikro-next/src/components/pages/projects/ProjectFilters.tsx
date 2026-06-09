@@ -6,6 +6,8 @@ import { StandaloneFilter } from "@/components/admin/StandaloneFilter";
 import type { FilterOptionsResponse } from "@/types";
 
 export type CompletionFilter = "not-started" | "in-progress" | "almost-done" | "complete";
+export type CommunityFilter = "community" | "internal";
+export type PriorityFilter = "High" | "Medium" | "Low";
 
 export interface ProjectFiltersValue {
   search: string;
@@ -14,6 +16,8 @@ export interface ProjectFiltersValue {
   teamId: string | null;
   showMyProjects: boolean;
   completionFilter: CompletionFilter | null;
+  communityFilter: CommunityFilter | null;
+  priorityFilter: PriorityFilter | null;
 }
 
 export const DEFAULT_FILTERS: ProjectFiltersValue = {
@@ -23,7 +27,20 @@ export const DEFAULT_FILTERS: ProjectFiltersValue = {
   teamId: null,
   showMyProjects: false,
   completionFilter: null,
+  communityFilter: null,
+  priorityFilter: null,
 };
+
+const PRIORITY_OPTIONS: { value: PriorityFilter; label: string }[] = [
+  { value: "High", label: "High" },
+  { value: "Medium", label: "Medium" },
+  { value: "Low", label: "Low" },
+];
+
+const COMMUNITY_OPTIONS: { value: CommunityFilter; label: string }[] = [
+  { value: "community", label: "Community" },
+  { value: "internal", label: "Internal" },
+];
 
 const COMPLETION_OPTIONS: { value: CompletionFilter; label: string }[] = [
   { value: "not-started", label: "Not started (0%)" },
@@ -50,11 +67,9 @@ export function ProjectFilters({
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
 
   const update = (patch: Partial<ProjectFiltersValue>) => {
-    setFilters((prev) => {
-      const next = { ...prev, ...patch };
-      onChange(next);
-      return next;
-    });
+    const next = { ...filters, ...patch };
+    setFilters(next);
+    onChange(next);
   };
 
   return (
@@ -95,6 +110,24 @@ export function ProjectFilters({
           )}
           value={filters.countryId}
           onChange={(v) => update({ countryId: v })}
+        />
+      </div>
+      <div className="w-40">
+        <StandaloneFilter
+          label="Type"
+          allLabel="All types"
+          options={COMMUNITY_OPTIONS}
+          value={filters.communityFilter}
+          onChange={(v) => update({ communityFilter: v as CommunityFilter | null })}
+        />
+      </div>
+      <div className="w-36">
+        <StandaloneFilter
+          label="Priority"
+          allLabel="All priorities"
+          options={PRIORITY_OPTIONS}
+          value={filters.priorityFilter}
+          onChange={(v) => update({ priorityFilter: v as PriorityFilter | null })}
         />
       </div>
       {withCompletion && (

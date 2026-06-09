@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useRole } from "@/contexts/RoleContext";
+import { isAnyAdmin } from "@/types";
+import { useState, useEffect, } from "react";
 
 /**
  * Hook that checks whether the current user should see payment-related UI.
@@ -10,7 +12,7 @@ export function usePaymentsVisible(): {
 } {
   const [paymentsVisible, setPaymentsVisible] = useState(false);
   const [loading, setLoading] = useState(true);
-
+  const { role } = useRole();
   useEffect(() => {
     const fetchVisibility = async () => {
       try {
@@ -21,14 +23,10 @@ export function usePaymentsVisible(): {
           const data = await res.json();
           // All admin tiers always see payments — server scopes data
           // by role, but the UI block stays accessible.
-          if (
-            data.role === "admin" ||
-            data.role === "super_admin" ||
-            data.role === "team_admin"
-          ) {
+          if (isAnyAdmin(role)) {
             setPaymentsVisible(true);
           } else {
-            setPaymentsVisible(data.micropayments_visible ?? false);
+            setPaymentsVisible(data.micropayments_visible);
           }
         }
       } catch (error) {

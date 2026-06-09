@@ -878,12 +878,33 @@ class ProjectAPI(MethodView):
         region_id = int(body["region_id"]) if body.get("region_id") else None
 
         svc = ProjectService()
-        active_projects = svc.get_user_assigned_projects(
-            g.user, country_id=country_id, region_id=region_id
+        active_projects = svc.get(
+            org_id=g.user.org_id,
+            user=g.user,
+            filters={
+                "for_user_id": g.user.id,
+                "status": True,
+                "country_id": country_id,
+                "region_id": region_id,
+            },
         )
 
-        user_projects = []
         project_ids = [p.id for p in active_projects]
+        _last_worked = dict(
+            db.session.query(TimeEntry.project_id, func.max(TimeEntry.clock_out))
+            .filter(
+                TimeEntry.user_id == g.user.id,
+                TimeEntry.project_id.in_(project_ids),
+                TimeEntry.status != "voided",
+            )
+            .group_by(TimeEntry.project_id)
+            .all()
+        )
+        for p in active_projects:
+            ts = _last_worked.get(p.id)
+            p.last_worked_on = (ts.isoformat() + "Z") if ts else None
+
+        user_projects = []
 
         user_task_ids = {
             r.task_id

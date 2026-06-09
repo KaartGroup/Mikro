@@ -586,7 +586,7 @@ class UserAPI(MethodView):
         # OSM account linking fields
         response["osm_username"] = user.osm_username
         response["osm_id"] = user.osm_id
-        response["osm_verified"] = user.osm_verified or False
+        response["osm_verified"] = user.osm_verified
         response["osm_verified_at"] = (
             user.osm_verified_at.isoformat() if user.osm_verified_at else None
         )
@@ -595,7 +595,7 @@ class UserAPI(MethodView):
         response["mapillary_username"] = user.mapillary_username
 
         # Payment visibility
-        response["micropayments_visible"] = user.micropayments_visible or False
+        response["micropayments_visible"] = user.micropayments_visible
         _rate_row = HourlyRateHistoryService().get_active_rate(user.id, date.today())
         response["hourly_rate"] = float(_rate_row.rate) if _rate_row else None
 

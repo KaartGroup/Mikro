@@ -280,6 +280,18 @@ export function AdminProjects() {
     });
   };
 
+  const filterProjectsByCommunity = (list: Project[]) => {
+    if (!filters.communityFilter) return list;
+    return list.filter((p) =>
+      filters.communityFilter === "community" ? p.community : !p.community,
+    );
+  };
+
+  const filterProjectsByPriority = (list: Project[]) => {
+    if (!filters.priorityFilter) return list;
+    return list.filter((p) => p.priority === filters.priorityFilter);
+  };
+
   /** Calculate completion % for a project (TM4 or MR). Capped at 100%. */
   const getCompletionPct = (project: Project): number | null => {
     try {
@@ -854,7 +866,7 @@ export function AdminProjects() {
             <CardContent className="p-0">
               <ProjectTable
                 projectList={sortProjects(
-                  filterProjectsByCompletion(filterProjectsBySearch(activeProjects)),
+                  filterProjectsByPriority(filterProjectsByCommunity(filterProjectsByCompletion(filterProjectsBySearch(activeProjects)))),
                 )}
                 currentPage={activePageNum}
                 setCurrentPage={setActivePageNum}
@@ -867,7 +879,7 @@ export function AdminProjects() {
             <CardContent className="p-0">
               <ProjectTable
                 projectList={sortProjects(
-                  filterProjectsByCompletion(filterProjectsBySearch(inactiveProjects)),
+                  filterProjectsByPriority(filterProjectsByCommunity(filterProjectsByCompletion(filterProjectsBySearch(inactiveProjects)))),
                 )}
                 currentPage={inactivePageNum}
                 setCurrentPage={setInactivePageNum}
