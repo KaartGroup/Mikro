@@ -116,10 +116,7 @@ def _get_summary(org_id, source, start_date, end_date, osm_usernames):
         "total_validated": _count(Task.validated, Task.date_validated, Task.validated_by),
         "total_invalidated": _count(Task.invalidated, Task.date_validated, Task.validated_by),
         "active_projects": Project.query.filter_by(
-            org_id=org_id, source=source, status=True, completed=False
-        ).count(),
-        "completed_projects": Project.query.filter_by(
-            org_id=org_id, source=source, completed=True
+            org_id=org_id, source=source, status=True
         ).count(),
         "mr_status_summary": (
             _get_mr_status_summary(org_id, start_date, end_date, osm_usernames)

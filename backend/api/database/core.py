@@ -197,13 +197,9 @@ class Project(ModelWithSoftDeleteAndCRUD, SurrogatePK):
 
     # Capacity
     total_editors = db.Column(db.BigInteger, default=0)
-    total_validators = db.Column(db.BigInteger, default=0)
 
     # Task stats
     total_tasks = db.Column(db.BigInteger, default=0)
-    tasks_mapped = db.Column(db.BigInteger, default=0)
-    tasks_validated = db.Column(db.BigInteger, default=0)
-    tasks_invalidated = db.Column(db.BigInteger, default=0)
     tasks_overlap = db.Column(db.Integer, default=0)
 
     # Metadata
@@ -212,7 +208,6 @@ class Project(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     priority = db.Column(db.String(50), nullable=True, default="Medium")
     visibility = db.Column(db.Boolean, nullable=True, server_default="False")
     status = db.Column(db.Boolean, nullable=True, server_default="False")
-    completed = db.Column(db.Boolean, nullable=True, server_default="False")
 
     def __repr__(self):
         return f"<Project {self.id}: {self.name}>"

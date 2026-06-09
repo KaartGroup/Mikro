@@ -104,7 +104,6 @@ class DashboardAPI(MethodView):
         proj_counts_q = db.session.query(
             func.count(case((Project.status == True, 1))).label("active"),
             func.count(case((Project.status == False, 1))).label("inactive"),
-            func.count(case((Project.completed == True, 1))).label("completed"),
         ).filter(Project.org_id == org_id)
         if visible_project_ids is not None:
             proj_counts_q = proj_counts_q.filter(Project.id.in_(visible_project_ids))
@@ -112,7 +111,7 @@ class DashboardAPI(MethodView):
 
         active_projects_count = proj_counts.active or 0
         inactive_projects_count = proj_counts.inactive or 0
-        completed_projects_count = proj_counts.completed or 0
+        completed_projects_count = 0
 
         task_counts_q = db.session.query(
             func.count(case((and_(Task.mapped == True, Task.validated == False, Task.invalidated == False), 1))).label("mapped"),

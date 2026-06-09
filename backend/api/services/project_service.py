@@ -551,11 +551,6 @@ class ProjectService:
             .outerjoin(subq, Project.id == subq.c.project_id)
         )
 
-    @staticmethod
-    def filter_completed_projects(query):
-        """Filter a Project query to only include completed projects."""
-        return query.filter(Project.status == "completed")
-
     def get_user_assigned_projects(self, user) -> list[Project]:
         """Return active projects assigned to the user, filtered by location visibility.
 

@@ -27,8 +27,6 @@ data_with_all_required_args = {
     "rate_type": True,
     "mapping_rate": float(0.5),
     "validation_rate": float(0.3),
-    "max_editors": 10,
-    "max_validators": 5,
     "visibility": True,
 }
 
@@ -275,8 +273,6 @@ def test_calculate_budget_with_missing_args(client):
         "rate_type": True,
         "mapping_rate": float(0.5),
         "validation_rate": float(0.3),
-        "max_editors": 10,
-        "max_validators": 5,
         "visibility": True,
     }
     for arg_name in calculate_budget_required_args:
@@ -370,9 +366,7 @@ def test_fetch_user_projects(client, benchmark):
             "difficulty",
             "id",
             "mapping_rate_per_task",
-            "max_editors",
             "max_payment",
-            "max_validators",
             "name",
             "payment_due",
             "source",
@@ -383,7 +377,6 @@ def test_fetch_user_projects(client, benchmark):
             "total_payout",
             "total_tasks",
             "total_validated",
-            "total_validators",
             "url",
             "validation_rate_per_task",
             "visibility",

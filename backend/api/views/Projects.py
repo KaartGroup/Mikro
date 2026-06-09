@@ -465,7 +465,6 @@ class ProjectAPI(MethodView):
                 "validation_rate_per_task": project.validation_rate_per_task,
                 "mapping_rate_per_task": project.mapping_rate_per_task,
                 "total_editors": project.total_editors,
-                "total_validators": project.total_editors,
                 "total_tasks": project.total_tasks,
                 "url": project.url,
                 "difficulty": project.difficulty,
@@ -919,7 +918,6 @@ class ProjectAPI(MethodView):
                     "validation_rate_per_task": project.validation_rate_per_task,  # noqa: E501
                     "mapping_rate_per_task": project.mapping_rate_per_task,
                     "total_editors": project.total_editors,
-                    "total_validators": project.total_editors,
                     "total_tasks": project.total_tasks,
                     "url": project.url,
                     "difficulty": project.difficulty,
