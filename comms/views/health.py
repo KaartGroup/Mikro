@@ -24,7 +24,30 @@ class HealthAPI(MethodView):
                 db.session.query(Notification.id).limit(1).all()
                 db_status = "connected"
             except Exception as e:
-                db_status = f"error: {type(e).__name__}"
+                # Categorize the cause (no raw connection details on a public
+                # endpoint) so it can be diagnosed without service logs.
+                msg = str(e).lower()
+                if "authentication failed" in msg or "password" in msg:
+                    db_status = "error: auth failed (bad DB credentials)"
+                elif "database" in msg and "does not exist" in msg:
+                    db_status = "error: database name does not exist"
+                elif "relation" in msg and "does not exist" in msg:
+                    db_status = "error: schema missing (run migrations)"
+                elif any(
+                    s in msg
+                    for s in (
+                        "could not connect",
+                        "timed out",
+                        "timeout",
+                        "no pg_hba",
+                        "connection refused",
+                        "could not translate host",
+                        "ssl",
+                    )
+                ):
+                    db_status = "error: cannot connect (network/trusted-source/SSL)"
+                else:
+                    db_status = f"error: {type(e).__name__}"
                 try:
                     current_app.logger.warning("[HEALTH] db check failed: %s", e)
                 except Exception:
