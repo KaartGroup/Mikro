@@ -687,7 +687,9 @@ class TaskAPI(MethodView):
                 return {"message": "updated!"}
             else:
                 current_app.logger.error(
-                    f"TM4 contributions call failed: {response.status_code}"
+                    f"TM4 contributions call failed: {response.status_code} "
+                    f"project={project_id} user={user.id} osm={user.osm_username} "
+                    f"url={tm4_url}"
                 )
                 return {"message": "TM4 API call failed", "status": response.status_code}
         except requests.RequestException as e:
@@ -732,7 +734,7 @@ class TaskAPI(MethodView):
 
         return {"message": f"Sync queued for {queued} project(s)", "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def admin_update_all_user_tasks(self):
         """
         Queue a background sync job for all users in the organization.

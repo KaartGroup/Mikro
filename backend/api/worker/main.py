@@ -67,7 +67,7 @@ def _expire_stale_sync_job(db, job):
     """Mark a running sync job failed if it has been running >1 hour. Returns True if expired."""
     if not job.started_at:
         return False
-    age = datetime.now(timezone.utc) - job.started_at.replace(tzinfo=timezone.utc)
+    age = datetime.now() - job.started_at
     if age <= _STALE_JOB_TIMEOUT:
         return False
     db.session.refresh(job)

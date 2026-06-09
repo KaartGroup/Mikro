@@ -1,10 +1,11 @@
 import logging
 from datetime import datetime, timezone, timedelta
-
+from ...database import db, User, ProjectUser, ProjectTeam, TeamUser, Task
+from ...views.Tasks import TaskAPI
+from ...views.MapRoulette import MapRouletteSync
 logger = logging.getLogger(__name__)
 
 _MAX_SYNC_JOB_DURATION = timedelta(hours=2)
-
 
 def sync_project(project, org_id, target_user_id=None):
     """
@@ -17,9 +18,6 @@ def sync_project(project, org_id, target_user_id=None):
     and historical contributors) then syncs per user. Pass target_user_id
     to restrict to a single user (on-demand / user-triggered syncs).
     """
-    from ...database import db, User, ProjectUser, ProjectTeam, TeamUser, Task
-    from ...views.Tasks import TaskAPI
-    from ...views.MapRoulette import MapRouletteSync
 
     if project.source == "mr":
         MapRouletteSync().sync_challenge_tasks(project)
@@ -109,7 +107,7 @@ def run_sync_job(job):
             job.started_at = datetime.now(timezone.utc)
         job.progress = "Starting sync..."
         db.session.commit()
-        job_start = job.started_at.replace(tzinfo=timezone.utc)
+        job_start = datetime.now(timezone.utc)
 
         if job.job_type == "project_sync":
             project = Project.query.filter_by(id=job.target_id).first()
