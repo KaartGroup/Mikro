@@ -307,9 +307,6 @@ export function Sidebar() {
   const { user: clientUser } = useUser();
   const { role, paymentsVisible } = useRole();
 
-  const isAnyAdmin =
-    role === "admin" || role === "super_admin" || role === "team_admin";
-
   const allNavItems =
     role === "team_admin"
       ? teamAdminNavItems
@@ -321,14 +318,9 @@ export function Sidebar() {
             ? validatorNavItems
             : userNavItems;
 
-  // Hide Payments link for non-admin users when payments not visible.
-  // All admin tiers always see Payments (each tier's data is scoped
-  // server-side).
-  const navItems = isAnyAdmin
+  const navItems = paymentsVisible
     ? allNavItems
-    : paymentsVisible
-      ? allNavItems
-      : allNavItems.filter((item) => item.label !== "Payments");
+    : allNavItems.filter((item) => item.label !== "Payments");
 
   const linkBaseStyle: React.CSSProperties = {
     display: "flex",
