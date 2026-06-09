@@ -130,11 +130,14 @@ services:
       - key: FLASK_BACKEND_URL
         value: http://mikro-backend:8080
 
-  # Comms - shared notifications / email service
+  # Comms - shared notifications / email service.
+  # Deploys from its OWN branch (comms-release), NOT master, so Mikro pushes
+  # never rebuild comms and comms pushes never rebuild Mikro. Ship comms by
+  # advancing comms-release (fast-forward from master, or merge).
   - name: comms
     github:
       repo: KaartGroup/Mikro
-      branch: master
+      branch: comms-release
       deploy_on_push: true
     source_dir: comms
     environment_slug: python
@@ -145,7 +148,8 @@ services:
     routes:
       # Public route so Viewer/TM4 (separate DO apps) can reach comms over HTTPS.
       # App Platform strips this prefix before forwarding.
-      - path: /comms
+      # Must match the live route — the live app uses /mikro-comms.
+      - path: /mikro-comms
     health_check:
       http_path: /health
       initial_delay_seconds: 10
@@ -158,7 +162,7 @@ services:
         kind: PRE_DEPLOY
         github:
           repo: KaartGroup/Mikro
-          branch: master
+          branch: comms-release
           deploy_on_push: true
         source_dir: comms
         environment_slug: python
@@ -167,6 +171,10 @@ services:
         # cwd is comms/ (source_dir), so alembic.ini path is relative to that.
         run_command: python -m alembic -c migrations/alembic.ini upgrade head
         envs:
+          # Force UTF-8 so configparser reads alembic.ini under the container's
+          # ASCII locale (belt-and-suspenders; the ini is ASCII-only).
+          - key: PYTHONUTF8
+            value: "1"
           - key: COMMS_DATABASE_URL
             scope: RUN_TIME
             value: ${comms-db.DATABASE_URL}
