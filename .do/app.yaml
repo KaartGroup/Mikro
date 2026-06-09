@@ -145,7 +145,8 @@ services:
     routes:
       # Public route so Viewer/TM4 (separate DO apps) can reach comms over HTTPS.
       # App Platform strips this prefix before forwarding.
-      - path: /comms
+      # NOTE: must match the live route. The live app uses /mikro-comms.
+      - path: /mikro-comms
     health_check:
       http_path: /health
       initial_delay_seconds: 10
@@ -167,6 +168,11 @@ services:
         # cwd is comms/ (source_dir), so alembic.ini path is relative to that.
         run_command: python -m alembic -c migrations/alembic.ini upgrade head
         envs:
+          # Force UTF-8 so configparser never trips on a non-ASCII byte in
+          # alembic.ini under the container's ASCII locale (belt-and-suspenders;
+          # the ini is ASCII-only, but this keeps the job robust to future edits).
+          - key: PYTHONUTF8
+            value: "1"
           - key: COMMS_DATABASE_URL
             scope: RUN_TIME
             value: ${comms-db.DATABASE_URL}
