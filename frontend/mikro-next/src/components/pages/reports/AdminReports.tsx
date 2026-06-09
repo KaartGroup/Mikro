@@ -737,6 +737,7 @@ export function AdminReports() {
       <ChangesetHeatmapCard
         heatmapPoints={heatmapPoints}
         heatmapLoading={heatmapLoading}
+        className="h-[400px]"
       />
     </div>
   );

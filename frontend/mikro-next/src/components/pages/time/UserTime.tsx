@@ -15,14 +15,16 @@ import {
   TableCell,
   Skeleton,
   Val,
+  useToastActions,
 } from "@/components/ui";
-import { useToastActions } from "@/components/ui";
 import {
   useCursorHistory,
   useRequestTimeAdjustment,
   useUpdateMyNotes,
   useUserProjects,
+  useMyReimbursementRequests,
 } from "@/hooks";
+import { ReimbursementSubmitModal } from "@/components/user/ReimbursementsSection";
 import { useFetchMyChangesetHeatmap } from "@/hooks/useApi";
 import { ChangesetHeatmapCard } from "@/components/compounds/ChangesetHeatmapCard";
 import { NotesButton } from "@/components/widgets/NotesButton";
@@ -30,9 +32,6 @@ import {
   formatDuration,
   resolveCategoryKey,
   CATEGORY_FILTER_LABELS,
-} from "@/lib/timeTracking";
-import { formatNumber } from "@/lib/utils";
-import {
   localWeekStartIsoUtc,
   localWeekEndIsoUtc,
   localWeekStartAgoIsoUtc,
@@ -40,9 +39,8 @@ import {
   localMonthStartAgoIsoUtc,
   localDayEndIsoUtc,
 } from "@/lib/timeTracking";
+import { formatNumber } from "@/lib/utils";
 import { TimeTrackingWidget } from "@/components/widgets/TimeTrackingWidget";
-
-// --- Date range presets ---
 
 type DatePreset =
   | "this_week"
@@ -67,36 +65,19 @@ function getDateRange(preset: DatePreset): {
 } {
   switch (preset) {
     case "this_week":
-      return {
-        startDate: localWeekStartIsoUtc(),
-        endDate: localWeekEndIsoUtc(),
-      };
+      return { startDate: localWeekStartIsoUtc(), endDate: localWeekEndIsoUtc() };
     case "last_week":
-      return {
-        startDate: localWeekStartAgoIsoUtc(1),
-        endDate: localWeekStartIsoUtc(),
-      };
+      return { startDate: localWeekStartAgoIsoUtc(1), endDate: localWeekStartIsoUtc() };
     case "this_month":
-      return {
-        startDate: localMonthStartIsoUtc(),
-        endDate: localDayEndIsoUtc(),
-      };
+      return { startDate: localMonthStartIsoUtc(), endDate: localDayEndIsoUtc() };
     case "last_month":
-      return {
-        startDate: localMonthStartAgoIsoUtc(1),
-        endDate: localMonthStartIsoUtc(),
-      };
+      return { startDate: localMonthStartAgoIsoUtc(1), endDate: localMonthStartIsoUtc() };
     case "last_3_months":
-      return {
-        startDate: localMonthStartAgoIsoUtc(3),
-        endDate: localMonthStartIsoUtc(),
-      };
+      return { startDate: localMonthStartAgoIsoUtc(3), endDate: localMonthStartIsoUtc() };
     case "all_time":
       return { startDate: null, endDate: null };
   }
 }
-
-const CATEGORIES = CATEGORY_FILTER_LABELS;
 
 function formatDateDisplay(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -120,6 +101,13 @@ function secondsToHours(seconds: number): number {
 
 const PAGE_SIZE = 20;
 
+type UserProject = {
+  id: number;
+  name: string;
+  short_name?: string;
+  last_worked_on?: string | null;
+};
+
 export function UserDashboard() {
   const toast = useToastActions();
   const { data: projects } = useUserProjects();
@@ -127,18 +115,28 @@ export function UserDashboard() {
   const [datePreset, setDatePreset] = useState<DatePreset>("this_month");
   const [category, setCategory] = useState<string>("All");
   const [page, setPage] = useState(0);
-  const [adjustmentEntryId, setAdjustmentEntryId] = useState<number | null>(
-    null,
-  );
+  const [adjustmentEntryId, setAdjustmentEntryId] = useState<number | null>(null);
   const [adjustmentReason, setAdjustmentReason] = useState("");
   const [heatmapPoints, setHeatmapPoints] = useState<[number, number, number][]>([]);
   const [heatmapLoading, setHeatmapLoading] = useState(false);
+  const [showReimbursementModal, setShowReimbursementModal] = useState(false);
+  const [pendingReimbursements, setPendingReimbursements] = useState(0);
 
   const history = useCursorHistory("/timetracking/my_history");
   const { mutate: fetchHeatmap } = useFetchMyChangesetHeatmap();
-  const { mutate: requestAdjustment, loading: submitting } =
-    useRequestTimeAdjustment();
+  const { mutate: requestAdjustment, loading: submitting } = useRequestTimeAdjustment();
   const { mutate: updateMyNotes } = useUpdateMyNotes();
+  const { mutate: fetchMyReimbursements } = useMyReimbursementRequests();
+
+  const refreshReimbursements = useCallback(async () => {
+    const res = await fetchMyReimbursements({});
+    const pending = (res?.requests ?? []).filter((r) => r.status === "pending").length;
+    setPendingReimbursements(pending);
+  }, [fetchMyReimbursements]);
+
+  useEffect(() => {
+    refreshReimbursements();
+  }, [refreshReimbursements]);
 
   const handleSaveNotes = async (entryId: number, value: string | null) => {
     await updateMyNotes({ entry_id: entryId, userNotes: value });
@@ -188,9 +186,7 @@ export function UserDashboard() {
     const { startDate, endDate } = getDateRange(datePreset);
     if (startDate) {
       const start = new Date(startDate);
-      entries = entries.filter(
-        (e) => e.clockIn && new Date(e.clockIn) >= start,
-      );
+      entries = entries.filter((e) => e.clockIn && new Date(e.clockIn) >= start);
     }
     if (endDate) {
       const end = new Date(endDate);
@@ -199,9 +195,7 @@ export function UserDashboard() {
 
     const filterKey = resolveCategoryKey(category);
     if (filterKey) {
-      entries = entries.filter(
-        (e) => resolveCategoryKey(e.category) === filterKey,
-      );
+      entries = entries.filter((e) => resolveCategoryKey(e.category) === filterKey);
     }
 
     return entries;
@@ -212,30 +206,18 @@ export function UserDashboard() {
       (sum, e) => sum + (e.durationSeconds ?? 0),
       0,
     );
-
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisMonthSeconds = history.entries
-      .filter((e) => e.clockIn && new Date(e.clockIn) >= monthStart)
-      .reduce((sum, e) => sum + (e.durationSeconds ?? 0), 0);
-
     const pendingAdjustments = history.entries.filter((e) =>
       e.notes?.startsWith("[ADJUSTMENT REQUESTED]"),
     ).length;
-
     return {
       totalHours: secondsToHours(totalSeconds),
-      thisMonthHours: secondsToHours(thisMonthSeconds),
       pendingAdjustments,
     };
   }, [history.entries]);
 
   const totalEntries = filteredEntries.length;
   const totalPages = Math.max(1, Math.ceil(totalEntries / PAGE_SIZE));
-  const pagedEntries = filteredEntries.slice(
-    page * PAGE_SIZE,
-    (page + 1) * PAGE_SIZE,
-  );
+  const pagedEntries = filteredEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const showingFrom = totalEntries === 0 ? 0 : page * PAGE_SIZE + 1;
   const showingTo = Math.min((page + 1) * PAGE_SIZE, totalEntries);
 
@@ -256,9 +238,14 @@ export function UserDashboard() {
     }
   };
 
+  const closeAdjustmentModal = () => {
+    setAdjustmentEntryId(null);
+    setAdjustmentReason("");
+  };
+
   if (history.loading && history.entries.length === 0) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+      <div className="flex flex-col gap-8">
         <Skeleton className="h-8 w-48" />
         <div className="grid gap-4 md:grid-cols-3">
           {[1, 2, 3].map((i) => (
@@ -271,29 +258,22 @@ export function UserDashboard() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+    <div className="flex flex-col gap-8">
       {/* Clock Widget + Heatmap */}
-      <div style={{ display: "flex", gap: 16, alignItems: "stretch" }}>
-        <div style={{ flexShrink: 0, width: 320 }}>
+      <div className="flex gap-4 items-stretch">
+        <div className="shrink-0 w-80">
           <TimeTrackingWidget
             projects={
-              projects?.user_projects?.map(
-                (p: {
-                  id: number;
-                  name: string;
-                  short_name?: string;
-                  last_worked_on?: string | null;
-                }) => ({
-                  id: p.id,
-                  name: p.name,
-                  short_name: p.short_name,
-                  last_worked_on: p.last_worked_on ?? null,
-                }),
-              ) ?? []
+              projects?.user_projects?.map((p: UserProject) => ({
+                id: p.id,
+                name: p.name,
+                short_name: p.short_name,
+                last_worked_on: p.last_worked_on ?? null,
+              })) ?? []
             }
           />
         </div>
-        <div style={{ flex: 1, minWidth: 0, display: "flex" }}>
+        <div className="flex flex-1 min-w-0">
           <ChangesetHeatmapCard
             heatmapPoints={heatmapPoints}
             heatmapLoading={heatmapLoading}
@@ -303,77 +283,59 @@ export function UserDashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div
-        style={{
-          display: "grid",
-          gap: 16,
-          gridTemplateColumns: "repeat(3, 1fr)",
-        }}
-      >
-        <Card style={{ padding: 0 }}>
-          <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
-              Hours
-            </p>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#ff6b35" }}>
+      <div className="grid gap-4 grid-cols-3">
+        <Card className="p-0">
+          <div className="px-4 py-3">
+            <p className="text-xs text-muted-foreground mb-1">Hours</p>
+            <div className="text-xl font-bold text-[#ff6b35]">
               {formatNumber(stats.totalHours).text}h
             </div>
-            <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+            <p className="text-xs text-muted-foreground mt-1">
               For {DATE_PRESET_LABELS[datePreset]}
             </p>
           </div>
         </Card>
 
-        <Card style={{ padding: 0 }}>
-          <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
-              This Month
-            </p>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#2563eb" }}>
-              {formatNumber(stats.thisMonthHours).text}h
+        <Card className="p-0">
+          <div className="px-4 py-3">
+            <p className="text-xs text-muted-foreground mb-1">Pending Reimbursements</p>
+            <div
+              className={`text-xl font-bold ${pendingReimbursements > 0 ? "text-yellow-600" : "text-green-600"}`}
+            >
+              {formatNumber(pendingReimbursements).text}
             </div>
-            <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-              {new Date().toLocaleDateString("en-US", {
-                month: "long",
-                year: "numeric",
-              })}
+            <p className="text-xs text-muted-foreground mt-1">
+              {pendingReimbursements > 0 ? "Awaiting review" : "None pending"}
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 w-full"
+              onClick={() => setShowReimbursementModal(true)}
+            >
+              Request Reimbursement
+            </Button>
           </div>
         </Card>
 
-        <Card style={{ padding: 0 }}>
-          <div style={{ padding: "12px 16px" }}>
-            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
-              Pending Adjustments
-            </p>
+        <Card className="p-0">
+          <div className="px-4 py-3">
+            <p className="text-xs text-muted-foreground mb-1">Pending Adjustments</p>
             <div
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                color: stats.pendingAdjustments > 0 ? "#ca8a04" : "#16a34a",
-              }}
+              className={`text-xl font-bold ${stats.pendingAdjustments > 0 ? "text-yellow-600" : "text-green-600"}`}
             >
               <Val>{formatNumber(stats.pendingAdjustments)}</Val>
             </div>
-            <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-              {stats.pendingAdjustments > 0
-                ? "Awaiting review"
-                : "No pending requests"}
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.pendingAdjustments > 0 ? "Awaiting review" : "No pending requests"}
             </p>
           </div>
         </Card>
       </div>
 
       {/* Filters */}
-      <div
-        style={{
-          display: "flex",
-          gap: 16,
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div className="flex gap-4 items-center flex-wrap">
+        <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-muted-foreground">
             Date Range:
           </label>
@@ -390,7 +352,7 @@ export function UserDashboard() {
           </select>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-muted-foreground">
             Category:
           </label>
@@ -399,7 +361,7 @@ export function UserDashboard() {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
-            {CATEGORIES.map((cat) => (
+            {CATEGORY_FILTER_LABELS.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
               </option>
@@ -409,8 +371,8 @@ export function UserDashboard() {
       </div>
 
       {/* History Table */}
-      <Card style={{ padding: 0 }}>
-        <CardContent style={{ padding: 0 }}>
+      <Card className="p-0">
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -436,10 +398,7 @@ export function UserDashboard() {
                   entry.status === "completed" && !hasPendingAdjustment;
 
                 return (
-                  <TableRow
-                    key={entry.id}
-                    className={isVoided ? "opacity-50" : ""}
-                  >
+                  <TableRow key={entry.id} className={isVoided ? "opacity-50" : ""}>
                     <TableCell
                       className={`whitespace-nowrap ${isVoided ? "line-through" : ""}`}
                     >
@@ -469,9 +428,7 @@ export function UserDashboard() {
                       {entry.clockOut ? formatTime(entry.clockOut) : "--"}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      <span
-                        className={`font-mono ${isVoided ? "line-through" : ""}`}
-                      >
+                      <span className={`font-mono ${isVoided ? "line-through" : ""}`}>
                         {formatDuration(entry.durationSeconds)}
                       </span>
                     </TableCell>
@@ -523,12 +480,8 @@ export function UserDashboard() {
               {pagedEntries.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={9}
-                    style={{
-                      textAlign: "center",
-                      padding: "32px 16px",
-                      color: "#6b7280",
-                    }}
+                    colSpan={10}
+                    className="text-center py-8 px-4 text-muted-foreground"
                   >
                     No time entries found
                   </TableCell>
@@ -542,22 +495,12 @@ export function UserDashboard() {
       {/* Adjustment Request Modal */}
       <Modal
         isOpen={adjustmentEntryId !== null}
-        onClose={() => {
-          setAdjustmentEntryId(null);
-          setAdjustmentReason("");
-        }}
+        onClose={closeAdjustmentModal}
         title={`Request Adjustment for Entry #${adjustmentEntryId}`}
         description="Describe what needs to be corrected. An admin will review and edit the entry."
         footer={
           <div className="flex gap-2 justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setAdjustmentEntryId(null);
-                setAdjustmentReason("");
-              }}
-            >
+            <Button variant="outline" size="sm" onClick={closeAdjustmentModal}>
               Cancel
             </Button>
             <Button
@@ -581,20 +524,24 @@ export function UserDashboard() {
         />
       </Modal>
 
+      {/* Reimbursement Submit Modal */}
+      <ReimbursementSubmitModal
+        isOpen={showReimbursementModal}
+        onClose={() => setShowReimbursementModal(false)}
+        onSubmitted={() => {
+          setShowReimbursementModal(false);
+          refreshReimbursements();
+        }}
+      />
+
       {/* Pagination */}
       {totalEntries > 0 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
+        <div className="flex justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            Showing {formatNumber(showingFrom).text}-
-            {formatNumber(showingTo).text} of {formatNumber(totalEntries).text}
+            Showing {formatNumber(showingFrom).text}-{formatNumber(showingTo).text} of{" "}
+            {formatNumber(totalEntries).text}
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -622,7 +569,6 @@ export function UserDashboard() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

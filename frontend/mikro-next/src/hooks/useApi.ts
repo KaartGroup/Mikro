@@ -157,22 +157,14 @@ export function useApiCall<T>(
 
 // Admin Dashboard Stats
 export function useAdminDashboardStats() {
-  return useApiCall<AdminDashboardStats>("/project/fetch_admin_dash_stats");
+  return useApiCall<AdminDashboardStats>("/dashboard/fetch_admin_dash_stats");
 }
 
 // User Dashboard Stats
 export function useUserDashboardStats(enabled = true) {
-  return useApiCall<UserDashboardStats>("/project/fetch_user_dash_stats", {
+  return useApiCall<UserDashboardStats>("/dashboard/fetch_user_dash_stats", {
     immediate: enabled,
   });
-}
-
-// Validator Dashboard Stats
-export function useValidatorDashboardStats(enabled = true) {
-  return useApiCall<ValidatorDashboardStats>(
-    "/project/fetch_validator_dash_stats",
-    { immediate: enabled },
-  );
 }
 
 // Users List (Admin)
@@ -188,13 +180,6 @@ export function useOrgProjects() {
 // User's Projects
 export function useUserProjects(enabled = true) {
   return useApiCall<ProjectsResponse>("/project/fetch_user_projects", {
-    immediate: enabled,
-  });
-}
-
-// Validator's Projects
-export function useValidatorProjects(enabled = true) {
-  return useApiCall<ProjectsResponse>("/project/fetch_validator_projects", {
     immediate: enabled,
   });
 }
@@ -1206,13 +1191,13 @@ export function useFetchProjectTrainings() {
       difficulty: string;
     }>;
     status: number;
-  }>("/project/fetch_project_trainings");
+  }>("/project-training/fetch_project_trainings");
 }
 export function useAssignProjectTraining() {
-  return useApiMutation("/project/assign_project_training");
+  return useApiMutation("/project-training/assign_project_training");
 }
 export function useUnassignProjectTraining() {
-  return useApiMutation("/project/unassign_project_training");
+  return useApiMutation("/project-training/unassign_project_training");
 }
 
 // Project Profile

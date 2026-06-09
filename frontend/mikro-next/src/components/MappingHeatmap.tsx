@@ -42,9 +42,9 @@ export default function MappingHeatmap({
       const heat = (
         L as unknown as { heatLayer: typeof L.heatLayer }
       ).heatLayer(points, {
-        radius: 25,
-        blur: 15,
-        maxZoom: 10,
+        radius: 12,
+        blur: 8,
+        maxZoom: 18,
         gradient: {
           0.4: "#2563eb",
           0.6: "#f59e0b",

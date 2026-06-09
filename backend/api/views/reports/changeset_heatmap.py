@@ -1,14 +1,12 @@
 import logging
-import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 
-import requests as http_requests
 from flask import g, request
 
 from ...database import db, Task
 from ...filters import resolve_filtered_osm_usernames
-from ...utils.changeset_fetcher import ChangesetFetcher
+from ...utils.changeset_fetcher import ChangesetFetcher, changesets_to_heatmap_points
 from ...utils.tz import parse_filter_datetime
 from .helpers import _team_admin_osm_usernames
 
@@ -20,24 +18,8 @@ _EMPTY_RESPONSE = {
 }
 
 
-def _changesets_to_heatmap_points(changesets):
-    """Convert OSM changeset JSON dicts to [[lat, lon, intensity], ...] heatmap points."""
-    points = []
-    for cs in changesets:
-        min_lat = cs.get("min_lat")
-        max_lat = cs.get("max_lat")
-        min_lon = cs.get("min_lon")
-        max_lon = cs.get("max_lon")
-        if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
-            lat = (float(min_lat) + float(max_lat)) / 2
-            lon = (float(min_lon) + float(max_lon)) / 2
-            intensity = max(int(cs.get("changes_count", 0)), 1)
-            points.append([lat, lon, intensity])
-    return points
-
-
 # ---------------------------------------------------------------------------
-# Controller
+# Controllers
 # ---------------------------------------------------------------------------
 
 def fetch_my_changeset_heatmap():
@@ -67,8 +49,7 @@ def fetch_my_changeset_heatmap():
         logger.warning(f"ChangesetFetcher failed for {osm_username}: {e}")
         return _EMPTY_RESPONSE
 
-    points = _changesets_to_heatmap_points(changesets)
-    return {"status": 200, "heatmapPoints": points}
+    return {"status": 200, "heatmapPoints": changesets_to_heatmap_points(changesets)}
 
 
 def fetch_changeset_heatmap():
@@ -93,9 +74,8 @@ def fetch_changeset_heatmap():
         viewer=g.user,
         start_date=start_date,
         end_date=end_date,
-        start_date_str=start_date_str,
-        end_date_str=end_date_str,
         filters=request.json.get("filters"),
+        max_per_user=int(request.json.get("maxPerUser", 100)),
     )
 
 
@@ -103,21 +83,16 @@ def fetch_changeset_heatmap():
 # Testable orchestrator
 # ---------------------------------------------------------------------------
 
-def get_changeset_heatmap(org_id, viewer, start_date, end_date, start_date_str, end_date_str, filters=None):
+def get_changeset_heatmap(org_id, viewer, start_date, end_date, filters=None, max_per_user=100):
     """Fetches and aggregates OSM changeset heatmap data. No Flask context required."""
     osm_usernames = _get_active_mapper_usernames(org_id, viewer, start_date, end_date, filters)
     if not osm_usernames:
         return _EMPTY_RESPONSE
 
-    results = _fetch_all_user_changesets(osm_usernames, start_date_str, end_date_str)
-
-    all_points = []
-    for _username, points in results:
-        all_points.extend(points)
-
+    all_changesets = _fetch_all_user_changesets(osm_usernames, start_date, end_date, max_per_user)
     return {
         "status": 200,
-        "heatmapPoints": all_points,
+        "heatmapPoints": changesets_to_heatmap_points(all_changesets),
     }
 
 
@@ -153,57 +128,17 @@ def _get_active_mapper_usernames(org_id, viewer, start_date, end_date, filters=N
     return [row[0] for row in q.all()]
 
 
-def _fetch_user_changeset_points(username, start_date_str, end_date_str):
-    """Fetch OSM changesets for one user and extract centroid points.
-
-    NOTE: runs in a thread pool — no Flask app context available, use module logger.
-    Returns (username, points, changeset_count, total_changes).
-    """
-    params = {
-        "display_name": username,
-        "time": f"{start_date_str},{end_date_str}",
-        "closed": "true",
-    }
-    try:
-        resp = http_requests.get(
-            "https://api.openstreetmap.org/api/0.6/changesets",
-            params=params,
-            timeout=30,
-        )
-        if not resp.ok:
-            logger.warning(f"OSM API error for {username}: {resp.status_code}")
-            return username, [], 0, 0
-    except http_requests.RequestException as e:
-        logger.warning(f"OSM API request failed for {username}: {e}")
-        return username, [], 0, 0
-
-    try:
-        root = ET.fromstring(resp.text)
-    except ET.ParseError:
-        logger.warning(f"Failed to parse OSM XML for {username}")
-        return username, [], 0, 0
-
-    points = []
-    for cs in root.findall("changeset"):
-        changes = int(cs.get("changes_count", 0))
-        min_lat, max_lat = cs.get("min_lat"), cs.get("max_lat")
-        min_lon, max_lon = cs.get("min_lon"), cs.get("max_lon")
-        if min_lat and max_lat and min_lon and max_lon:
-            lat = (float(min_lat) + float(max_lat)) / 2
-            lon = (float(min_lon) + float(max_lon)) / 2
-            points.append([lat, lon, max(changes, 1)])
-
-    return username, points
-
-
-def _fetch_all_user_changesets(osm_usernames, start_date_str, end_date_str):
-    """Fetch changesets for all users concurrently."""
-    results = []
+def _fetch_all_user_changesets(osm_usernames, start_date, end_date, max_per_user=100):
+    """Fetch changesets for all users concurrently, capped at max_per_user each."""
+    all_changesets = []
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {
-            executor.submit(_fetch_user_changeset_points, un, start_date_str, end_date_str): un
+            executor.submit(ChangesetFetcher().fetch, [un], start_date, end_date, max_per_user): un
             for un in osm_usernames
         }
         for future in as_completed(futures):
-            results.append(future.result())
-    return results
+            try:
+                all_changesets.extend(future.result())
+            except Exception as e:
+                logger.warning(f"ChangesetFetcher failed: {e}")
+    return all_changesets
