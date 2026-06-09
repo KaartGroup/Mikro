@@ -11,6 +11,8 @@ Identity is keyed on the Auth0 `sub` (shared tenant), with no foreign keys
 into any client app's tables.
 """
 
+import os
+
 from flask import Flask, jsonify
 
 from .config import Config
@@ -26,8 +28,50 @@ def create_app(config_object=Config) -> Flask:
     for key in ("AUTH0_DOMAIN", "API_AUDIENCES", "COMMS_WEBHOOK_SECRET"):
         if not app.config.get(key):
             app.logger.warning(
-                f"[CONFIG] {key} is not set — dependent endpoints will reject requests"
+                "[CONFIG] %s is not set - dependent endpoints will reject requests",
+                key,
             )
+
+    # The single most dangerous misconfig: if COMMS_DATABASE_URL is unset the
+    # service silently falls back to an EPHEMERAL in-memory SQLite (empty, no
+    # tables) and every write 500s while /health still passes. Make that loud.
+    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
+    app.config["DB_EPHEMERAL"] = (not os.environ.get("COMMS_DATABASE_URL")) and (
+        "memory" in db_uri or db_uri.startswith("sqlite")
+    )
+    if app.config["DB_EPHEMERAL"] and not app.config.get("TESTING"):
+        app.logger.critical(
+            "[CONFIG] COMMS_DATABASE_URL is NOT set - using an ephemeral in-memory "
+            "SQLite DB. No tables exist; all writes will fail with 500. Set "
+            "COMMS_DATABASE_URL (e.g. ${comms-db.DATABASE_URL}) on this component."
+        )
+
+    # If a value IS set but isn't a parseable URL, db.init_app() crashes the
+    # worker with an opaque ArgumentError. Diagnose it clearly first (this shows
+    # in the deploy logs), then let it fail so App Platform keeps the prior
+    # deploy rather than promoting a broken one.
+    if not app.config["DB_EPHEMERAL"]:
+        if "${" in db_uri:
+            app.logger.critical(
+                "[CONFIG] COMMS_DATABASE_URL looks like an UNEXPANDED binding "
+                "placeholder (%r...). The bound DB resource name likely doesn't "
+                "match - attach a database named to match the ${...} binding, or "
+                "set a literal connection string.",
+                db_uri[:30],
+            )
+        else:
+            from sqlalchemy.engine import make_url
+
+            try:
+                make_url(db_uri)
+            except Exception as e:
+                app.logger.critical(
+                    "[CONFIG] COMMS_DATABASE_URL is not a valid SQLAlchemy URL "
+                    "(prefix=%r, len=%d): %s",
+                    db_uri[:15],
+                    len(db_uri),
+                    e,
+                )
 
     db.init_app(app)
 
