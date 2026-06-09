@@ -11,6 +11,8 @@ Identity is keyed on the Auth0 `sub` (shared tenant), with no foreign keys
 into any client app's tables.
 """
 
+import os
+
 from flask import Flask, jsonify
 
 from .config import Config
@@ -26,8 +28,23 @@ def create_app(config_object=Config) -> Flask:
     for key in ("AUTH0_DOMAIN", "API_AUDIENCES", "COMMS_WEBHOOK_SECRET"):
         if not app.config.get(key):
             app.logger.warning(
-                f"[CONFIG] {key} is not set — dependent endpoints will reject requests"
+                "[CONFIG] %s is not set - dependent endpoints will reject requests",
+                key,
             )
+
+    # The single most dangerous misconfig: if COMMS_DATABASE_URL is unset the
+    # service silently falls back to an EPHEMERAL in-memory SQLite (empty, no
+    # tables) and every write 500s while /health still passes. Make that loud.
+    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
+    app.config["DB_EPHEMERAL"] = (not os.environ.get("COMMS_DATABASE_URL")) and (
+        "memory" in db_uri or db_uri.startswith("sqlite")
+    )
+    if app.config["DB_EPHEMERAL"] and not app.config.get("TESTING"):
+        app.logger.critical(
+            "[CONFIG] COMMS_DATABASE_URL is NOT set - using an ephemeral in-memory "
+            "SQLite DB. No tables exist; all writes will fail with 500. Set "
+            "COMMS_DATABASE_URL (e.g. ${comms-db.DATABASE_URL}) on this component."
+        )
 
     db.init_app(app)
 
