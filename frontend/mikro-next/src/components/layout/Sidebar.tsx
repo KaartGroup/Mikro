@@ -35,7 +35,7 @@ const adminNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "home" },
   { label: "Projects", href: "/projects", icon: "folder" },
   // { label: "Tasks", href: "/admin/tasks", icon: "tasks" }, // Disabled until scope is clarified with project owner
-  { label: "Time", href: "/time", icon: "clock" },
+  { label: "Time", href: "/admin/time", icon: "clock" },
   { label: "Training", href: "/training", icon: "book" },
   { label: "Users", href: "/users", icon: "users" },
   { label: "Teams", href: "/teams", icon: "team" },
@@ -57,7 +57,7 @@ const superAdminNavItems: NavItem[] = [
 const teamAdminNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "home" },
   { label: "Projects", href: "/projects", icon: "folder" },
-  { label: "Time", href: "/time", icon: "clock" },
+  { label: "Time", href: "/admin/time", icon: "clock" },
   { label: "Training", href: "/training", icon: "book" },
   { label: "Users", href: "/users", icon: "users" },
   { label: "Teams", href: "/teams", icon: "team" },
