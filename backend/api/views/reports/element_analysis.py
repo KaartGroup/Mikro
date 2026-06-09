@@ -223,10 +223,10 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
             continue
 
         day = created_at.replace(tzinfo=timezone.utc).astimezone(ORG_TIMEZONE).date()
-        logger.info(
-            "get_element_analysis: processing changeset_id=%s -> local day=%s",
-            changeset_id, day,
-        )
+        # logger.info(
+        #     "get_element_analysis: processing changeset_id=%s -> local day=%s",
+        #     changeset_id, day,
+        # )
         try:
             cs_stats = parse_adiff_transitions(adiff_xml, TRACKED_KEYS, KEY_FILTERS)
             merge_transitions(day_key_stats[day], cs_stats)

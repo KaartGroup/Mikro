@@ -305,16 +305,16 @@ def _get_projects_list(org_id, source):
             raw_pct_mapped = round(mapped / effective_total * 100, 1) if effective_total > 0 else 0
             raw_pct_validated = round(validated / effective_total * 100, 1) if effective_total > 0 else 0
 
-        if raw_pct_mapped > 100:
-            logger.warning(
-                f"Project {proj.id} ({proj.name}) percent_mapped={raw_pct_mapped}% "
-                f"exceeds 100% — capping. total_tasks={total}, mapped={mapped}"
-            )
-        if raw_pct_validated > 100:
-            logger.warning(
-                f"Project {proj.id} ({proj.name}) percent_validated={raw_pct_validated}% "
-                f"exceeds 100% — capping. total_tasks={total}, validated={validated}"
-            )
+        # if raw_pct_mapped > 100:
+        #     logger.warning(
+        #         f"Project {proj.id} ({proj.name}) percent_mapped={raw_pct_mapped}% "
+        #         f"exceeds 100% — capping. total_tasks={total}, mapped={mapped}"
+        #     )
+        # if raw_pct_validated > 100:
+        #     logger.warning(
+        #         f"Project {proj.id} ({proj.name}) percent_validated={raw_pct_validated}% "
+        #         f"exceeds 100% — capping. total_tasks={total}, validated={validated}"
+        #     )
 
         completed_tasks = mapped + validated
         total_secs = time_per_project.get(proj.id, 0)

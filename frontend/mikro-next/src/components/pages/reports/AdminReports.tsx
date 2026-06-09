@@ -180,6 +180,7 @@ export function AdminReports() {
       fetchHeatmap(params)
         .then((res) => {
           if (res?.status === 200) {
+            console.log(res);
             setHeatmapPoints(res.heatmapPoints || []);
           }
         })
@@ -432,6 +433,14 @@ export function AdminReports() {
   const totalChangesets = timekeepingData?.summary.total_changesets ?? 0;
   const totalHours = timekeepingData?.summary.total_hours ?? 0;
   const totalChanges = timekeepingData?.summary.total_changes ?? 0;
+
+  useEffect(() => {
+    console.log(heatmapPoints);
+  }, [heatmapPoints]);
+
+  useEffect(() => {
+    console.log(heatmapLoading);
+  }, [heatmapLoading]);
 
   return (
     <div className="space-y-6">
@@ -737,7 +746,7 @@ export function AdminReports() {
       <ChangesetHeatmapCard
         heatmapPoints={heatmapPoints}
         heatmapLoading={heatmapLoading}
-        className="h-[400px]"
+        className="h-[600px]"
       />
     </div>
   );

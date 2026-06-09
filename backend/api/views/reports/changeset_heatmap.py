@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from flask import g, request
 
-from ...database import db, Task
+from ...database import User
 from ...filters import resolve_filtered_osm_usernames
 from ...utils.changeset_fetcher import ChangesetFetcher, changesets_to_heatmap_points
 from ...utils.tz import parse_filter_datetime
@@ -68,7 +68,7 @@ def fetch_changeset_heatmap():
         return {"message": "Invalid startDate or endDate", "status": 400}
     if end_was_date_only:
         end_date = end_date + timedelta(days=1)
-
+    
     return get_changeset_heatmap(
         org_id=g.user.org_id,
         viewer=g.user,
@@ -85,11 +85,16 @@ def fetch_changeset_heatmap():
 
 def get_changeset_heatmap(org_id, viewer, start_date, end_date, filters=None, max_per_user=100):
     """Fetches and aggregates OSM changeset heatmap data. No Flask context required."""
-    osm_usernames = _get_active_mapper_usernames(org_id, viewer, start_date, end_date, filters)
+    osm_usernames = _get_active_mapper_usernames(org_id, viewer, filters)
     if not osm_usernames:
+        logger.info(
+            f"No active mappers found for org_id={org_id}, viewer={viewer.id}, "
+            f"start={start_date}, end={end_date}, filters={filters}"
+        )
         return _EMPTY_RESPONSE
 
     all_changesets = _fetch_all_user_changesets(osm_usernames, start_date, end_date, max_per_user)
+    logger.info(f"Fetched {len(all_changesets)} changesets for {len(osm_usernames)} users")
     return {
         "status": 200,
         "heatmapPoints": changesets_to_heatmap_points(all_changesets),
@@ -100,32 +105,27 @@ def get_changeset_heatmap(org_id, viewer, start_date, end_date, filters=None, ma
 # Single-purpose helpers
 # ---------------------------------------------------------------------------
 
-def _get_active_mapper_usernames(org_id, viewer, start_date, end_date, filters=None):
-    """Returns list of OSM usernames active in the period, scoped to viewer permissions."""
-    q = (
-        db.session.query(Task.mapped_by)
-        .filter(
-            Task.org_id == org_id,
-            Task.mapped == True,
-            Task.date_mapped >= start_date,
-            Task.date_mapped < end_date,
-            Task.mapped_by != None,
+def _get_active_mapper_usernames(org_id, viewer, filters=None):
+    """Returns OSM usernames to fetch changesets for, scoped to viewer's teams."""
+    ta_osm = _team_admin_osm_usernames(viewer)
+    if ta_osm is not None:
+        osm_usernames = ta_osm
+    else:
+        rows = (
+            User.query
+            .with_entities(User.osm_username)
+            .filter(User.org_id == org_id, User.osm_username != None, User.is_active == True)
+            .all()
         )
-        .distinct()
-    )
+        osm_usernames = [r.osm_username for r in rows]
 
     if filters:
         filtered_usernames = resolve_filtered_osm_usernames(filters, org_id)
         if filtered_usernames is not None:
-            q = q.filter(Task.mapped_by.in_(filtered_usernames))
+            allowed = set(filtered_usernames)
+            osm_usernames = [u for u in osm_usernames if u in allowed]
 
-    ta_osm = _team_admin_osm_usernames(viewer)
-    if ta_osm is not None:
-        if not ta_osm:
-            return []
-        q = q.filter(Task.mapped_by.in_(ta_osm))
-
-    return [row[0] for row in q.all()]
+    return osm_usernames
 
 
 def _fetch_all_user_changesets(osm_usernames, start_date, end_date, max_per_user=100):
