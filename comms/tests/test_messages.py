@@ -104,7 +104,10 @@ def test_dm_cross_org_rejected(app, make_identity):
     assert Message.query.count() == 0
 
 
-def test_dm_unknown_peer_rejected(app, make_identity):
+def test_dm_unknown_peer_allowed(app, make_identity):
+    # A recipient who hasn't signed into comms yet (no Identity row) can still
+    # be DM'd — the message is stamped with the sender's org and only visible
+    # in-org. They see it once they log in (Identity created) if same org.
     alice = make_identity("auth0|alice", "orgA")
     with as_user(
         app,
@@ -112,7 +115,9 @@ def test_dm_unknown_peer_rejected(app, make_identity):
         body={"target_type": "user", "target_user_id": "auth0|ghost", "content": "x"},
     ):
         resp, status = MessagesAPI().send()
-    assert status == 403
+    assert status == 200
+    assert Message.query.count() == 1
+    assert Message.query.first().org_id == "orgA"
 
 
 def test_dm_self_rejected(app, make_identity):

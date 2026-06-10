@@ -78,6 +78,21 @@ def create_app(config_object=Config) -> Flask:
     # Import models so they register on db.metadata before create_all / migrations.
     from . import database  # noqa: F401
 
+    # Self-heal the schema on boot. create_all is idempotent (checkfirst skips
+    # existing tables, creates only what's missing), so no matter what state
+    # the database is in after a redeploy — empty, partial, or full — the
+    # service comes up with its full schema present. This is the durable fix
+    # for the schema repeatedly going missing across deploys; the bell/messages
+    # endpoints can never come up tableless again. Wrapped so a transient DB
+    # blip logs loudly but doesn't crash-loop the worker (the next boot, or
+    # /health, surfaces it).
+    if not app.config.get("DB_EPHEMERAL"):
+        try:
+            with app.app_context():
+                db.create_all()
+        except Exception as e:
+            app.logger.critical("[SCHEMA] create_all on boot failed: %s", e)
+
     # Auth: validate JWT + project Identity on every non-public request.
     from .auth import authenticate_request
 

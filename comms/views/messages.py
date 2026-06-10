@@ -326,9 +326,13 @@ class MessagesAPI(MethodView):
                     jsonify({"message": "Cannot DM yourself", "status": 400}),
                     400,
                 )
+            # Allow DMing any colleague even if they have not signed into comms
+            # yet (no Identity row). The message is stamped with the SENDER's
+            # org_id and every read query is org-scoped, so a recipient only
+            # ever sees it if they are in the same org. Only reject when the
+            # recipient is KNOWN (has an Identity) and is in a DIFFERENT org.
             peer = db.session.get(Identity, target_user_id)
-            if peer is None or peer.org_id != org_id:
-                # Cross-org (or unknown) recipient — reject.
+            if peer is not None and peer.org_id != org_id:
                 return jsonify({"message": "Forbidden", "status": 403}), 403
             scope_key = target_user_id
             recipient_subs = [target_user_id]
