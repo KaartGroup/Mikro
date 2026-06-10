@@ -11,13 +11,11 @@ Audience resolution honours the cross-app seam:
 Admin-only (org_admin or above). Adapted from Mikro's backend/api/views/Email.py.
 """
 
-from datetime import datetime
-
 from flask import g, jsonify, request
 from flask.views import MethodView
 
-from ..database import EmailCampaign, Identity, db
-from ..mail import mailer
+from ..database import EmailCampaign, Identity
+from ..mail import mailer, campaign_service
 from ..mail.audience import parse_audience
 from ..auth import requires_admin
 
@@ -95,26 +93,25 @@ class EmailAPI(MethodView):
         if err is not None:
             return err
 
-        campaign = EmailCampaign(
+        campaign = campaign_service.persist_and_send(
             org_id=g.identity.org_id,
             subject=subject,
             body_html=body_html,
-            sent_by=g.identity.sub,
             audience=audience,
             is_forced=is_forced,
-            sent_at=datetime.utcnow(),
-            recipient_count=len(emails),
+            sent_by=g.identity.sub,
+            emails=emails,
         )
-        db.session.add(campaign)
-        db.session.commit()
 
-        # Fire-and-forget send on a daemon thread (SMTP latency off the
-        # request path); de-duplicate addresses first.
-        unique = sorted(set(emails))
-        if unique:
-            mailer.send_campaign_async(unique, subject, body_html)
-
-        return jsonify({"status": 200, "campaign": campaign.to_dict()}), 200
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "campaign": campaign_service.campaign_dict_with_sender(campaign),
+                }
+            ),
+            200,
+        )
 
     def list_campaigns(self):
         rows = (
@@ -123,7 +120,17 @@ class EmailAPI(MethodView):
             .limit(50)
             .all()
         )
-        return jsonify({"status": 200, "campaigns": [c.to_dict() for c in rows]}), 200
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "campaigns": [
+                        campaign_service.campaign_dict_with_sender(c) for c in rows
+                    ],
+                }
+            ),
+            200,
+        )
 
     def preview(self):
         data = request.get_json(silent=True) or {}

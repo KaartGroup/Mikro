@@ -15,8 +15,9 @@ bell-row + email policy stays in one place.
 from flask import jsonify, request
 from flask.views import MethodView
 
-from ..database import db
+from ..database import db, EmailCampaign
 from ..notifications import create_notification
+from ..mail import campaign_service
 from ..auth import requires_hmac
 
 _REQUIRED_SINGLE = ("user_id", "org_id", "type", "message")
@@ -41,6 +42,8 @@ class EmitAPI(MethodView):
         handler = {
             "notify": self.notify,
             "notify_batch": self.notify_batch,
+            "campaign": self.campaign,
+            "campaign_list": self.campaign_list,
         }.get(path)
         if handler is None:
             return jsonify({"message": "Endpoint not found", "status": 404}), 404
@@ -96,3 +99,84 @@ class EmitAPI(MethodView):
             ids.append(n.id)
         db.session.commit()
         return jsonify({"status": 200, "count": len(ids), "ids": ids}), 200
+
+    def campaign(self):
+        """Send a campaign with recipients the calling app has already
+        resolved + authorized. comms still owns the notify_announcement
+        opt-out filter (unless forced), persistence, and sending."""
+        data = request.get_json(silent=True) or {}
+        org_id = data.get("org_id")
+        subject = (data.get("subject") or "").strip()
+        body_html = data.get("body_html")
+        audience = (data.get("audience") or "").strip()
+        sent_by = data.get("sent_by")
+        recipients = data.get("recipients")
+
+        if not org_id or not subject or not body_html or not audience or not sent_by:
+            return (
+                jsonify(
+                    {
+                        "message": (
+                            "org_id, subject, body_html, audience and sent_by "
+                            "are required"
+                        ),
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
+        if not isinstance(recipients, list) or not recipients:
+            return (
+                jsonify(
+                    {"message": "recipients must be a non-empty list", "status": 400}
+                ),
+                400,
+            )
+
+        is_forced = bool(data.get("is_forced", False))
+        emails = campaign_service.emails_for_subs_pref_filtered(
+            recipients, org_id=org_id, is_forced=is_forced
+        )
+        campaign = campaign_service.persist_and_send(
+            org_id=org_id,
+            subject=subject,
+            body_html=body_html,
+            audience=audience,
+            is_forced=is_forced,
+            sent_by=sent_by,
+            emails=emails,
+        )
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "recipient_count": campaign.recipient_count,
+                    "campaign": campaign_service.campaign_dict_with_sender(campaign),
+                }
+            ),
+            200,
+        )
+
+    def campaign_list(self):
+        """List recent campaigns for an org (optionally one sender)."""
+        data = request.get_json(silent=True) or {}
+        org_id = data.get("org_id")
+        if not org_id:
+            return jsonify({"message": "Missing field: org_id", "status": 400}), 400
+
+        sent_by = data.get("sent_by")
+        q = EmailCampaign.query.filter(EmailCampaign.org_id == org_id)
+        if sent_by:
+            q = q.filter(EmailCampaign.sent_by == sent_by)
+        rows = q.order_by(EmailCampaign.created_at.desc()).limit(50).all()
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "campaigns": [
+                        campaign_service.campaign_dict_with_sender(c) for c in rows
+                    ],
+                }
+            ),
+            200,
+        )
