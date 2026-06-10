@@ -35,3 +35,15 @@ def test_highest_role_maps_mikro_admin_list():
     assert _highest_role(["nonsense"]) == "user"
     # Highest wins when multiple are present.
     assert _highest_role(["user", "admin"]) == "admin"
+
+
+def test_highest_role_normalizes_case_space_hyphen():
+    # The IdP may emit role display names in any casing/format — they must
+    # still resolve to the canonical org-admin tier.
+    assert _highest_role(["Admin"]) == "admin"
+    assert _highest_role(["ADMIN"]) == "admin"
+    assert _highest_role(["Super Admin"]) == "super_admin"
+    assert _highest_role(["super-admin"]) == "super_admin"
+    assert _highest_role(["Org Admin"]) == "org_admin"
+    assert _highest_role(["Team Admin"]) == "team_admin"
+    assert Identity(sub="x", role=_highest_role(["Super Admin"])).is_admin is True

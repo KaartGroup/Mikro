@@ -79,8 +79,19 @@ def _first_claim(payload: dict, keys: list[str]):
     return None
 
 
+def _normalize_role(r) -> str:
+    """Canonicalize a role token so case/spacing/hyphen variants match the
+    ROLE_PRIORITY keys: 'Admin', 'Org Admin', 'super-admin' -> 'admin',
+    'org_admin', 'super_admin'."""
+    return str(r).strip().lower().replace(" ", "_").replace("-", "_")
+
+
 def _highest_role(roles) -> str:
-    """Map a token roles claim (list or str) to the highest known role."""
+    """Map a token roles claim (list or str) to the highest known role.
+
+    Roles are normalized (case/space/hyphen-insensitive) before lookup so the
+    exact format the IdP emits ('Admin', 'super-admin', etc.) still resolves.
+    """
     from ..database import ROLE_PRIORITY
 
     if isinstance(roles, str):
@@ -90,9 +101,10 @@ def _highest_role(roles) -> str:
     best = "user"
     best_rank = -1
     for r in roles:
-        rank = ROLE_PRIORITY.get(str(r), -1)
+        key = _normalize_role(r)
+        rank = ROLE_PRIORITY.get(key, -1)
         if rank > best_rank:
-            best_rank, best = rank, str(r)
+            best_rank, best = rank, key
     return best if best_rank >= 0 else "user"
 
 
@@ -120,7 +132,18 @@ def _sync_identity(payload: dict):
     cfg = current_app.config
     email = payload.get("email")
     org_id = _first_claim(payload, cfg.get("ORG_CLAIM_KEYS", []))
-    role = _highest_role(_first_claim(payload, cfg.get("ROLES_CLAIM_KEYS", [])))
+    raw_roles = _first_claim(payload, cfg.get("ROLES_CLAIM_KEYS", []))
+    role = _highest_role(raw_roles)
+    # Diagnostic: a present-but-unmapped roles claim means an admin gets
+    # treated as a plain user. Log the EXACT raw value so the mismatch is
+    # visible in the runtime logs instead of guessed at.
+    if role == "user" and raw_roles:
+        current_app.logger.warning(
+            "[IDENTITY-SYNC] roles claim %r did not map to a known role "
+            "(resolved 'user') for sub=%s — admin-gated actions will 403",
+            raw_roles,
+            sub,
+        )
     display_name = payload.get("name") or payload.get("nickname") or email
 
     identity = db.session.get(Identity, sub)
