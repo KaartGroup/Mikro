@@ -60,15 +60,34 @@ function MessagesPageInner() {
   const { mutate: markRead } = useMarkMessagesRead();
   const { data: usersData } = useUsersList();
 
-  // sub → display name map, used to label DM/org message senders (comms
-  // returns only sender_id, never a display name — it's app-agnostic).
+  // sub → display name map, used to label DM/org message senders and DM
+  // conversation rows. comms is app-agnostic — it returns only the raw
+  // Auth0 sub (sender_id / peer scope_key), never a display name — so the
+  // frontend resolves names from Mikro's own user list. Include the current
+  // authenticated user so my own sent messages show my name, not my sub.
   const nameBySub = useMemo(() => {
     const map: Record<string, string> = {};
     (usersData?.users ?? []).forEach((u: User) => {
       if (u.id) map[u.id] = u.name || u.email || u.id;
     });
+    if (authUser?.sub) {
+      map[authUser.sub] =
+        authUser.name || authUser.email || map[authUser.sub] || authUser.sub;
+    }
     return map;
-  }, [usersData]);
+  }, [usersData, authUser]);
+
+  // Label a conversation row. For DMs, comms returns the peer's raw sub as
+  // the label when that peer has no comms Identity yet, so override with the
+  // Mikro user name keyed on the peer sub (scope_key). org/group keep their
+  // server label.
+  const convLabel = useCallback(
+    (c: Conversation): string =>
+      c.scope_type === "user"
+        ? nameBySub[c.scope_key] || c.label
+        : c.label,
+    [nameBySub],
+  );
 
   const [selected, setSelected] = useState<{
     scope_type: MessageScopeType;
@@ -99,7 +118,7 @@ function MessagesPageInner() {
         setSelected({
           scope_type: match.scope_type,
           scope_key: match.scope_key,
-          label: match.label,
+          label: convLabel(match),
         });
         return;
       }
@@ -107,10 +126,20 @@ function MessagesPageInner() {
       setSelected({
         scope_type: initialScopeType,
         scope_key: initialScopeKey,
-        label: "Conversation",
+        label:
+          initialScopeType === "user"
+            ? nameBySub[initialScopeKey] || "Conversation"
+            : TARGET_LABELS[initialScopeType] || "Conversation",
       });
     }
-  }, [conversations, initialScopeKey, initialScopeType, selected]);
+  }, [
+    conversations,
+    initialScopeKey,
+    initialScopeType,
+    selected,
+    convLabel,
+    nameBySub,
+  ]);
 
   // Poll conversation list every 30s.
   useEffect(() => {
@@ -290,7 +319,7 @@ function MessagesPageInner() {
                         setSelected({
                           scope_type: c.scope_type,
                           scope_key: c.scope_key,
-                          label: c.label,
+                          label: convLabel(c),
                         })
                       }
                       style={{
@@ -314,7 +343,7 @@ function MessagesPageInner() {
                         }}
                       >
                         <span style={{ fontWeight: 600, fontSize: 13 }}>
-                          {c.label}
+                          {convLabel(c)}
                         </span>
                         <CountBadge count={c.unread_count} position="inline" />
                       </div>
