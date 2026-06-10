@@ -42,6 +42,14 @@ const TARGET_LABELS: Record<MessageScopeType, string> = {
   org: "Organization",
 };
 
+// A raw Auth0 sub ("auth0|abc", "google-oauth2|123", "samlp|...", "waad|...")
+// must NEVER be shown to a user. If a name can't be resolved, fall back to
+// this generic label instead of leaking the ID.
+const FALLBACK_NAME = "Unknown user";
+const looksLikeSub = (s: string): boolean => /^[a-z0-9_-]+\|/i.test(s);
+const safeLabel = (s: string | null | undefined): string =>
+  s && !looksLikeSub(s) ? s : FALLBACK_NAME;
+
 function MessagesPageInner() {
   const params = useSearchParams();
   const initialScopeType = (params.get("scope") ||
@@ -63,30 +71,38 @@ function MessagesPageInner() {
   // sub → display name map, used to label DM/org message senders and DM
   // conversation rows. comms is app-agnostic — it returns only the raw
   // Auth0 sub (sender_id / peer scope_key), never a display name — so the
-  // frontend resolves names from Mikro's own user list. Include the current
-  // authenticated user so my own sent messages show my name, not my sub.
+  // frontend resolves names from Mikro's own user list. Only store real
+  // names/emails here: a raw sub must never become a value (it would leak the
+  // ID). Include the current authenticated user so my own messages show me.
   const nameBySub = useMemo(() => {
     const map: Record<string, string> = {};
     (usersData?.users ?? []).forEach((u: User) => {
-      if (u.id) map[u.id] = u.name || u.email || u.id;
+      const label = u.name || u.email;
+      if (u.id && label) map[u.id] = label;
     });
     if (authUser?.sub) {
-      map[authUser.sub] =
-        authUser.name || authUser.email || map[authUser.sub] || authUser.sub;
+      const mine = authUser.name || authUser.email || map[authUser.sub];
+      if (mine) map[authUser.sub] = mine;
     }
     return map;
   }, [usersData, authUser]);
 
-  // Label a conversation row. For DMs, comms returns the peer's raw sub as
-  // the label when that peer has no comms Identity yet, so override with the
-  // Mikro user name keyed on the peer sub (scope_key). org/group keep their
-  // server label.
+  // Resolve a sub to a display name. NEVER returns the raw sub — falls back
+  // to a generic label if the sub isn't in the user list.
+  const nameForSub = useCallback(
+    (sub: string): string => safeLabel(nameBySub[sub]),
+    [nameBySub],
+  );
+
+  // Label a conversation row. For DMs, resolve the peer (scope_key) to a name;
+  // org/group use the server label. safeLabel guarantees a sub never leaks
+  // even if the server label itself is a raw sub.
   const convLabel = useCallback(
     (c: Conversation): string =>
       c.scope_type === "user"
-        ? nameBySub[c.scope_key] || c.label
-        : c.label,
-    [nameBySub],
+        ? nameForSub(c.scope_key)
+        : safeLabel(c.label),
+    [nameForSub],
   );
 
   const [selected, setSelected] = useState<{
@@ -128,7 +144,7 @@ function MessagesPageInner() {
         scope_key: initialScopeKey,
         label:
           initialScopeType === "user"
-            ? nameBySub[initialScopeKey] || "Conversation"
+            ? nameForSub(initialScopeKey)
             : TARGET_LABELS[initialScopeType] || "Conversation",
       });
     }
@@ -138,7 +154,7 @@ function MessagesPageInner() {
     initialScopeType,
     selected,
     convLabel,
-    nameBySub,
+    nameForSub,
   ]);
 
   // Poll conversation list every 30s.
@@ -243,8 +259,7 @@ function MessagesPageInner() {
     return g;
   }, [conversations]);
 
-  const senderLabel = (m: Message): string =>
-    nameBySub[m.sender_id] || m.sender_id;
+  const senderLabel = (m: Message): string => nameForSub(m.sender_id);
 
   return (
     <div
