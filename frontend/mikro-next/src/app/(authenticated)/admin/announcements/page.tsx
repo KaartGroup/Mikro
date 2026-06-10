@@ -162,7 +162,7 @@ export default function AnnouncementsPage() {
       setUserSearch("");
       refetchList().catch(() => {});
     } catch {
-      toast.error("Failed to send campaign.");
+      toast.error("Failed to send the email.");
     }
   };
 
@@ -170,7 +170,7 @@ export default function AnnouncementsPage() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Announcements</CardTitle>
+          <CardTitle>Email</CardTitle>
         </CardHeader>
         <CardContent>
           <p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>
@@ -190,9 +190,9 @@ export default function AnnouncementsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Announcements</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Email</h1>
         <p className="text-muted-foreground" style={{ marginTop: 8 }}>
-          Compose and send emails to members of your organization.
+          Compose and send an email to members of your organization.
         </p>
       </div>
 
@@ -378,7 +378,7 @@ export default function AnnouncementsPage() {
 
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <Button onClick={handleSend} disabled={sendDisabled}>
-                {sending ? "Sending…" : "Send Campaign"}
+                {sending ? "Sending…" : "Send"}
               </Button>
             </div>
           </div>
@@ -387,12 +387,12 @@ export default function AnnouncementsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Past Campaigns</CardTitle>
+          <CardTitle>Sent</CardTitle>
         </CardHeader>
         <CardContent>
           {campaigns.length === 0 ? (
             <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-              No campaigns sent yet.
+              No emails sent yet.
             </p>
           ) : (
             <div style={{ overflowX: "auto" }}>
