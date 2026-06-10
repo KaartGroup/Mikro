@@ -63,6 +63,47 @@ def _write_shutdown_marker(signum):
         logger.warning(f"[LIFECYCLE] Could not write shutdown marker: {e}")
 
 
+def _drain_running_jobs(app, timeout=120):
+    """
+    Wait for in-flight job threads to finish before process exits.
+    Jobs that don't complete within timeout are reset to 'queued' so the next
+    worker instance picks them up — prevents orphaned jobs on rolling deploys.
+    """
+    if not _running_sync_threads:
+        logger.info("[SHUTDOWN] No jobs in flight — exiting immediately")
+        return
+
+    job_ids = list(_running_sync_threads.keys())
+    logger.info(
+        f"[SHUTDOWN] Draining {len(job_ids)} in-flight job(s) {job_ids} "
+        f"(timeout={timeout}s)"
+    )
+
+    deadline = datetime.now(timezone.utc) + timedelta(seconds=timeout)
+    for job_id, thread in list(_running_sync_threads.items()):
+        remaining = (deadline - datetime.now(timezone.utc)).total_seconds()
+        if remaining <= 0:
+            break
+        thread.join(timeout=max(0, remaining))
+
+    still_running = {jid: t for jid, t in _running_sync_threads.items() if t.is_alive()}
+    if still_running:
+        logger.warning(
+            f"[SHUTDOWN] {len(still_running)} job(s) did not finish within {timeout}s — "
+            f"requeueing: {list(still_running.keys())}"
+        )
+        with app.app_context():
+            for job_id in still_running:
+                job = SyncJob.query.get(job_id)
+                if job and job.status == "running":
+                    job.status = "queued"
+                    job.started_at = None
+                    db.session.commit()
+                    logger.info(f"[SHUTDOWN] Requeued job {job_id}")
+    else:
+        logger.info("[SHUTDOWN] All in-flight jobs completed cleanly")
+
+
 def _expire_stale_sync_job(db, job):
     """Mark a running sync job failed if it has been running >1 hour. Returns True if expired."""
     if not job.started_at:
@@ -153,13 +194,12 @@ def poll_for_jobs(app):
                         return
                     # Stale check expired it — fall through and start the queued job.
                 else:
-                    # DB shows running but no live thread — orphan from a prior worker crash.
+                    # DB shows running but no live thread — orphan from a prior worker crash/SIGKILL.
                     logger.warning(
-                        f"Job {running.id} stuck in running state with no live thread — expiring as orphan"
+                        f"Job {running.id} stuck in running state with no live thread — requeueing as orphan"
                     )
-                    running.status = "failed"
-                    running.error = "Orphaned (worker restarted mid-job)"
-                    running.completed_at = datetime.now(timezone.utc)
+                    running.status = "queued"
+                    running.started_at = None
                     db.session.commit()
 
             job.status = "running"
@@ -244,3 +284,4 @@ def main():
             logger.info("Worker heartbeat — still running")
 
     logger.info("Worker process stopped")
+    _drain_running_jobs(app)
