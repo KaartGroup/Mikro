@@ -1,6 +1,7 @@
 "use client";
 
-import { Card, Skeleton, StatCardLink, Tooltip, Val } from "@/components/ui";
+import Link from "next/link";
+import { Card, Skeleton, Tooltip, Val } from "@/components/ui";
 import { formatNumber } from "@/lib/utils";
 import type { FormattedValue } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ export interface DashboardStatCardProps {
   tooltip?: string;
   /** Renders inline skeleton in place of the value. */
   loading?: boolean;
+  className?: string;
 }
 
 const SEVERITY_TEXT: Record<Severity, string> = {
@@ -102,6 +104,7 @@ export function DashboardStatCard({
   severity = "neutral",
   tooltip,
   loading = false,
+  className,
 }: DashboardStatCardProps) {
   const labelNode = tooltip ? (
     <Tooltip content={tooltip} position="bottom">
@@ -115,19 +118,13 @@ export function DashboardStatCard({
     </span>
   );
 
-  return (
-    <Card className="p-0">
+  const inner = (
+    <Card className={`p-0${className ? ` ${className}` : ""}${href ? " hover:bg-accent transition-colors cursor-pointer" : ""}`}>
       <div className="px-4 py-3 flex flex-col gap-1">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start">
           {labelNode}
-          {href && (
-            <StatCardLink
-              href={href}
-              label={linkLabel ?? `View ${label} details`}
-            />
-          )}
         </div>
-        <div className="flex items-baseline gap-2 flex-wrap">
+        <div className="flex items-baseline gap-2">
           {loading ? (
             <Skeleton className="h-6 w-16" />
           ) : (
@@ -143,12 +140,22 @@ export function DashboardStatCard({
               )}
             </span>
           )}
+        </div>
+        <div className="min-h-[1rem]">
           {!loading && delta && <DeltaBadge delta={delta} />}
           {!loading && !delta && subtitle && (
-            <span className="text-xs text-muted-foreground">{subtitle}</span>
+            <span className="text-xs text-muted-foreground truncate block">{subtitle}</span>
           )}
         </div>
       </div>
     </Card>
+  );
+
+  return href ? (
+    <Link href={href} aria-label={linkLabel ?? `View ${label} details`} className="block">
+      {inner}
+    </Link>
+  ) : (
+    inner
   );
 }
