@@ -16,6 +16,8 @@ import {
   useSendMessage,
   useMarkMessagesRead,
   useUsersList,
+  useDeleteMessage,
+  useDeleteConversation,
 } from "@/hooks";
 import { useRole } from "@/contexts/RoleContext";
 import type { Conversation, Message, MessageScopeType, User } from "@/types";
@@ -66,7 +68,9 @@ function MessagesPageInner() {
   const { mutate: fetchThread } = useMessageThread();
   const { mutate: sendMessage, loading: sending } = useSendMessage();
   const { mutate: markRead } = useMarkMessagesRead();
-  const { data: usersData } = useUsersList();
+  const { mutate: deleteMessage } = useDeleteMessage();
+  const { mutate: deleteConversation } = useDeleteConversation();
+  const { data: usersData, loading: usersLoading } = useUsersList();
 
   // sub → display name map, used to label DM/org message senders and DM
   // conversation rows. comms is app-agnostic — it returns only the raw
@@ -87,11 +91,17 @@ function MessagesPageInner() {
     return map;
   }, [usersData, authUser]);
 
-  // Resolve a sub to a display name. NEVER returns the raw sub — falls back
-  // to a generic label if the sub isn't in the user list.
+  // Resolve a sub to a display name. NEVER returns the raw sub. While the
+  // user list is still loading we return a neutral placeholder ("…") rather
+  // than "Unknown user" — so a real person's name doesn't briefly flash as
+  // unknown (and a sub never flashes at all).
   const nameForSub = useCallback(
-    (sub: string): string => safeLabel(nameBySub[sub]),
-    [nameBySub],
+    (sub: string): string => {
+      const resolved = nameBySub[sub];
+      if (resolved && !looksLikeSub(resolved)) return resolved;
+      return usersLoading ? "…" : FALLBACK_NAME;
+    },
+    [nameBySub, usersLoading],
   );
 
   // Label a conversation row. For DMs, resolve the peer (scope_key) to a name;
@@ -105,11 +115,20 @@ function MessagesPageInner() {
     [nameForSub],
   );
 
+  // Only the scope is stored — the visible label is DERIVED below so it can
+  // never freeze on a stale value (and so a sub can never get captured into
+  // state and rendered before names resolve).
   const [selected, setSelected] = useState<{
     scope_type: MessageScopeType;
     scope_key: string;
-    label: string;
   } | null>(null);
+
+  // Reactive label for the open thread header — recomputes as names load.
+  const selectedLabel = useMemo(() => {
+    if (!selected) return "";
+    if (selected.scope_type === "user") return nameForSub(selected.scope_key);
+    return TARGET_LABELS[selected.scope_type] || "Conversation";
+  }, [selected, nameForSub]);
   const [thread, setThread] = useState<Message[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
   const [composer, setComposer] = useState("");
@@ -134,7 +153,6 @@ function MessagesPageInner() {
         setSelected({
           scope_type: match.scope_type,
           scope_key: match.scope_key,
-          label: convLabel(match),
         });
         return;
       }
@@ -142,20 +160,9 @@ function MessagesPageInner() {
       setSelected({
         scope_type: initialScopeType,
         scope_key: initialScopeKey,
-        label:
-          initialScopeType === "user"
-            ? nameForSub(initialScopeKey)
-            : TARGET_LABELS[initialScopeType] || "Conversation",
       });
     }
-  }, [
-    conversations,
-    initialScopeKey,
-    initialScopeType,
-    selected,
-    convLabel,
-    nameForSub,
-  ]);
+  }, [conversations, initialScopeKey, initialScopeType, selected]);
 
   // Poll conversation list every 30s.
   useEffect(() => {
@@ -247,6 +254,51 @@ function MessagesPageInner() {
     }
   };
 
+  // Delete a single message (admin: any; otherwise: own only). Optimistically
+  // drop it from the open thread, then refresh.
+  const handleDeleteMessage = async (m: Message) => {
+    if (!amAdmin && m.sender_id !== myId) return;
+    if (!window.confirm("Delete this message? This cannot be undone.")) return;
+    try {
+      await deleteMessage({ message_id: m.id });
+      setThread((prev) => prev.filter((x) => x.id !== m.id));
+      refetchConversations().catch(() => {});
+    } catch (err) {
+      setSendError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't delete the message.",
+      );
+    }
+  };
+
+  // Delete the whole open conversation (admin only). Clears the pane.
+  const handleDeleteConversation = async () => {
+    if (!selected || !amAdmin) return;
+    if (
+      !window.confirm(
+        "Delete this entire conversation for everyone? This permanently " +
+          "removes all of its messages and cannot be undone.",
+      )
+    )
+      return;
+    try {
+      await deleteConversation({
+        scope_type: selected.scope_type,
+        scope_key: selected.scope_key,
+      });
+      setSelected(null);
+      setThread([]);
+      refetchConversations().catch(() => {});
+    } catch (err) {
+      setSendError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't delete the conversation.",
+      );
+    }
+  };
+
   const grouped = useMemo(() => {
     const g: Record<MessageScopeType, Conversation[]> = {
       user: [],
@@ -334,7 +386,6 @@ function MessagesPageInner() {
                         setSelected({
                           scope_type: c.scope_type,
                           scope_key: c.scope_key,
-                          label: convLabel(c),
                         })
                       }
                       style={{
@@ -425,11 +476,37 @@ function MessagesPageInner() {
         ) : (
           <>
             <div
-              style={{ padding: 12, borderBottom: "1px solid var(--border)" }}
+              style={{
+                padding: 12,
+                borderBottom: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+              }}
             >
               <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>
-                {selected.label}
+                {selectedLabel}
               </h3>
+              {amAdmin && (
+                <button
+                  onClick={handleDeleteConversation}
+                  title="Delete this entire conversation for everyone"
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: "transparent",
+                    color: "#dc2626",
+                    border: "1px solid #dc2626",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Delete conversation
+                </button>
+              )}
             </div>
             <div
               style={{
@@ -458,6 +535,7 @@ function MessagesPageInner() {
               ) : (
                 thread.map((m) => {
                   const isMe = m.sender_id === myId;
+                  const canDelete = amAdmin || isMe;
                   return (
                     <div
                       key={m.id}
@@ -488,8 +566,37 @@ function MessagesPageInner() {
                       <div style={{ fontSize: 13, lineHeight: 1.4 }}>
                         {m.content}
                       </div>
-                      <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>
-                        {relativeTime(m.created_at)}
+                      <div
+                        style={{
+                          fontSize: 10,
+                          opacity: 0.7,
+                          marginTop: 4,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                        }}
+                      >
+                        <span>{relativeTime(m.created_at)}</span>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteMessage(m)}
+                            title="Delete this message"
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              padding: 0,
+                              cursor: "pointer",
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "inherit",
+                              opacity: 0.85,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -612,7 +719,6 @@ function NewMessageModal({
   onStarted: (scope: {
     scope_type: MessageScopeType;
     scope_key: string;
-    label: string;
   }) => void;
   isAdmin: boolean;
   myId: string;
@@ -740,7 +846,6 @@ function NewMessageModal({
                       onStarted({
                         scope_type: "user",
                         scope_key: c.id,
-                        label: c.name || c.email,
                       })
                     }
                     style={{
@@ -788,7 +893,6 @@ function NewMessageModal({
                   onStarted({
                     scope_type: "org",
                     scope_key: "",
-                    label: "Organization",
                   })
                 }
                 style={{

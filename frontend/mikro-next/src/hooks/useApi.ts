@@ -1704,3 +1704,21 @@ export function useMessagesUnreadCount() {
     base: COMMS_BASE,
   });
 }
+
+// Delete a single message. Admins may delete any message in their org; a
+// sender may delete their own. POST /messages/delete_message { message_id }
+export function useDeleteMessage() {
+  return useApiMutation<{ status: number }>(
+    "/messages/delete_message",
+    COMMS_BASE,
+  );
+}
+
+// Delete a whole conversation (all its messages + read watermarks). Admin
+// only. POST /messages/delete_conversation { scope_type, scope_key }
+export function useDeleteConversation() {
+  return useApiMutation<{ status: number }>(
+    "/messages/delete_conversation",
+    COMMS_BASE,
+  );
+}
