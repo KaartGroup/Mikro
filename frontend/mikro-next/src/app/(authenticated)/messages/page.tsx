@@ -410,7 +410,12 @@ function MessagesPageInner() {
         display: "grid",
         gridTemplateColumns: "320px 1fr",
         gap: 16,
-        height: "calc(100vh - 64px - 48px)",
+        // The authenticated layout chrome is: header 64 + main paddingBottom
+        // 120 + inner wrapper padding 24*2. Match it so this grid fits its
+        // slot exactly and the PAGE never scrolls — only the inner panes do.
+        height: "calc(100vh - 232px)",
+        minHeight: 0,
+        overflow: "hidden",
       }}
     >
       {/* Left pane: conversation list */}
@@ -429,6 +434,7 @@ function MessagesPageInner() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            flexShrink: 0,
           }}
         >
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Messages</h2>
@@ -448,7 +454,7 @@ function MessagesPageInner() {
             + New
           </button>
         </div>
-        <div style={{ overflowY: "auto", flex: 1 }}>
+        <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
           {(["user", "group", "org"] as MessageScopeType[]).map((scope) => {
             const rows = grouped[scope];
             if (rows.length === 0) return null;
@@ -574,6 +580,7 @@ function MessagesPageInner() {
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: 8,
+                flexShrink: 0,
               }}
             >
               <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>
@@ -602,6 +609,7 @@ function MessagesPageInner() {
             <div
               style={{
                 flex: 1,
+                minHeight: 0,
                 overflowY: "auto",
                 padding: 16,
                 display: "flex",
@@ -704,6 +712,7 @@ function MessagesPageInner() {
                   fontSize: 12,
                   color: "var(--muted-foreground)",
                   textAlign: "center",
+                  flexShrink: 0,
                 }}
               >
                 Only admins can post to the organization broadcast.
@@ -712,6 +721,7 @@ function MessagesPageInner() {
               <div
                 style={{
                   borderTop: "1px solid var(--border)",
+                  flexShrink: 0,
                 }}
               >
                 {sendError && (
