@@ -10,6 +10,7 @@ import {
   localWeekStartIsoUtc,
   localMonthStartIsoUtc,
 } from "@/lib/timeTracking";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import type { TimeEntry } from "@/types";
 
 const PAGE_SIZE = 10;
@@ -156,7 +157,7 @@ export function TimeTab({ loading, entries }: TimeTabProps) {
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {entry.projectName || "—"}
                       {entry.clockIn
-                        ? ` · clocked in ${new Date(entry.clockIn).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`
+                        ? ` · clocked in ${formatDateTime(entry.clockIn)}`
                         : ""}
                     </p>
                   </div>
@@ -208,16 +209,7 @@ export function TimeTab({ loading, entries }: TimeTabProps) {
                         }
                       >
                         <td className="px-3 py-2 whitespace-nowrap">
-                          {entry.clockIn
-                            ? new Date(entry.clockIn).toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                },
-                              )
-                            : "—"}
+                          {entry.clockIn ? formatDate(entry.clockIn) : "—"}
                         </td>
                         <td className="px-3 py-2">
                           {entry.projectName || "—"}

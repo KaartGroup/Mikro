@@ -31,19 +31,11 @@ import {
   useToggleFriendDiscussionFlag,
 } from "@/hooks";
 import type { FriendDetailResponse } from "@/types";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatDate } from "@/lib/utils";
 
 const MappingHeatmap = dynamic(() => import("@/components/MappingHeatmap"), {
   ssr: false,
 });
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 function timeAgo(dateString: string): string {
   const diff = Date.now() - new Date(dateString).getTime();

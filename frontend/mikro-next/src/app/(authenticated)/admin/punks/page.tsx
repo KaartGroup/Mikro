@@ -30,15 +30,7 @@ import {
   useRefreshPunkActivity,
 } from "@/hooks";
 import type { Punk } from "@/types";
-import { formatNumber } from "@/lib/utils";
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+import { formatNumber, formatDate } from "@/lib/utils";
 
 export default function AdminPunksPage() {
   const { data, loading, refetch } = usePunksList();

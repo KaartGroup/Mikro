@@ -39,7 +39,7 @@ import {
   localMonthStartAgoIsoUtc,
   localDayEndIsoUtc,
 } from "@/lib/timeTracking";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatDate, formatTime } from "@/lib/utils";
 import { TimeTrackingWidget } from "@/components/widgets/TimeTrackingWidget";
 
 type DatePreset =
@@ -79,21 +79,7 @@ function getDateRange(preset: DatePreset): {
   }
 }
 
-function formatDateDisplay(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
 
 function secondsToHours(seconds: number): number {
   return Math.round((seconds / 3600) * 10) / 10;
@@ -402,7 +388,7 @@ export function UserDashboard() {
                     <TableCell
                       className={`whitespace-nowrap ${isVoided ? "line-through" : ""}`}
                     >
-                      {entry.clockIn ? formatDateDisplay(entry.clockIn) : "--"}
+                      {entry.clockIn ? formatDate(entry.clockIn) : "--"}
                     </TableCell>
                     <TableCell
                       className={`max-w-[120px] truncate ${isVoided ? "line-through" : ""}`}

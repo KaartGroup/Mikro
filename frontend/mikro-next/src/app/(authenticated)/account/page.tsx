@@ -17,6 +17,7 @@ import { roleLabel } from "@/types";
 import { PayRateCard } from "@/components/user/PayRateCard";
 import { MonthlyPaySummaryCard } from "@/components/user/MonthlyPaySummaryCard";
 import { NotificationPreferencesCard } from "@/components/comms/NotificationPreferencesCard";
+import { formatDate } from "@/lib/utils";
 
 interface UserProfile {
   id: number;
@@ -423,9 +424,7 @@ export default function AccountPage() {
                     }}
                   >
                     Linked{" "}
-                    {profile.osm_verified_at
-                      ? new Date(profile.osm_verified_at).toLocaleDateString()
-                      : ""}
+                    {profile.osm_verified_at ? formatDate(profile.osm_verified_at) : ""}
                     {profile.osm_id && ` (OSM ID: ${profile.osm_id})`}
                   </p>
                 </div>

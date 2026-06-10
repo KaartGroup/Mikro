@@ -103,8 +103,18 @@ export function formatDateTime(iso: string | null): string {
   return new Date(iso).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
+    hour12: true,
+  });
+}
+
+export function formatTime(iso: string | null): string {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
   });
 }
 

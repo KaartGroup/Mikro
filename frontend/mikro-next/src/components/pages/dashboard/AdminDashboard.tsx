@@ -23,14 +23,13 @@ import {
   useManagedTeams,
 } from "@/hooks";
 import { TimeTrackingWidget } from "@/components/widgets/TimeTrackingWidget";
-import { AdminTimeManagement } from "@/components/widgets/AdminTimeManagement";
 import { DashboardStatCard } from "@/components/admin/DashboardStatCard";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import { RecentTransactionCard } from "@/components/admin/RecentTransactionCard";
 import { DashboardLoadingSkeleton } from "@/components/admin/DashboardLoadingSkeleton";
 import { DashboardFilterToolbar } from "@/components/admin/DashboardFilterToolbar";
 import { isOrgAdminOrAbove } from "@/types";
-import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
+import { formatNumber, formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 // --- Lower dashboard section (deferred) ---
 // This component manages its own data fetching so it doesn't block the time section above.
@@ -274,7 +273,7 @@ function DashboardStats({
             format: "hours",
             goodDirection: "up",
           }}
-          href="/time"
+          href="/admin/time"
           linkLabel="View time tracking"
           tooltip="Total hours logged by all users this week (Sunday to now)"
           loading={timeHistoryLoading}
@@ -351,13 +350,7 @@ function DashboardStats({
       {/* Snapshot notice */}
       <p className="text-xs text-muted-foreground text-right">
         Stats as of{" "}
-        {snapshotTime.toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        })}
+        {formatDateTime(snapshotTime.toISOString())}
       </p>
 
       {/* TASKS STRIP — all-time totals. Brand colors preserved (orange/
@@ -624,9 +617,6 @@ export function AdminDashboard() {
               ) ?? []
             }
           />
-        </div>
-        <div className="lg:col-span-3">
-          <AdminTimeManagement teamId={teamId} />
         </div>
       </div>
     </div>

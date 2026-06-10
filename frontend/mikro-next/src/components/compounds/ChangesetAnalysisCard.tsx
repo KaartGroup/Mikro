@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle, StatCard } from "@/components/ui";
 import { ChangesetTable } from "@/components/molecules/ChangesetTable";
 import { HashtagSummary } from "@/components/molecules/HashtagSummary";
+import { formatDateTime } from "@/lib/utils";
 import type { Changeset, ChangesetSummary } from "@/types";
 
 const MappingHeatmap = dynamic(() => import("@/components/MappingHeatmap"), {
@@ -47,7 +48,7 @@ export function ChangesetAnalysisCard({
     const rows = changesets
       .map(
         (c) =>
-          `${c.id},"${new Date(c.createdAt ?? "").toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}",${c.changesCount},${c.added ?? ""},${c.modified ?? ""},${c.deleted ?? ""},"${(c.comment || "").replace(/"/g, '""')}","${c.hashtags.join("; ")}"`,
+          `${c.id},"${formatDateTime(c.createdAt ?? "")}",${c.changesCount},${c.added ?? ""},${c.modified ?? ""},${c.deleted ?? ""},"${(c.comment || "").replace(/"/g, '""')}","${c.hashtags.join("; ")}"`,
       )
       .join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });

@@ -404,3 +404,16 @@ export function formatDateRangeShort(
   }
   return `${monthShort(startD)} ${day(startD)}, ${year(startD)} – ${monthShort(endD)} ${day(endD)}, ${year(endD)}`;
 }
+
+export { formatDateTime } from "@/lib/utils";
+
+export function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const offset = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+export function fromDatetimeLocal(value: string): string {
+  return new Date(value).toISOString();
+}

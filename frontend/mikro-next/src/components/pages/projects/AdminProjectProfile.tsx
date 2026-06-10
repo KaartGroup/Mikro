@@ -20,6 +20,7 @@ import {
   formatCurrency,
   displayRole,
   formatDate,
+  formatDateTime,
 } from "@/lib/utils";
 import type { ProjectProfileResponse } from "@/types";
 import { NotesButton } from "@/components/widgets/NotesButton";
@@ -47,15 +48,6 @@ function ProgressBar({
   );
 }
 
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "\u2014";
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 const MR_STATUS_LABELS: Record<number, string> = {
   1: "Fixed",

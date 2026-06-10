@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Modal, Button } from "@/components/ui";
-import { resolveCategoryKey } from "@/lib/timeTracking";
+import {
+  resolveCategoryKey,
+  toDatetimeLocal,
+  fromDatetimeLocal,
+} from "@/lib/timeTracking";
 import type { TimeEntry } from "@/types";
 
 const TIME_CATEGORY_OPTIONS = [
@@ -12,17 +16,6 @@ const TIME_CATEGORY_OPTIONS = [
   "training",
   "other",
 ];
-
-function toDatetimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const offset = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
-}
-
-function fromDatetimeLocal(value: string): string {
-  return new Date(value).toISOString();
-}
 
 interface TimeEntryEditModalProps {
   entry: TimeEntry | null;

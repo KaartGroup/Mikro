@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
 import { RoleGate } from "@/components/RoleGate";
+import { formatDate } from "@/lib/utils";
 
 interface Organization {
   id: string;
@@ -297,9 +298,7 @@ function OrganizationsManager() {
                       {org.contact_email || org.contact_name || "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {org.created_at
-                        ? new Date(org.created_at).toLocaleDateString()
-                        : "—"}
+                      {org.created_at ? formatDate(org.created_at) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

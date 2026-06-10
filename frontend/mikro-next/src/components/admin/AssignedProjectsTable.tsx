@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Button, Input, Select } from "@/components/ui";
+import { formatDateTime } from "@/lib/utils";
 import type { AssignedProject } from "@/types";
 
 type SortKey =
@@ -40,16 +41,8 @@ function formatRelative(iso: string | null): string {
 }
 
 function formatAbsolute(iso: string | null): string {
-  if (!iso) return "Never";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Never";
-  return d.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  if (!iso || Number.isNaN(new Date(iso).getTime())) return "Never";
+  return formatDateTime(iso);
 }
 
 /**

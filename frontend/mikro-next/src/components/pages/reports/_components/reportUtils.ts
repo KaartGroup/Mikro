@@ -1,4 +1,4 @@
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatDateTime } from "@/lib/utils";
 
 export const ROWS_PER_PAGE = 10;
 
@@ -48,16 +48,7 @@ export function getDateRange(preset: "daily" | "weekly" | "monthly"): {
   }
 }
 
-export function formatDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+export { formatDateTime };
 
 export function getProjectStatus(proj: {
   percent_mapped: number;

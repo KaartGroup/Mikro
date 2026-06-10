@@ -16,6 +16,7 @@ import {
 } from "@/hooks";
 import type { EmailCampaign } from "@/types";
 import { audienceLabel, AUDIENCE_ALL_ORG } from "@/lib/emailAudience";
+import { formatDateTime } from "@/lib/utils";
 
 /**
  * Admin-only email campaign composer + history. Sends a templated HTML
@@ -28,17 +29,6 @@ import { audienceLabel, AUDIENCE_ALL_ORG } from "@/lib/emailAudience";
  * `recipient_emails` to comms — that wiring lands in a later phase, so the
  * UI offers only the org-wide audience for now.
  */
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export default function AnnouncementsPage() {
   const toast = useToastActions();

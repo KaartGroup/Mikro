@@ -44,7 +44,7 @@ import {
   useReimbursementAttachmentUrl,
 } from "@/hooks";
 import type { ReimbursementRequest, ReimbursementStatus } from "@/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 const STATUS_BADGE: Record<
   ReimbursementStatus,
@@ -55,16 +55,6 @@ const STATUS_BADGE: Record<
   rejected: "destructive",
   withdrawn: "secondary",
 };
-
-function formatDate(s: string | null): string {
-  if (!s) return "—";
-  const d = new Date(s);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 function todayIso(): string {
   const d = new Date();

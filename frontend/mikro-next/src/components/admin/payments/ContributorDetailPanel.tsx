@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button, Input, Select, useToastActions, Val } from "@/components/ui";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDateTime } from "@/lib/utils";
 import { formatDurationHuman } from "@/lib/timeTracking";
 import {
   useFetchPaymentContributor,
@@ -72,12 +72,6 @@ function initials(name: string): string {
     .map((s) => s[0]?.toUpperCase() ?? "")
     .join("");
 }
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleString();
-}
-
 export function ContributorDetailPanel({
   row,
   cycleStart,
