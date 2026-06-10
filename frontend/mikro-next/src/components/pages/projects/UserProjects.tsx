@@ -11,7 +11,8 @@ import {
   Val,
   useToastActions,
 } from "@/components/ui";
-import { useUserProjects, usePaymentsVisible, useFetchFilterOptions } from "@/hooks";
+import { useUserProjects, useFetchFilterOptions } from "@/hooks";
+import { useRole } from "@/contexts/RoleContext";
 import {
   getProjectExternalUrl,
   formatNumber,
@@ -159,7 +160,7 @@ const normalizeForSearch = (s: string): string =>
 export function UserProjects() {
   const { data: projects, loading, error, refetch } = useUserProjects();
   const { data: filterOptions } = useFetchFilterOptions();
-  const { paymentsVisible } = usePaymentsVisible();
+  const { paymentsVisible } = useRole();
   const toast = useToastActions();
 
 

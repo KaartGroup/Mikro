@@ -9,7 +9,6 @@ import {
   useState,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import { useUser } from "@auth0/nextjs-auth0/client";
 import {
   useConversations,
   useMessageThread,
@@ -49,9 +48,7 @@ function MessagesPageInner() {
     "") as MessageScopeType | "";
   const initialScopeKey = params.get("key") || params.get("scope_key") || "";
 
-  const { user: authUser } = useUser();
-  const myId = authUser?.sub ?? "";
-  const { role } = useRole();
+  const { role, sub: myId, displayName: myName, email: myEmail } = useRole();
   const amAdmin = isAnyAdmin(role);
 
   const { data: convData, refetch: refetchConversations } = useConversations();
@@ -70,12 +67,11 @@ function MessagesPageInner() {
     (usersData?.users ?? []).forEach((u: User) => {
       if (u.id) map[u.id] = u.name || u.email || u.id;
     });
-    if (authUser?.sub) {
-      map[authUser.sub] =
-        authUser.name || authUser.email || map[authUser.sub] || authUser.sub;
+    if (myId) {
+      map[myId] = myName || myEmail || map[myId] || myId;
     }
     return map;
-  }, [usersData, authUser]);
+  }, [usersData, myId, myName, myEmail]);
 
   // Label a conversation row. For DMs, comms returns the peer's raw sub as
   // the label when that peer has no comms Identity yet, so override with the

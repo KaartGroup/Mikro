@@ -62,18 +62,14 @@ export default async function AuthenticatedLayout({
     redirect("/wrong-org");
   }
 
-  // All admin tiers always see Payments. Per-page server scoping
-  // decides what each tier actually sees — for team_admin the data
-  // narrows to managed-team users; nav stays visible.
-  if (role === "admin" || role === "super_admin" || role === "team_admin") {
-    paymentsVisible = true;
-  }
-
   return (
     <RoleProvider
       initialRole={role as UserRole}
       initialActualRole={role as UserRole}
       initialPaymentsVisible={paymentsVisible}
+      sub={session.user.sub ?? ""}
+      displayName={displayName}
+      email={session.user.email ?? ""}
     >
       <div style={{ minHeight: "100vh", backgroundColor: "var(--muted)" }}>
         <AuthGuard />

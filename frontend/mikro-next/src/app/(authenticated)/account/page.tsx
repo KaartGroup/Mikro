@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useUser } from "@auth0/nextjs-auth0/client";
 import { useSearchParams } from "next/navigation";
+import { useRole } from "@/contexts/RoleContext";
 import {
   Card,
   CardContent,
@@ -13,7 +13,6 @@ import {
   Val,
 } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
-import { usePaymentsVisible } from "@/hooks";
 import { roleLabel } from "@/types";
 import { PayRateCard } from "@/components/user/PayRateCard";
 import { MonthlyPaySummaryCard } from "@/components/user/MonthlyPaySummaryCard";
@@ -44,7 +43,7 @@ interface CountryOption {
 }
 
 export default function AccountPage() {
-  const { user: auth0User, isLoading: userLoading } = useUser();
+  const { displayName: contextName, email: contextEmail, paymentsVisible } = useRole();
   const searchParams = useSearchParams();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,8 +63,6 @@ export default function AccountPage() {
     text: string;
   } | null>(null);
   const { isDarkMode, toggleDarkMode } = useTheme();
-  const { paymentsVisible } = usePaymentsVisible();
-
   // Form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -295,7 +292,7 @@ export default function AccountPage() {
     }
   };
 
-  if (userLoading || isLoading) {
+  if (isLoading) {
     return (
       <div
         style={{
@@ -710,12 +707,12 @@ export default function AccountPage() {
               }}
             >
               {profile?.name?.charAt(0).toUpperCase() ||
-                auth0User?.name?.charAt(0).toUpperCase() ||
+                contextName?.charAt(0).toUpperCase() ||
                 "U"}
             </div>
             <div>
               <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>
-                {profile?.name || auth0User?.name}
+                {profile?.name || contextName}
               </h2>
               <p
                 style={{
@@ -724,7 +721,7 @@ export default function AccountPage() {
                   marginBottom: 6,
                 }}
               >
-                {profile?.email || auth0User?.email}
+                {profile?.email || contextEmail}
               </p>
               <span
                 style={{

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useUser } from "@auth0/nextjs-auth0/client";
 import { SidebarClock } from "./SidebarClock";
 import { Tooltip } from "@/components/ui";
 import { useRole } from "@/contexts/RoleContext";
@@ -20,7 +19,7 @@ const userNavItems: NavItem[] = [
   // { label: "Time", href: "/time", icon: "clock" },
   { label: "Training", href: "/training", icon: "book" },
   { label: "Payments", href: "/payments", icon: "dollar" },
-  { label: "Teams", href: "/teams", icon: "team" },
+  // { label: "Teams", href: "/teams", icon: "team" },
 ];
 
 const validatorNavItems: NavItem[] = [
@@ -321,7 +320,6 @@ const iconMap: Record<string, React.ReactNode> = {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user: clientUser } = useUser();
   const { role, paymentsVisible } = useRole();
 
   const allNavItems =
@@ -398,21 +396,6 @@ export function Sidebar() {
                     target="_blank"
                     rel="noopener noreferrer"
                     style={getNavLinkStyle(false)}
-                  >
-                    {iconMap[item.icon]}
-                    <span>{item.label}</span>
-                  </a>
-                );
-              }
-
-              // If client-side auth is lost, use hard navigation so
-              // middleware can properly redirect to login
-              if (!clientUser) {
-                return (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    style={getNavLinkStyle(isActive)}
                   >
                     {iconMap[item.icon]}
                     <span>{item.label}</span>

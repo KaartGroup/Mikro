@@ -13,9 +13,8 @@ import {
   StatCard,
   Val,
 } from "@/components/ui";
-import { useUser } from "@auth0/nextjs-auth0/client";
+import { useRole } from "@/contexts/RoleContext";
 import { useFetchProjectProfile } from "@/hooks/useApi";
-import { usePaymentsVisible } from "@/hooks";
 import {
   formatNumber,
   formatCurrency,
@@ -56,8 +55,7 @@ const MR_STATUS_LABELS: Record<number, string> = {
 export function UserProjectProfile() {
   const params = useParams();
   const projectId = Number(params.id);
-  const { user: auth0User } = useUser();
-  const { paymentsVisible } = usePaymentsVisible();
+  const { email: currentEmail, paymentsVisible } = useRole();
 
   const {
     mutate: fetchProfile,
@@ -178,7 +176,7 @@ export function UserProjectProfile() {
         (() => {
           // Find the current logged-in user by matching their Auth0 email
           const me = data.assigned_users.find(
-            (u) => u.email === auth0User?.email,
+            (u) => u.email === currentEmail,
           );
           if (!me) return null;
           return (

@@ -12,6 +12,9 @@ interface RoleContextValue {
   setPreviewRole: (r: UserRole | null) => void;
   isPreviewMode: boolean;
   paymentsVisible: boolean;
+  sub: string;
+  displayName: string;
+  email: string;
 }
 
 const RoleContext = createContext<RoleContextValue>({
@@ -20,12 +23,18 @@ const RoleContext = createContext<RoleContextValue>({
   setPreviewRole: () => {},
   isPreviewMode: false,
   paymentsVisible: false,
+  sub: "",
+  displayName: "",
+  email: "",
 });
 
 interface RoleProviderProps {
   initialRole: UserRole;
   initialActualRole: UserRole;
   initialPaymentsVisible: boolean;
+  sub: string;
+  displayName: string;
+  email: string;
   children: React.ReactNode;
 }
 
@@ -33,6 +42,9 @@ export function RoleProvider({
   initialRole,
   initialActualRole,
   initialPaymentsVisible,
+  sub,
+  displayName,
+  email,
   children,
 }: RoleProviderProps) {
   const [previewRole, setPreviewRoleState] = useState<UserRole | null>(null);
@@ -66,6 +78,9 @@ export function RoleProvider({
         setPreviewRole,
         isPreviewMode,
         paymentsVisible,
+        sub,
+        displayName,
+        email,
       }}
     >
       {children}
