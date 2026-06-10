@@ -1,3 +1,5 @@
+import { ROUTES } from "@/lib/routes";
+
 /**
  * Unauthorized landing. Previously this did `redirect("/auth/login")`
  * which silently fed a dashboard→unauthorized→login→dashboard loop
@@ -53,7 +55,7 @@ export default function UnauthorizedPage() {
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
           <a
-            href="/"
+            href={ROUTES.home}
             style={{
               display: "inline-block",
               backgroundColor: "#e5e7eb",
@@ -67,7 +69,7 @@ export default function UnauthorizedPage() {
             Home
           </a>
           <a
-            href="/auth/logout"
+            href={ROUTES.authLogout}
             style={{
               display: "inline-block",
               backgroundColor: "#dc2626",

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import type { UserProfileData, Changeset } from "@/types";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import { formatDuration } from "@/lib/timeTracking";
+import { formatDate, formatTime } from "@/lib/utils";
 
 function formatRelative(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -114,33 +115,14 @@ export function RecentActivityCard({
             {mostRecentEntry?.clockIn ? (
               <>
                 <p className="text-sm">
-                  {new Date(mostRecentEntry.clockIn).toLocaleDateString(
-                    "en-US",
-                    {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    },
-                  )}
+                  {formatDate(mostRecentEntry.clockIn)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {new Date(mostRecentEntry.clockIn).toLocaleTimeString(
-                    "en-US",
-                    {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    },
-                  )}
+                  {formatTime(mostRecentEntry.clockIn)}
                   {mostRecentEntry.clockOut && (
                     <>
                       {" → "}
-                      {new Date(mostRecentEntry.clockOut).toLocaleTimeString(
-                        "en-US",
-                        {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
-                      )}
+                      {formatTime(mostRecentEntry.clockOut)}
                     </>
                   )}
                 </p>

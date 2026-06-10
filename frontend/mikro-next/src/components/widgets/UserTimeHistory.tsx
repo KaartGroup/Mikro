@@ -11,6 +11,7 @@ import {
 } from "@/hooks";
 import { NotesButton } from "./NotesButton";
 import { formatDuration } from "@/lib/timeTracking";
+import { formatDate } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
@@ -138,16 +139,7 @@ export function UserTimeHistory() {
                       className={entry.status === "voided" ? "opacity-50" : ""}
                     >
                       <td className="py-2 px-3 whitespace-nowrap text-muted-foreground">
-                        {entry.clockIn
-                          ? new Date(entry.clockIn).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
-                            )
-                          : "—"}
+                        {entry.clockIn ? formatDate(entry.clockIn) : "—"}
                       </td>
                       <td className="py-2 px-3">{entry.projectName || "—"}</td>
                       <td className="py-2 px-3">

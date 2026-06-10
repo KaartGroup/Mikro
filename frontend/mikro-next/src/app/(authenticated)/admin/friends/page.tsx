@@ -30,15 +30,7 @@ import {
   useRefreshFriendActivity,
 } from "@/hooks";
 import type { Friend } from "@/types";
-import { formatNumber } from "@/lib/utils";
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+import { formatNumber, formatDate } from "@/lib/utils";
 
 export default function FriendsListPage() {
   const { data, loading, refetch } = useFriendsList();

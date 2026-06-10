@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ROUTES } from "@/lib/routes";
 import dynamic from "next/dynamic";
 import {
   Card,
@@ -57,10 +58,12 @@ import type {
 } from "@/types";
 import { roleLabel, isOrgAdminOrAbove } from "@/types";
 import { useCurrentUserRole } from "@/hooks";
-import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
+import { formatNumber, formatCurrency, formatDate, formatDateTime, formatTime } from "@/lib/utils";
 import {
   dateInputToLocalStartIsoUtc,
   dateInputToLocalEndIsoUtc,
+  toDatetimeLocal,
+  fromDatetimeLocal,
 } from "@/lib/timeTracking";
 import { RecentActivityCard } from "@/components/admin/RecentActivityCard";
 import { AssignedProjectsTable } from "@/components/admin/AssignedProjectsTable";
@@ -92,29 +95,6 @@ const TIME_CATEGORY_OPTIONS = [
   "training",
   "other",
 ];
-
-/** Convert ISO string to datetime-local input value (local timezone) */
-function toDatetimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const offset = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
-}
-
-/** Convert datetime-local input value back to ISO string */
-function fromDatetimeLocal(value: string): string {
-  return new Date(value).toISOString();
-}
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "-";
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 // Calendar-aligned semantics — same spec as the rest of Mikro:
 //   Daily   = today (single day)
@@ -872,7 +852,7 @@ export function AdminUserProfile() {
     return (
       <div className="space-y-4">
         <Link
-          href="/users"
+          href={ROUTES.users}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Users
@@ -941,7 +921,7 @@ export function AdminUserProfile() {
       <Card>
         <CardContent className="p-6">
           <Link
-            href="/users"
+            href={ROUTES.users}
             className="text-kaart-orange hover:underline text-sm mb-4 inline-block"
           >
             {"\u2190"} Back to Users
@@ -1004,15 +984,7 @@ export function AdminUserProfile() {
                         title={`${user.name_last_change.old_first_name ?? ""} ${user.name_last_change.old_last_name ?? ""} → ${user.name_last_change.new_first_name ?? ""} ${user.name_last_change.new_last_name ?? ""}`}
                       >
                         Name last changed{" "}
-                        {new Date(
-                          user.name_last_change.changed_at,
-                        ).toLocaleString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}{" "}
+                        {formatDateTime(user.name_last_change.changed_at)}{" "}
                         via{" "}
                         <span className="font-mono">
                           {user.name_last_change.source}
@@ -1216,13 +1188,7 @@ export function AdminUserProfile() {
                         Joined
                       </span>
                       <p className="text-sm">
-                        {user.joined
-                          ? new Date(user.joined).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })
-                          : "Unknown"}
+                        {user.joined ? formatDate(user.joined) : "Unknown"}
                       </p>
                     </div>
                     <div>
@@ -2432,7 +2398,7 @@ export function AdminUserProfile() {
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {entry.projectName || "—"}
                               {entry.clockIn
-                                ? ` · clocked in ${new Date(entry.clockIn).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`
+                                ? ` · clocked in ${formatDateTime(entry.clockIn)}`
                                 : ""}
                             </p>
                           </div>
@@ -2487,15 +2453,7 @@ export function AdminUserProfile() {
                                 }
                               >
                                 <td className="px-3 py-2 whitespace-nowrap">
-                                  {entry.clockIn
-                                    ? new Date(
-                                        entry.clockIn,
-                                      ).toLocaleDateString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                        year: "numeric",
-                                      })
-                                    : "—"}
+                                  {entry.clockIn ? formatDate(entry.clockIn) : "—"}
                                 </td>
                                 <td className="px-3 py-2">
                                   {entry.projectName || "—"}

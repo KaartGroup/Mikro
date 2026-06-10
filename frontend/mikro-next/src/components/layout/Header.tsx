@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useUser } from "@auth0/nextjs-auth0/client";
+import { useRole } from "@/contexts/RoleContext";
 import { RolePreviewSwitcher } from "./RolePreviewSwitcher";
 import { MessengerIcon } from "@/components/comms/MessengerIcon";
 import { NotificationBell } from "@/components/comms/NotificationBell";
+import { ROUTES } from "@/lib/routes";
 
 interface HeaderProps {
   displayName?: string;
 }
 
 export function Header({ displayName }: HeaderProps) {
-  const { user, isLoading } = useUser();
+  const { displayName: contextName, email } = useRole();
+  const name = displayName || contextName || email;
 
   return (
     <header
@@ -40,7 +42,7 @@ export function Header({ displayName }: HeaderProps) {
       >
         {/* Logo */}
         <Link
-          href="/"
+          href={ROUTES.home}
           style={{
             display: "flex",
             alignItems: "center",
@@ -62,74 +64,45 @@ export function Header({ displayName }: HeaderProps) {
 
         {/* User Menu */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {isLoading ? (
-            <div
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span
+              className="hide-mobile"
+              style={{ fontSize: 14, color: "var(--muted-foreground)" }}
+            >
+              {name}
+            </span>
+            <MessengerIcon />
+            <NotificationBell />
+            <RolePreviewSwitcher />
+            <Link
+              href={ROUTES.account}
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                backgroundColor: "var(--border)",
-              }}
-            />
-          ) : user ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span
-                className="hide-mobile"
-                style={{ fontSize: 14, color: "var(--muted-foreground)" }}
-              >
-                {displayName || user.name || user.email}
-              </span>
-              <MessengerIcon />
-              <NotificationBell />
-              <RolePreviewSwitcher />
-              <Link
-                href="/account"
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "var(--foreground)",
-                  textDecoration: "none",
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  backgroundColor: "var(--secondary)",
-                }}
-              >
-                Settings
-              </Link>
-              <a
-                href="/auth/logout"
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "var(--foreground)",
-                  textDecoration: "none",
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  border: "1px solid var(--border)",
-                }}
-              >
-                Logout
-              </a>
-            </div>
-          ) : (
-            <a
-              href="/auth/login?prompt=login"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 6,
-                backgroundColor: "#ff6b35",
-                padding: "8px 16px",
                 fontSize: 14,
                 fontWeight: 500,
-                color: "white",
+                color: "var(--foreground)",
                 textDecoration: "none",
+                padding: "8px 12px",
+                borderRadius: 6,
+                backgroundColor: "var(--secondary)",
               }}
             >
-              Sign In
+              Settings
+            </Link>
+            <a
+              href={ROUTES.authLogout}
+              style={{
+                fontSize: 14,
+                fontWeight: 500,
+                color: "var(--foreground)",
+                textDecoration: "none",
+                padding: "8px 12px",
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+              }}
+            >
+              Logout
             </a>
-          )}
+          </div>
         </div>
       </div>
     </header>

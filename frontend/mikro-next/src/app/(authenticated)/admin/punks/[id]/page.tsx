@@ -32,19 +32,12 @@ import {
   usePurgeAllDiscussions,
 } from "@/hooks";
 import type { PunkDetailResponse } from "@/types";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatDate } from "@/lib/utils";
+import { ROUTES } from "@/lib/routes";
 
 const MappingHeatmap = dynamic(() => import("@/components/MappingHeatmap"), {
   ssr: false,
 });
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 function timeAgo(dateString: string): string {
   const diff = Date.now() - new Date(dateString).getTime();
@@ -152,7 +145,7 @@ export default function PunkDetailPage() {
     return (
       <div className="space-y-4">
         <Link
-          href="/admin/punks"
+          href={ROUTES.adminPunks}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Punks List
@@ -189,7 +182,7 @@ export default function PunkDetailPage() {
       {/* Header */}
       <div>
         <Link
-          href="/admin/punks"
+          href={ROUTES.adminPunks}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Punks List

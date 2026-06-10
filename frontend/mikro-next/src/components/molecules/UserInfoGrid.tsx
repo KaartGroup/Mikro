@@ -1,5 +1,5 @@
 import { Val } from "@/components/ui";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { UserProfileData } from "@/types";
 
 interface UserInfoGridProps {
@@ -101,13 +101,7 @@ export function UserInfoGrid({ user }: UserInfoGridProps) {
           <div>
             <span className="text-xs text-muted-foreground">Joined</span>
             <p className="text-sm">
-              {user.joined
-                ? new Date(user.joined).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })
-                : "Unknown"}
+              {user.joined ? formatDate(user.joined) : "Unknown"}
             </p>
           </div>
           <div>

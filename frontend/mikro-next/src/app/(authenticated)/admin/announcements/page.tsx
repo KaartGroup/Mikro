@@ -26,6 +26,7 @@ import {
   AUDIENCE_CUSTOM,
   formatTeamAudience,
 } from "@/lib/emailAudience";
+import { formatDateTime } from "@/lib/utils";
 
 /**
  * Admin email campaign composer + history. Sends a templated HTML email to
@@ -37,17 +38,6 @@ import {
  * caller may target (org / regions / individuals) plus the concrete teams
  * and regions to pick from; the page only offers what's allowed.
  */
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 const inputStyle: React.CSSProperties = {
   width: "100%",

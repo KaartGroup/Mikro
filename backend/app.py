@@ -134,6 +134,7 @@ def _register_views(app):
         ChannelMonitorAPI,
         OrganizationAPI,
         HourlyRatesAPI,
+        CommsAPI,
     )
 
     # Authentication
@@ -230,6 +231,13 @@ def _register_views(app):
         "/api/hourly-rates",
         view_func=HourlyRatesAPI.as_view("hourly_rates"),
         methods=["GET", "POST", "DELETE"],
+    )
+
+    # Comms (broadcast email / announcements) — authorization gatekeeper
+    app.add_url_rule(
+        "/api/comms/<path>",
+        view_func=CommsAPI.as_view("comms"),
+        methods=["POST"],
     )
 
 

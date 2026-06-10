@@ -37,7 +37,7 @@ import {
 } from "@/hooks/useApi";
 import { useCurrentUserRole, useManagedTeams } from "@/hooks";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatDate } from "@/lib/utils";
 import {
   localWeekStartIsoUtc,
   localWeekEndIsoUtc,
@@ -62,6 +62,9 @@ import {
   CATEGORY_LABELS,
   CATEGORY_FILTER_LABELS,
   formatDateRangeShort,
+  formatDateTime,
+  toDatetimeLocal,
+  fromDatetimeLocal,
 } from "@/lib/timeTracking";
 
 // --- Date range presets ---
@@ -163,16 +166,10 @@ function formatDateRangeLabel(
   if (preset === "all_time") return null;
   if (preset === "custom") {
     if (!customStart && !customEnd) return null;
-    const fmt = (iso: string) =>
-      new Date(iso).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
     if (customStart && customEnd)
-      return `${fmt(customStart)} – ${fmt(customEnd)}`;
-    if (customStart) return `From ${fmt(customStart)}`;
-    return `Through ${fmt(customEnd)}`;
+      return `${formatDate(customStart)} – ${formatDate(customEnd)}`;
+    if (customStart) return `From ${formatDate(customStart)}`;
+    return `Through ${formatDate(customEnd)}`;
   }
   return DATE_PRESET_LABELS[preset];
 }
@@ -186,16 +183,6 @@ const CATEGORY_OPTIONS = Object.keys(CATEGORY_LABELS);
 
 // --- Formatting helpers ---
 
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
 function formatLiveDuration(clockIn: string): string {
   const now = new Date();
   const start = new Date(clockIn);
@@ -204,19 +191,6 @@ function formatLiveDuration(clockIn: string): string {
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-}
-
-/** Convert ISO string to datetime-local input value (local timezone) */
-function toDatetimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const offset = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
-}
-
-/** Convert datetime-local input value back to ISO string */
-function fromDatetimeLocal(value: string): string {
-  return new Date(value).toISOString();
 }
 
 // --- Constants ---
@@ -801,21 +775,7 @@ export default function AdminTime() {
           alignItems: "flex-start",
         }}
       >
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Time Management</h1>
-          <p className="text-muted-foreground" style={{ marginTop: 8 }}>
-            Manage time entries, active sessions, and exports
-          </p>
-        </div>
-
-        {activeTab === "sessions" && (
-          <Button variant="outline" size="sm" onClick={handleOpenAddEntry}>
-            + Add Entry
-          </Button>
-        )}
-      </div>
-
-      {/* Sessions vs Categories tab strip — synced to ?tab= in the URL
+              {/* Sessions vs Categories tab strip — synced to ?tab= in the URL
           so refreshes and shared links land on the same tab. The
           Categories tab renders AdminTimeCategoriesView (./_categories);
           everything else (sessions, history, exports) stays inline. */}
@@ -829,6 +789,14 @@ export default function AdminTime() {
           <TabsTrigger value="categories">Categories</TabsTrigger>
         </TabsList>
       </Tabs>
+        {activeTab === "sessions" && (
+          <Button variant="outline" size="sm" onClick={handleOpenAddEntry}>
+            + Add Entry
+          </Button>
+        )}
+      </div>
+
+
 
       {activeTab === "categories" ? (
         <AdminTimeCategoriesView />

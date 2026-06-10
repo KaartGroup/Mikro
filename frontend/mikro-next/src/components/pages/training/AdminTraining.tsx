@@ -40,7 +40,7 @@ import {
 import type { Training, TrainingQuestion } from "@/types";
 import { isOrgAdminOrAbove } from "@/types";
 import { formatNumber } from "@/lib/utils";
-import { useUser } from "@auth0/nextjs-auth0/client";
+import { useRole } from "@/contexts/RoleContext";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 
 interface TrainingFormData {
@@ -73,7 +73,7 @@ export function AdminTraining() {
   const { mutate: modifyTraining, loading: modifying } = useModifyTraining();
   const { mutate: deleteTraining, loading: deleting } = useDeleteTraining();
   const { mutate: purgeTrainings, loading: purging } = usePurgeTrainings();
-  const { user: auth0User } = useUser();
+  const { displayName: auth0UserName } = useRole();
   const toast = useToastActions();
 
   // Role-aware UI (F3 Phase 3.4):
@@ -112,7 +112,7 @@ export function AdminTraining() {
   ];
 
   // Current user's name for "Created by Me" filtering
-  const currentUserName = auth0User?.name || "";
+  const currentUserName = auth0UserName;
 
   const handleSort = (key: string) => {
     if (sortKey === key) {

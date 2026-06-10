@@ -20,6 +20,7 @@ import {
   displayRole,
   formatDate,
 } from "@/lib/utils";
+import { ROUTES, dynamicRoutes } from "@/lib/routes";
 
 const ROWS_PER_PAGE = 20;
 
@@ -85,7 +86,7 @@ export function TeamProfile({ isAdmin = false }: Props) {
     return (
       <div className="space-y-4">
         <Link
-          href="/teams"
+          href={ROUTES.teams}
           className="text-kaart-orange hover:underline text-sm"
         >
           ← {backLabel}
@@ -119,7 +120,7 @@ export function TeamProfile({ isAdmin = false }: Props) {
       <Card>
         <CardContent className="p-6">
           <Link
-            href="/teams"
+            href={ROUTES.teams}
             className="text-kaart-orange hover:underline text-sm mb-4 inline-block"
           >
             ← {backLabel}
@@ -278,7 +279,7 @@ export function TeamProfile({ isAdmin = false }: Props) {
                           isAdmin
                             ? () =>
                                 router.push(
-                                  `/users/${encodeURIComponent(member.id)}`,
+                                  dynamicRoutes.user(encodeURIComponent(member.id)),
                                 )
                             : undefined
                         }
@@ -406,7 +407,7 @@ export function TeamProfile({ isAdmin = false }: Props) {
                       <tr
                         key={proj.id}
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => router.push(`/projects/${proj.id}`)}
+                        onClick={() => router.push(dynamicRoutes.project(proj.id))}
                       >
                         <td className="px-6 py-4">
                           <span className="font-medium text-kaart-orange">
@@ -508,7 +509,7 @@ export function TeamProfile({ isAdmin = false }: Props) {
                       <tr
                         key={training.id}
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => router.push("/training")}
+                        onClick={() => router.push(ROUTES.training)}
                       >
                         <td className="px-6 py-4 font-medium text-kaart-orange">
                           {training.title}

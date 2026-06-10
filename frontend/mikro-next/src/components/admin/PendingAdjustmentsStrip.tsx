@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useAdminPendingAdjustments } from "@/hooks";
 import { formatDuration } from "@/lib/timeTracking";
+import { formatDate } from "@/lib/utils";
 import type { TimeEntry } from "@/types";
 
 const ADJUSTMENT_PREFIX = "[ADJUSTMENT REQUESTED] ";
@@ -17,15 +18,6 @@ export interface PendingAdjustmentsStripProps {
   /** Called when the admin clicks "Review & Edit" on a row. The page
    *  is expected to open its existing edit-entry modal with this entry. */
   onEdit: (entry: TimeEntry) => void;
-}
-
-function formatRequestDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 /**
@@ -106,7 +98,7 @@ export function PendingAdjustmentsStrip({
                 <div className="flex flex-col min-w-[140px]">
                   <span className="font-medium">{entry.userName || "—"}</span>
                   <span className="text-xs text-muted-foreground">
-                    {formatRequestDate(entry.clockIn)}
+                    {formatDate(entry.clockIn)}
                   </span>
                 </div>
                 <div className="flex flex-col min-w-[140px]">

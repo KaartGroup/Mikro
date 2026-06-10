@@ -9,7 +9,6 @@ import {
   useState,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import { useUser } from "@auth0/nextjs-auth0/client";
 import {
   useConversations,
   useMessageThread,
@@ -69,9 +68,7 @@ function MessagesPageInner() {
     "") as MessageScopeType | "";
   const initialScopeKey = params.get("key") || params.get("scope_key") || "";
 
-  const { user: authUser } = useUser();
-  const myId = authUser?.sub ?? "";
-  const { role } = useRole();
+  const { role, sub: myId, displayName: myName, email: myEmail } = useRole();
   const amAdmin = isAnyAdmin(role);
 
   // Teams the current user BELONGS to. comms only returns group/team threads
@@ -128,12 +125,14 @@ function MessagesPageInner() {
       const label = u.name || u.email;
       if (u.id && label) map[u.id] = label;
     });
-    if (authUser?.sub) {
-      const mine = authUser.name || authUser.email || map[authUser.sub];
-      if (mine) map[authUser.sub] = mine;
+    if (myId) {
+      // Never store the raw sub as a value (it would leak the ID) — only a
+      // real name/email, or leave it unset for safeLabel to handle.
+      const mine = myName || myEmail || map[myId];
+      if (mine) map[myId] = mine;
     }
     return map;
-  }, [usersData, authUser]);
+  }, [usersData, myId, myName, myEmail]);
 
   // Resolve a sub to a display name. NEVER returns the raw sub. While the
   // user list is still loading we return a neutral placeholder ("…") rather

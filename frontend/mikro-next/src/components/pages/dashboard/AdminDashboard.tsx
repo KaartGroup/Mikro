@@ -23,14 +23,14 @@ import {
   useManagedTeams,
 } from "@/hooks";
 import { TimeTrackingWidget } from "@/components/widgets/TimeTrackingWidget";
-import { AdminTimeManagement } from "@/components/widgets/AdminTimeManagement";
 import { DashboardStatCard } from "@/components/admin/DashboardStatCard";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import { RecentTransactionCard } from "@/components/admin/RecentTransactionCard";
 import { DashboardLoadingSkeleton } from "@/components/admin/DashboardLoadingSkeleton";
 import { DashboardFilterToolbar } from "@/components/admin/DashboardFilterToolbar";
 import { isOrgAdminOrAbove } from "@/types";
-import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
+import { formatNumber, formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { ROUTES } from "@/lib/routes";
 
 // --- Lower dashboard section (deferred) ---
 // This component manages its own data fetching so it doesn't block the time section above.
@@ -231,7 +231,7 @@ function DashboardStats({
           label="Active Projects"
           value={formatNumber(stats?.active_projects)}
           subtitle={`${formatNumber(stats?.inactive_projects).text} inactive, ${formatNumber(stats?.completed_projects).text} completed`}
-          href="/projects"
+          href={ROUTES.projects}
           linkLabel="Manage projects"
           tooltip="Projects currently active across Tasking Manager and MapRoulette"
           loading={statsLoading}
@@ -240,7 +240,7 @@ function DashboardStats({
           label="Total Users"
           value={formatNumber(users?.users?.length ?? 0)}
           subtitle="In organization"
-          href="/users"
+          href={ROUTES.users}
           linkLabel="Manage users"
           tooltip="Total registered users in your organization"
           loading={usersLoading}
@@ -258,7 +258,7 @@ function DashboardStats({
                 }
               : null
           }
-          href="/reports"
+          href={ROUTES.reports}
           linkLabel="View task reports"
           tooltip="Total mapping and validation tasks completed this calendar month"
           loading={statsLoading}
@@ -274,7 +274,7 @@ function DashboardStats({
             format: "hours",
             goodDirection: "up",
           }}
-          href="/time"
+          href={ROUTES.adminTime}
           linkLabel="View time tracking"
           tooltip="Total hours logged by all users this week (Sunday to now)"
           loading={timeHistoryLoading}
@@ -296,7 +296,7 @@ function DashboardStats({
             format: "number",
             goodDirection: "down",
           }}
-          href="/time#pending-adjustments"
+          href={ROUTES.adminTime}
           linkLabel="Review adjustment requests"
           tooltip="Time entries where a user has requested an adjustment that hasn't been resolved yet"
           severity={timeStats.pendingAdjustments > 0 ? "warning" : "neutral"}
@@ -310,7 +310,7 @@ function DashboardStats({
               ? "Sessions over 10 hours (open now or recently closed)"
               : "No suspicious sessions"
           }
-          href="/time"
+          href={ROUTES.adminTime}
           linkLabel="Review active sessions"
           tooltip="Sessions over 10 hours — open now or recently closed; may indicate a forgotten clock-out."
           severity={timeStats.longRunning > 0 ? "critical" : "neutral"}
@@ -324,7 +324,7 @@ function DashboardStats({
               ? `${timeStats.shortSessionClusters === 1 ? "user-day" : "user-days"} with 3+ sessions under 5 min`
               : "No short-session clusters"
           }
-          href="/time"
+          href={ROUTES.adminTime}
           linkLabel="Review time entries"
           tooltip="Users who logged three or more sessions under 5 minutes on the same day — often indicates a clock-in/out issue"
           severity={timeStats.shortSessionClusters > 0 ? "warning" : "neutral"}
@@ -338,7 +338,7 @@ function DashboardStats({
               ? "Flagged as not payable"
               : "No self-validated tasks"
           }
-          href="/reports"
+          href={ROUTES.reports}
           linkLabel="View self-validation details in reports"
           tooltip="Tasks where the same user both mapped and validated — flagged as not payable to prevent abuse"
           severity={
@@ -351,13 +351,7 @@ function DashboardStats({
       {/* Snapshot notice */}
       <p className="text-xs text-muted-foreground text-right">
         Stats as of{" "}
-        {snapshotTime.toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        })}
+        {formatDateTime(snapshotTime.toISOString())}
       </p>
 
       {/* TASKS STRIP — all-time totals. Brand colors preserved (orange/
@@ -366,7 +360,7 @@ function DashboardStats({
         <DashboardStatCard
           label="Mapped Tasks (All Time)"
           value={formatNumber(stats?.mapped_tasks)}
-          href="/reports"
+          href={ROUTES.reports}
           linkLabel="View mapped tasks in reports"
           tooltip="Total tasks marked as mapped across all projects since tracking began"
           severity="info"
@@ -375,7 +369,7 @@ function DashboardStats({
         <DashboardStatCard
           label="Validated Tasks (All Time)"
           value={formatNumber(stats?.validated_tasks)}
-          href="/reports"
+          href={ROUTES.reports}
           linkLabel="View validated tasks in reports"
           tooltip="Tasks reviewed and approved by a validator since tracking began"
           severity="success"
@@ -384,7 +378,7 @@ function DashboardStats({
         <DashboardStatCard
           label="Invalidated Tasks (All Time)"
           value={formatNumber(stats?.invalidated_tasks)}
-          href="/reports"
+          href={ROUTES.reports}
           linkLabel="View invalidated tasks in reports"
           tooltip="Tasks sent back for rework after validation review since tracking began"
           severity="critical"
@@ -397,7 +391,7 @@ function DashboardStats({
         <DashboardStatCard
           label="Total Payable"
           value={formatCurrency(stats?.payable_total)}
-          href="/admin/payments"
+          href={ROUTES.payments}
           linkLabel="View payments"
           tooltip="Total amount owed to all users based on completed tasks and payment rates"
           loading={statsLoading}
@@ -406,7 +400,7 @@ function DashboardStats({
           label="Pending Requests"
           value={formatCurrency(stats?.requests_total)}
           subtitle={`${formatNumber(transactions?.requests?.length ?? 0).text} pending request${(transactions?.requests?.length ?? 0) === 1 ? "" : "s"}`}
-          href="/admin/payments"
+          href={ROUTES.payments}
           linkLabel="Review payment requests"
           tooltip="Payment requests submitted by users awaiting admin approval"
           severity={(stats?.requests_total ?? 0) > 0 ? "warning" : "neutral"}
@@ -415,7 +409,7 @@ function DashboardStats({
         <DashboardStatCard
           label="Total Paid Out"
           value={formatCurrency(stats?.payouts_total)}
-          href="/admin/payments"
+          href={ROUTES.payments}
           linkLabel="View payments"
           tooltip="Total amount already paid out to users"
           severity="success"
@@ -428,7 +422,7 @@ function DashboardStats({
         <RecentTransactionCard
           title="Recent Payment Requests"
           tooltipContent="Most recent payment requests from users — click View All to manage"
-          href="/admin/payments"
+          href={ROUTES.payments}
           loading={transactionsLoading}
           items={(transactions?.requests ?? []).map((r) => ({
             id: r.id,
@@ -443,7 +437,7 @@ function DashboardStats({
         <RecentTransactionCard
           title="Recent Payouts"
           tooltipContent="Most recent completed payments to users"
-          href="/admin/payments"
+          href={ROUTES.payments}
           loading={transactionsLoading}
           items={(transactions?.payments ?? []).map((p) => ({
             id: p.id,
@@ -624,9 +618,6 @@ export function AdminDashboard() {
               ) ?? []
             }
           />
-        </div>
-        <div className="lg:col-span-3">
-          <AdminTimeManagement teamId={teamId} />
         </div>
       </div>
     </div>

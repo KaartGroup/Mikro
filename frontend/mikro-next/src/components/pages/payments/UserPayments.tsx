@@ -27,8 +27,8 @@ import {
   useUserTransactions,
   useUserPayable,
   useSubmitPaymentRequest,
-  usePaymentsVisible,
 } from "@/hooks";
+import { useRole } from "@/contexts/RoleContext";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import { PayRateCard } from "@/components/user/PayRateCard";
 import { MonthlyPaySummaryCard } from "@/components/user/MonthlyPaySummaryCard";
@@ -50,7 +50,7 @@ export function UserPayments() {
   } = useUserPayable();
   const { mutate: submitPayment, loading: submitting } =
     useSubmitPaymentRequest();
-  const { paymentsVisible, loading: pvLoading } = usePaymentsVisible();
+  const { paymentsVisible } = useRole();
   const toast = useToastActions();
 
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -118,7 +118,7 @@ export function UserPayments() {
     }
   };
 
-  const loading = transactionsLoading || payableLoading || pvLoading;
+  const loading = transactionsLoading || payableLoading;
 
   if (loading) {
     return (

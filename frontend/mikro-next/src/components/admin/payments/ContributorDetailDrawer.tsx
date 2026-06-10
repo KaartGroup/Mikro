@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Modal, Button, Input, Select, useToastActions } from "@/components/ui";
 import { Val } from "@/components/ui";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDateTime } from "@/lib/utils";
 import { formatDurationHuman } from "@/lib/timeTracking";
 import {
   useFetchPaymentContributor,
@@ -22,12 +22,6 @@ interface ContributorDetailDrawerProps {
   canEdit: boolean;
   onClose: () => void;
   onChanged?: () => void;
-}
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleString();
 }
 
 export function ContributorDetailDrawer({

@@ -11,12 +11,12 @@ import {
   Input,
   useToastActions,
 } from "@/components/ui";
-import { usePaymentsVisible } from "@/hooks";
+import { useRole } from "@/contexts/RoleContext";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const toast = useToastActions();
-  const { paymentsVisible } = usePaymentsVisible();
+  const { paymentsVisible } = useRole();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 

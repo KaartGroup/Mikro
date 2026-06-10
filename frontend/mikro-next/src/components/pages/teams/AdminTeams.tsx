@@ -25,7 +25,7 @@ import { MultiSelect } from "@/components/ui/MultiSelect";
 import { useToastActions } from "@/components/ui";
 import { FilterBar } from "@/components/filters";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
-import { formatNumber, displayRole } from "@/lib/utils";
+import { formatNumber, displayRole, formatDate } from "@/lib/utils";
 import { Val } from "@/components/ui";
 import {
   useFetchTeams,
@@ -466,9 +466,7 @@ export function AdminTeams() {
                           </Button>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {team.created_at
-                            ? new Date(team.created_at).toLocaleDateString()
-                            : "—"}
+                          {team.created_at ? formatDate(team.created_at) : "—"}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">

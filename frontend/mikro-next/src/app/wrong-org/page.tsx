@@ -1,3 +1,5 @@
+import { ROUTES } from "@/lib/routes";
+
 export default function WrongOrgPage() {
   return (
     <div
@@ -57,7 +59,7 @@ export default function WrongOrgPage() {
           again — you&apos;ll be able to pick the right one at the org selector.
         </p>
         <a
-          href="/auth/logout"
+          href={ROUTES.authLogout}
           style={{
             display: "inline-block",
             backgroundColor: "#004e89",

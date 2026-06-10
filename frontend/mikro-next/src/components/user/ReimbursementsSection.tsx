@@ -47,7 +47,7 @@ import {
   useReimbursementAttachmentUrl,
 } from "@/hooks";
 import type { ReimbursementRequest, ReimbursementStatus } from "@/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 const ALLOWED_RECEIPT_TYPES = new Set([
   "image/jpeg",
@@ -66,16 +66,6 @@ const STATUS_BADGE: Record<
   rejected: "destructive",
   withdrawn: "secondary",
 };
-
-function formatDate(s: string | null): string {
-  if (!s) return "—";
-  const d = new Date(s);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 // ─── Submit modal ─────────────────────────────────────────────────
 

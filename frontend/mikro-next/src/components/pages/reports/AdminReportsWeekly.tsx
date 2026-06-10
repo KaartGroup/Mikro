@@ -45,7 +45,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatDate } from "@/lib/utils";
 // Shared color palette — both this page and /reports/page.tsx
 // import from the same module so future palette tweaks stay in sync.
 import { COLORS, WEEKLY_TASK_COLORS } from "@/lib/chartColors";
@@ -1237,9 +1237,7 @@ export function AdminReportsWeekly() {
                       <p className="text-xs text-muted-foreground">
                         {d.start_date} to {d.end_date} &middot; Updated{" "}
                         <Val>
-                          {d.updated_at
-                            ? new Date(d.updated_at).toLocaleDateString()
-                            : null}
+                          {d.updated_at ? formatDate(d.updated_at) : null}
                         </Val>
                       </p>
                     </div>
