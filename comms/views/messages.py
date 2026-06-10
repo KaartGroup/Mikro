@@ -351,21 +351,46 @@ class MessagesAPI(MethodView):
                     jsonify({"message": "target_group_key required", "status": 400}),
                     400,
                 )
-            if not isinstance(recipient_user_ids, list) or not recipient_user_ids:
-                return (
-                    jsonify(
-                        {
-                            "message": "recipient_user_ids must be a non-empty list",
-                            "status": 400,
-                        }
-                    ),
-                    400,
-                )
             scope_key = str(target_group_key)
             target_group_key = scope_key
-            # App-asserted membership: trust the supplied subs, but never
-            # notify the sender themselves.
-            recipient_subs = [str(s) for s in recipient_user_ids if s and str(s) != me]
+            if isinstance(recipient_user_ids, list) and recipient_user_ids:
+                # App-asserted membership: trust the supplied subs (the initial
+                # broadcast resolves the full team), but never notify the sender.
+                recipient_subs = [
+                    str(s) for s in recipient_user_ids if s and str(s) != me
+                ]
+            else:
+                # No explicit recipient list — this is a REPLY by someone who
+                # can't resolve team membership (a plain member, or a team admin
+                # who doesn't lead this team). Fall back to the existing
+                # participants of this group thread so the reply still reaches
+                # everyone already in the conversation. A brand-new thread (no
+                # prior messages) still needs an explicit recipient list.
+                existing = (
+                    db.session.query(Message.sender_id)
+                    .filter(
+                        Message.org_id == org_id,
+                        Message.target_type == "group",
+                        Message.target_group_key == scope_key,
+                    )
+                    .distinct()
+                    .all()
+                )
+                participants = {r[0] for r in existing if r[0]}
+                if not participants:
+                    return (
+                        jsonify(
+                            {
+                                "message": (
+                                    "recipient_user_ids is required to start a "
+                                    "new group thread"
+                                ),
+                                "status": 400,
+                            }
+                        ),
+                        400,
+                    )
+                recipient_subs = [s for s in participants if s != me]
 
         else:  # org
             if not g.identity.is_admin:

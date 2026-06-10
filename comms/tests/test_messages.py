@@ -626,3 +626,67 @@ def test_dispatch_unknown_path_404(app, make_identity):
     with as_user(app, alice):
         resp, status = MessagesAPI().post("nope")
     assert status == 404
+
+
+# ─── group reply fallback (no recipient list) ──────────────────────
+
+
+def test_group_reply_without_recipients_notifies_existing_participants(
+    app, make_identity
+):
+    # Alice (a member who CAN resolve the team) starts the thread, naming the
+    # recipients. Bob — a plain member who can't resolve membership — replies
+    # WITHOUT a recipient list; the reply must still land and notify the
+    # existing participants (Alice), not 400.
+    alice = make_identity("auth0|alice", "orgA")
+    bob = make_identity("auth0|bob", "orgA")
+    make_identity("auth0|carol", "orgA")
+
+    with as_user(
+        app,
+        alice,
+        body={
+            "target_type": "group",
+            "target_group_key": "team:5",
+            "recipient_user_ids": ["auth0|bob", "auth0|carol"],
+            "content": "kickoff",
+        },
+    ):
+        resp, status = MessagesAPI().send()
+    assert status == 200
+
+    # Bob replies with no recipient_user_ids.
+    with as_user(
+        app,
+        bob,
+        body={
+            "target_type": "group",
+            "target_group_key": "team:5",
+            "content": "on it",
+        },
+    ):
+        resp, status = MessagesAPI().send()
+    assert status == 200
+    assert Message.query.filter_by(target_group_key="team:5").count() == 2
+    # Bob's reply reaches Alice (an existing participant). Alice has exactly 1
+    # message notification — from the reply (she didn't get one for her own
+    # kickoff). Bob has 1 — from the kickoff — and his own reply did NOT
+    # self-notify him (still 1, not 2).
+    assert len(_msg_notifs("auth0|alice")) == 1
+    assert len(_msg_notifs("auth0|bob")) == 1
+
+
+def test_group_new_thread_without_recipients_400(app, make_identity):
+    # A brand-new group thread (no prior messages) still requires recipients.
+    alice = make_identity("auth0|alice", "orgA")
+    with as_user(
+        app,
+        alice,
+        body={
+            "target_type": "group",
+            "target_group_key": "team:99",
+            "content": "hello team",
+        },
+    ):
+        resp, status = MessagesAPI().send()
+    assert status == 400
