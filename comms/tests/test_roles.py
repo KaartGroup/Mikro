@@ -21,6 +21,16 @@ def test_super_admin_is_admin_tier():
     assert Identity(sub="x", role="super_admin").is_admin is True
 
 
+def test_auth0_org_owner_is_admin_tier():
+    # The JWT carries the Auth0 Organizations role: an org owner sends
+    # mikro/roles ["owner"], which must grant the org-admin tier.
+    assert _highest_role(["owner"]) == "owner"
+    assert Identity(sub="x", role="owner").is_admin is True
+    # A plain org member is a regular user.
+    assert _highest_role(["member"]) == "member"
+    assert Identity(sub="x", role="member").is_admin is False
+
+
 def test_team_admin_and_below_are_not_org_admin():
     for role in ("user", "validator", "team_admin"):
         assert Identity(sub="x", role=role).is_admin is False

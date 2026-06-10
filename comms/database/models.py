@@ -32,16 +32,23 @@ NOTIFY_PREF_COLUMNS = (
 )
 
 # Role hierarchy, mirrored from Mikro so cross-app gating reads the same.
-# NOTE: Mikro's org-admin role string is "admin" (NOT "org_admin"); its tokens
-# carry mikro/roles like ["admin"] / ["super_admin"]. We map "admin" to the
-# org-admin tier so a Mikro org admin is recognized as is_admin here. "org_admin"
-# is kept as an alias for forward-compat / other apps that may use that string.
+#
+# IMPORTANT: the JWT's mikro/roles claim actually carries the Auth0
+# *Organizations* role (owner / member), NOT Mikro's DB role — verified live:
+# an org owner's token is {"mikro/roles": ["owner"]}. So the tiers comms
+# actually sees are:
+#   "owner"  -> org-admin tier (delete convos, org broadcast, campaigns)
+#   "member" -> plain user (the default)
+# We ALSO keep Mikro's DB role strings mapped ("admin" == org-admin tier, etc.)
+# so gating works whether the IdP emits the org role or an app role.
 ROLE_PRIORITY = {
     "user": 0,
+    "member": 0,
     "validator": 1,
     "team_admin": 2,
     "admin": 3,
     "org_admin": 3,
+    "owner": 3,
     "super_admin": 4,
 }
 
