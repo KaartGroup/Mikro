@@ -500,6 +500,7 @@ export interface UserProfileData {
   is_tracked_only?: boolean;
   micropayments_visible?: boolean;
   hourly_rate?: number | null;
+  hourly_rate_start_date?: string | null;
   compensation_model?: CompensationModel | null;
   mapillary_username?: string;
   is_active?: boolean;

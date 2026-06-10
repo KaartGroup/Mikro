@@ -8,8 +8,6 @@ import {
   CardHeader,
   CardTitle,
   Button,
-  Modal,
-  Input,
   Skeleton,
   Tabs,
   TabsList,
@@ -40,10 +38,11 @@ import type {
 import {
   PaymentsTable,
   PAYMENTS_TABLE_COLUMNS,
-} from "@/components/admin/payments/PaymentsTable";
+} from "@/components/tables/admin/payments/PaymentsTable";
 import { ColumnsMenu } from "@/components/admin/payments/ColumnsMenu";
 import { ContributorDetailPanel } from "@/components/admin/payments/ContributorDetailPanel";
-import { CycleConfigModal } from "@/components/admin/payments/CycleConfigModal";
+import { CycleConfigModal } from "@/components/modals/CycleConfigModal";
+import { HoldPaymentModal } from "@/components/modals/payment/HoldPaymentModal";
 import {
   ReimbursementsAdminPanel,
   ReimbursementsAdminSummary,
@@ -131,7 +130,6 @@ export function AdminPayments() {
 
   // Hold modal
   const [holdTarget, setHoldTarget] = useState<PaymentCycleRow | null>(null);
-  const [holdNote, setHoldNote] = useState("");
 
   // Table filters / search / pagination
   type TableFilter =
@@ -252,19 +250,7 @@ export function AdminPayments() {
   };
 
   const onApprove = (row: PaymentCycleRow) => setRowStatus(row, "approved");
-  const onHold = (row: PaymentCycleRow) => {
-    setHoldTarget(row);
-    setHoldNote("");
-  };
-  const onConfirmHold = async () => {
-    if (!holdTarget) return;
-    if (!holdNote.trim()) {
-      toast.error("Hold reason is required");
-      return;
-    }
-    await setRowStatus(holdTarget, "held", holdNote.trim());
-    setHoldTarget(null);
-  };
+  const onHold = (row: PaymentCycleRow) => setHoldTarget(row);
   const onMarkPaid = (row: PaymentCycleRow) => setRowStatus(row, "paid");
   const onResetPending = (row: PaymentCycleRow) => setRowStatus(row, "pending");
 
@@ -680,28 +666,14 @@ export function AdminPayments() {
             </CardContent>
           </Card>
 
-          <Modal
+          <HoldPaymentModal
             isOpen={!!holdTarget}
             onClose={() => setHoldTarget(null)}
-            title={holdTarget ? `Hold ${holdTarget.name}` : ""}
-            footer={
-              <>
-                <Button variant="outline" onClick={() => setHoldTarget(null)}>
-                  Cancel
-                </Button>
-                <Button variant="primary" onClick={onConfirmHold}>
-                  Confirm hold
-                </Button>
-              </>
-            }
-          >
-            <Input
-              label="Reason"
-              value={holdNote}
-              onChange={(e) => setHoldNote(e.target.value)}
-              placeholder="Waiting on receipt, pay-period mismatch, etc."
-            />
-          </Modal>
+            holdTarget={holdTarget}
+            cycleStart={cycleStart}
+            cycleEnd={cycleEnd}
+            onHeld={reload}
+          />
 
           <CycleConfigModal
             isOpen={showCycleConfig}

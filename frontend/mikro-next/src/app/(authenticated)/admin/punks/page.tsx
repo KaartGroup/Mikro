@@ -9,7 +9,6 @@ import {
   CardTitle,
   Button,
   Badge,
-  Modal,
   ConfirmDialog,
   Input,
   Table,
@@ -22,10 +21,10 @@ import {
   Val,
 } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
+import { AddPunkModal } from "@/components/modals/punk/AddPunkModal";
+import { EditPunkModal } from "@/components/modals/punk/EditPunkModal";
 import {
   usePunksList,
-  useCreatePunk,
-  useUpdatePunk,
   useDeletePunk,
   useRefreshPunkActivity,
 } from "@/hooks";
@@ -34,8 +33,6 @@ import { formatNumber, formatDate } from "@/lib/utils";
 
 export default function AdminPunksPage() {
   const { data, loading, refetch } = usePunksList();
-  const { mutate: createPunk, loading: creating } = useCreatePunk();
-  const { mutate: updatePunk, loading: updating } = useUpdatePunk();
   const { mutate: deletePunk, loading: deleting } = useDeletePunk();
   const { mutate: refreshPunkActivity } = useRefreshPunkActivity();
   const toast = useToastActions();
@@ -47,15 +44,6 @@ export default function AdminPunksPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPunk, setSelectedPunk] = useState<Punk | null>(null);
-
-  // Add form fields
-  const [addUsername, setAddUsername] = useState("");
-  const [addNotes, setAddNotes] = useState("");
-  const [addTags, setAddTags] = useState("");
-
-  // Edit form fields
-  const [editNotes, setEditNotes] = useState("");
-  const [editTags, setEditTags] = useState("");
 
   // Search & sort
   const [searchTerm, setSearchTerm] = useState("");
@@ -167,60 +155,6 @@ export default function AdminPunksPage() {
     currentPage * ROWS_PER_PAGE,
     filteredAndSorted.length,
   );
-
-  // CRUD handlers
-  const handleCreatePunk = async () => {
-    if (!addUsername.trim()) {
-      toast.error("OSM username is required");
-      return;
-    }
-    try {
-      await createPunk({
-        osm_username: addUsername.trim(),
-        notes: addNotes,
-        tags: addTags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
-      });
-      toast.success("Punk added successfully");
-      setShowAddModal(false);
-      setAddUsername("");
-      setAddNotes("");
-      setAddTags("");
-      refetch();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add punk";
-      toast.error(message);
-    }
-  };
-
-  const openEditModal = (punk: Punk) => {
-    setSelectedPunk(punk);
-    setEditNotes(punk.notes || "");
-    setEditTags((punk.tags || []).join(", "));
-    setShowEditModal(true);
-  };
-
-  const handleUpdatePunk = async () => {
-    if (!selectedPunk) return;
-    try {
-      await updatePunk({
-        punk_id: selectedPunk.id,
-        notes: editNotes,
-        tags: editTags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
-      });
-      toast.success("Punk updated successfully");
-      setShowEditModal(false);
-      setSelectedPunk(null);
-      refetch();
-    } catch {
-      toast.error("Failed to update punk");
-    }
-  };
 
   const handleDeletePunk = async () => {
     if (!selectedPunk) return;
@@ -429,7 +363,10 @@ export default function AdminPunksPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => openEditModal(punk)}
+                        onClick={() => {
+                          setSelectedPunk(punk);
+                          setShowEditModal(true);
+                        }}
                       >
                         Edit
                       </Button>
@@ -503,116 +440,22 @@ export default function AdminPunksPage() {
       )}
 
       {/* Add Modal */}
-      <Modal
+      <AddPunkModal
         isOpen={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          setAddUsername("");
-          setAddNotes("");
-          setAddTags("");
-        }}
-        title="Add to Punks List"
-        description="Add an OSM user to the punks tracking list"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setShowAddModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreatePunk} isLoading={creating}>
-              Add Punk
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="OSM Username"
-            placeholder="Enter OSM username"
-            value={addUsername}
-            onChange={(e) => setAddUsername(e.target.value)}
-          />
-          <div>
-            <label className="text-sm font-medium leading-none mb-2 block">
-              Notes
-            </label>
-            <textarea
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              rows={3}
-              placeholder="Optional notes about this user..."
-              value={addNotes}
-              onChange={(e) => setAddNotes(e.target.value)}
-            />
-          </div>
-          <Input
-            label="Tags"
-            placeholder="vandal, revert-war, building-damage"
-            value={addTags}
-            onChange={(e) => setAddTags(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Separate tags with commas
-          </p>
-        </div>
-      </Modal>
+        onClose={() => setShowAddModal(false)}
+        onCreated={refetch}
+      />
 
       {/* Edit Modal */}
-      <Modal
+      <EditPunkModal
         isOpen={showEditModal}
         onClose={() => {
           setShowEditModal(false);
           setSelectedPunk(null);
         }}
-        title="Edit Punk"
-        description={`Editing ${selectedPunk?.osm_username}`}
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowEditModal(false);
-                setSelectedPunk(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleUpdatePunk} isLoading={updating}>
-              Save Changes
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium leading-none mb-2 block">
-              OSM Username
-            </label>
-            <p className="text-sm text-muted-foreground">
-              {selectedPunk?.osm_username}
-            </p>
-          </div>
-          <div>
-            <label className="text-sm font-medium leading-none mb-2 block">
-              Notes
-            </label>
-            <textarea
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              rows={3}
-              placeholder="Notes about this user..."
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-            />
-          </div>
-          <Input
-            label="Tags"
-            placeholder="vandal, revert-war, building-damage"
-            value={editTags}
-            onChange={(e) => setEditTags(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Separate tags with commas
-          </p>
-        </div>
-      </Modal>
+        punk={selectedPunk}
+        onSaved={refetch}
+      />
 
       {/* Delete Confirmation */}
       <ConfirmDialog

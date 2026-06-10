@@ -30,20 +30,18 @@ import {
   CardTitle,
   Button,
   Badge,
-  Modal,
-  Input,
   Select,
   useToastActions,
 } from "@/components/ui";
+import { AddSubcategoryModal } from "@/components/modals/subcategory/AddSubcategoryModal";
 import {
   useAdminFetchSubcategories,
-  useCreateSubcategory,
   useUpdateSubcategory,
   useDeleteSubcategory,
   useCurrentUserRole,
   useFetchTeams,
 } from "@/hooks";
-import { TOPIC_OPTIONS, slugifyName } from "@/lib/timeTracking";
+import { TOPIC_OPTIONS } from "@/lib/timeTracking";
 import type { Subcategory, SubcategoryScope } from "@/types";
 
 const SCOPE_BADGE: Record<
@@ -55,26 +53,6 @@ const SCOPE_BADGE: Record<
   team: "secondary",
 };
 
-interface CreateFormState {
-  activity: string;
-  name: string;
-  scope: SubcategoryScope;
-  teamId: string;
-  requiresProject: boolean;
-  allowEventFields: boolean;
-  sortOrder: string;
-}
-
-const DEFAULT_FORM: CreateFormState = {
-  activity: "",
-  name: "",
-  scope: "org",
-  teamId: "",
-  requiresProject: false,
-  allowEventFields: false,
-  sortOrder: "0",
-};
-
 export function AdminTimeCategoriesView() {
   const { role } = useCurrentUserRole();
   const isSuper = role === "super_admin";
@@ -84,8 +62,6 @@ export function AdminTimeCategoriesView() {
 
   const { mutate: fetchSubcategories, loading: loadingList } =
     useAdminFetchSubcategories();
-  const { mutate: createSubcategory, loading: creating } =
-    useCreateSubcategory();
   const { mutate: updateSubcategory, loading: updating } =
     useUpdateSubcategory();
   const { mutate: deleteSubcategory, loading: deleting } =
@@ -95,7 +71,6 @@ export function AdminTimeCategoriesView() {
   const [activityFilter, setActivityFilter] = useState<string>("");
   const [subs, setSubs] = useState<Subcategory[]>([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState<CreateFormState>(DEFAULT_FORM);
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const reload = useCallback(async () => {
@@ -134,50 +109,6 @@ export function AdminTimeCategoriesView() {
     if (isOrgAdmin || isTeamAdmin) opts.push({ value: "team", label: "Team" });
     return opts;
   }, [isSuper, isOrgAdmin, isTeamAdmin]);
-
-  // Team admins must always pick a team scope.
-  useEffect(() => {
-    if (isTeamAdmin && createForm.scope !== "team") {
-      setCreateForm((f) => ({ ...f, scope: "team" }));
-    }
-  }, [isTeamAdmin, createForm.scope]);
-
-  const handleCreate = async () => {
-    if (!createForm.activity) {
-      toast.error("Pick an activity");
-      return;
-    }
-    if (!createForm.name.trim()) {
-      toast.error("Enter a name");
-      return;
-    }
-    if (createForm.scope === "team" && !createForm.teamId) {
-      toast.error("Pick a team for team-scoped subcategories");
-      return;
-    }
-    try {
-      await createSubcategory({
-        activity: createForm.activity,
-        name: createForm.name.trim(),
-        scope: createForm.scope,
-        teamId:
-          createForm.scope === "team"
-            ? parseInt(createForm.teamId, 10)
-            : undefined,
-        requiresProject: createForm.requiresProject,
-        allowEventFields: createForm.allowEventFields,
-        sortOrder: parseInt(createForm.sortOrder, 10) || 0,
-      });
-      toast.success(`Created "${createForm.name.trim()}"`);
-      setShowCreate(false);
-      setCreateForm(DEFAULT_FORM);
-      reload();
-    } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Failed to create subcategory",
-      );
-    }
-  };
 
   const handleToggleActive = async (sub: Subcategory) => {
     try {
@@ -252,12 +183,7 @@ export function AdminTimeCategoriesView() {
           Activities (Editing, Validating, Meeting, …) are fixed; the
           subcategories under each one live here and apply per scope.
         </p>
-        <Button
-          onClick={() => {
-            setCreateForm(DEFAULT_FORM);
-            setShowCreate(true);
-          }}
-        >
+        <Button onClick={() => setShowCreate(true)}>
           + Add Subcategory
         </Button>
       </div>
@@ -358,105 +284,13 @@ export function AdminTimeCategoriesView() {
           </Card>
         ))}
 
-      <Modal
+      <AddSubcategoryModal
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
-        title="Add Subcategory"
-        description="Create a tier-2 subcategory under an existing activity."
-      >
-        <div className="space-y-3">
-          <Select
-            label="Activity"
-            value={createForm.activity}
-            onChange={(v) => setCreateForm({ ...createForm, activity: v })}
-            options={[
-              { value: "", label: "Select activity" },
-              ...TOPIC_OPTIONS.map((t) => ({ value: t.value, label: t.label })),
-            ]}
-          />
-          <Input
-            label="Name"
-            value={createForm.name}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, name: e.target.value })
-            }
-            placeholder="e.g. Daily Standup"
-          />
-          {createForm.name && (
-            <p className="text-xs text-muted-foreground">
-              Slug: <code>{slugifyName(createForm.name)}</code>
-            </p>
-          )}
-          <Select
-            label="Scope"
-            value={createForm.scope}
-            onChange={(v) =>
-              setCreateForm({ ...createForm, scope: v as SubcategoryScope })
-            }
-            options={scopeOptions}
-          />
-          {createForm.scope === "team" && (
-            <Select
-              label="Team"
-              value={createForm.teamId}
-              onChange={(v) => setCreateForm({ ...createForm, teamId: v })}
-              options={[
-                { value: "", label: "Select team" },
-                ...teams.map((t) => ({ value: String(t.id), label: t.name })),
-              ]}
-            />
-          )}
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={createForm.requiresProject}
-              onChange={(e) =>
-                setCreateForm({
-                  ...createForm,
-                  requiresProject: e.target.checked,
-                })
-              }
-            />
-            Requires project — clock-in form forces a project pick
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={createForm.allowEventFields}
-              onChange={(e) =>
-                setCreateForm({
-                  ...createForm,
-                  allowEventFields: e.target.checked,
-                })
-              }
-            />
-            Allow event fields — show # Retained / # New Participants inputs
-          </label>
-          <Input
-            label="Sort order"
-            type="number"
-            value={createForm.sortOrder}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, sortOrder: e.target.value })
-            }
-          />
-          <p className="text-xs text-muted-foreground">
-            Lower sort-order numbers appear first in the dropdown.
-          </p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowCreate(false)}
-              disabled={creating}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={creating}>
-              {creating ? "Creating…" : "Create"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        scopeOptions={scopeOptions}
+        teams={teams}
+        onCreated={reload}
+      />
     </div>
   );
 }

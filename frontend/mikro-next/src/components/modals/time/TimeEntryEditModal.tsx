@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Modal, Button } from "@/components/ui";
+import { Modal, Button, useToastActions } from "@/components/ui";
 import {
   resolveCategoryKey,
   toDatetimeLocal,
   fromDatetimeLocal,
 } from "@/lib/timeTracking";
+import { useEditTimeEntry } from "@/hooks/useApi";
 import type { TimeEntry } from "@/types";
 
 const TIME_CATEGORY_OPTIONS = [
@@ -20,26 +21,24 @@ const TIME_CATEGORY_OPTIONS = [
 interface TimeEntryEditModalProps {
   entry: TimeEntry | null;
   onClose: () => void;
-  onSave: (data: {
-    entry_id: number;
-    clockIn: string;
-    clockOut?: string;
-    category: string;
-  }) => Promise<void>;
-  loading: boolean;
+  /** Called after the entry is successfully saved, e.g. to refresh the list. */
+  onSaved?: () => void;
 }
 
 export function TimeEntryEditModal({
   entry,
   onClose,
-  onSave,
-  loading,
+  onSaved,
 }: TimeEntryEditModalProps) {
+  const toast = useToastActions();
+  const { mutate: editEntry, loading } = useEditTimeEntry();
+
   const [clockIn, setClockIn] = useState("");
   const [clockOut, setClockOut] = useState("");
   const [category, setCategory] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Seed / reset fields whenever a new entry is opened.
   useEffect(() => {
     if (!entry) return;
     setClockIn(entry.clockIn ? toDatetimeLocal(entry.clockIn) : "");
@@ -51,17 +50,22 @@ export function TimeEntryEditModal({
   const handleSave = async () => {
     if (!entry) return;
     setError(null);
+
     if (!clockIn) {
       setError("Clock in time is required");
       return;
     }
+
     try {
-      await onSave({
+      await editEntry({
         entry_id: entry.id,
         clockIn: fromDatetimeLocal(clockIn),
         clockOut: clockOut ? fromDatetimeLocal(clockOut) : undefined,
         category,
       });
+      toast.success("Time entry updated");
+      onClose();
+      onSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update entry");
     }
@@ -73,9 +77,7 @@ export function TimeEntryEditModal({
       onClose={onClose}
       title="Edit Time Entry"
       description={
-        entry
-          ? `${entry.userName} — ${entry.projectName || "No project"}`
-          : ""
+        entry ? `${entry.userName} — ${entry.projectName || "No project"}` : ""
       }
       size="sm"
       footer={

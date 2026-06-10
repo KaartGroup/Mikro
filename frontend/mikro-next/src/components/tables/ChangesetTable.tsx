@@ -1,5 +1,5 @@
 import { HashtagChip } from "@/components/atoms/HashtagChip";
-import { TablePaginator } from "@/components/molecules/TablePaginator";
+import { TablePaginator } from "@/components/tables/TablePaginator";
 import { formatDateTime } from "@/lib/utils";
 import { openChangesetInJosm, zoomToChangeset } from "@/lib/josmRemoteControl";
 import type { Changeset } from "@/types";

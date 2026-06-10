@@ -31,20 +31,18 @@ import {
   CardHeader,
   CardTitle,
   Badge,
-  Modal,
-  Input,
   Select,
   Skeleton,
   useToastActions,
 } from "@/components/ui";
 import {
   usePendingReimbursements,
-  useApproveReimbursementRequest,
-  useRejectReimbursementRequest,
   useReimbursementAttachmentUrl,
 } from "@/hooks";
 import type { ReimbursementRequest, ReimbursementStatus } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { ApproveReimbursementModal } from "@/components/modals/reimbursement/ApproveReimbursementModal";
+import { RejectReimbursementModal } from "@/components/modals/reimbursement/RejectReimbursementModal";
 
 const STATUS_BADGE: Record<
   ReimbursementStatus,
@@ -55,11 +53,6 @@ const STATUS_BADGE: Record<
   rejected: "destructive",
   withdrawn: "secondary",
 };
-
-function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 // ─── Small summary widget (lives on the Payments tab) ─────────────
 
@@ -136,10 +129,6 @@ interface RejectModalState {
 export function ReimbursementsAdminPanel() {
   const toast = useToastActions();
   const { mutate: fetchPending, loading } = usePendingReimbursements();
-  const { mutate: approveRequest, loading: approving } =
-    useApproveReimbursementRequest();
-  const { mutate: rejectRequest, loading: rejecting } =
-    useRejectReimbursementRequest();
   const { mutate: fetchAttachmentUrl } = useReimbursementAttachmentUrl();
 
   const [rows, setRows] = useState<ReimbursementRequest[]>([]);
@@ -341,219 +330,24 @@ export function ReimbursementsAdminPanel() {
 
       {/* Approve modal — admin picks the cycle window. */}
       {approveTarget && (
-        <ApproveModal
+        <ApproveReimbursementModal
           request={approveTarget.request}
           isOpen={!!approveTarget}
           onClose={() => setApproveTarget(null)}
-          onApproved={() => {
-            setApproveTarget(null);
-            reload();
-          }}
-          submitting={approving}
-          approveFn={approveRequest}
+          onApproved={reload}
         />
       )}
 
       {/* Reject modal — reviewer note required. */}
       {rejectTarget && (
-        <RejectModal
+        <RejectReimbursementModal
           request={rejectTarget.request}
           isOpen={!!rejectTarget}
           onClose={() => setRejectTarget(null)}
-          onRejected={() => {
-            setRejectTarget(null);
-            reload();
-          }}
-          submitting={rejecting}
-          rejectFn={rejectRequest}
+          onRejected={reload}
         />
       )}
     </div>
   );
 }
 
-// ─── Approve modal ───────────────────────────────────────────────
-
-interface ApproveModalProps {
-  request: ReimbursementRequest;
-  isOpen: boolean;
-  onClose: () => void;
-  onApproved: () => void;
-  submitting: boolean;
-  approveFn: (body: {
-    request_id: number;
-    cycle_start: string;
-    cycle_end: string;
-    reviewer_note?: string;
-  }) => Promise<unknown>;
-}
-
-function ApproveModal({
-  request,
-  isOpen,
-  onClose,
-  onApproved,
-  submitting,
-  approveFn,
-}: ApproveModalProps) {
-  const toast = useToastActions();
-  const [cycleStart, setCycleStart] = useState(todayIso());
-  const [cycleEnd, setCycleEnd] = useState(todayIso());
-  const [reviewerNote, setReviewerNote] = useState("");
-
-  const handleApprove = async () => {
-    if (!cycleStart || !cycleEnd) {
-      toast.error("Cycle start and end are required");
-      return;
-    }
-    if (cycleStart > cycleEnd) {
-      toast.error("Cycle end must be on or after cycle start");
-      return;
-    }
-    try {
-      await approveFn({
-        request_id: request.id,
-        cycle_start: cycleStart,
-        cycle_end: cycleEnd,
-        reviewer_note: reviewerNote.trim() || undefined,
-      });
-      toast.success(
-        `Approved ${formatCurrency(request.amount).text} for ${request.user_name || request.user_id}`,
-      );
-      onApproved();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to approve");
-    }
-  };
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Approve reimbursement"
-      description={`Adds ${formatCurrency(request.amount).text} to ${request.user_name || request.user_id}'s payout for the chosen cycle.`}
-    >
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            label="Cycle start"
-            type="date"
-            value={cycleStart}
-            onChange={(e) => setCycleStart(e.target.value)}
-          />
-          <Input
-            label="Cycle end"
-            type="date"
-            value={cycleEnd}
-            onChange={(e) => setCycleEnd(e.target.value)}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Pick the payroll cycle this reimbursement should land in. The editor
-          didn&apos;t specify one at submission time.
-        </p>
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium">
-            Reviewer note (optional)
-          </label>
-          <textarea
-            className="w-full rounded border border-border bg-background px-2 py-1 text-sm"
-            rows={3}
-            value={reviewerNote}
-            onChange={(e) => setReviewerNote(e.target.value)}
-            placeholder="Any context to record alongside the approval."
-          />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleApprove} disabled={submitting}>
-            {submitting ? "Approving…" : "Approve"}
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-// ─── Reject modal ────────────────────────────────────────────────
-
-interface RejectModalProps {
-  request: ReimbursementRequest;
-  isOpen: boolean;
-  onClose: () => void;
-  onRejected: () => void;
-  submitting: boolean;
-  rejectFn: (body: {
-    request_id: number;
-    reviewer_note: string;
-  }) => Promise<unknown>;
-}
-
-function RejectModal({
-  request,
-  isOpen,
-  onClose,
-  onRejected,
-  submitting,
-  rejectFn,
-}: RejectModalProps) {
-  const toast = useToastActions();
-  const [reviewerNote, setReviewerNote] = useState("");
-
-  const handleReject = async () => {
-    if (!reviewerNote.trim()) {
-      toast.error("Reviewer note is required when rejecting");
-      return;
-    }
-    try {
-      await rejectFn({
-        request_id: request.id,
-        reviewer_note: reviewerNote.trim(),
-      });
-      toast.success("Reimbursement rejected");
-      onRejected();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to reject");
-    }
-  };
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Reject reimbursement"
-      description={`The editor will see your reviewer note in their own request history.`}
-    >
-      <div className="space-y-3">
-        <p className="text-sm">
-          Rejecting <strong>{formatCurrency(request.amount).text}</strong> from{" "}
-          <strong>{request.user_name || request.user_id}</strong>.
-        </p>
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium">Reason (required)</label>
-          <textarea
-            className="w-full rounded border border-border bg-background px-2 py-1 text-sm"
-            rows={4}
-            value={reviewerNote}
-            onChange={(e) => setReviewerNote(e.target.value)}
-            placeholder="Why is this being rejected? The editor will see this verbatim."
-          />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleReject}
-            disabled={submitting}
-          >
-            {submitting ? "Rejecting…" : "Reject"}
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}

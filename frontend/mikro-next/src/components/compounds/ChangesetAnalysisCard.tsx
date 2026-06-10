@@ -3,7 +3,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle, StatCard } from "@/components/ui";
-import { ChangesetTable } from "@/components/molecules/ChangesetTable";
+import { ChangesetTable } from "@/components/tables/ChangesetTable";
 import { HashtagSummary } from "@/components/molecules/HashtagSummary";
 import { formatDateTime } from "@/lib/utils";
 import type { Changeset, ChangesetSummary } from "@/types";

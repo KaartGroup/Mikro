@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Modal, Button, Input, Select } from "@/components/ui";
+import { Modal, Button, Input, Select, useToastActions } from "@/components/ui";
+import { useModifyUserRole } from "@/hooks/useApi";
 import { roleLabel } from "@/types";
 import type { UserProfileData } from "@/types";
 
-interface EditUserPayload {
+export interface EditUserPayload {
   first_name: string;
   last_name: string;
   email: string;
@@ -15,32 +16,35 @@ interface EditUserPayload {
   timezone: string | null;
   country_id: number | null;
   micropayments_visible: boolean;
-  hourly_rate: number | null;
-  hourly_rate_start_date: string | null;
+  hourly_rate?: number | null;
+  hourly_rate_start_date?: string | null;
   compensation_model: string | null;
 }
 
 interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
+  userId: string;
   user: UserProfileData | null;
   canEditRole: boolean;
   viewerRole: string | undefined;
   countryOptions: { value: string; label: string }[];
-  onSave: (payload: EditUserPayload) => Promise<void>;
-  loading: boolean;
+  /** Called after the user is successfully saved, e.g. to refresh the profile. */
+  onSaved?: () => void;
 }
 
 export function EditUserModal({
   isOpen,
   onClose,
+  userId,
   user,
   canEditRole,
   viewerRole,
   countryOptions,
-  onSave,
-  loading,
+  onSaved,
 }: EditUserModalProps) {
+  const toast = useToastActions();
+  const { mutate: modifyUser, loading } = useModifyUserRole();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -53,6 +57,7 @@ export function EditUserModal({
   const [hourlyRate, setHourlyRate] = useState("");
   const [hourlyRateStartDate, setHourlyRateStartDate] = useState("");
   const [compModel, setCompModel] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -66,7 +71,7 @@ export function EditUserModal({
     setCountryId(user.country_id ? String(user.country_id) : "");
     setPaymentsVisible(user.micropayments_visible ?? false);
     setHourlyRate(user.hourly_rate?.toString() ?? "");
-    setHourlyRateStartDate("");
+    setHourlyRateStartDate(user.hourly_rate_start_date || "");
     const validCompModels = new Set<string>([
       "per_task",
       "hourly",
@@ -80,10 +85,7 @@ export function EditUserModal({
   }, [isOpen, user]);
 
   const handleSave = async () => {
-    if (hourlyRate && !hourlyRateStartDate) {
-      return; // validated by page via toast — keep this modal stateless on errors
-    }
-    await onSave({
+    const payload: EditUserPayload = {
       first_name: firstName,
       last_name: lastName,
       email,
@@ -93,10 +95,32 @@ export function EditUserModal({
       timezone: timezone || null,
       country_id: countryId ? Number(countryId) : null,
       micropayments_visible: paymentsVisible,
-      hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
-      hourly_rate_start_date: hourlyRate ? hourlyRateStartDate : null,
       compensation_model: compModel || null,
-    });
+    };
+
+    const shouldSendHourlyRate =
+      compModel !== "project_based" && hourlyRate !== "";
+
+    if (shouldSendHourlyRate) {
+      if (!hourlyRateStartDate) {
+        setValidationError(
+          "Effective from date is required when setting an hourly rate.",
+        );
+        return;
+      }
+      payload.hourly_rate = parseFloat(hourlyRate);
+      payload.hourly_rate_start_date = hourlyRateStartDate;
+    }
+
+    setValidationError(null);
+    try {
+      await modifyUser({ user_id: userId, ...payload });
+      toast.success("User updated");
+      onClose();
+      onSaved?.();
+    } catch {
+      toast.error("Failed to update user");
+    }
   };
 
   return (
@@ -110,11 +134,7 @@ export function EditUserModal({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            onClick={handleSave}
-            disabled={loading}
-          >
+          <Button variant="primary" onClick={handleSave} disabled={loading}>
             {loading ? "Saving..." : "Save Changes"}
           </Button>
         </div>
@@ -263,9 +283,10 @@ export function EditUserModal({
               min="0"
               className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
               value={hourlyRate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setHourlyRate(e.target.value)
-              }
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setHourlyRate(e.target.value);
+                if (validationError) setValidationError(null);
+              }}
               placeholder="Not set"
             />
             {hourlyRate && (
@@ -277,10 +298,16 @@ export function EditUserModal({
                   type="date"
                   className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-sm"
                   value={hourlyRateStartDate}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setHourlyRateStartDate(e.target.value)
-                  }
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setHourlyRateStartDate(e.target.value);
+                    if (validationError) setValidationError(null);
+                  }}
                 />
+                {validationError && !hourlyRateStartDate ? (
+                  <p className="mt-2 text-sm text-destructive">
+                    {validationError}
+                  </p>
+                ) : null}
               </div>
             )}
           </div>

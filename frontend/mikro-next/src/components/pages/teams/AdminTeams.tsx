@@ -9,10 +9,8 @@ import {
   CardTitle,
   Button,
   Badge,
-  Modal,
   ConfirmDialog,
   Input,
-  Select,
   Table,
   TableHeader,
   TableBody,
@@ -21,23 +19,18 @@ import {
   TableCell,
   Skeleton,
 } from "@/components/ui";
-import { MultiSelect } from "@/components/ui/MultiSelect";
+import { CreateTeamModal } from "@/components/modals/team/CreateTeamModal";
+import { EditTeamModal } from "@/components/modals/team/EditTeamModal";
+import { TeamMembersModal } from "@/components/modals/team/TeamMembersModal";
+import { TeamTrainingsModal } from "@/components/modals/training/TeamTrainingsModal";
 import { useToastActions } from "@/components/ui";
 import { FilterBar } from "@/components/filters";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
-import { formatNumber, displayRole, formatDate } from "@/lib/utils";
+import { formatNumber, formatDate } from "@/lib/utils";
 import { Val } from "@/components/ui";
 import {
   useFetchTeams,
-  useCreateTeam,
-  useUpdateTeam,
   useDeleteTeam,
-  useFetchTeamMembers,
-  useAssignTeamMember,
-  useUnassignTeamMember,
-  useFetchTeamTrainings,
-  useAssignTrainingToTeam,
-  useUnassignTrainingFromTeam,
   useUsersList,
   useFilters,
   useFetchFilterOptions,
@@ -45,16 +38,11 @@ import {
   useManagedTeams,
 } from "@/hooks";
 import { isOrgAdminOrAbove, isAnyAdmin } from "@/types";
-import type { Team, TeamMemberItem, TeamTrainingItem } from "@/types";
+import type { Team } from "@/types";
 
 export function AdminTeams() {
   const { data: teamsData, loading, refetch } = useFetchTeams();
-  const { mutate: createTeam, loading: creating } = useCreateTeam();
-  const { mutate: updateTeam, loading: updating } = useUpdateTeam();
   const { mutate: deleteTeam } = useDeleteTeam();
-  const { mutate: fetchMembers } = useFetchTeamMembers();
-  const { mutate: assignMember } = useAssignTeamMember();
-  const { mutate: unassignMember } = useUnassignTeamMember();
   const { data: usersData } = useUsersList();
   const toast = useToastActions();
   const { activeFilters, setActiveFilters, filtersBody } = useFilters();
@@ -76,24 +64,8 @@ export function AdminTeams() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [membersTeam, setMembersTeam] = useState<Team | null>(null);
-  const [members, setMembers] = useState<TeamMemberItem[]>([]);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [membersSearch, setMembersSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<Team | null>(null);
-
-  // Trainings modal state
-  const { mutate: fetchTeamTrainings } = useFetchTeamTrainings();
-  const { mutate: assignTrainingToTeam } = useAssignTrainingToTeam();
-  const { mutate: unassignTrainingFromTeam } = useUnassignTrainingFromTeam();
   const [trainingsTeam, setTrainingsTeam] = useState<Team | null>(null);
-  const [teamTrainings, setTeamTrainings] = useState<TeamTrainingItem[]>([]);
-  const [trainingsLoading, setTrainingsLoading] = useState(false);
-  const [trainingsSearch, setTrainingsSearch] = useState("");
-
-  // Form state
-  const [formName, setFormName] = useState("");
-  const [formDescription, setFormDescription] = useState("");
-  const [formLeadIds, setFormLeadIds] = useState<string[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<Team | null>(null);
 
   // Re-fetch teams when server-side filters change
   useEffect(() => {
@@ -110,76 +82,14 @@ export function AdminTeams() {
   );
 
   const orgUsers = usersData?.users ?? [];
-  // Only users who already hold an admin role (super_admin / admin / team_admin)
-  // may be assigned as a team lead. Assigning a plain mapper as lead leaves them
-  // in a broken half-state — lead of a team, but without the admin permissions to
-  // act on it. Any user already assigned as a lead is kept selectable so the Edit
-  // modal can still display (and let you remove) someone whose role changed after
-  // they were assigned.
+
+  // Lead options for CreateTeamModal: only admin users may be leads.
   const leadOptions = orgUsers
-    .filter((u) => isAnyAdmin(u.role) || formLeadIds.includes(u.id))
+    .filter((u) => isAnyAdmin(u.role))
     .map((u) => ({
       value: u.id,
       label: u.name || u.email,
     }));
-
-  // Create handlers
-  const openCreateModal = () => {
-    setFormName("");
-    setFormDescription("");
-    setFormLeadIds([]);
-    setShowCreateModal(true);
-  };
-
-  const handleCreate = async () => {
-    if (!formName.trim()) {
-      toast.error("Team name is required");
-      return;
-    }
-    try {
-      await createTeam({
-        teamName: formName.trim(),
-        teamDescription: formDescription.trim() || null,
-        leadIds: formLeadIds,
-      });
-      toast.success("Team created");
-      setShowCreateModal(false);
-      refetch();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to create team";
-      toast.error(msg);
-    }
-  };
-
-  // Edit handlers
-  const openEditModal = (team: Team) => {
-    setEditingTeam(team);
-    setFormName(team.name);
-    setFormDescription(team.description ?? "");
-    setFormLeadIds(team.lead_ids ?? (team.lead_id ? [team.lead_id] : []));
-  };
-
-  const handleUpdate = async () => {
-    if (!editingTeam) return;
-    if (!formName.trim()) {
-      toast.error("Team name is required");
-      return;
-    }
-    try {
-      await updateTeam({
-        teamId: editingTeam.id,
-        teamName: formName.trim(),
-        teamDescription: formDescription.trim() || null,
-        leadIds: formLeadIds,
-      });
-      toast.success("Team updated");
-      setEditingTeam(null);
-      refetch();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to update team";
-      toast.error(msg);
-    }
-  };
 
   // Delete handlers
   const handleDelete = async () => {
@@ -194,86 +104,6 @@ export function AdminTeams() {
       toast.error(msg);
     }
   };
-
-  // Members handlers
-  const openMembersModal = async (team: Team) => {
-    setMembersTeam(team);
-    setMembersSearch("");
-    setMembersLoading(true);
-    try {
-      const res = await fetchMembers({ teamId: team.id });
-      setMembers(res?.users ?? []);
-    } catch {
-      toast.error("Failed to fetch team members");
-      setMembers([]);
-    } finally {
-      setMembersLoading(false);
-    }
-  };
-
-  const handleToggleMember = async (userId: string, currentStatus: string) => {
-    if (!membersTeam) return;
-    try {
-      if (currentStatus === "Assigned") {
-        await unassignMember({ teamId: membersTeam.id, userId });
-      } else {
-        await assignMember({ teamId: membersTeam.id, userId });
-      }
-      // Refresh members list
-      const res = await fetchMembers({ teamId: membersTeam.id });
-      setMembers(res?.users ?? []);
-      refetch(); // Refresh team list for member count
-    } catch {
-      toast.error("Failed to update member assignment");
-    }
-  };
-
-  const filteredMembers = members.filter(
-    (m) =>
-      m.name.toLowerCase().includes(membersSearch.toLowerCase()) ||
-      m.email.toLowerCase().includes(membersSearch.toLowerCase()),
-  );
-
-  // Trainings handlers
-  const openTrainingsModal = async (team: Team) => {
-    setTrainingsTeam(team);
-    setTrainingsSearch("");
-    setTrainingsLoading(true);
-    try {
-      const res = await fetchTeamTrainings({ teamId: team.id });
-      setTeamTrainings(res?.trainings ?? []);
-    } catch {
-      toast.error("Failed to fetch team trainings");
-      setTeamTrainings([]);
-    } finally {
-      setTrainingsLoading(false);
-    }
-  };
-
-  const handleToggleTraining = async (
-    trainingId: number,
-    currentStatus: string,
-  ) => {
-    if (!trainingsTeam) return;
-    try {
-      if (currentStatus === "Assigned") {
-        await unassignTrainingFromTeam({
-          teamId: trainingsTeam.id,
-          trainingId,
-        });
-      } else {
-        await assignTrainingToTeam({ teamId: trainingsTeam.id, trainingId });
-      }
-      const res = await fetchTeamTrainings({ teamId: trainingsTeam.id });
-      setTeamTrainings(res?.trainings ?? []);
-    } catch {
-      toast.error("Failed to update training assignment");
-    }
-  };
-
-  const filteredTrainings = teamTrainings.filter((t) =>
-    t.title?.toLowerCase().includes(trainingsSearch.toLowerCase()),
-  );
 
   if (loading && !teamsData) {
     return (
@@ -309,7 +139,7 @@ export function AdminTeams() {
           </p>
         </div>
         {canCreateOrDeleteTeams && (
-          <Button onClick={openCreateModal}>Create Team</Button>
+          <Button onClick={() => setShowCreateModal(true)}>Create Team</Button>
         )}
       </div>
 
@@ -458,7 +288,7 @@ export function AdminTeams() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => openMembersModal(team)}
+                            onClick={() => setMembersTeam(team)}
                           >
                             <Badge variant="secondary">
                               <Val>{formatNumber(team.member_count)}</Val>
@@ -473,21 +303,21 @@ export function AdminTeams() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => openEditModal(team)}
+                              onClick={() => setEditingTeam(team)}
                             >
                               Edit
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => openMembersModal(team)}
+                              onClick={() => setMembersTeam(team)}
                             >
                               Members
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => openTrainingsModal(team)}
+                              onClick={() => setTrainingsTeam(team)}
                             >
                               Trainings
                             </Button>
@@ -558,318 +388,34 @@ export function AdminTeams() {
       </Card>
 
       {/* Create Team Modal */}
-      <Modal
+      <CreateTeamModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="Create Team"
-        description="Create a new team to group users"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} isLoading={creating}>
-              Create Team
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Team Name"
-            placeholder="e.g. East Africa Mappers"
-            value={formName}
-            onChange={(e) => setFormName(e.target.value)}
-          />
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Description
-            </label>
-            <textarea
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              rows={3}
-              placeholder="Optional team description..."
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-            />
-          </div>
-          <div>
-            <MultiSelect
-              label="Team Leads"
-              value={formLeadIds}
-              onChange={setFormLeadIds}
-              options={leadOptions}
-              placeholder="Select one or more leads"
-            />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Only users with an admin role (Super Admin, Org Admin, or Team
-              Admin) appear here. A team lead needs admin permissions to manage
-              the team — assign someone an admin role on the Users page first to
-              make them eligible.
-            </p>
-          </div>
-        </div>
-      </Modal>
+        leadOptions={leadOptions}
+        onCreated={() => refetch()}
+      />
 
       {/* Edit Team Modal */}
-      <Modal
+      <EditTeamModal
         isOpen={!!editingTeam}
         onClose={() => setEditingTeam(null)}
-        title="Edit Team"
-        description={`Editing "${editingTeam?.name}"`}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setEditingTeam(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdate} isLoading={updating}>
-              Save Changes
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Team Name"
-            value={formName}
-            onChange={(e) => setFormName(e.target.value)}
-          />
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Description
-            </label>
-            <textarea
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              rows={3}
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-            />
-          </div>
-          <div>
-            <MultiSelect
-              label="Team Leads"
-              value={formLeadIds}
-              onChange={setFormLeadIds}
-              options={leadOptions}
-              placeholder="Select one or more leads"
-            />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Only users with an admin role (Super Admin, Org Admin, or Team
-              Admin) appear here. A team lead needs admin permissions to manage
-              the team — assign someone an admin role on the Users page first to
-              make them eligible.
-            </p>
-          </div>
-        </div>
-      </Modal>
+        team={editingTeam}
+        orgUsers={orgUsers}
+        onSaved={() => refetch()}
+      />
 
       {/* Members Modal */}
-      <Modal
-        isOpen={!!membersTeam}
-        onClose={() => {
-          setMembersTeam(null);
-          setMembers([]);
-        }}
-        title={`Team Members — ${membersTeam?.name}`}
-        description="Assign or remove users from this team"
-        size="5xl"
-        footer={
-          <Button
-            variant="outline"
-            onClick={() => {
-              setMembersTeam(null);
-              setMembers([]);
-            }}
-          >
-            Close
-          </Button>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            placeholder="Search users..."
-            value={membersSearch}
-            onChange={(e) => setMembersSearch(e.target.value)}
-          />
-          {membersLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : filteredMembers.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              {membersSearch
-                ? "No users match your search"
-                : "No users in organization"}
-            </p>
-          ) : (
-            <div className="max-h-96 overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredMembers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {user.email}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {displayRole(user.role)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          variant={
-                            user.assigned === "Assigned"
-                              ? "success"
-                              : "secondary"
-                          }
-                        >
-                          {user.assigned}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant={
-                            user.assigned === "Assigned"
-                              ? "destructive"
-                              : "primary"
-                          }
-                          onClick={() =>
-                            handleToggleMember(user.id, user.assigned)
-                          }
-                        >
-                          {user.assigned === "Assigned" ? "Remove" : "Assign"}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
-      </Modal>
+      <TeamMembersModal
+        team={membersTeam}
+        onClose={() => setMembersTeam(null)}
+        onMembersChanged={() => refetch()}
+      />
 
       {/* Trainings Modal */}
-      <Modal
-        isOpen={!!trainingsTeam}
-        onClose={() => {
-          setTrainingsTeam(null);
-          setTeamTrainings([]);
-        }}
-        title={`Team Trainings — ${trainingsTeam?.name}`}
-        description="Assign or remove trainings from this team"
-        size="5xl"
-        footer={
-          <Button
-            variant="outline"
-            onClick={() => {
-              setTrainingsTeam(null);
-              setTeamTrainings([]);
-            }}
-          >
-            Close
-          </Button>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            placeholder="Search trainings..."
-            value={trainingsSearch}
-            onChange={(e) => setTrainingsSearch(e.target.value)}
-          />
-          {trainingsLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : filteredTrainings.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              {trainingsSearch
-                ? "No trainings match your search"
-                : "No trainings in organization"}
-            </p>
-          ) : (
-            <div className="max-h-96 overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Difficulty</TableHead>
-                    <TableHead className="text-center">Points</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTrainings.map((training) => (
-                    <TableRow key={training.id}>
-                      <TableCell className="font-medium">
-                        {training.title}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {training.training_type || "—"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {training.difficulty || "—"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Val>{formatNumber(training.point_value)}</Val>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          variant={
-                            training.assigned === "Assigned"
-                              ? "success"
-                              : "secondary"
-                          }
-                        >
-                          {training.assigned}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant={
-                            training.assigned === "Assigned"
-                              ? "destructive"
-                              : "primary"
-                          }
-                          onClick={() =>
-                            handleToggleTraining(training.id, training.assigned)
-                          }
-                        >
-                          {training.assigned === "Assigned"
-                            ? "Remove"
-                            : "Assign"}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
-      </Modal>
+      <TeamTrainingsModal
+        team={trainingsTeam}
+        onClose={() => setTrainingsTeam(null)}
+      />
 
       {/* Delete Confirmation */}
       <ConfirmDialog

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { NotesDialog } from "./NotesDialog";
+import { NotesDialog } from "@/components/modals/NotesDialog";
 
 export interface NotesButtonProps {
   notes: string | null | undefined;
   editable: boolean;
   onSave?: (value: string | null) => Promise<void> | void;
+  /** Called after a successful save, e.g. to trigger a separate list refresh. */
+  onSaved?: () => void;
   size?: "xs" | "sm";
   /** Override the dialog title (e.g. "Note from <user>"). */
   title?: string;
@@ -24,11 +26,11 @@ export function NotesButton({
   notes,
   editable,
   onSave,
+  onSaved,
   size = "sm",
   title,
 }: NotesButtonProps) {
   const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   const hasNotes = !!notes && notes.trim().length > 0;
 
@@ -44,17 +46,6 @@ export function NotesButton({
     : "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted border-border";
 
   const label = hasNotes ? "Note" : "+ Note";
-
-  const handleConfirm = async (value: string | null) => {
-    if (!onSave) return;
-    setSaving(true);
-    try {
-      await onSave(value);
-      setOpen(false);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <>
@@ -90,9 +81,9 @@ export function NotesButton({
         onClose={() => setOpen(false)}
         initialValue={notes ?? null}
         editable={editable}
-        onConfirm={editable ? handleConfirm : undefined}
+        onSave={editable ? onSave : undefined}
+        onSaved={onSaved}
         title={title}
-        isSaving={saving}
       />
     </>
   );

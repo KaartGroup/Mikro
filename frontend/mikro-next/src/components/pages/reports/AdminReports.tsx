@@ -37,8 +37,7 @@ import { TeamActivityCard } from "./_components/TeamActivityCard";
 import { TaskHoursByCategoryCard } from "./_components/TaskHoursByCategoryCard";
 import { CommunityOutreachCard } from "./_components/CommunityOutreachCard";
 import { ExportDropdown } from "./_components/ExportDropdown";
-import { OsmClassificationPieChart } from "./_components/OsmClassificationPieChart";
-import { ProjectSnapshotTable } from "./_components/ProjectSnapshotTable";
+import { ProjectSnapshotTable } from "@/components/tables/reports/ProjectSnapshotTable";
 
 function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

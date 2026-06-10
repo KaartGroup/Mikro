@@ -5,9 +5,7 @@ import {
   Card,
   CardContent,
   Button,
-  Modal,
   ConfirmDialog,
-  Input,
   Table,
   TableHeader,
   TableBody,
@@ -18,6 +16,8 @@ import {
 import { useToastActions } from "@/components/ui";
 import { RoleGate } from "@/components/RoleGate";
 import { formatDate } from "@/lib/utils";
+import { CreateOrganizationModal } from "@/components/modals/organization/CreateOrganizationModal";
+import { EditOrganizationModal } from "@/components/modals/organization/EditOrganizationModal";
 
 interface Organization {
   id: string;
@@ -42,21 +42,9 @@ function OrganizationsManager() {
 
   // Create modal state
   const [showCreate, setShowCreate] = useState(false);
-  const [createName, setCreateName] = useState("");
-  const [createDisplayName, setCreateDisplayName] = useState("");
-  const [createAdminEmail, setCreateAdminEmail] = useState("");
-  const [createContactName, setCreateContactName] = useState("");
-  const [createContactEmail, setCreateContactEmail] = useState("");
-  const [createNotes, setCreateNotes] = useState("");
-  const [creating, setCreating] = useState(false);
 
   // Edit modal state
   const [editing, setEditing] = useState<Organization | null>(null);
-  const [editDisplayName, setEditDisplayName] = useState("");
-  const [editContactName, setEditContactName] = useState("");
-  const [editContactEmail, setEditContactEmail] = useState("");
-  const [editNotes, setEditNotes] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
 
   // Disable confirmation
   const [disableTarget, setDisableTarget] = useState<Organization | null>(null);
@@ -89,90 +77,6 @@ function OrganizationsManager() {
   useEffect(() => {
     fetchOrgs();
   }, [fetchOrgs]);
-
-  const openCreate = () => {
-    setCreateName("");
-    setCreateDisplayName("");
-    setCreateAdminEmail("");
-    setCreateContactName("");
-    setCreateContactEmail("");
-    setCreateNotes("");
-    setShowCreate(true);
-  };
-
-  const handleCreate = async () => {
-    if (!createName.trim()) {
-      toast.error("Organization name is required");
-      return;
-    }
-    setCreating(true);
-    try {
-      const response = await fetch("/backend/organization/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: createName.trim(),
-          displayName: createDisplayName.trim() || createName.trim(),
-          adminEmail: createAdminEmail.trim() || undefined,
-          contactName: createContactName.trim() || undefined,
-          contactEmail: createContactEmail.trim() || undefined,
-          notes: createNotes.trim() || undefined,
-        }),
-      });
-      const data = await response.json();
-      if (response.ok && data.status === 200) {
-        toast.success(data.message || "Organization created");
-        setShowCreate(false);
-        fetchOrgs();
-      } else {
-        toast.error(data.message || "Failed to create organization");
-      }
-    } catch (error) {
-      console.error("Failed to create organization:", error);
-      toast.error("Failed to create organization");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const openEdit = (org: Organization) => {
-    setEditing(org);
-    setEditDisplayName(org.display_name ?? "");
-    setEditContactName(org.contact_name ?? "");
-    setEditContactEmail(org.contact_email ?? "");
-    setEditNotes(org.notes ?? "");
-  };
-
-  const handleUpdate = async () => {
-    if (!editing) return;
-    setSavingEdit(true);
-    try {
-      const response = await fetch("/backend/organization/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orgId: editing.id,
-          displayName: editDisplayName.trim(),
-          contactName: editContactName.trim(),
-          contactEmail: editContactEmail.trim(),
-          notes: editNotes.trim(),
-        }),
-      });
-      const data = await response.json();
-      if (response.ok && data.status === 200) {
-        toast.success("Organization updated");
-        setEditing(null);
-        fetchOrgs();
-      } else {
-        toast.error(data.message || "Failed to update organization");
-      }
-    } catch (error) {
-      console.error("Failed to update organization:", error);
-      toast.error("Failed to update organization");
-    } finally {
-      setSavingEdit(false);
-    }
-  };
 
   const handleDisable = async () => {
     if (!disableTarget) return;
@@ -241,7 +145,7 @@ function OrganizationsManager() {
             .
           </p>
         </div>
-        <Button onClick={openCreate} disabled={remaining <= 0}>
+        <Button onClick={() => setShowCreate(true)} disabled={remaining <= 0}>
           Create Organization
         </Button>
       </div>
@@ -305,7 +209,7 @@ function OrganizationsManager() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => openEdit(org)}
+                          onClick={() => setEditing(org)}
                         >
                           Edit
                         </Button>
@@ -337,107 +241,19 @@ function OrganizationsManager() {
       )}
 
       {/* Create Modal */}
-      <Modal
+      <CreateOrganizationModal
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
-        title="Create Organization"
-        description="Provisions an Auth0 organization and invites its first admin."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} isLoading={creating}>
-              Create Organization
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Name (slug)"
-            placeholder="e.g. acme-mapping"
-            value={createName}
-            onChange={(e) => setCreateName(e.target.value)}
-          />
-          <Input
-            label="Display Name"
-            placeholder="e.g. Acme Mapping"
-            value={createDisplayName}
-            onChange={(e) => setCreateDisplayName(e.target.value)}
-          />
-          <Input
-            label="First Admin Email"
-            placeholder="admin@acme.com"
-            value={createAdminEmail}
-            onChange={(e) => setCreateAdminEmail(e.target.value)}
-          />
-          <Input
-            label="Contact Name"
-            value={createContactName}
-            onChange={(e) => setCreateContactName(e.target.value)}
-          />
-          <Input
-            label="Contact Email"
-            value={createContactEmail}
-            onChange={(e) => setCreateContactEmail(e.target.value)}
-          />
-          <div>
-            <label className="block text-sm font-medium mb-1">Notes</label>
-            <textarea
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              rows={3}
-              value={createNotes}
-              onChange={(e) => setCreateNotes(e.target.value)}
-            />
-          </div>
-        </div>
-      </Modal>
+        onCreated={fetchOrgs}
+      />
 
       {/* Edit Modal */}
-      <Modal
+      <EditOrganizationModal
         isOpen={!!editing}
         onClose={() => setEditing(null)}
-        title="Edit Organization"
-        description={`Editing "${editing?.display_name || editing?.name}"`}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdate} isLoading={savingEdit}>
-              Save Changes
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Display Name"
-            value={editDisplayName}
-            onChange={(e) => setEditDisplayName(e.target.value)}
-          />
-          <Input
-            label="Contact Name"
-            value={editContactName}
-            onChange={(e) => setEditContactName(e.target.value)}
-          />
-          <Input
-            label="Contact Email"
-            value={editContactEmail}
-            onChange={(e) => setEditContactEmail(e.target.value)}
-          />
-          <div>
-            <label className="block text-sm font-medium mb-1">Notes</label>
-            <textarea
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              rows={3}
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-            />
-          </div>
-        </div>
-      </Modal>
+        organization={editing}
+        onSaved={fetchOrgs}
+      />
 
       {/* Disable Confirmation */}
       <ConfirmDialog

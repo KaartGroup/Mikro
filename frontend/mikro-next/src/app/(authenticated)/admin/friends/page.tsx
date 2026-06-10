@@ -9,7 +9,6 @@ import {
   CardTitle,
   Button,
   Badge,
-  Modal,
   ConfirmDialog,
   Input,
   Table,
@@ -21,11 +20,11 @@ import {
   Skeleton,
   Val,
 } from "@/components/ui";
+import { AddFriendModal } from "@/components/modals/friend/AddFriendModal";
+import { EditFriendModal } from "@/components/modals/friend/EditFriendModal";
 import { useToastActions } from "@/components/ui";
 import {
   useFriendsList,
-  useCreateFriend,
-  useUpdateFriend,
   useDeleteFriend,
   useRefreshFriendActivity,
 } from "@/hooks";
@@ -34,8 +33,6 @@ import { formatNumber, formatDate } from "@/lib/utils";
 
 export default function FriendsListPage() {
   const { data, loading, refetch } = useFriendsList();
-  const { mutate: createFriend, loading: creating } = useCreateFriend();
-  const { mutate: updateFriend, loading: updating } = useUpdateFriend();
   const { mutate: deleteFriend, loading: deleting } = useDeleteFriend();
   const { mutate: refreshFriendActivity } = useRefreshFriendActivity();
   const toast = useToastActions();
@@ -47,15 +44,6 @@ export default function FriendsListPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
-
-  // Add form fields
-  const [addUsername, setAddUsername] = useState("");
-  const [addNotes, setAddNotes] = useState("");
-  const [addTags, setAddTags] = useState("");
-
-  // Edit form fields
-  const [editNotes, setEditNotes] = useState("");
-  const [editTags, setEditTags] = useState("");
 
   // Search & sort
   const [searchTerm, setSearchTerm] = useState("");
@@ -168,61 +156,12 @@ export default function FriendsListPage() {
     filteredAndSorted.length,
   );
 
-  // CRUD handlers
-  const handleCreateFriend = async () => {
-    if (!addUsername.trim()) {
-      toast.error("OSM username is required");
-      return;
-    }
-    try {
-      await createFriend({
-        osm_username: addUsername.trim(),
-        notes: addNotes,
-        tags: addTags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
-      });
-      toast.success("Friend added successfully");
-      setShowAddModal(false);
-      setAddUsername("");
-      setAddNotes("");
-      setAddTags("");
-      refetch();
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to add friend";
-      toast.error(message);
-    }
-  };
-
   const openEditModal = (friend: Friend) => {
     setSelectedFriend(friend);
-    setEditNotes(friend.notes || "");
-    setEditTags((friend.tags || []).join(", "));
     setShowEditModal(true);
   };
 
-  const handleUpdateFriend = async () => {
-    if (!selectedFriend) return;
-    try {
-      await updateFriend({
-        friend_id: selectedFriend.id,
-        notes: editNotes,
-        tags: editTags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
-      });
-      toast.success("Friend updated successfully");
-      setShowEditModal(false);
-      setSelectedFriend(null);
-      refetch();
-    } catch {
-      toast.error("Failed to update friend");
-    }
-  };
-
+  // CRUD handlers
   const handleDeleteFriend = async () => {
     if (!selectedFriend) return;
     try {
@@ -504,116 +443,22 @@ export default function FriendsListPage() {
       )}
 
       {/* Add Modal */}
-      <Modal
+      <AddFriendModal
         isOpen={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          setAddUsername("");
-          setAddNotes("");
-          setAddTags("");
-        }}
-        title="Add to Friends List"
-        description="Add an OSM user to the friends tracking list"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setShowAddModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateFriend} isLoading={creating}>
-              Add Friend
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="OSM Username"
-            placeholder="Enter OSM username"
-            value={addUsername}
-            onChange={(e) => setAddUsername(e.target.value)}
-          />
-          <div>
-            <label className="text-sm font-medium leading-none mb-2 block">
-              Notes
-            </label>
-            <textarea
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              rows={3}
-              placeholder="Optional notes about this user..."
-              value={addNotes}
-              onChange={(e) => setAddNotes(e.target.value)}
-            />
-          </div>
-          <Input
-            label="Tags"
-            placeholder="helpful, experienced, active-reviewer"
-            value={addTags}
-            onChange={(e) => setAddTags(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Separate tags with commas
-          </p>
-        </div>
-      </Modal>
+        onClose={() => setShowAddModal(false)}
+        onCreated={refetch}
+      />
 
       {/* Edit Modal */}
-      <Modal
+      <EditFriendModal
         isOpen={showEditModal}
         onClose={() => {
           setShowEditModal(false);
           setSelectedFriend(null);
         }}
-        title="Edit Friend"
-        description={`Editing ${selectedFriend?.osm_username}`}
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowEditModal(false);
-                setSelectedFriend(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateFriend} isLoading={updating}>
-              Save Changes
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium leading-none mb-2 block">
-              OSM Username
-            </label>
-            <p className="text-sm text-muted-foreground">
-              {selectedFriend?.osm_username}
-            </p>
-          </div>
-          <div>
-            <label className="text-sm font-medium leading-none mb-2 block">
-              Notes
-            </label>
-            <textarea
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              rows={3}
-              placeholder="Notes about this user..."
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-            />
-          </div>
-          <Input
-            label="Tags"
-            placeholder="helpful, experienced, active-reviewer"
-            value={editTags}
-            onChange={(e) => setEditTags(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Separate tags with commas
-          </p>
-        </div>
-      </Modal>
+        friend={selectedFriend}
+        onSaved={refetch}
+      />
 
       {/* Delete Confirmation */}
       <ConfirmDialog

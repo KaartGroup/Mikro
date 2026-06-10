@@ -1,5 +1,5 @@
 import { TaskActionBadge } from "@/components/atoms/TaskActionBadge";
-import { TablePaginator } from "@/components/molecules/TablePaginator";
+import { TablePaginator } from "@/components/tables/TablePaginator";
 import { Val } from "@/components/ui";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { TaskHistoryEntry } from "@/types";
@@ -82,9 +82,7 @@ export function TaskHistoryTable({
                 </td>
                 <td className="px-4 py-2">{t.status}</td>
                 <td className="px-4 py-2 text-right font-mono">
-                  <Val>
-                    {formatCurrency(t.mappingRate || t.validationRate)}
-                  </Val>
+                  <Val>{formatCurrency(t.mappingRate || t.validationRate)}</Val>
                 </td>
               </tr>
             ))}

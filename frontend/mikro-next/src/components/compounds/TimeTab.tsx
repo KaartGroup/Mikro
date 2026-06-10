@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, StatCard, Button } from "@/components/ui";
 import { TimeEntryStatusBadge } from "@/components/atoms/TimeEntryStatusBadge";
-import { TablePaginator } from "@/components/molecules/TablePaginator";
+import { TablePaginator } from "@/components/tables/TablePaginator";
 import {
   formatDuration,
   localDayEndIsoUtc,

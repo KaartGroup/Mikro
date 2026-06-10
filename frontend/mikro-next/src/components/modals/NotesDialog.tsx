@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { useToastActions } from "@/components/ui";
 
 export const USER_NOTES_MAX_LEN = 500;
 
@@ -11,9 +12,11 @@ export interface NotesDialogProps {
   onClose: () => void;
   initialValue: string | null;
   editable: boolean;
-  onConfirm?: (value: string | null) => Promise<void> | void;
+  /** Called with the new value when the user confirms. Throw to signal failure. */
+  onSave?: (value: string | null) => Promise<void> | void;
+  /** Called after a successful save, e.g. to refresh the parent list. */
+  onSaved?: () => void;
   title?: string;
-  isSaving?: boolean;
 }
 
 export function NotesDialog({
@@ -21,11 +24,13 @@ export function NotesDialog({
   onClose,
   initialValue,
   editable,
-  onConfirm,
+  onSave,
+  onSaved,
   title = "Notes",
-  isSaving = false,
 }: NotesDialogProps) {
+  const toast = useToastActions();
   const [value, setValue] = useState(initialValue ?? "");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) setValue(initialValue ?? "");
@@ -36,8 +41,19 @@ export function NotesDialog({
   const unchanged = trimmed === (initialValue ?? "").trim();
 
   const handleConfirm = async () => {
-    if (!onConfirm || overLimit || unchanged) return;
-    await onConfirm(trimmed.length === 0 ? null : trimmed);
+    if (!onSave || overLimit || unchanged) return;
+    setIsSaving(true);
+    try {
+      await onSave(trimmed.length === 0 ? null : trimmed);
+      toast.success("Note saved");
+      onClose();
+      onSaved?.();
+    } catch (error) {
+      console.error("Failed to save note:", error);
+      toast.error("Failed to save note");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!editable) {

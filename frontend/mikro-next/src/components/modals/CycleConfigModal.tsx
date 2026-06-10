@@ -65,8 +65,8 @@ export function CycleConfigModal({
     try {
       await saveConfig(payload);
       toast.success("Payroll cadence saved");
-      onSaved?.();
       onClose();
+      onSaved?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     }

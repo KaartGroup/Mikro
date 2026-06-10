@@ -73,7 +73,8 @@ interface Props {
   isOpen: boolean;
   project: Project | null;
   onClose: () => void;
-  onSaved: () => void;
+  /** Called after the project is successfully saved, e.g. to refresh the list. */
+  onSaved?: () => void;
 }
 
 export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
@@ -101,7 +102,7 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
   // 2026-05-21: Promise.allSettled so a 4xx on one endpoint (e.g.
   // fetch_project_users 403ing for a team_admin) doesn't blank the OTHER tab.
   useEffect(() => {
-    if (!project) return;
+    if (!isOpen || !project) return;
     setFormData(formDataFromProject(project));
     setEditTab("settings");
     setLoading(true);
@@ -125,7 +126,7 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
       })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project]);
+  }, [isOpen, project]);
 
   const handleInputChange = (
     field: keyof ProjectFormData,
@@ -156,7 +157,7 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
       });
       toast.success("Project updated successfully");
       onClose();
-      onSaved();
+      onSaved?.();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to update project",
@@ -231,9 +232,7 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Loading project data…
-          </p>
+          <p className="text-sm text-muted-foreground">Loading project data…</p>
         </div>
       ) : (
         <Tabs
@@ -285,7 +284,9 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
                     disabled
                   />
                   <Input
-                    label={project.source === "mr" ? "MapRoulette URL" : "TM4 URL"}
+                    label={
+                      project.source === "mr" ? "MapRoulette URL" : "TM4 URL"
+                    }
                     value={project.url || ""}
                     readOnly
                     disabled
@@ -399,10 +400,7 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
                     }
                     className="rounded border-input"
                   />
-                  <label
-                    htmlFor="edit-status"
-                    className="text-sm font-medium"
-                  >
+                  <label htmlFor="edit-status" className="text-sm font-medium">
                     Active
                   </label>
                 </div>
@@ -475,9 +473,7 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
                                 ? "destructive"
                                 : "primary"
                             }
-                            onClick={() =>
-                              handleToggleUserAssignment(user.id)
-                            }
+                            onClick={() => handleToggleUserAssignment(user.id)}
                             disabled={assigning}
                           >
                             {user.assigned === "Yes" ? "Unassign" : "Assign"}
@@ -548,10 +544,7 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
                                 : "primary"
                             }
                             onClick={() =>
-                              handleToggleTeamAssignment(
-                                team.id,
-                                team.assigned,
-                              )
+                              handleToggleTeamAssignment(team.id, team.assigned)
                             }
                           >
                             {team.assigned === "Assigned"

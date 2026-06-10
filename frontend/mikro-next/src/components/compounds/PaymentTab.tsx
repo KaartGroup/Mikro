@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, StatCard, Val } from "@/components/ui";
-import { TablePaginator } from "@/components/molecules/TablePaginator";
+import { TablePaginator } from "@/components/tables/TablePaginator";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { UserPaymentSummaryResponse } from "@/types";
 

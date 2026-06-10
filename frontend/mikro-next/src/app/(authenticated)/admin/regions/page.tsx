@@ -4,12 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Button,
-  Modal,
   ConfirmDialog,
-  Input,
   Table,
   TableHeader,
   TableBody,
@@ -20,6 +16,10 @@ import {
 } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
 import { formatNumber } from "@/lib/utils";
+import { CreateRegionModal } from "@/components/modals/region/CreateRegionModal";
+import { EditRegionModal } from "@/components/modals/region/EditRegionModal";
+import { CreateCountryModal } from "@/components/modals/country/CreateCountryModal";
+import { EditCountryModal } from "@/components/modals/country/EditCountryModal";
 
 interface Country {
   id: number;
@@ -49,18 +49,12 @@ export default function AdminRegionsPage() {
   const [deleteRegionTarget, setDeleteRegionTarget] = useState<Region | null>(
     null,
   );
-  const [regionName, setRegionName] = useState("");
-  const [regionSaving, setRegionSaving] = useState(false);
 
   // Country modal state
   const [showCreateCountryModal, setShowCreateCountryModal] = useState(false);
   const [editingCountry, setEditingCountry] = useState<Country | null>(null);
   const [deleteCountryTarget, setDeleteCountryTarget] =
     useState<Country | null>(null);
-  const [countryName, setCountryName] = useState("");
-  const [countryIsoCode, setCountryIsoCode] = useState("");
-  const [countryTimezone, setCountryTimezone] = useState("");
-  const [countrySaving, setCountrySaving] = useState(false);
 
   // Pagination for countries table
   const ROWS_PER_PAGE = 20;
@@ -129,77 +123,6 @@ export default function AdminRegionsPage() {
     }
   };
 
-  // Region CRUD
-  const openCreateRegionModal = () => {
-    setRegionName("");
-    setShowCreateRegionModal(true);
-  };
-
-  const openEditRegionModal = (region: Region) => {
-    setEditingRegion(region);
-    setRegionName(region.name);
-  };
-
-  const handleCreateRegion = async () => {
-    if (!regionName.trim()) {
-      toast.error("Region name is required");
-      return;
-    }
-    setRegionSaving(true);
-    try {
-      const response = await fetch("/backend/region/create_region", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: regionName.trim() }),
-      });
-      const data = await response.json();
-      if (response.ok && data.status === 200) {
-        toast.success("Region created");
-        setShowCreateRegionModal(false);
-        fetchRegions();
-      } else {
-        toast.error(data.message || "Failed to create region");
-      }
-    } catch (error) {
-      console.error("Failed to create region:", error);
-      toast.error("Failed to create region");
-    } finally {
-      setRegionSaving(false);
-    }
-  };
-
-  const handleUpdateRegion = async () => {
-    if (!editingRegion) return;
-    if (!regionName.trim()) {
-      toast.error("Region name is required");
-      return;
-    }
-    setRegionSaving(true);
-    try {
-      const response = await fetch("/backend/region/update_region", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          regionId: editingRegion.id,
-          name: regionName.trim(),
-        }),
-      });
-      const data = await response.json();
-      if (response.ok && data.status === 200) {
-        toast.success("Region updated");
-        setEditingRegion(null);
-        fetchRegions();
-      } else {
-        toast.error(data.message || "Failed to update region");
-      }
-    } catch (error) {
-      console.error("Failed to update region:", error);
-      toast.error("Failed to update region");
-    } finally {
-      setRegionSaving(false);
-    }
-  };
-
   const handleDeleteRegion = async () => {
     if (!deleteRegionTarget) return;
     try {
@@ -222,98 +145,6 @@ export default function AdminRegionsPage() {
     } catch (error) {
       console.error("Failed to delete region:", error);
       toast.error("Failed to delete region");
-    }
-  };
-
-  // Country CRUD
-  const openCreateCountryModal = () => {
-    setCountryName("");
-    setCountryIsoCode("");
-    setCountryTimezone("");
-    setShowCreateCountryModal(true);
-  };
-
-  const openEditCountryModal = (country: Country) => {
-    setEditingCountry(country);
-    setCountryName(country.name);
-    setCountryIsoCode(country.iso_code);
-    setCountryTimezone(country.default_timezone);
-  };
-
-  const handleCreateCountry = async () => {
-    if (!selectedRegion) return;
-    if (!countryName.trim()) {
-      toast.error("Country name is required");
-      return;
-    }
-    if (!countryIsoCode.trim()) {
-      toast.error("ISO code is required");
-      return;
-    }
-    setCountrySaving(true);
-    try {
-      const response = await fetch("/backend/region/create_country", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: countryName.trim(),
-          isoCode: countryIsoCode.trim().toUpperCase(),
-          regionId: selectedRegion.id,
-          defaultTimezone: countryTimezone.trim() || "",
-        }),
-      });
-      const data = await response.json();
-      if (response.ok && data.status === 200) {
-        toast.success("Country created");
-        setShowCreateCountryModal(false);
-        fetchRegions();
-      } else {
-        toast.error(data.message || "Failed to create country");
-      }
-    } catch (error) {
-      console.error("Failed to create country:", error);
-      toast.error("Failed to create country");
-    } finally {
-      setCountrySaving(false);
-    }
-  };
-
-  const handleUpdateCountry = async () => {
-    if (!editingCountry || !selectedRegion) return;
-    if (!countryName.trim()) {
-      toast.error("Country name is required");
-      return;
-    }
-    if (!countryIsoCode.trim()) {
-      toast.error("ISO code is required");
-      return;
-    }
-    setCountrySaving(true);
-    try {
-      const response = await fetch("/backend/region/update_country", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          countryId: editingCountry.id,
-          name: countryName.trim(),
-          isoCode: countryIsoCode.trim().toUpperCase(),
-          regionId: selectedRegion.id,
-          defaultTimezone: countryTimezone.trim() || "",
-        }),
-      });
-      const data = await response.json();
-      if (response.ok && data.status === 200) {
-        toast.success("Country updated");
-        setEditingCountry(null);
-        fetchRegions();
-      } else {
-        toast.error(data.message || "Failed to update country");
-      }
-    } catch (error) {
-      console.error("Failed to update country:", error);
-      toast.error("Failed to update country");
-    } finally {
-      setCountrySaving(false);
     }
   };
 
@@ -370,7 +201,7 @@ export default function AdminRegionsPage() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Regions</h2>
-            <Button size="sm" onClick={openCreateRegionModal}>
+            <Button size="sm" onClick={() => setShowCreateRegionModal(true)}>
               Create Region
             </Button>
           </div>
@@ -410,7 +241,7 @@ export default function AdminRegionsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => openEditRegionModal(region)}
+                        onClick={() => setEditingRegion(region)}
                       >
                         Edit
                       </Button>
@@ -438,7 +269,7 @@ export default function AdminRegionsPage() {
                 : "Countries"}
             </h2>
             {selectedRegion && (
-              <Button size="sm" onClick={openCreateCountryModal}>
+              <Button size="sm" onClick={() => setShowCreateCountryModal(true)}>
                 Add Country
               </Button>
             )}
@@ -492,7 +323,7 @@ export default function AdminRegionsPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => openEditCountryModal(country)}
+                                onClick={() => setEditingCountry(country)}
                               >
                                 Edit
                               </Button>
@@ -557,60 +388,19 @@ export default function AdminRegionsPage() {
       </div>
 
       {/* Create Region Modal */}
-      <Modal
+      <CreateRegionModal
         isOpen={showCreateRegionModal}
         onClose={() => setShowCreateRegionModal(false)}
-        title="Create Region"
-        description="Add a new region to organize countries"
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => setShowCreateRegionModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreateRegion} isLoading={regionSaving}>
-              Create Region
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Region Name"
-            placeholder="e.g. East Africa"
-            value={regionName}
-            onChange={(e) => setRegionName(e.target.value)}
-          />
-        </div>
-      </Modal>
+        onCreated={fetchRegions}
+      />
 
       {/* Edit Region Modal */}
-      <Modal
+      <EditRegionModal
         isOpen={!!editingRegion}
         onClose={() => setEditingRegion(null)}
-        title="Edit Region"
-        description={`Editing "${editingRegion?.name}"`}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setEditingRegion(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateRegion} isLoading={regionSaving}>
-              Save Changes
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Region Name"
-            value={regionName}
-            onChange={(e) => setRegionName(e.target.value)}
-          />
-        </div>
-      </Modal>
+        region={editingRegion}
+        onSaved={fetchRegions}
+      />
 
       {/* Delete Region Confirmation */}
       <ConfirmDialog
@@ -624,82 +414,21 @@ export default function AdminRegionsPage() {
       />
 
       {/* Create Country Modal */}
-      <Modal
+      <CreateCountryModal
         isOpen={showCreateCountryModal}
         onClose={() => setShowCreateCountryModal(false)}
-        title="Add Country"
-        description={`Add a country to ${selectedRegion?.name}`}
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => setShowCreateCountryModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreateCountry} isLoading={countrySaving}>
-              Add Country
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Country Name"
-            placeholder="e.g. Kenya"
-            value={countryName}
-            onChange={(e) => setCountryName(e.target.value)}
-          />
-          <Input
-            label="ISO Code"
-            placeholder="e.g. KE"
-            value={countryIsoCode}
-            onChange={(e) => setCountryIsoCode(e.target.value)}
-          />
-          <Input
-            label="Default Timezone"
-            placeholder="e.g. Africa/Nairobi"
-            value={countryTimezone}
-            onChange={(e) => setCountryTimezone(e.target.value)}
-          />
-        </div>
-      </Modal>
+        selectedRegion={selectedRegion}
+        onCreated={fetchRegions}
+      />
 
       {/* Edit Country Modal */}
-      <Modal
+      <EditCountryModal
         isOpen={!!editingCountry}
         onClose={() => setEditingCountry(null)}
-        title="Edit Country"
-        description={`Editing "${editingCountry?.name}"`}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setEditingCountry(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateCountry} isLoading={countrySaving}>
-              Save Changes
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Country Name"
-            value={countryName}
-            onChange={(e) => setCountryName(e.target.value)}
-          />
-          <Input
-            label="ISO Code"
-            value={countryIsoCode}
-            onChange={(e) => setCountryIsoCode(e.target.value)}
-          />
-          <Input
-            label="Default Timezone"
-            value={countryTimezone}
-            onChange={(e) => setCountryTimezone(e.target.value)}
-          />
-        </div>
-      </Modal>
+        country={editingCountry}
+        selectedRegion={selectedRegion}
+        onSaved={fetchRegions}
+      />
 
       {/* Delete Country Confirmation */}
       <ConfirmDialog
@@ -711,7 +440,6 @@ export default function AdminRegionsPage() {
         confirmText="Delete"
         variant="destructive"
       />
-
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -8,7 +8,6 @@ import {
   CardTitle,
   Button,
   Badge,
-  Modal,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -22,11 +21,9 @@ import {
   Skeleton,
   Val,
 } from "@/components/ui";
-import { useToastActions } from "@/components/ui";
 import {
   useUserTransactions,
   useUserPayable,
-  useSubmitPaymentRequest,
 } from "@/hooks";
 import { useRole } from "@/contexts/RoleContext";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
@@ -36,6 +33,7 @@ import {
   ReimbursementSubmitModal,
   ReimbursementsHistoryPanel,
 } from "@/components/user/ReimbursementsSection";
+import { RequestPaymentModal } from "@/components/modals/payment/RequestPaymentModal";
 
 export function UserPayments() {
   const {
@@ -48,13 +46,9 @@ export function UserPayments() {
     loading: payableLoading,
     refetch: refetchPayable,
   } = useUserPayable();
-  const { mutate: submitPayment, loading: submitting } =
-    useSubmitPaymentRequest();
   const { paymentsVisible } = useRole();
-  const toast = useToastActions();
 
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [paymentNotes, setPaymentNotes] = useState("");
 
   // Reimbursement workflow state. The submit modal lives at page level
   // so the "Submit Reimbursement" header button can open it regardless
@@ -99,24 +93,6 @@ export function UserPayments() {
 
   const pendingTotal = requests.reduce((sum, r) => sum + r.amount_requested, 0);
   const totalReceived = payments.reduce((sum, p) => sum + p.amount_paid, 0);
-
-  const handleRequestPayment = async () => {
-    if (!payable || payable.payable_total <= 0) {
-      toast.error("No payable amount available");
-      return;
-    }
-
-    try {
-      await submitPayment({ notes: paymentNotes });
-      toast.success("Payment request submitted successfully");
-      setShowRequestModal(false);
-      setPaymentNotes("");
-      await refetch();
-      await refetchPayable();
-    } catch {
-      toast.error("Failed to submit payment request");
-    }
-  };
 
   const loading = transactionsLoading || payableLoading;
 
@@ -518,84 +494,15 @@ export function UserPayments() {
       </Tabs>
 
       {/* Request Payment Modal */}
-      <Modal
+      <RequestPaymentModal
         isOpen={showRequestModal}
-        onClose={() => {
-          setShowRequestModal(false);
-          setPaymentNotes("");
+        onClose={() => setShowRequestModal(false)}
+        payable={payable}
+        onRequested={async () => {
+          await refetch();
+          await refetchPayable();
         }}
-        title="Request Payment"
-        description="Submit a payment request for your available balance"
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => setShowRequestModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleRequestPayment}
-              isLoading={submitting}
-              disabled={(payable?.payable_total ?? 0) <= 0}
-            >
-              Submit Request
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <div className="rounded-lg bg-kaart-orange/10 p-4">
-            <p className="text-sm text-muted-foreground">You are requesting:</p>
-            <p className="text-3xl font-bold text-kaart-orange">
-              <Val>{formatCurrency(payable?.payable_total)}</Val>
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Earnings Breakdown:</p>
-            <div className="text-sm space-y-1 bg-muted p-3 rounded-lg">
-              <div className="flex justify-between">
-                <span>Mapping:</span>
-                <span className="font-medium">
-                  <Val>{formatCurrency(payable?.mapping_earnings)}</Val>
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Validation:</span>
-                <span className="font-medium">
-                  <Val>{formatCurrency(payable?.validation_earnings)}</Val>
-                </span>
-              </div>
-              <div className="border-t border-border pt-1 mt-1 flex justify-between font-bold">
-                <span>Total:</span>
-                <span>
-                  <Val>{formatCurrency(payable?.payable_total)}</Val>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Notes (optional)
-            </label>
-            <textarea
-              className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background"
-              rows={3}
-              placeholder="Add any notes for this payment request..."
-              value={paymentNotes}
-              onChange={(e) => setPaymentNotes(e.target.value)}
-            />
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Payment will be processed within 5-7 business days after approval.
-            You will receive the payment to your registered payment method.
-          </p>
-        </div>
-      </Modal>
+      />
     </div>
   );
 }

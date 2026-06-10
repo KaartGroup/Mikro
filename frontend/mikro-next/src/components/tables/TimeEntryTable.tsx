@@ -1,5 +1,5 @@
 import { TimeEntryStatusBadge } from "@/components/atoms/TimeEntryStatusBadge";
-import { TablePaginator } from "@/components/molecules/TablePaginator";
+import { TablePaginator } from "@/components/tables/TablePaginator";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { formatDuration } from "@/lib/timeTracking";
@@ -26,10 +26,7 @@ export function TimeEntryTable({
   onEdit,
   onVoid,
 }: TimeEntryTableProps) {
-  const paged = entries.slice(
-    (page - 1) * ROWS_PER_PAGE,
-    page * ROWS_PER_PAGE,
-  );
+  const paged = entries.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
 
   if (loading) {
     return (

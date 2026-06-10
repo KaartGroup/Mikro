@@ -1706,6 +1706,7 @@ class UserAPI(MethodView):
 
         _stats = get_user_task_stats(user)
         _pay = PaymentBalanceService.user_balances(user)
+        active_rate = HourlyRateHistoryService().get_active_rate(user.id, date.today())
         return {
             "status": 200,
             "user": {
@@ -1726,9 +1727,8 @@ class UserAPI(MethodView):
                 "timezone": user.timezone,
                 "is_tracked_only": user.is_tracked_only or False,
                 "micropayments_visible": user.micropayments_visible or False,
-                "hourly_rate": HourlyRateHistoryService().rate_map_for_users(
-                    [user.id], date.today()
-                ).get(user.id),
+                "hourly_rate": active_rate and float(active_rate.rate),
+                "hourly_rate_start_date": active_rate.start_date.isoformat() if active_rate else None,
                 "compensation_model": user.compensation_model,
                 "is_active": bool(getattr(user, "is_active", True)),
                 "joined": user.create_time.isoformat() if user.create_time else None,

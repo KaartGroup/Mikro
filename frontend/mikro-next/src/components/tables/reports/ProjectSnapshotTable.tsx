@@ -39,7 +39,10 @@ export function ProjectSnapshotTable({ projects }: ProjectSnapshotTableProps) {
   const sorted = useMemo(() => {
     const rows = projects.map((p) => ({
       ...p,
-      pct: p.total_tasks > 0 ? Math.round((p.tasks_mapped / p.total_tasks) * 100) : 0,
+      pct:
+        p.total_tasks > 0
+          ? Math.round((p.tasks_mapped / p.total_tasks) * 100)
+          : 0,
       remaining: Math.max(0, p.total_tasks - p.tasks_mapped),
     }));
     rows.sort((a, b) => {
@@ -63,7 +66,9 @@ export function ProjectSnapshotTable({ projects }: ProjectSnapshotTableProps) {
 
   function sortIndicator(key: SortKey) {
     if (key !== sortKey) return null;
-    return <span className="ml-1 opacity-60">{sortDir === "asc" ? "↑" : "↓"}</span>;
+    return (
+      <span className="ml-1 opacity-60">{sortDir === "asc" ? "↑" : "↓"}</span>
+    );
   }
 
   if (projects.length === 0) {
@@ -98,14 +103,23 @@ export function ProjectSnapshotTable({ projects }: ProjectSnapshotTableProps) {
                 <th className={thClass} onClick={() => handleSort("name")}>
                   Project{sortIndicator("name")}
                 </th>
-                <th className={`${thClass} text-right`} onClick={() => handleSort("total_tasks")}>
+                <th
+                  className={`${thClass} text-right`}
+                  onClick={() => handleSort("total_tasks")}
+                >
                   Total Tasks{sortIndicator("total_tasks")}
                 </th>
-                <th className={`${thClass} text-right`} onClick={() => handleSort("tasks_mapped")}>
+                <th
+                  className={`${thClass} text-right`}
+                  onClick={() => handleSort("tasks_mapped")}
+                >
                   Completed{sortIndicator("tasks_mapped")}
                 </th>
                 <th className={`${thClass} text-right`}>Remaining</th>
-                <th className={`${thClass} text-right`} onClick={() => handleSort("pct")}>
+                <th
+                  className={`${thClass} text-right`}
+                  onClick={() => handleSort("pct")}
+                >
                   % Complete{sortIndicator("pct")}
                 </th>
                 <th className={thClass}>Status</th>
@@ -133,7 +147,9 @@ export function ProjectSnapshotTable({ projects }: ProjectSnapshotTableProps) {
                   <td className={`${tdClass} text-right tabular-nums`}>
                     {p.tasks_mapped.toLocaleString()}
                   </td>
-                  <td className={`${tdClass} text-right tabular-nums text-muted-foreground`}>
+                  <td
+                    className={`${tdClass} text-right tabular-nums text-muted-foreground`}
+                  >
                     {p.remaining.toLocaleString()}
                   </td>
                   <td className={`${tdClass} text-right tabular-nums`}>

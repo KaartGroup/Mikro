@@ -31,8 +31,8 @@ import {
   useCurrentUserRole,
   useManagedTeams,
 } from "@/hooks";
-import { AddProjectModal } from "./AddProjectModal";
-import { EditProjectModal } from "./EditProjectModal";
+import { AddProjectModal } from "@/components/modals/project/AddProjectModal";
+import { EditProjectModal } from "@/components/modals/project/EditProjectModal";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
@@ -64,9 +64,8 @@ export function AdminProjects() {
   const { teams: managedTeams, loading: managedTeamsLoading } =
     useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
-  const canCreateOrDelete = isOrgAdminOrAbove(viewerRole);
   // team_admin can now create AND edit projects (delete is still org_admin only).
-  const canCreateOrEdit = isAnyAdmin(viewerRole);
+  const canCreateOrEditOrDelete = isAnyAdmin(viewerRole);
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -641,7 +640,7 @@ export function AdminProjects() {
                     >
                       Edit
                     </Button>
-                    {(canCreateOrDelete || project.can_delete) && (
+                    {(canCreateOrEditOrDelete || project.can_delete) && (
                       <Button
                         size="sm"
                         variant="destructive"
@@ -732,7 +731,7 @@ export function AdminProjects() {
             Manage TM4 projects and payment rates
           </p>
         </div>
-        {canCreateOrEdit && (
+        {canCreateOrEditOrDelete && (
           <Button onClick={() => setShowAddModal(true)}>Add Project</Button>
         )}
       </div>
@@ -875,7 +874,6 @@ export function AdminProjects() {
         onClose={() => {
           setShowEditModal(false);
           setSelectedProject(null);
-          refetch(buildRefetchBody());
         }}
         onSaved={() => refetch(buildRefetchBody())}
       />

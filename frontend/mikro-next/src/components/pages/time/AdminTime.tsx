@@ -13,7 +13,6 @@ import {
   TableRow,
   TableCell,
   Skeleton,
-  Modal,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -25,9 +24,7 @@ import {
   useApiMutation,
   useAdminActiveSessions,
   useAdminLongSessions,
-  useEditTimeEntry,
   useVoidTimeEntry,
-  useAdminAddTimeEntry,
   useForceClockOut,
   useExportTimeEntries,
   useFetchFilterOptions,
@@ -53,19 +50,16 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { AdminTimeCategoriesView } from "@/components/pages/time/_categories";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import { PendingAdjustmentsStrip } from "@/components/admin/PendingAdjustmentsStrip";
-import { sortProjectsAlphabetical } from "@/lib/sortProjects";
 import {
   formatDuration,
   formatDurationHuman,
   resolveCategoryKey,
-  categoryLabel,
-  CATEGORY_LABELS,
   CATEGORY_FILTER_LABELS,
   formatDateRangeShort,
   formatDateTime,
-  toDatetimeLocal,
-  fromDatetimeLocal,
 } from "@/lib/timeTracking";
+import { AdminEditTimeEntryModal } from "@/components/modals/time/AdminEditTimeEntryModal";
+import { AdminAddTimeEntryModal } from "@/components/modals/time/AdminAddTimeEntryModal";
 
 // --- Date range presets ---
 
@@ -179,7 +173,6 @@ function formatDateRangeLabel(
 // drift from the backend's VALID_CATEGORIES.
 
 const CATEGORIES = CATEGORY_FILTER_LABELS;
-const CATEGORY_OPTIONS = Object.keys(CATEGORY_LABELS);
 
 // --- Formatting helpers ---
 
@@ -262,23 +255,12 @@ export default function AdminTime() {
 
   // Edit modal state
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
-  const [editClockIn, setEditClockIn] = useState("");
-  const [editClockOut, setEditClockOut] = useState("");
-  const [editCategory, setEditCategory] = useState("");
-  const [editError, setEditError] = useState<string | null>(null);
 
   // Void confirmation state
   const [voidingEntryId, setVoidingEntryId] = useState<number | null>(null);
 
   // Add entry modal state
   const [showAddEntry, setShowAddEntry] = useState(false);
-  const [addUserId, setAddUserId] = useState("");
-  const [addProjectId, setAddProjectId] = useState("");
-  const [addCategory, setAddCategory] = useState("editing");
-  const [addClockIn, setAddClockIn] = useState("");
-  const [addClockOut, setAddClockOut] = useState("");
-  const [addNotes, setAddNotes] = useState("");
-  const [addError, setAddError] = useState<string | null>(null);
 
   // Data fetching
   const { mutate: fetchHistoryPage } =
@@ -307,9 +289,7 @@ export default function AdminTime() {
     loading: longSessionsLoading,
     refetch: refetchLongSessions,
   } = useAdminLongSessions();
-  const { mutate: editEntry, loading: editing } = useEditTimeEntry();
   const { mutate: voidEntry, loading: voiding } = useVoidTimeEntry();
-  const { mutate: addTimeEntry, loading: addingEntry } = useAdminAddTimeEntry();
   const { mutate: forceClockOut, loading: forcingClockOut } =
     useForceClockOut();
   const { exportEntries, loading: exporting } = useExportTimeEntries();
@@ -620,39 +600,6 @@ export default function AdminTime() {
 
   const handleOpenEdit = (entry: TimeEntry) => {
     setEditingEntry(entry);
-    setEditClockIn(entry.clockIn ? toDatetimeLocal(entry.clockIn) : "");
-    setEditClockOut(entry.clockOut ? toDatetimeLocal(entry.clockOut) : "");
-    setEditCategory(resolveCategoryKey(entry.category) ?? "editing");
-    setEditError(null);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingEntry) return;
-    setEditError(null);
-
-    if (!editClockIn) {
-      setEditError("Clock in time is required");
-      return;
-    }
-
-    try {
-      await editEntry({
-        entry_id: editingEntry.id,
-        clockIn: fromDatetimeLocal(editClockIn),
-        clockOut: editClockOut ? fromDatetimeLocal(editClockOut) : undefined,
-        category: editCategory,
-      });
-      setEditingEntry(null);
-      toast.success("Time entry updated");
-      fetchWithFilters();
-      // Tell PendingAdjustmentsStrip (and anyone else listening) to
-      // re-fetch so a just-resolved adjustment disappears immediately.
-      window.dispatchEvent(new Event("time-entry-updated"));
-    } catch (err) {
-      setEditError(
-        err instanceof Error ? err.message : "Failed to update entry",
-      );
-    }
   };
 
   const handleVoidEntry = async (id: number) => {
@@ -667,48 +614,7 @@ export default function AdminTime() {
   };
 
   const handleOpenAddEntry = () => {
-    setAddUserId("");
-    setAddProjectId("");
-    setAddCategory("editing");
-    setAddClockIn("");
-    setAddClockOut("");
-    setAddNotes("");
-    setAddError(null);
     setShowAddEntry(true);
-  };
-
-  const handleSaveAddEntry = async () => {
-    setAddError(null);
-    if (!addUserId) {
-      setAddError("User is required");
-      return;
-    }
-    if (!addClockIn) {
-      setAddError("Clock in time is required");
-      return;
-    }
-    if (!addClockOut) {
-      setAddError("Clock out time is required");
-      return;
-    }
-
-    try {
-      await addTimeEntry({
-        userId: addUserId,
-        projectId: addProjectId ? Number(addProjectId) : undefined,
-        category: addCategory,
-        clockIn: fromDatetimeLocal(addClockIn),
-        clockOut: fromDatetimeLocal(addClockOut),
-        notes: addNotes,
-      });
-      setShowAddEntry(false);
-      toast.success("Time entry created");
-      fetchWithFilters();
-    } catch (err) {
-      setAddError(
-        err instanceof Error ? err.message : "Failed to create entry",
-      );
-    }
   };
 
   const handleExport = async (format: "csv" | "json" | "pdf") => {
@@ -1327,7 +1233,7 @@ export default function AdminTime() {
                                   <button
                                     type="button"
                                     onClick={() => handleOpenEdit(session)}
-                                    disabled={editing}
+                                    disabled={false}
                                     className="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                                     title="Edit entry"
                                   >
@@ -1644,7 +1550,6 @@ export default function AdminTime() {
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(entry)}
-                                disabled={editing}
                                 className="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                                 title="Edit entry"
                               >
@@ -1774,212 +1679,28 @@ export default function AdminTime() {
           )}
 
           {/* Edit Entry Modal */}
-          <Modal
-            isOpen={!!editingEntry}
+          <AdminEditTimeEntryModal
+            entry={editingEntry}
             onClose={() => setEditingEntry(null)}
-            title="Edit Time Entry"
-            description={
-              editingEntry
-                ? `${editingEntry.userName} -- ${editingEntry.projectName || "No project"}`
-                : ""
-            }
-            size="sm"
-            footer={
-              <>
-                <Button variant="outline" onClick={() => setEditingEntry(null)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleSaveEdit}
-                  isLoading={editing}
-                >
-                  Save Changes
-                </Button>
-              </>
-            }
-          >
-            {editingEntry && (
-              <div className="space-y-4">
-                {editError && (
-                  <p className="text-sm text-red-600">{editError}</p>
-                )}
-
-                {editingEntry.notes?.startsWith("[ADJUSTMENT REQUESTED]") && (
-                  <div className="rounded-lg bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 p-3">
-                    <p className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-1">
-                      User Requested Adjustment
-                    </p>
-                    <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                      {editingEntry.notes.replace(
-                        "[ADJUSTMENT REQUESTED] ",
-                        "",
-                      )}
-                    </p>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Clock In
-                  </label>
-                  <input
-                    type="datetime-local"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={editClockIn}
-                    onChange={(e) => setEditClockIn(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Clock Out
-                  </label>
-                  <input
-                    type="datetime-local"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={editClockOut}
-                    onChange={(e) => setEditClockOut(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Category
-                  </label>
-                  <select
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value)}
-                  >
-                    {CATEGORY_OPTIONS.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {categoryLabel(cat)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-          </Modal>
+            onSaved={() => {
+              refetchSessions();
+              refetchLongSessions().catch(() => {});
+              fetchWithFilters();
+            }}
+          />
 
           {/* Add Entry Modal */}
-          <Modal
+          <AdminAddTimeEntryModal
             isOpen={showAddEntry}
             onClose={() => setShowAddEntry(false)}
-            title="Add Time Entry"
-            description="Manually create a time entry for a user"
-            size="sm"
-            footer={
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAddEntry(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleSaveAddEntry}
-                  isLoading={addingEntry}
-                >
-                  Create Entry
-                </Button>
-              </>
-            }
-          >
-            <div className="space-y-4">
-              {addError && <p className="text-sm text-red-600">{addError}</p>}
-
-              <div>
-                <label className="block text-sm font-medium mb-1">User</label>
-                <select
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={addUserId}
-                  onChange={(e) => setAddUserId(e.target.value)}
-                >
-                  <option value="">Select a user...</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Project (optional)
-                </label>
-                <select
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={addProjectId}
-                  onChange={(e) => setAddProjectId(e.target.value)}
-                >
-                  <option value="">No project</option>
-                  {sortProjectsAlphabetical(projects).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Category
-                </label>
-                <select
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={addCategory}
-                  onChange={(e) => setAddCategory(e.target.value)}
-                >
-                  {CATEGORY_OPTIONS.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {categoryLabel(cat)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Clock In
-                </label>
-                <input
-                  type="datetime-local"
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={addClockIn}
-                  onChange={(e) => setAddClockIn(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Clock Out
-                </label>
-                <input
-                  type="datetime-local"
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={addClockOut}
-                  onChange={(e) => setAddClockOut(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Notes (optional)
-                </label>
-                <textarea
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-                  rows={2}
-                  value={addNotes}
-                  onChange={(e) => setAddNotes(e.target.value)}
-                  placeholder="Reason for manual entry..."
-                />
-              </div>
-            </div>
-          </Modal>
+            users={users}
+            projects={projects}
+            onCreated={() => {
+              refetchSessions();
+              refetchLongSessions().catch(() => {});
+              fetchWithFilters();
+            }}
+          />
         </>
       )}
     </div>

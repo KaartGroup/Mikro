@@ -10,7 +10,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Modal,
   Button,
   Select,
   Input,
@@ -20,6 +19,7 @@ import {
   Val,
   StatCard,
 } from "@/components/ui";
+import { TimeEntryEditModal } from "@/components/modals/time/TimeEntryEditModal";
 import {
   useFetchUserProfile,
   useFetchUserStatsByDate,
@@ -28,9 +28,7 @@ import {
   useFetchUserActivityChart,
   useFetchUserTaskHistory,
   useFetchCountries,
-  useEditTimeEntry,
   useVoidTimeEntry,
-  useModifyUserRole,
   useSyncUserProjects,
   useDeactivateUser,
   useReactivateUser,
@@ -66,7 +64,7 @@ import {
   fromDatetimeLocal,
 } from "@/lib/timeTracking";
 import { RecentActivityCard } from "@/components/admin/RecentActivityCard";
-import { AssignedProjectsTable } from "@/components/admin/AssignedProjectsTable";
+import { AssignedProjectsTable } from "@/components/tables/admin/AssignedProjectsTable";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import {
   formatDuration,
@@ -76,6 +74,7 @@ import {
   localMonthStartIsoUtc,
 } from "@/lib/timeTracking";
 import { openChangesetInJosm, zoomToChangeset } from "@/lib/josmRemoteControl";
+import { EditUserModal } from "@/components/modals/user/EditUserModal";
 
 const MappingHeatmap = dynamic(() => import("@/components/MappingHeatmap"), {
   ssr: false,
@@ -151,11 +150,7 @@ export function AdminUserProfile() {
   const { mutate: fetchActivity } = useFetchUserActivityChart();
   const { mutate: fetchTaskHistory } = useFetchUserTaskHistory();
   const { data: countriesData } = useFetchCountries();
-  const { mutate: editTimeEntry, loading: editingTimeEntry } =
-    useEditTimeEntry();
   const { mutate: voidTimeEntry } = useVoidTimeEntry();
-  const { mutate: modifyUser, loading: updateDetailsLoading } =
-    useModifyUserRole();
   const { mutate: syncUserProjects, loading: syncing } = useSyncUserProjects();
   const { mutate: deactivateUser, loading: deactivating } = useDeactivateUser();
   const { mutate: reactivateUser, loading: reactivating } = useReactivateUser();
@@ -264,25 +259,9 @@ export function AdminUserProfile() {
 
   // Full edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editFirstName, setEditFirstName] = useState("");
-  const [editLastName, setEditLastName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editOsmUsername, setEditOsmUsername] = useState("");
-  const [editMapillaryUsername2, setEditMapillaryUsername2] = useState("");
-  const [editRole, setEditRole] = useState("user");
-  const [editTimezone2, setEditTimezone2] = useState("");
-  const [editCountryId2, setEditCountryId2] = useState("");
-  const [editPaymentsVisible, setEditPaymentsVisible] = useState(false);
-  const [editHourlyRate, setEditHourlyRate] = useState<string>("");
-  const [editHourlyRateStartDate, setEditHourlyRateStartDate] = useState<string>("");
-  const [editCompModel, setEditCompModel] = useState<string>("");
 
   // Time entry edit modal state
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
-  const [editClockIn, setEditClockIn] = useState("");
-  const [editClockOut, setEditClockOut] = useState("");
-  const [editCategory, setEditCategory] = useState("");
-  const [editError, setEditError] = useState<string | null>(null);
 
   // Load profile on mount
   useEffect(() => {
@@ -572,45 +551,6 @@ export function AdminUserProfile() {
   // Time entry edit/void handlers
   const handleOpenEditEntry = (entry: TimeEntry) => {
     setEditingEntry(entry);
-    setEditClockIn(entry.clockIn ? toDatetimeLocal(entry.clockIn) : "");
-    setEditClockOut(entry.clockOut ? toDatetimeLocal(entry.clockOut) : "");
-    setEditCategory(resolveCategoryKey(entry.category) ?? "editing");
-    setEditError(null);
-  };
-
-  const handleSaveEditEntry = async () => {
-    if (!editingEntry) return;
-    setEditError(null);
-    if (!editClockIn) {
-      setEditError("Clock in time is required");
-      return;
-    }
-    try {
-      await editTimeEntry({
-        entry_id: editingEntry.id,
-        clockIn: fromDatetimeLocal(editClockIn),
-        clockOut: editClockOut ? fromDatetimeLocal(editClockOut) : undefined,
-        category: editCategory,
-      });
-      setEditingEntry(null);
-      toast.success("Time entry updated");
-      // Refresh the current date range. Always go through getDateRange so
-      // this stays in lock-step with the calendar-aligned semantics
-      // (Sun-Sat week, MTD month) and never drifts back to rolling math.
-      if (datePreset !== "custom") {
-        const range = getDateRange(datePreset);
-        loadDateStats(`${range.start}T00:00:00`, `${range.end}T23:59:59`);
-      } else if (customStart && customEnd) {
-        loadDateStats(
-          `${customStart}T${customStartTime}:00`,
-          `${customEnd}T${customEndTime}:00`,
-        );
-      }
-    } catch (err) {
-      setEditError(
-        err instanceof Error ? err.message : "Failed to update entry",
-      );
-    }
   };
 
   const handleVoidEntry = async (entry: TimeEntry) => {
@@ -647,55 +587,7 @@ export function AdminUserProfile() {
 
   const openEditModal = () => {
     if (!user) return;
-    setEditFirstName(user.first_name || "");
-    setEditLastName(user.last_name || "");
-    setEditEmail(user.email || "");
-    setEditOsmUsername(user.osm_username || "");
-    setEditMapillaryUsername2(user.mapillary_username || "");
-    setEditRole(user.role || "user");
-    setEditTimezone2(user.timezone || "");
-    setEditCountryId2(user.country_id ? String(user.country_id) : "");
-    setEditPaymentsVisible(user.micropayments_visible ?? false);
-    setEditHourlyRate(user.hourly_rate?.toString() ?? "");
-    setEditHourlyRateStartDate("");
-    const validCompModels = new Set<string>(["per_task", "hourly", "project_based"]);
-    setEditCompModel(
-      user.compensation_model && validCompModels.has(user.compensation_model)
-        ? user.compensation_model
-        : ""
-    );
     setEditModalOpen(true);
-  };
-
-  const handleSaveEditModal = async () => {
-    if (editHourlyRate && !editHourlyRateStartDate) {
-      toast.error("Effective from date is required when setting a rate");
-      return;
-    }
-    try {
-      await modifyUser({
-        user_id: userId,
-        first_name: editFirstName,
-        last_name: editLastName,
-        email: editEmail,
-        osm_username: editOsmUsername,
-        mapillary_username: editMapillaryUsername2 || null,
-        role: editRole,
-        timezone: editTimezone2 || null,
-        country_id: editCountryId2 ? Number(editCountryId2) : null,
-        micropayments_visible: editPaymentsVisible,
-        hourly_rate: editHourlyRate ? parseFloat(editHourlyRate) : null,
-        hourly_rate_start_date: editHourlyRate ? editHourlyRateStartDate : null,
-        compensation_model: editCompModel || null,
-      });
-      toast.success("User updated");
-      setEditModalOpen(false);
-      fetchProfile({ userId }).then((res) => {
-        if (res?.user) setUser(res.user);
-      });
-    } catch {
-      toast.error("Failed to update user");
-    }
   };
 
   const handleToggleActive = async () => {
@@ -2892,274 +2784,37 @@ export function AdminUserProfile() {
       )}
 
       {/* Edit Time Entry Modal */}
-      <Modal
-        isOpen={!!editingEntry}
+      <TimeEntryEditModal
+        entry={editingEntry}
         onClose={() => setEditingEntry(null)}
-        title="Edit Time Entry"
-        description={
-          editingEntry
-            ? `${editingEntry.userName} — ${editingEntry.projectName || "No project"}`
-            : ""
-        }
-        size="sm"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setEditingEntry(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleSaveEditEntry}
-              isLoading={editingTimeEntry}
-            >
-              Save Changes
-            </Button>
-          </>
-        }
-      >
-        {editingEntry && (
-          <div className="space-y-4">
-            {editError && <p className="text-sm text-red-600">{editError}</p>}
-
-            {editingEntry.notes?.startsWith("[ADJUSTMENT REQUESTED]") && (
-              <div className="rounded-lg bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 p-3">
-                <p className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-1">
-                  User Requested Adjustment
-                </p>
-                <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                  {editingEntry.notes.replace("[ADJUSTMENT REQUESTED] ", "")}
-                </p>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Clock In</label>
-              <input
-                type="datetime-local"
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                value={editClockIn}
-                onChange={(e) => setEditClockIn(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Clock Out
-              </label>
-              <input
-                type="datetime-local"
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                value={editClockOut}
-                onChange={(e) => setEditClockOut(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Category</label>
-              <select
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                value={editCategory}
-                onChange={(e) => setEditCategory(e.target.value)}
-              >
-                {TIME_CATEGORY_OPTIONS.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-      </Modal>
+        onSaved={() => {
+          if (datePreset !== "custom") {
+            const range = getDateRange(datePreset);
+            loadDateStats(`${range.start}T00:00:00`, `${range.end}T23:59:59`);
+          } else if (customStart && customEnd) {
+            loadDateStats(
+              `${customStart}T${customStartTime}:00`,
+              `${customEnd}T${customEndTime}:00`,
+            );
+          }
+        }}
+      />
 
       {/* Full Edit User Modal */}
-      <Modal
+      <EditUserModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        title="Edit User"
-        size="lg"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setEditModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleSaveEditModal}
-              disabled={updateDetailsLoading}
-            >
-              {updateDetailsLoading ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="First Name"
-              value={editFirstName}
-              onChange={(e) => setEditFirstName(e.target.value)}
-              placeholder="First name"
-            />
-            <Input
-              label="Last Name"
-              value={editLastName}
-              onChange={(e) => setEditLastName(e.target.value)}
-              placeholder="Last name"
-            />
-          </div>
-          <Input
-            label="Email"
-            value={editEmail}
-            onChange={(e) => setEditEmail(e.target.value)}
-            placeholder="user@example.com"
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="OSM Username"
-              value={editOsmUsername}
-              onChange={(e) => setEditOsmUsername(e.target.value)}
-              placeholder="osm_username"
-            />
-            <Input
-              label="Mapillary Username"
-              value={editMapillaryUsername2}
-              onChange={(e) => setEditMapillaryUsername2(e.target.value)}
-              placeholder="mapillary_username"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            {canEditRole ? (
-              <Select
-                label="Role"
-                value={editRole}
-                onChange={setEditRole}
-                options={[
-                  { value: "user", label: roleLabel("user") },
-                  { value: "validator", label: roleLabel("validator") },
-                  { value: "team_admin", label: roleLabel("team_admin") },
-                  { value: "admin", label: roleLabel("admin") },
-                  ...(viewerRole === "super_admin"
-                    ? [
-                        {
-                          value: "super_admin",
-                          label: roleLabel("super_admin"),
-                        },
-                      ]
-                    : []),
-                ]}
-              />
-            ) : (
-              <div>
-                <label className="block text-sm font-medium mb-1">Role</label>
-                <div className="w-full px-3 py-2 border border-input rounded-lg bg-muted text-sm text-muted-foreground">
-                  {roleLabel(editRole)}
-                  <span className="ml-2 text-xs italic">(read-only)</span>
-                </div>
-              </div>
-            )}
-            <Select
-              label="Timezone"
-              value={editTimezone2}
-              onChange={setEditTimezone2}
-              options={(() => {
-                try {
-                  return Intl.supportedValuesOf("timeZone").map((tz) => ({
-                    value: tz,
-                    label: tz,
-                  }));
-                } catch {
-                  return [];
-                }
-              })()}
-              placeholder="Select timezone"
-            />
-          </div>
-          <Select
-            label="Country"
-            value={editCountryId2}
-            onChange={setEditCountryId2}
-            options={countryOptions}
-            placeholder="Select country"
-          />
-          <div className="flex items-center justify-between p-3 border border-border rounded-lg">
-            <div>
-              <p className="text-sm font-medium">Show Micropayments</p>
-              <p className="text-xs text-muted-foreground">
-                User can see micropayment rates, earnings, and request payouts
-              </p>
-            </div>
-            <div
-              onClick={() => setEditPaymentsVisible(!editPaymentsVisible)}
-              className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                editPaymentsVisible ? "bg-green-500" : "bg-muted"
-              }`}
-            >
-              <div
-                className={`w-5 h-5 rounded-full bg-white shadow absolute top-0.5 transition-transform ${
-                  editPaymentsVisible ? "translate-x-5" : "translate-x-0.5"
-                }`}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Compensation Model
-            </label>
-            <select
-              className="w-full px-3 py-2 border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              value={editCompModel}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setEditCompModel(e.target.value)
-              }
-            >
-              <option value="">Unspecified (legacy)</option>
-              <option value="per_task">Per-task (micro-paid)</option>
-              <option value="hourly">Hourly</option>
-              <option value="project_based">Project-based</option>
-            </select>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Unspecified behaves as before (per-task, or hourly if a rate is
-              set). Project-based totals from adjustments only.
-            </p>
-          </div>
-          {(editCompModel === "hourly" ||
-            editCompModel === "" ||
-            editCompModel === "per_task") && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Hourly Rate
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-                value={editHourlyRate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setEditHourlyRate(e.target.value)
-                }
-                placeholder="Not set"
-              />
-              {editHourlyRate && (
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">
-                    Effective from
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                    value={editHourlyRateStartDate}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setEditHourlyRateStartDate(e.target.value)
-                    }
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </Modal>
+        userId={userId}
+        user={user}
+        canEditRole={canEditRole}
+        viewerRole={viewerRole}
+        countryOptions={countryOptions}
+        onSaved={() => {
+          fetchProfile({ userId }).then((res) => {
+            if (res?.user) setUser(res.user);
+          });
+        }}
+      />
     </div>
   );
 }

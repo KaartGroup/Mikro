@@ -6,7 +6,6 @@ import {
   CardContent,
   Button,
   Badge,
-  Modal,
   Table,
   TableHeader,
   TableBody,
@@ -19,12 +18,12 @@ import {
 } from "@/components/ui";
 import {
   useCursorHistory,
-  useRequestTimeAdjustment,
   useUpdateMyNotes,
   useUserProjects,
   useMyReimbursementRequests,
 } from "@/hooks";
 import { ReimbursementSubmitModal } from "@/components/user/ReimbursementsSection";
+import { AdjustmentRequestModal } from "@/components/modals/AdjustmentRequestModal";
 import { useFetchMyChangesetHeatmap } from "@/hooks/useApi";
 import { ChangesetHeatmapCard } from "@/components/compounds/ChangesetHeatmapCard";
 import { NotesButton } from "@/components/widgets/NotesButton";
@@ -102,7 +101,6 @@ export function UserDashboard() {
   const [category, setCategory] = useState<string>("All");
   const [page, setPage] = useState(0);
   const [adjustmentEntryId, setAdjustmentEntryId] = useState<number | null>(null);
-  const [adjustmentReason, setAdjustmentReason] = useState("");
   const [heatmapPoints, setHeatmapPoints] = useState<[number, number, number][]>([]);
   const [heatmapLoading, setHeatmapLoading] = useState(false);
   const [showReimbursementModal, setShowReimbursementModal] = useState(false);
@@ -110,7 +108,6 @@ export function UserDashboard() {
 
   const history = useCursorHistory("/timetracking/my_history");
   const { mutate: fetchHeatmap } = useFetchMyChangesetHeatmap();
-  const { mutate: requestAdjustment, loading: submitting } = useRequestTimeAdjustment();
   const { mutate: updateMyNotes } = useUpdateMyNotes();
   const { mutate: fetchMyReimbursements } = useMyReimbursementRequests();
 
@@ -207,26 +204,8 @@ export function UserDashboard() {
   const showingFrom = totalEntries === 0 ? 0 : page * PAGE_SIZE + 1;
   const showingTo = Math.min((page + 1) * PAGE_SIZE, totalEntries);
 
-  const handleRequestAdjustment = async () => {
-    if (!adjustmentEntryId || !adjustmentReason.trim()) return;
-
-    try {
-      await requestAdjustment({
-        entry_id: adjustmentEntryId,
-        reason: adjustmentReason.trim(),
-      });
-      toast.success("Adjustment request submitted. An admin will review it.");
-      setAdjustmentEntryId(null);
-      setAdjustmentReason("");
-      fetchWithFilters();
-    } catch {
-      toast.error("Failed to submit adjustment request");
-    }
-  };
-
   const closeAdjustmentModal = () => {
     setAdjustmentEntryId(null);
-    setAdjustmentReason("");
   };
 
   if (history.loading && history.entries.length === 0) {
@@ -450,10 +429,7 @@ export function UserDashboard() {
                           variant="outline"
                           size="sm"
                           className="whitespace-nowrap"
-                          onClick={() => {
-                            setAdjustmentEntryId(entry.id);
-                            setAdjustmentReason("");
-                          }}
+                          onClick={() => setAdjustmentEntryId(entry.id)}
                         >
                           Request Adjustment
                         </Button>
@@ -479,36 +455,12 @@ export function UserDashboard() {
       </Card>
 
       {/* Adjustment Request Modal */}
-      <Modal
+      <AdjustmentRequestModal
         isOpen={adjustmentEntryId !== null}
+        entryId={adjustmentEntryId}
         onClose={closeAdjustmentModal}
-        title={`Request Adjustment for Entry #${adjustmentEntryId}`}
-        description="Describe what needs to be corrected. An admin will review and edit the entry."
-        footer={
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" size="sm" onClick={closeAdjustmentModal}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleRequestAdjustment}
-              disabled={!adjustmentReason.trim() || submitting}
-              isLoading={submitting}
-            >
-              Submit Request
-            </Button>
-          </div>
-        }
-      >
-        <textarea
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          rows={4}
-          placeholder="e.g., Forgot to clock out -- actual end time was 5:30 PM"
-          value={adjustmentReason}
-          onChange={(e) => setAdjustmentReason(e.target.value)}
-        />
-      </Modal>
+        onSubmitted={fetchWithFilters}
+      />
 
       {/* Reimbursement Submit Modal */}
       <ReimbursementSubmitModal

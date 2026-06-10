@@ -77,7 +77,8 @@ type AddPreflight =
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  /** Called after the project is successfully created, e.g. to refresh the list. */
+  onCreated?: () => void;
 }
 
 export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
@@ -268,7 +269,7 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
       toast.success(`Project created${suffix}`);
       reset();
       onClose();
-      onCreated();
+      onCreated?.();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to create project",
@@ -315,15 +316,11 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
           </TabsTrigger>
           <TabsTrigger value="teams">
             Teams
-            {preSelectedTeamIds.size > 0
-              ? ` (${preSelectedTeamIds.size})`
-              : ""}
+            {preSelectedTeamIds.size > 0 ? ` (${preSelectedTeamIds.size})` : ""}
           </TabsTrigger>
           <TabsTrigger value="users">
             Users
-            {preSelectedUserIds.size > 0
-              ? ` (${preSelectedUserIds.size})`
-              : ""}
+            {preSelectedUserIds.size > 0 ? ` (${preSelectedUserIds.size})` : ""}
           </TabsTrigger>
         </TabsList>
 
@@ -429,9 +426,7 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
               label="Short Name (optional)"
               placeholder="Leave blank to auto-derive from project name"
               value={formData.short_name}
-              onChange={(e) =>
-                handleInputChange("short_name", e.target.value)
-              }
+              onChange={(e) => handleInputChange("short_name", e.target.value)}
             />
             <div className="flex items-center gap-2 mb-4">
               <input
@@ -473,20 +468,20 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
                     handleInputChange("validation_rate", e.target.value)
                   }
                 />
-                            <div className="border-t border-border pt-4">
-              <Button
-                variant="outline"
-                onClick={handleCalculateBudget}
-                className="w-full"
-              >
-                Calculate Budget
-              </Button>
-              {budgetCalculation && (
-                <p className="mt-2 text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                  {budgetCalculation}
-                </p>
-              )}
-            </div>
+                <div className="border-t border-border pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={handleCalculateBudget}
+                    className="w-full"
+                  >
+                    Calculate Budget
+                  </Button>
+                  {budgetCalculation && (
+                    <p className="mt-2 text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                      {budgetCalculation}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
             <div>
@@ -500,10 +495,7 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
                   }
                   className="rounded border-input"
                 />
-                <label
-                  htmlFor="add-visibility"
-                  className="text-sm font-medium"
-                >
+                <label htmlFor="add-visibility" className="text-sm font-medium">
                   Publicly visible
                 </label>
               </div>
@@ -541,7 +533,6 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
                 { value: "High", label: "High" },
               ]}
             />
-
           </div>
         </TabsContent>
 
