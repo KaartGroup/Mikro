@@ -6,6 +6,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { RolePreviewSwitcher } from "./RolePreviewSwitcher";
 import { MessengerIcon } from "@/components/comms/MessengerIcon";
 import { NotificationBell } from "@/components/comms/NotificationBell";
+import { ROUTES } from "@/lib/routes";
 
 interface HeaderProps {
   displayName?: string;
@@ -41,7 +42,7 @@ export function Header({ displayName }: HeaderProps) {
       >
         {/* Logo */}
         <Link
-          href="/"
+          href={ROUTES.home}
           style={{
             display: "flex",
             alignItems: "center",
@@ -74,7 +75,7 @@ export function Header({ displayName }: HeaderProps) {
             <NotificationBell />
             <RolePreviewSwitcher />
             <Link
-              href="/account"
+              href={ROUTES.account}
               style={{
                 fontSize: 14,
                 fontWeight: 500,
@@ -88,7 +89,7 @@ export function Header({ displayName }: HeaderProps) {
               Settings
             </Link>
             <a
-              href="/auth/logout"
+              href={ROUTES.authLogout}
               style={{
                 fontSize: 14,
                 fontWeight: 500,

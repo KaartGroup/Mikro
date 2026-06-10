@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { ROUTES } from "@/lib/routes";
 
 const SLIDES = [
   {
@@ -95,7 +96,7 @@ export function LandingClient() {
         }}
       >
         <a
-          href="/auth/login?prompt=login"
+          href={`${ROUTES.authLogin}?prompt=login`}
           style={{
             color: "black",
             fontWeight: 600,

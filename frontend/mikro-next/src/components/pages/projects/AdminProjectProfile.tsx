@@ -25,6 +25,7 @@ import {
 import type { ProjectProfileResponse } from "@/types";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import { formatDuration } from "@/lib/timeTracking";
+import { ROUTES, dynamicRoutes } from "@/lib/routes";
 
 function ProgressBar({
   value,
@@ -101,7 +102,7 @@ export function AdminProjectProfile() {
     return (
       <div className="space-y-4">
         <Link
-          href="/projects"
+          href={ROUTES.projects}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Projects
@@ -133,7 +134,7 @@ export function AdminProjectProfile() {
       {/* Breadcrumb + Header */}
       <div>
         <Link
-          href="/projects"
+          href={ROUTES.projects}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Projects
@@ -406,7 +407,7 @@ export function AdminProjectProfile() {
                       <tr key={user.id}>
                         <td className="px-4 py-3">
                           <Link
-                            href={`/users/${user.id}`}
+                            href={dynamicRoutes.user(user.id)}
                             className="text-kaart-orange hover:underline font-medium"
                             title="View user profile"
                           >
@@ -492,7 +493,7 @@ export function AdminProjectProfile() {
               {data.assigned_teams.map((team) => (
                 <Link
                   key={team.id}
-                  href={`/teams/${team.id}`}
+                  href={dynamicRoutes.team(team.id)}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
                   title="View team details"
                 >

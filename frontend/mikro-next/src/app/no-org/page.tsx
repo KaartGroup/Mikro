@@ -1,3 +1,5 @@
+import { ROUTES } from "@/lib/routes";
+
 export default function NoOrgPage() {
   return (
     <div
@@ -47,7 +49,7 @@ export default function NoOrgPage() {
           administrator for an invitation.
         </p>
         <a
-          href="/auth/logout"
+          href={ROUTES.authLogout}
           style={{
             display: "inline-block",
             backgroundColor: "#004e89",

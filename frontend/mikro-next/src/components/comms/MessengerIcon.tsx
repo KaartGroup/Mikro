@@ -2,6 +2,7 @@
 
 import { useMessagesUnreadCount, useVisibilityPoll } from "@/hooks";
 import { HeaderIconButton } from "./HeaderIconButton";
+import { ROUTES } from "@/lib/routes";
 
 /**
  * Header shortcut to the messenger page. Shows a red badge with the
@@ -21,7 +22,7 @@ export function MessengerIcon() {
     <HeaderIconButton
       ariaLabel="Messages"
       unreadCount={unread}
-      href="/messages"
+      href={ROUTES.messages}
     >
       <svg
         width="18"

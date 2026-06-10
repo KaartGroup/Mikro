@@ -32,6 +32,7 @@ import {
 } from "@/hooks";
 import type { FriendDetailResponse } from "@/types";
 import { formatNumber, formatDate } from "@/lib/utils";
+import { ROUTES } from "@/lib/routes";
 
 const MappingHeatmap = dynamic(() => import("@/components/MappingHeatmap"), {
   ssr: false,
@@ -141,7 +142,7 @@ export default function FriendDetailPage() {
     return (
       <div className="space-y-4">
         <Link
-          href="/admin/friends"
+          href={ROUTES.adminFriends}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Friends List
@@ -178,7 +179,7 @@ export default function FriendDetailPage() {
       {/* Header */}
       <div>
         <Link
-          href="/admin/friends"
+          href={ROUTES.adminFriends}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Friends List

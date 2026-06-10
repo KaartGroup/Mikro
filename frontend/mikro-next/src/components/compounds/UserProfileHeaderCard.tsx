@@ -3,6 +3,7 @@ import { RoleBadge } from "@/components/atoms/RoleBadge";
 import { UserInfoGrid } from "@/components/molecules/UserInfoGrid";
 import Link from "next/link";
 import type { UserProfileData } from "@/types";
+import { ROUTES } from "@/lib/routes";
 
 interface UserProfileHeaderCardProps {
   user: UserProfileData | null;
@@ -27,7 +28,7 @@ export function UserProfileHeaderCard({
     <Card>
       <CardContent className="p-6">
         <Link
-          href="/users"
+          href={ROUTES.users}
           className="text-kaart-orange hover:underline text-sm mb-4 inline-block"
         >
           {"←"} Back to Users

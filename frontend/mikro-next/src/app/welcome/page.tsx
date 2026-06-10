@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ROUTES } from "@/lib/routes";
 
 export default function WelcomePage() {
   return (
@@ -51,7 +52,7 @@ export default function WelcomePage() {
           Your account is ready. Click below to log in.
         </p>
         <a
-          href="/auth/login?prompt=login"
+          href={`${ROUTES.authLogin}?prompt=login`}
           style={{
             display: "inline-flex",
             alignItems: "center",

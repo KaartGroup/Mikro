@@ -20,6 +20,7 @@ import {
   formatCurrency,
   getProjectExternalUrl,
 } from "@/lib/utils";
+import { ROUTES } from "@/lib/routes";
 import type { ProjectProfileResponse } from "@/types";
 
 function ProgressBar({
@@ -89,7 +90,7 @@ export function UserProjectProfile() {
     return (
       <div className="space-y-4">
         <Link
-          href="/projects"
+          href={ROUTES.projects}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Projects
@@ -120,7 +121,7 @@ export function UserProjectProfile() {
       {/* Breadcrumb + Header */}
       <div>
         <Link
-          href="/projects"
+          href={ROUTES.projects}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Projects

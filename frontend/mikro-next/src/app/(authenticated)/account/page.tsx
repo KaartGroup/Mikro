@@ -13,6 +13,7 @@ import {
   Val,
 } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
+import { ROUTES } from "@/lib/routes";
 import { roleLabel } from "@/types";
 import { PayRateCard } from "@/components/user/PayRateCard";
 import { MonthlyPaySummaryCard } from "@/components/user/MonthlyPaySummaryCard";
@@ -1063,7 +1064,7 @@ export default function AccountPage() {
             Sign out of your account on this device.
           </p>
           <a
-            href="/auth/logout"
+            href={ROUTES.authLogout}
             style={{
               display: "inline-flex",
               alignItems: "center",

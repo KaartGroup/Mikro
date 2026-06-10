@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ROUTES } from "@/lib/routes";
 import dynamic from "next/dynamic";
 import {
   Card,
@@ -851,7 +852,7 @@ export function AdminUserProfile() {
     return (
       <div className="space-y-4">
         <Link
-          href="/users"
+          href={ROUTES.users}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Users
@@ -920,7 +921,7 @@ export function AdminUserProfile() {
       <Card>
         <CardContent className="p-6">
           <Link
-            href="/users"
+            href={ROUTES.users}
             className="text-kaart-orange hover:underline text-sm mb-4 inline-block"
           >
             {"\u2190"} Back to Users
