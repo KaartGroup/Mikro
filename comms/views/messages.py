@@ -55,6 +55,8 @@ class MessagesAPI(MethodView):
             "send": self.send,
             "mark_read": self.mark_read,
             "unread_count": self.unread_count,
+            "delete_message": self.delete_message,
+            "delete_conversation": self.delete_conversation,
         }.get(path)
         if handler is None:
             return jsonify({"message": "Endpoint not found", "status": 404}), 404
@@ -185,15 +187,19 @@ class MessagesAPI(MethodView):
             if peer is not None and peer.org_id != org_id:
                 continue
             last = self._last_message("user", peer_id)
+            # NEVER put the raw Auth0 sub in a human-facing field. If this peer
+            # has no Identity projection (or no name/email yet), leave label
+            # null and let the calling app resolve the name from its own user
+            # directory. scope_key still carries the sub purely as a routing
+            # key — the client must never render it.
+            label = None
+            if peer is not None:
+                label = peer.display_name or peer.email
             out.append(
                 {
                     "scope_type": "user",
                     "scope_key": peer_id,
-                    "label": (
-                        (peer.display_name or peer.email)
-                        if peer is not None
-                        else peer_id
-                    ),
+                    "label": label,
                     "subtitle": peer.email if peer is not None else None,
                     "last_message": last.to_dict() if last else None,
                     "unread_count": self._unread_for_scope("user", peer_id),
@@ -515,3 +521,87 @@ class MessagesAPI(MethodView):
         total += self._unread_for_scope("org", org_id)
 
         return jsonify({"status": 200, "unread_count": int(total)}), 200
+
+    def delete_message(self):
+        """Delete a single message.
+
+        body: { message_id }
+        Authorization: org admins may delete any message in their org; any
+        other caller may delete only a message they sent. Org-scoped: a
+        message in another org is treated as not found.
+        """
+        data = request.get_json(silent=True) or {}
+        raw_id = data.get("message_id")
+        try:
+            message_id = int(raw_id)
+        except (TypeError, ValueError):
+            return jsonify({"message": "message_id required", "status": 400}), 400
+
+        msg = db.session.get(Message, message_id)
+        # Don't leak existence across orgs — same response as truly missing.
+        if msg is None or msg.org_id != self._org_id():
+            return jsonify({"message": "Message not found", "status": 404}), 404
+
+        if not g.identity.is_admin and msg.sender_id != self._me():
+            return jsonify({"message": "Forbidden", "status": 403}), 403
+
+        db.session.delete(msg)
+        db.session.commit()
+        return jsonify({"status": 200}), 200
+
+    def delete_conversation(self):
+        """Delete an entire conversation — every message in the scope, plus
+        the read watermarks for it.
+
+        body: { scope_type, scope_key }
+        Authorization: org admins only. Deleting a conversation removes
+        content other users can see, so it's a moderation action. The scope
+        is resolved relative to the caller (the same conversations they can
+        see), and is always confined to the caller's org.
+        """
+        if not g.identity.is_admin:
+            return jsonify({"message": "Forbidden", "status": 403}), 403
+
+        data = request.get_json(silent=True) or {}
+        scope_type = data.get("scope_type")
+        scope_key = data.get("scope_key")
+        if scope_type not in VALID_SCOPES or scope_key is None:
+            return (
+                jsonify(
+                    {"message": "scope_type and scope_key required", "status": 400}
+                ),
+                400,
+            )
+        scope_key = str(scope_key)
+
+        filter_expr = self._scope_filter(scope_type, scope_key)
+        if filter_expr is False:
+            return jsonify({"status": 200, "deleted": 0}), 200
+
+        deleted = Message.query.filter(filter_expr).delete(synchronize_session=False)
+
+        # Clear the read watermarks tied to this scope so the conversation
+        # doesn't linger in unread math for anyone.
+        me = self._me()
+        if scope_type == "user":
+            MessageRead.query.filter(
+                MessageRead.scope_type == "user",
+                or_(
+                    and_(
+                        MessageRead.user_id == me,
+                        MessageRead.scope_key == scope_key,
+                    ),
+                    and_(
+                        MessageRead.user_id == scope_key,
+                        MessageRead.scope_key == me,
+                    ),
+                ),
+            ).delete(synchronize_session=False)
+        else:  # group / org — one shared scope_key across all users
+            MessageRead.query.filter(
+                MessageRead.scope_type == scope_type,
+                MessageRead.scope_key == scope_key,
+            ).delete(synchronize_session=False)
+
+        db.session.commit()
+        return jsonify({"status": 200, "deleted": int(deleted)}), 200

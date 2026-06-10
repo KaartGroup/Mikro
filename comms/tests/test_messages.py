@@ -436,6 +436,191 @@ def test_thread_cannot_read_other_orgs_messages(app, make_identity):
     assert payload["messages"][0]["content"] == "A only"
 
 
+def test_conversations_never_leak_sub_in_label(app, make_identity):
+    # A peer with no Identity (never signed into comms) must NOT have their
+    # raw sub echoed back as a human-facing label — it comes back null, and
+    # the calling app resolves the name from its own directory.
+    alice = make_identity("auth0|alice", "orgA")
+    with as_user(
+        app,
+        alice,
+        body={"target_type": "user", "target_user_id": "auth0|ghost", "content": "x"},
+    ):
+        MessagesAPI().send()
+    with as_user(app, alice, body={}):
+        resp, status = MessagesAPI().conversations()
+    assert status == 200
+    dm = next(
+        c
+        for c in resp.get_json()["conversations"]
+        if c["scope_type"] == "user" and c["scope_key"] == "auth0|ghost"
+    )
+    assert dm["label"] is None
+    assert dm["scope_key"] == "auth0|ghost"  # routing key still present
+
+
+# ─── delete message ────────────────────────────────────────────────
+
+
+def test_delete_message_sender_can_delete_own(app, make_identity):
+    alice = make_identity("auth0|alice", "orgA")
+    make_identity("auth0|bob", "orgA")
+    with as_user(
+        app,
+        alice,
+        body={"target_type": "user", "target_user_id": "auth0|bob", "content": "oops"},
+    ):
+        resp, _ = MessagesAPI().send()
+    mid = resp.get_json()["message"]["id"]
+
+    with as_user(app, alice, body={"message_id": mid}):
+        resp, status = MessagesAPI().delete_message()
+    assert status == 200
+    assert Message.query.count() == 0
+
+
+def test_delete_message_other_user_forbidden(app, make_identity):
+    alice = make_identity("auth0|alice", "orgA")
+    bob = make_identity("auth0|bob", "orgA")
+    with as_user(
+        app,
+        alice,
+        body={"target_type": "user", "target_user_id": "auth0|bob", "content": "hi"},
+    ):
+        resp, _ = MessagesAPI().send()
+    mid = resp.get_json()["message"]["id"]
+
+    # Bob is the recipient, not an admin — cannot delete Alice's message.
+    with as_user(app, bob, body={"message_id": mid}):
+        resp, status = MessagesAPI().delete_message()
+    assert status == 403
+    assert Message.query.count() == 1
+
+
+def test_delete_message_admin_can_delete_any(app, make_identity):
+    alice = make_identity("auth0|alice", "orgA")
+    make_identity("auth0|bob", "orgA")
+    boss = make_identity("auth0|boss", "orgA", role="org_admin")
+    with as_user(
+        app,
+        alice,
+        body={"target_type": "user", "target_user_id": "auth0|bob", "content": "hi"},
+    ):
+        resp, _ = MessagesAPI().send()
+    mid = resp.get_json()["message"]["id"]
+
+    with as_user(app, boss, body={"message_id": mid}):
+        resp, status = MessagesAPI().delete_message()
+    assert status == 200
+    assert Message.query.count() == 0
+
+
+def test_delete_message_cross_org_404(app, make_identity):
+    alice = make_identity("auth0|alice", "orgA")
+    make_identity("auth0|bob", "orgA")
+    with as_user(
+        app,
+        alice,
+        body={"target_type": "user", "target_user_id": "auth0|bob", "content": "hi"},
+    ):
+        resp, _ = MessagesAPI().send()
+    mid = resp.get_json()["message"]["id"]
+
+    # An admin in another org can't even see it exists.
+    boss_b = make_identity("auth0|bossB", "orgB", role="org_admin")
+    with as_user(app, boss_b, body={"message_id": mid}):
+        resp, status = MessagesAPI().delete_message()
+    assert status == 404
+    assert Message.query.count() == 1
+
+
+def test_delete_message_requires_id(app, make_identity):
+    alice = make_identity("auth0|alice", "orgA")
+    with as_user(app, alice, body={}):
+        resp, status = MessagesAPI().delete_message()
+    assert status == 400
+
+
+# ─── delete conversation ───────────────────────────────────────────
+
+
+def test_delete_conversation_admin_deletes_dm_and_watermarks(app, make_identity):
+    boss = make_identity("auth0|boss", "orgA", role="org_admin")
+    bob = make_identity("auth0|bob", "orgA")
+    # Two-way DM between boss and bob.
+    with as_user(
+        app,
+        boss,
+        body={"target_type": "user", "target_user_id": "auth0|bob", "content": "1"},
+    ):
+        MessagesAPI().send()
+    with as_user(
+        app,
+        bob,
+        body={"target_type": "user", "target_user_id": "auth0|boss", "content": "2"},
+    ):
+        MessagesAPI().send()
+    # Both mark read, creating watermarks on each side.
+    with as_user(app, boss, body={"scope_type": "user", "scope_key": "auth0|bob"}):
+        MessagesAPI().mark_read()
+    with as_user(app, bob, body={"scope_type": "user", "scope_key": "auth0|boss"}):
+        MessagesAPI().mark_read()
+    assert Message.query.count() == 2
+    assert MessageRead.query.count() == 2
+
+    with as_user(app, boss, body={"scope_type": "user", "scope_key": "auth0|bob"}):
+        resp, status = MessagesAPI().delete_conversation()
+    assert status == 200
+    assert resp.get_json()["deleted"] == 2
+    assert Message.query.count() == 0
+    # Both directions' watermarks cleared.
+    assert MessageRead.query.count() == 0
+
+
+def test_delete_conversation_non_admin_forbidden(app, make_identity):
+    alice = make_identity("auth0|alice", "orgA")
+    make_identity("auth0|bob", "orgA")
+    with as_user(
+        app,
+        alice,
+        body={"target_type": "user", "target_user_id": "auth0|bob", "content": "hi"},
+    ):
+        MessagesAPI().send()
+    with as_user(app, alice, body={"scope_type": "user", "scope_key": "auth0|bob"}):
+        resp, status = MessagesAPI().delete_conversation()
+    assert status == 403
+    assert Message.query.count() == 1
+
+
+def test_delete_conversation_org_scope(app, make_identity):
+    boss = make_identity("auth0|boss", "orgA", role="org_admin")
+    make_identity("auth0|bob", "orgA")
+    with as_user(app, boss, body={"target_type": "org", "content": "all hands"}):
+        MessagesAPI().send()
+    assert Message.query.count() == 1
+
+    with as_user(app, boss, body={"scope_type": "org", "scope_key": "orgA"}):
+        resp, status = MessagesAPI().delete_conversation()
+    assert status == 200
+    assert Message.query.count() == 0
+
+
+def test_delete_conversation_org_scoped_to_caller_org(app, make_identity):
+    # An admin deleting their org broadcast must not touch another org's.
+    boss_a = make_identity("auth0|bossA", "orgA", role="org_admin")
+    boss_b = make_identity("auth0|bossB", "orgB", role="org_admin")
+    with as_user(app, boss_a, body={"target_type": "org", "content": "A"}):
+        MessagesAPI().send()
+    with as_user(app, boss_b, body={"target_type": "org", "content": "B"}):
+        MessagesAPI().send()
+
+    with as_user(app, boss_a, body={"scope_type": "org", "scope_key": "orgA"}):
+        MessagesAPI().delete_conversation()
+    # orgB's broadcast survives.
+    assert Message.query.count() == 1
+    assert Message.query.first().org_id == "orgB"
+
+
 def test_dispatch_unknown_path_404(app, make_identity):
     alice = make_identity("auth0|alice", "orgA")
     with as_user(app, alice):
