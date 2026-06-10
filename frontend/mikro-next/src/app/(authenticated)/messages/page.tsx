@@ -410,10 +410,15 @@ function MessagesPageInner() {
         display: "grid",
         gridTemplateColumns: "320px 1fr",
         gap: 16,
-        // The authenticated layout chrome is: header 64 + main paddingBottom
-        // 120 + inner wrapper padding 24*2. Match it so this grid fits its
-        // slot exactly and the PAGE never scrolls — only the inner panes do.
-        height: "calc(100vh - 232px)",
+        // Fill from the grid's top (header 64 + inner top pad 24 = 88) all the
+        // way to the bottom of the SCREEN, so the composer is pinned to the
+        // viewport bottom. The negative margin cancels the layout's reserved
+        // bottom space (main paddingBottom 120 + inner bottom pad 24 = 144) so
+        // the page itself still never scrolls — only the inner panes do.
+        // (Verified against the live DOM: composer bottom == viewport bottom,
+        // no page scroll.)
+        height: "calc(100vh - 88px)",
+        marginBottom: -144,
         minHeight: 0,
         overflow: "hidden",
       }}
