@@ -94,39 +94,45 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
   const [editTab, setEditTab] = useState<
     "settings" | "users" | "teams" | "training" | "locations"
   >("settings");
-  const [loading, setLoading] = useState(false);
   const [projectUsers, setProjectUsers] = useState<ProjectUserItem[]>([]);
   const [projectTeams, setProjectTeams] = useState<ProjectTeamItem[]>([]);
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [teamsLoaded, setTeamsLoaded] = useState(false);
 
-  // When the modal opens with a new project, populate form and fetch tab data.
-  // 2026-05-21: Promise.allSettled so a 4xx on one endpoint (e.g.
-  // fetch_project_users 403ing for a team_admin) doesn't blank the OTHER tab.
   useEffect(() => {
     if (!isOpen || !project) return;
     setFormData(formDataFromProject(project));
     setEditTab("settings");
-    setLoading(true);
-    Promise.allSettled([
-      fetchProjectUsers({ project_id: project.id }),
-      fetchProjectTeams({ projectId: project.id }),
-    ])
-      .then(([usersResult, teamsResult]) => {
-        if (usersResult.status === "fulfilled") {
-          setProjectUsers(usersResult.value?.users ?? []);
-        } else {
-          console.error("Failed to fetch project users", usersResult.reason);
-          setProjectUsers([]);
-        }
-        if (teamsResult.status === "fulfilled") {
-          setProjectTeams(teamsResult.value?.teams ?? []);
-        } else {
-          console.error("Failed to fetch project teams", teamsResult.reason);
-          setProjectTeams([]);
-        }
-      })
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Reset lazily-loaded tabs so they refetch the next time they're opened.
+    setProjectUsers([]);
+    setProjectTeams([]);
+    setUsersLoaded(false);
+    setTeamsLoaded(false);
   }, [isOpen, project]);
+
+  const loadProjectUsers = async () => {
+    if (!project) return;
+    try {
+      const response = await fetchProjectUsers({ project_id: project.id });
+      setProjectUsers(response?.users ?? []);
+      setUsersLoaded(true);
+    } catch (err) {
+      console.error("Failed to fetch project users", err);
+      setProjectUsers([]);
+    }
+  };
+
+  const loadProjectTeams = async () => {
+    if (!project) return;
+    try {
+      const response = await fetchProjectTeams({ projectId: project.id });
+      setProjectTeams(response?.teams ?? []);
+      setTeamsLoaded(true);
+    } catch (err) {
+      console.error("Failed to fetch project teams", err);
+      setProjectTeams([]);
+    }
+  };
 
   const handleInputChange = (
     field: keyof ProjectFormData,
@@ -209,15 +215,26 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
     }
   };
 
+  const handleTabChange = (v: string) => {
+    const tab = v as "settings" | "users" | "teams" | "training" | "locations";
+    setEditTab(tab);
+    if (tab === "users" && !usersLoaded) {
+      loadProjectUsers();
+    } else if (tab === "teams" && !teamsLoaded) {
+      loadProjectTeams();
+    }
+  };
+
+
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="Edit Project"
       description={`Editing ${project?.name || "project"}`}
-      size="lg"
+      size="3xl" 
       footer={
-        loading ? null : (
           <>
             <Button variant="outline" onClick={onClose}>
               Cancel
@@ -226,32 +243,20 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
               Save Changes
             </Button>
           </>
-        )
       }
     >
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
-          <p className="text-sm text-muted-foreground">Loading project data…</p>
-        </div>
-      ) : (
         <Tabs
           defaultValue="settings"
           value={editTab}
-          onValueChange={(v) =>
-            setEditTab(
-              v as "settings" | "users" | "teams" | "training" | "locations",
-            )
-          }
+          onValueChange={handleTabChange}
         >
           <TabsList className="mb-4">
             <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="users">
-              Users ({projectUsers.filter((u) => u.assigned === "Yes").length})
+              Users
             </TabsTrigger>
             <TabsTrigger value="teams">
-              Teams (
-              {projectTeams.filter((t) => t.assigned === "Assigned").length})
+              Teams
             </TabsTrigger>
             <TabsTrigger value="training">Training</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
@@ -259,8 +264,6 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
 
           <TabsContent value="settings">
             <div className="space-y-4">
-              {/* 2026-05-21 (Logan ask): show long name as read-only alongside
-                  the editable short name. Source URL + id are read-only too. */}
               <Input
                 label="Long Name"
                 value={project?.name ?? ""}
@@ -570,7 +573,7 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
             )}
           </TabsContent>
         </Tabs>
-      )}
+
     </Modal>
   );
 }

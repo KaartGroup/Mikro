@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from ..utils import requires_team_admin_or_above
 from flask.views import MethodView
 from flask import g, request
 
@@ -18,7 +19,7 @@ class ProjectTrainingAPI(MethodView):
             return self.unassign_project_training()
         return {"message": "Not found"}, 405
 
-    @requires_admin
+    @requires_team_admin_or_above
     def fetch_project_trainings(self):
         """Fetch trainings assigned to a project and all available trainings."""
         if not g.user:
@@ -53,7 +54,7 @@ class ProjectTrainingAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
+    @requires_team_admin_or_above
     def assign_project_training(self):
         """Assign a training to a project."""
         if not g.user:
@@ -81,7 +82,7 @@ class ProjectTrainingAPI(MethodView):
         ProjectTraining.create(project_id=project_id, training_id=training_id)
         return {"message": "Training assigned", "status": 200}
 
-    @requires_admin
+    @requires_team_admin_or_above
     def unassign_project_training(self):
         """Remove a training from a project."""
         if not g.user:
