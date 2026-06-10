@@ -67,11 +67,8 @@ class RegionAPI(MethodView):
             return self.unassign_training_location()
         elif path == "fetch_training_locations":
             return self.fetch_training_locations()
-        # Seed / Purge
         elif path == "seed_defaults":
             return self.seed_defaults()
-        elif path == "purge_all_regions":
-            return self.purge_all_regions()
         # Public (non-admin) endpoints
         elif path == "list_countries":
             return self.list_countries()
@@ -891,43 +888,3 @@ class RegionAPI(MethodView):
             "created_countries": created_countries,
         }
 
-    @requires_admin
-    def purge_all_regions(self):
-        """DEV ONLY: Delete all regions, countries, and related assignments."""
-        if not g.user:
-            return {"message": "User not found", "status": 304}
-
-        org_id = g.user.org_id
-
-        # Clear user country_id references first
-        users_with_country = User.query.filter(
-            User.org_id == org_id, User.country_id.isnot(None)
-        ).all()
-        users_reset = 0
-        for u in users_with_country:
-            u.country_id = None
-            users_reset += 1
-
-        # Delete all user-country assignments
-        uc_deleted = UserCountry.query.delete()
-
-        # Delete all resource-country assignments
-        pc_deleted = ProjectCountry.query.delete()
-        tc_deleted = TrainingCountry.query.delete()
-
-        # Delete all countries
-        countries_deleted = Country.query.filter_by(org_id=org_id).delete()
-
-        # Delete all regions
-        regions_deleted = Region.query.filter_by(org_id=org_id).delete()
-
-        db.session.commit()
-
-        return {
-            "status": 200,
-            "message": f"Purged {regions_deleted} regions, {countries_deleted} countries",
-            "regions_deleted": regions_deleted,
-            "countries_deleted": countries_deleted,
-            "users_reset": users_reset,
-            "assignments_deleted": uc_deleted + pc_deleted + tc_deleted,
-        }

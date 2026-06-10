@@ -582,26 +582,6 @@ export function useSubmitTrainingQuiz() {
   );
 }
 
-// DEV ONLY: Purge all task stats
-export function usePurgeTaskStats() {
-  return useApiMutation<{
-    message: string;
-    users_reset: number;
-    projects_reset: number;
-    status: number;
-  }>("/task/purge_all_task_stats");
-}
-
-// DEV ONLY: Purge all trainings
-export function usePurgeTrainings() {
-  return useApiMutation<{
-    message: string;
-    trainings_deleted: number;
-    users_reset: number;
-    status: number;
-  }>("/training/purge_all_trainings");
-}
-
 // Archive a transaction (soft delete)
 export function useArchiveTransaction() {
   return useApiMutation("/transaction/archive_transaction");
@@ -638,38 +618,6 @@ export function useFetchArchivedTransactions() {
     }>;
     status: number;
   }>("/transaction/fetch_archived_transactions");
-}
-
-// DEV ONLY: Purge all transactions
-export function usePurgeTransactions() {
-  return useApiMutation<{
-    message: string;
-    requests_deleted: number;
-    payments_deleted: number;
-    users_reset: number;
-    status: number;
-  }>("/transaction/purge_all_transactions");
-}
-
-// DEV ONLY: Purge all projects
-export function usePurgeProjects() {
-  return useApiMutation<{
-    message: string;
-    projects_deleted: number;
-    tasks_deleted: number;
-    users_reset: number;
-    status: number;
-  }>("/project/purge_all_projects");
-}
-
-// DEV ONLY: Purge all users (except initiating admin)
-export function usePurgeUsers() {
-  return useApiMutation<{
-    message: string;
-    users_deleted: number;
-    admin_preserved: number;
-    status: number;
-  }>("/user/purge_all_users");
 }
 
 // ─── Time Tracking ───────────────────────────────────────────
@@ -991,15 +939,6 @@ export function useFetchUserPaymentSummary() {
   );
 }
 
-// DEV ONLY: Purge all time entries
-export function usePurgeTimeEntries() {
-  return useApiMutation<{
-    message: string;
-    entries_deleted: number;
-    status: number;
-  }>("/timetracking/purge_all_time_entries");
-}
-
 // Admin: fetch OSM changesets for a user
 export function useFetchUserChangesets() {
   return useApiMutation<ChangesetsResponse>("/user/fetch_user_changesets");
@@ -1247,9 +1186,6 @@ export function useRefreshPunkActivity() {
 }
 export function useToggleDiscussionFlag() {
   return useApiMutation("/punk/toggle_discussion_flag");
-}
-export function usePurgeAllDiscussions() {
-  return useApiMutation("/punk/purge_all_discussions");
 }
 
 // Friends List

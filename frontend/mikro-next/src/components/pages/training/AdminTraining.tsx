@@ -33,7 +33,6 @@ import {
   useUpdateTraining,
   useModifyTraining,
   useDeleteTraining,
-  usePurgeTrainings,
   useCurrentUserRole,
   useManagedTeams,
 } from "@/hooks";
@@ -72,13 +71,12 @@ export function AdminTraining() {
   const { mutate: updateTraining, loading: updating } = useUpdateTraining();
   const { mutate: modifyTraining, loading: modifying } = useModifyTraining();
   const { mutate: deleteTraining, loading: deleting } = useDeleteTraining();
-  const { mutate: purgeTrainings, loading: purging } = usePurgeTrainings();
   const { displayName: auth0UserName } = useRole();
   const toast = useToastActions();
 
   // Role-aware UI (F3 Phase 3.4):
   // - team_admin: list scoped server-side to managed-team trainings.
-  //   No create/delete/purge UI.
+  //   No create/delete UI.
   const { role: viewerRole } = useCurrentUserRole();
   const { teams: managedTeams, loading: managedTeamsLoading } =
     useManagedTeams();
@@ -91,7 +89,6 @@ export function AdminTraining() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [formData, setFormData] = useState<TrainingFormData>(defaultFormData);
   const [questions, setQuestions] = useState<QuestionFormData[]>([]);
   const [editQuestions, setEditQuestions] = useState<QuestionFormData[]>([]);
@@ -255,19 +252,6 @@ export function AdminTraining() {
       refetch();
     } catch {
       toast.error("Failed to delete training");
-    }
-  };
-
-  const handlePurgeTrainings = async () => {
-    try {
-      const result = await purgeTrainings({});
-      toast.success(
-        `Purged ${result.trainings_deleted} trainings, reset ${result.users_reset} users`,
-      );
-      setShowPurgeModal(false);
-      refetch();
-    } catch {
-      toast.error("Failed to purge trainings");
     }
   };
 
@@ -1140,39 +1124,6 @@ export function AdminTraining() {
         isLoading={deleting}
       />
 
-      {/* Purge Confirmation */}
-      <ConfirmDialog
-        isOpen={showPurgeModal}
-        onClose={() => setShowPurgeModal(false)}
-        onConfirm={handlePurgeTrainings}
-        title="Purge All Trainings"
-        message="This will DELETE all trainings, training completions, and reset all user training points. This action cannot be undone!"
-        confirmText="Purge All"
-        variant="destructive"
-        isLoading={purging}
-      />
-
-      {/* Dev Tools Section — Org Admin / Super Admin only. */}
-      {/* Dev/purge tools hidden per management request 2026-05-19 —
-          restore by removing the `false &&` guard below. */}
-      {false && canCreateOrDelete && (
-        <Card className="mt-8 border-dashed border-yellow-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-600">
-              Dev Tools (Remove before production)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="destructive"
-              onClick={() => setShowPurgeModal(true)}
-              isLoading={purging}
-            >
-              Purge All Trainings
-            </Button>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

@@ -67,8 +67,6 @@ class TaskAPI(MethodView):
             return self.admin_fetch_external_validations()
         elif path == "update_task":
             return self.update_task()
-        elif path == "purge_all_task_stats":
-            return self.purge_all_task_stats()
         elif path == "sync_project":
             return self.sync_project()
         elif path == "sync_user_projects":
@@ -985,54 +983,4 @@ class TaskAPI(MethodView):
 
         return {"message": "Task updated", "status": 200}
 
-    @requires_admin
-    def purge_all_task_stats(self):
-        """
-        DEV ONLY: Purge all task-related data from the database.
 
-        This removes:
-        - All task records
-        - All user_tasks records
-        - All validator_task_actions records
-        - Resets all user task stats to 0
-        - Resets all project task stats to 0
-
-        Admin-only endpoint for development/testing.
-        """
-        if not g.user:
-            return {"message": "User not found", "status": 401}, 401
-
-        try:
-            org_id = g.user.org_id
-
-            # Delete all validator task actions for org
-            ValidatorTaskAction.query.filter(
-                ValidatorTaskAction.project_id.in_(
-                    db.session.query(Project.id).filter(Project.org_id == org_id)
-                )
-            ).delete(synchronize_session=False)
-
-            # Delete all user_tasks for org users
-            org_user_ids = [u.id for u in User.query.filter_by(org_id=org_id).all()]
-            UserTasks.query.filter(UserTasks.user_id.in_(org_user_ids)).delete(
-                synchronize_session=False
-            )
-
-            # Delete all tasks for org
-            Task.query.filter_by(org_id=org_id).delete(synchronize_session=False)
-
-            db.session.commit()
-
-            current_app.logger.warning(
-                f"PURGE: All task data purged by admin {g.user.email} for org {org_id}"
-            )
-
-            return {
-                "message": "All task data purged successfully",
-                "status": 200,
-            }
-
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Purge task stats failed: {e}")
-            return {"message": f"Purge failed: {str(e)}", "status": 500}, 500

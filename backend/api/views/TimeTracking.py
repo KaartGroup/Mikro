@@ -322,8 +322,6 @@ class TimeTrackingAPI(MethodView):
             return self.admin_add_entry()
         elif path == "admin_add_test_entry":
             return self.admin_add_test_entry()
-        elif path == "purge_all_time_entries":
-            return self.purge_all_time_entries()
         elif path == "request_adjustment":
             return self.request_adjustment()
         elif path == "pending_adjustments":
@@ -1843,21 +1841,6 @@ class TimeTrackingAPI(MethodView):
                 "Content-Disposition": f'attachment; filename="time-report-{today_str}.pdf"'
             },
         )
-
-    @requires_admin
-    def purge_all_time_entries(self):
-        """DEV ONLY: Delete all time entries for the admin's org."""
-        entries = TimeEntry.query.filter_by(org_id=g.user.org_id).all()
-        count = len(entries)
-        for entry in entries:
-            db.session.delete(entry)
-        db.session.commit()
-
-        return jsonify({
-            "message": f"Purged {count} time entries",
-            "entries_deleted": count,
-            "status": 200,
-        }), 200
 
     # ─── Hourly Contractor Payments ──────────────────────────────
 

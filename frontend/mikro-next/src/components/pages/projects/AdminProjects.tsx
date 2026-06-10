@@ -25,7 +25,6 @@ import { useToastActions } from "@/components/ui";
 import {
   useOrgProjects,
   useDeleteProject,
-  usePurgeProjects,
   useSyncProject,
   useCheckSyncStatus,
   useFetchFilterOptions,
@@ -51,7 +50,6 @@ export function AdminProjects() {
   const { data: projects, loading, refetch } = useOrgProjects();
   const { data: filterOptions } = useFetchFilterOptions();
   const { mutate: deleteProject, loading: deleting } = useDeleteProject();
-  const { mutate: purgeProjects, loading: purging } = usePurgeProjects();
   const { mutate: syncProject } = useSyncProject();
   const { mutate: checkSyncStatus } = useCheckSyncStatus();
   const [syncingProjectId, setSyncingProjectId] = useState<number | null>(null);
@@ -60,22 +58,20 @@ export function AdminProjects() {
 
   // Role-aware UI (F3 Phase 3.4):
   // - team_admin: list is server-scoped to managed teams' projects.
-  //   No create/delete/purge buttons.
+  //   No create/delete buttons.
   // - admin/super_admin: full management.
   const { role: viewerRole } = useCurrentUserRole();
   const { teams: managedTeams, loading: managedTeamsLoading } =
     useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
   const canCreateOrDelete = isOrgAdminOrAbove(viewerRole);
-  // team_admin can now create AND edit projects (delete + dev-tools purge
-  // are still org_admin only).
+  // team_admin can now create AND edit projects (delete is still org_admin only).
   const canCreateOrEdit = isAnyAdmin(viewerRole);
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
   const [activePageNum, setActivePageNum] = useState(1);
   const [inactivePageNum, setInactivePageNum] = useState(1);
@@ -169,19 +165,6 @@ export function AdminProjects() {
   const openDeleteModal = (project: Project) => {
     setSelectedProject(project);
     setShowDeleteModal(true);
-  };
-
-  const handlePurgeProjects = async () => {
-    try {
-      const result = await purgeProjects({});
-      toast.success(
-        `Purged ${result.projects_deleted} projects, ${result.tasks_deleted} tasks, reset ${result.users_reset} users`,
-      );
-      setShowPurgeModal(false);
-      refetch(buildRefetchBody());
-    } catch {
-      toast.error("Failed to purge projects");
-    }
   };
 
   const [projSortKey, setProjSortKey] = useState<string>("name");
@@ -754,15 +737,6 @@ export function AdminProjects() {
         )}
       </div>
 
-      {isTeamAdmin && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-950/30 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
-          You're seeing <strong>every project you created</strong> plus{" "}
-          <strong>every project on a team you lead</strong>. New projects are
-          active and visible by default. Tip: assign a new project to one of
-          your teams so your mappers can see it too.
-        </div>
-      )}
-
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -920,40 +894,6 @@ export function AdminProjects() {
         variant="destructive"
         isLoading={deleting}
       />
-
-      {/* Purge Confirmation */}
-      <ConfirmDialog
-        isOpen={showPurgeModal}
-        onClose={() => setShowPurgeModal(false)}
-        onConfirm={handlePurgeProjects}
-        title="Purge All Projects"
-        message="This will PERMANENTLY DELETE all projects, tasks, user-task relations, and reset user stats. This action cannot be undone!"
-        confirmText="Purge All"
-        variant="destructive"
-        isLoading={purging}
-      />
-
-      {/* Dev Tools Section — Org Admin / Super Admin only. */}
-      {/* Dev/purge tools hidden per management request 2026-05-19 —
-          restore by removing the `false &&` guard below. */}
-      {false && canCreateOrDelete && (
-        <Card className="mt-8 border-dashed border-yellow-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-600">
-              Dev Tools (Remove before production)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="destructive"
-              onClick={() => setShowPurgeModal(true)}
-              isLoading={purging}
-            >
-              Purge All Projects
-            </Button>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

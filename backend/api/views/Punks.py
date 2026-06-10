@@ -57,8 +57,6 @@ class PunkAPI(MethodView):
             return self.refresh_punk_activity()
         elif path == "toggle_discussion_flag":
             return self.toggle_discussion_flag()
-        elif path == "purge_all_discussions":
-            return self.purge_all_discussions()
         return {"message": "Unknown path", "status": 404}
 
     # ─── List all punks ──────────────────────────────────
@@ -371,21 +369,6 @@ class PunkAPI(MethodView):
         db.session.commit()
 
         return {"status": 200, "flagged": is_flagged, "message": "Flag toggled"}
-
-    # ─── Purge all discussions ───────────────────────────
-
-    @requires_admin
-    def purge_all_discussions(self):
-        """Clear cached discussions from ALL punks. Dev tool."""
-        punks = Punk.query.filter(Punk.org_id == g.user.org_id).all()
-        count = 0
-        for punk in punks:
-            if punk.cached_discussions:
-                punk.cached_discussions = None
-                punk.flagged_discussions = None
-                count += 1
-        db.session.commit()
-        return {"status": 200, "message": f"Purged discussions from {count} punk(s)"}
 
     # ─── Internal refresh logic ──────────────────────────
 

@@ -45,8 +45,6 @@ class TransactionAPI(MethodView):
             return self.archive_transaction()
         elif path == "fetch_archived_transactions":
             return self.fetch_archived_transactions()
-        elif path == "purge_all_transactions":
-            return self.purge_all_transactions()
         return {
             "message": "Only /project/{fetch_users,fetch_user_projects} is permitted with GET",  # noqa: E501
         }, 405
@@ -640,46 +638,3 @@ class TransactionAPI(MethodView):
             "status": 200,
         }
 
-    @requires_admin
-    def purge_all_transactions(self):
-        """DEV ONLY: Purge all transactions and reset related user stats."""
-        if not g.user:
-            return {"message": "User not found", "status": 304}
-
-        org_id = g.user.org_id
-
-        # Hard delete all pay requests
-        all_requests = PayRequests.query.filter_by(org_id=org_id).all()
-        requests_deleted = len(all_requests)
-        for req in all_requests:
-            db.session.delete(req)
-
-        # Hard delete all payments
-        all_payments = Payments.query.filter_by(org_id=org_id).all()
-        payments_deleted = len(all_payments)
-        for pay in all_payments:
-            db.session.delete(pay)
-
-        db.session.flush()
-
-        # Reset user payment stats
-        users = User.query.filter_by(org_id=org_id).all()
-        users_reset = 0
-        for user in users:
-            user.update(
-                payable_total=0,
-                mapping_payable_total=0,
-                validation_payable_total=0,
-                requested_total=0,
-                paid_total=0,
-                requesting_payment=False,
-            )
-            users_reset += 1
-
-        return {
-            "message": "All transactions purged",
-            "requests_deleted": requests_deleted,
-            "payments_deleted": payments_deleted,
-            "users_reset": users_reset,
-            "status": 200,
-        }

@@ -62,8 +62,6 @@ export function AdminUsers() {
   const [csvUsers, setCsvUsers] = useState<CsvUser[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showPurgeModal, setShowPurgeModal] = useState(false);
-  const [isPurging, setIsPurging] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeUsersTab, setActiveUsersTab] = useState<
     "active" | "deactivated"
@@ -83,7 +81,7 @@ export function AdminUsers() {
   const countries = countriesData?.countries ?? [];
 
   // Role-aware UI (F3 Phase 3.4).
-  // - team_admin: cannot promote, cannot mass-import/purge.
+  // - team_admin: cannot promote, cannot mass-import.
   //   "Search org users by email" feeds invite + add-to-team flow.
   // - super_admin: can promote any user including to super_admin.
   // - admin (Org Admin): can promote up to admin (NOT super_admin).
@@ -92,7 +90,7 @@ export function AdminUsers() {
     useManagedTeams();
   const isTeamAdmin = viewerRole === "team_admin";
   const canEditRole = isOrgAdminOrAbove(viewerRole); // org_admin / super_admin
-  const canImportOrPurge = isOrgAdminOrAbove(viewerRole);
+  const canImport = isOrgAdminOrAbove(viewerRole);
 
   // Roles this viewer may grant via invite — at or below their own level.
   // team_admin can only invite Mapper/Validator (into teams they lead);
@@ -516,31 +514,6 @@ export function AdminUsers() {
     }
   };
 
-  const handlePurgeUsers = async () => {
-    setIsPurging(true);
-    try {
-      const response = await fetch("/backend/user/purge_all_users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await response.json();
-      if (response.ok && data.status === 200) {
-        toast.success(
-          `Purged ${data.users_deleted} users. Your admin account was preserved.`,
-        );
-        setShowPurgeModal(false);
-        fetchUsers();
-      } else {
-        toast.error(data.message || "Failed to purge users");
-      }
-    } catch (error) {
-      console.error("Failed to purge users:", error);
-      toast.error("Failed to purge users");
-    } finally {
-      setIsPurging(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -605,7 +578,7 @@ export function AdminUsers() {
               Delete
             </Button>
           )}
-          {canImportOrPurge && (
+          {canImport && (
             <Button variant="outline" onClick={handleImportClick}>
               Import CSV
             </Button>
@@ -1420,65 +1393,6 @@ export function AdminUsers() {
         </div>
       </Modal>
 
-      {/* Purge Users Modal */}
-      <Modal
-        isOpen={showPurgeModal}
-        onClose={() => setShowPurgeModal(false)}
-        title="Purge All Users"
-      >
-        <div className="space-y-4">
-          <p className="text-muted-foreground">
-            This will permanently delete ALL users in the organization except
-            your own admin account. All related data (task assignments,
-            trainings, payments) will also be deleted.
-          </p>
-          <p className="text-red-600 font-semibold">
-            This action cannot be undone!
-          </p>
-          <div className="flex gap-2 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setShowPurgeModal(false)}
-              disabled={isPurging}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handlePurgeUsers}
-              disabled={isPurging}
-            >
-              {isPurging ? "Purging..." : "Purge All Users"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Dev Tools — Org Admin / Super Admin only. Team Admins lack
-          the broad-user-purge permission server-side anyway, but
-          hiding it here keeps the UI honest. */}
-      {/* Dev/purge tools hidden per management request 2026-05-19 —
-          restore by removing the `false &&` guard below. */}
-      {false && canImportOrPurge && (
-        <Card className="border-2 border-dashed border-yellow-500">
-          <CardHeader>
-            <CardTitle className="text-yellow-700">Dev Tools</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <Button
-                variant="destructive"
-                onClick={() => setShowPurgeModal(true)}
-              >
-                Purge All Users
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Warning: This will delete all users except your own admin account.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

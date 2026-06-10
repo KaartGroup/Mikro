@@ -29,7 +29,6 @@ import {
   usePunkDetail,
   useRefreshPunkActivity,
   useToggleDiscussionFlag,
-  usePurgeAllDiscussions,
 } from "@/hooks";
 import type { PunkDetailResponse } from "@/types";
 import { formatNumber, formatDate } from "@/lib/utils";
@@ -78,8 +77,6 @@ export default function PunkDetailPage() {
     useRefreshPunkActivity();
 
   const { mutate: toggleFlag } = useToggleDiscussionFlag();
-  const { mutate: purgeDiscussions, loading: purging } =
-    usePurgeAllDiscussions();
 
   const [data, setData] = useState<PunkDetailResponse | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
@@ -419,8 +416,7 @@ export default function PunkDetailPage() {
         <TabsContent value="discussions">
           <Card>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                   Comments on this user&apos;s changesets from other OSM editors
                   {data.discussions && data.discussions.length > 0 && (
                     <span className="ml-2 text-xs">
@@ -428,25 +424,6 @@ export default function PunkDetailPage() {
                     </span>
                   )}
                 </p>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={purging}
-                  onClick={async () => {
-                    try {
-                      await purgeDiscussions({});
-                      toast.success("All punk discussions purged");
-                      // Refresh this punk's detail
-                      const res = await fetchDetail({ punk_id: Number(id) });
-                      if (res) setData(res);
-                    } catch {
-                      toast.error("Failed to purge discussions");
-                    }
-                  }}
-                >
-                  {purging ? "Purging..." : "Purge All Discussions"}
-                </Button>
-              </div>
             </CardHeader>
             <CardContent>
               {data.discussions && data.discussions.length > 0 ? (

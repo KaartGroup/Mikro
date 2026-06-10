@@ -69,8 +69,6 @@ class TrainingAPI(MethodView):
             return self.complete_training()
         elif path == "submit_quiz":
             return self.submit_quiz()
-        elif path == "purge_all_trainings":
-            return self.purge_all_trainings()
         return {
             "message": "Only /project/{fetch_users,fetch_user_projects} is permitted with GET",  # noqa: E501
         }, 405
@@ -544,60 +542,3 @@ class TrainingAPI(MethodView):
             "questions": questions,
         }
 
-    @requires_admin
-    def purge_all_trainings(self):
-        """DEV ONLY: Purge all trainings and reset related user stats."""
-        response = {}
-        if not g:
-            response["message"] = "User not found"
-            response["status"] = 304
-            return response
-
-        org_id = g.user.org_id
-
-        # Get all training IDs for this org
-        trainings = Training.query.filter_by(org_id=org_id).all()
-        training_ids = [t.id for t in trainings]
-
-        # Delete all training completions
-        completions = TrainingCompleted.query.filter(
-            TrainingCompleted.training_id.in_(training_ids)
-        ).all()
-        for completion in completions:
-            completion.delete(soft=False)
-
-        # Delete all training answers
-        answers = TrainingQuestionAnswer.query.filter(
-            TrainingQuestionAnswer.training_id.in_(training_ids)
-        ).all()
-        for answer in answers:
-            answer.delete(soft=False)
-
-        # Delete all training questions
-        questions = TrainingQuestion.query.filter(
-            TrainingQuestion.training_id.in_(training_ids)
-        ).all()
-        for question in questions:
-            question.delete(soft=False)
-
-        # Delete all trainings
-        trainings_deleted = len(trainings)
-        for training in trainings:
-            training.delete(soft=False)
-
-        # Reset user training stats
-        users = User.query.filter_by(org_id=org_id).all()
-        users_reset = 0
-        for user in users:
-            user.update(
-                mapper_points=0,
-                validator_points=0,
-                special_project_points=0,
-            )
-            users_reset += 1
-
-        response["message"] = "All trainings purged"
-        response["trainings_deleted"] = trainings_deleted
-        response["users_reset"] = users_reset
-        response["status"] = 200
-        return response
