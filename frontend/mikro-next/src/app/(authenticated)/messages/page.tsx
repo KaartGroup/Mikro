@@ -78,6 +78,7 @@ function MessagesPageInner() {
   const [thread, setThread] = useState<Message[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
   const [composer, setComposer] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -121,23 +122,30 @@ function MessagesPageInner() {
     return () => window.clearInterval(id);
   }, [refetchConversations]);
 
-  const loadThread = useCallback(async () => {
-    if (!selected) return;
-    setThreadLoading(true);
-    try {
-      const res = await fetchThread({
-        scope_type: selected.scope_type,
-        scope_key: selected.scope_key,
-        limit: 100,
-        offset: 0,
-      });
-      setThread(res?.messages || []);
-    } catch {
-      setThread([]);
-    } finally {
-      setThreadLoading(false);
-    }
-  }, [selected, fetchThread]);
+  // showLoading=true only on the first load of a conversation. Background
+  // polls (every 5s) pass false so the pane never flips back to a "Loading…"
+  // spinner — which, on an empty thread, made it flash between "Loading…" and
+  // "No messages yet" every 5 seconds.
+  const loadThread = useCallback(
+    async (showLoading = false) => {
+      if (!selected) return;
+      if (showLoading) setThreadLoading(true);
+      try {
+        const res = await fetchThread({
+          scope_type: selected.scope_type,
+          scope_key: selected.scope_key,
+          limit: 100,
+          offset: 0,
+        });
+        setThread(res?.messages || []);
+      } catch {
+        if (showLoading) setThread([]);
+      } finally {
+        if (showLoading) setThreadLoading(false);
+      }
+    },
+    [selected, fetchThread],
+  );
 
   // Load + poll the selected thread.
   useEffect(() => {
@@ -145,9 +153,10 @@ function MessagesPageInner() {
       setThread([]);
       return;
     }
-    loadThread();
+    setThread([]); // clear the previous conversation's messages immediately
+    loadThread(true);
     const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") loadThread();
+      if (document.visibilityState === "visible") loadThread(false);
     }, 5000);
     return () => window.clearInterval(id);
   }, [selected, loadThread]);
@@ -170,6 +179,7 @@ function MessagesPageInner() {
 
   const handleSend = async () => {
     if (!selected || !composer.trim()) return;
+    setSendError(null);
     const body: Record<string, unknown> = {
       target_type: selected.scope_type,
       content: composer.trim(),
@@ -180,10 +190,15 @@ function MessagesPageInner() {
     try {
       await sendMessage(body);
       setComposer("");
-      await loadThread();
+      await loadThread(false);
       refetchConversations().catch(() => {});
-    } catch {
-      /* best-effort — a toast could be added later */
+    } catch (err) {
+      // Surface the failure instead of swallowing it (was silent).
+      setSendError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't send — please try again.",
+      );
     }
   };
 
@@ -454,53 +469,72 @@ function MessagesPageInner() {
             ) : (
               <div
                 style={{
-                  padding: 12,
                   borderTop: "1px solid var(--border)",
-                  display: "flex",
-                  gap: 8,
                 }}
               >
-                <textarea
-                  value={composer}
-                  onChange={(e) => setComposer(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
-                  rows={2}
+                {sendError && (
+                  <div
+                    style={{
+                      padding: "8px 12px 0",
+                      color: "#dc2626",
+                      fontSize: 12,
+                    }}
+                  >
+                    {sendError}
+                  </div>
+                )}
+                <div
                   style={{
-                    flex: 1,
-                    resize: "none",
-                    padding: 8,
-                    borderRadius: 6,
-                    border: "1px solid var(--border)",
-                    background: "var(--background)",
-                    color: "var(--foreground)",
-                    fontSize: 13,
-                    fontFamily: "inherit",
-                  }}
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!composer.trim() || sending}
-                  style={{
-                    padding: "8px 14px",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: "#ff6b35",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 6,
-                    cursor:
-                      composer.trim() && !sending ? "pointer" : "not-allowed",
-                    opacity: composer.trim() && !sending ? 1 : 0.6,
+                    padding: 12,
+                    display: "flex",
+                    gap: 8,
                   }}
                 >
-                  Send
-                </button>
+                  <textarea
+                    value={composer}
+                    onChange={(e) => {
+                      setComposer(e.target.value);
+                      if (sendError) setSendError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
+                    rows={2}
+                    style={{
+                      flex: 1,
+                      resize: "none",
+                      padding: 8,
+                      borderRadius: 6,
+                      border: "1px solid var(--border)",
+                      background: "var(--background)",
+                      color: "var(--foreground)",
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                    }}
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={!composer.trim() || sending}
+                    style={{
+                      padding: "8px 14px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      background: "#ff6b35",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 6,
+                      cursor:
+                        composer.trim() && !sending ? "pointer" : "not-allowed",
+                      opacity: composer.trim() && !sending ? 1 : 0.6,
+                    }}
+                  >
+                    Send
+                  </button>
+                </div>
               </div>
             )}
           </>
