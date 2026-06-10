@@ -48,6 +48,9 @@ from ..utils.time_tracking_helpers import (
 )
 from ..utils.time_entry_query import TimeEntryQuery
 from ..services.hourly_rate_history import HourlyRateHistoryService
+from .. import comms_client
+from ..comms_client import NotificationType
+from ..targeting import org_admin_users
 
 logger = logging.getLogger(__name__)
 
@@ -803,6 +806,26 @@ class TimeTrackingAPI(MethodView):
         entry.notes = f"[ADJUSTMENT REQUESTED] {reason}"
         entry.save()
 
+        # Notify every org admin that a review was requested.
+        try:
+            admins = org_admin_users(g.user.org_id, exclude_user_id=g.user.id)
+            requester_name = g.user.full_name or g.user.email or "A user"
+            snippet = reason[:120] + ("…" if len(reason) > 120 else "")
+            comms_client.emit_batch(
+                user_ids=[a.id for a in admins],
+                org_id=g.user.org_id,
+                type=NotificationType.ADJUSTMENT_REQUESTED,
+                message=(
+                    f"{requester_name} requested a time-entry adjustment: {snippet}"
+                ),
+                link="/admin/time",
+                actor_id=g.user.id,
+                entity_type="time_entry",
+                entity_id=entry.id,
+            )
+        except Exception:
+            pass
+
         return jsonify({
             "message": "Adjustment request submitted",
             "status": 200,
@@ -1194,6 +1217,24 @@ class TimeTrackingAPI(MethodView):
 
         entry.save()
 
+        # Notify the editor whose session got force-closed.
+        try:
+            comms_client.emit(
+                user_id=entry.user_id,
+                org_id=entry.org_id or g.user.org_id,
+                type=NotificationType.ENTRY_FORCE_CLOSED,
+                message=(
+                    f"An admin ended your {entry.activity or 'active'} session "
+                    f"(duration {entry.duration_seconds or 0}s)."
+                ),
+                link="/user/time",
+                actor_id=g.user.id,
+                entity_type="time_entry",
+                entity_id=entry.id,
+            )
+        except Exception:
+            pass
+
         return jsonify({
             "message": "Force clock out successful",
             "status": 200,
@@ -1244,6 +1285,21 @@ class TimeTrackingAPI(MethodView):
         entry.voided_by = g.user.id
         entry.voided_at = datetime.utcnow()
         entry.save()
+
+        # Notify the owner that one of their entries was voided.
+        try:
+            comms_client.emit(
+                user_id=entry.user_id,
+                org_id=entry.org_id or g.user.org_id,
+                type=NotificationType.ENTRY_ADJUSTED,
+                message="An admin voided one of your time entries.",
+                link="/user/time",
+                actor_id=g.user.id,
+                entity_type="time_entry",
+                entity_id=entry.id,
+            )
+        except Exception:
+            pass
 
         return jsonify({
             "message": "Entry voided",
@@ -2025,6 +2081,25 @@ class TimeTrackingAPI(MethodView):
                     hp.notes = notes
 
         db.session.commit()
+
+        # Notify the contractor when their month is freshly marked paid.
+        if paid:
+            try:
+                comms_client.emit(
+                    user_id=user_id,
+                    org_id=user.org_id or g.user.org_id,
+                    type=NotificationType.PAYMENT_SENT,
+                    message=(
+                        f"Your {year}-{month:02d} hourly payment has been "
+                        f"marked paid."
+                    ),
+                    link="/user/payments",
+                    actor_id=g.user.id,
+                    entity_type="hourly_payment",
+                    entity_id=hp.id if hp else None,
+                )
+            except Exception:
+                pass
 
         return jsonify({
             "status": 200,

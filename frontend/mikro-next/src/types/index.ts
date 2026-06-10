@@ -1704,3 +1704,125 @@ export interface HourlyRateMutationResponse {
   message?: string;
   status: number;
 }
+
+// ─── Comms platform — notifications + email + messenger ───────────────
+//
+// These types mirror the SEPARATE comms service contract (comms/views/*.py
+// + comms/database/models.py), NOT Mikro's own backend. The messenger is
+// app-agnostic: scopes are user (DM) / group (opaque key) / org (broadcast).
+// Group targeting is scoped down for V1 (see messages page) — the types
+// keep `group` so the contract stays faithful to the service.
+
+export interface Notification {
+  id: number;
+  type: string;
+  message: string;
+  link: string | null;
+  actor_id: string | null;
+  entity_type: string | null;
+  entity_id: number | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationsResponse {
+  status: number;
+  notifications: Notification[];
+  total: number;
+}
+
+export interface NotificationUnreadCountResponse {
+  status: number;
+  unread_count: number;
+}
+
+export interface NotificationPreferences {
+  notify_entry_adjusted: boolean;
+  notify_entry_force_closed: boolean;
+  notify_adjustment_requested: boolean;
+  notify_assigned_to_project: boolean;
+  notify_payment_sent: boolean;
+  notify_bank_info_changed: boolean;
+  notify_announcement: boolean;
+  notify_message_received: boolean;
+}
+
+export interface NotificationPreferencesResponse {
+  status: number;
+  preferences: NotificationPreferences;
+}
+
+export interface EmailCampaign {
+  id: number;
+  subject: string;
+  audience: string;
+  is_forced: boolean;
+  sent_by: string | null;
+  // Comms returns only the sender's Auth0 sub (`sent_by`), not a display
+  // name — kept optional so the history table can degrade to "—".
+  sent_by_name?: string | null;
+  sent_at: string | null;
+  recipient_count: number | null;
+  created_at: string;
+}
+
+export interface EmailCampaignsListResponse {
+  status: number;
+  campaigns: EmailCampaign[];
+}
+
+export interface EmailCampaignCreateResponse {
+  status: number;
+  // Comms wraps the created row in `campaign`; recipient_count lives on it.
+  campaign: EmailCampaign;
+  recipient_count?: number;
+}
+
+export interface EmailCampaignPreviewResponse {
+  status: number;
+  recipient_count: number | null;
+  html?: string;
+}
+
+// Messenger scope types — aligned to the comms service (user/group/org).
+export type MessageScopeType = "user" | "group" | "org";
+
+export interface Message {
+  id: number;
+  sender_id: string;
+  target_type: MessageScopeType;
+  target_user_id: string | null;
+  target_group_key: string | null;
+  content: string;
+  created_at: string;
+}
+
+export interface MessagesThreadResponse {
+  status: number;
+  messages: Message[];
+  total: number;
+}
+
+export interface Conversation {
+  scope_type: MessageScopeType;
+  scope_key: string;
+  label: string;
+  subtitle: string | null;
+  last_message: Message | null;
+  unread_count: number;
+}
+
+export interface ConversationsResponse {
+  status: number;
+  conversations: Conversation[];
+}
+
+export interface MessagesSendResponse {
+  status: number;
+  message: Message;
+}
+
+export interface MessagesUnreadCountResponse {
+  status: number;
+  unread_count: number;
+}

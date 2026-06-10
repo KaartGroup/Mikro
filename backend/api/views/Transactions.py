@@ -17,6 +17,8 @@ from ..auth import (
 )
 from ..database import db, User, PayRequests, Payments, UserTasks, Task, Project
 from ..services.payment_balance import PaymentBalanceService
+from .. import comms_client
+from ..comms_client import NotificationType
 
 
 class TransactionAPI(MethodView):
@@ -314,6 +316,22 @@ class TransactionAPI(MethodView):
         )
         if notes:
             new_payment.update(notes=notes)
+
+        # Notify the payee that their payment was sent.
+        try:
+            comms_client.emit(
+                user_id=user_id,
+                org_id=target_user.org_id or g.user.org_id,
+                type=NotificationType.PAYMENT_SENT,
+                message=(f"A payment of ${request_amount:.2f} has been sent to you."),
+                link="/user/payments",
+                actor_id=g.user.id,
+                entity_type="payment",
+                entity_id=new_payment.id,
+            )
+        except Exception:
+            pass
+
         return {
             "message": f"Payment Request {request_id} has been processed",
             "status": 200,

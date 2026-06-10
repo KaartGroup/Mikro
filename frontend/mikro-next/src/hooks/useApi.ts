@@ -64,6 +64,16 @@ import type {
   AdminAggregateStatsResponse,
   HourlyRateHistoryResponse,
   HourlyRateMutationResponse,
+  NotificationsResponse,
+  NotificationUnreadCountResponse,
+  NotificationPreferencesResponse,
+  EmailCampaignsListResponse,
+  EmailCampaignCreateResponse,
+  EmailCampaignPreviewResponse,
+  ConversationsResponse,
+  MessagesThreadResponse,
+  MessagesSendResponse,
+  MessagesUnreadCountResponse,
 } from "@/types";
 
 /**
@@ -74,8 +84,12 @@ export function useApiCall<T>(
   options?: {
     immediate?: boolean;
     body?: Record<string, unknown>;
+    // Proxy base path. Defaults to Mikro's own backend proxy. Comms-platform
+    // hooks pass "/comms" to route through the separate comms-service proxy.
+    base?: string;
   },
 ) {
+  const base = options?.base ?? "/backend";
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(options?.immediate !== false);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +100,7 @@ export function useApiCall<T>(
       setError(null);
 
       try {
-        const response = await fetch(`/backend${endpoint}`, {
+        const response = await fetch(`${base}${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(overrideBody || options?.body || {}),
@@ -98,7 +112,7 @@ export function useApiCall<T>(
         // instead of blindly kicking the user back to login.
         if (response.status === 401) {
           await new Promise((r) => setTimeout(r, 400));
-          const retryResponse = await fetch(`/backend${endpoint}`, {
+          const retryResponse = await fetch(`${base}${endpoint}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(overrideBody || options?.body || {}),
@@ -143,7 +157,7 @@ export function useApiCall<T>(
         setLoading(false);
       }
     },
-    [endpoint, options?.body],
+    [endpoint, options?.body, base],
   );
 
   useEffect(() => {
@@ -223,6 +237,9 @@ export function useUserDetails() {
  */
 export function useApiMutation<TResponse = { message: string; status: number }>(
   endpoint: string,
+  // Proxy base path. Defaults to Mikro's own backend proxy. Comms-platform
+  // hooks pass "/comms" to route through the separate comms-service proxy.
+  base: string = "/backend",
 ) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -233,7 +250,7 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
       setError(null);
 
       try {
-        const response = await fetch(`/backend${endpoint}`, {
+        const response = await fetch(`${base}${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -243,7 +260,7 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
         // 401s during post-login token refresh.
         if (response.status === 401) {
           await new Promise((r) => setTimeout(r, 400));
-          const retryResponse = await fetch(`/backend${endpoint}`, {
+          const retryResponse = await fetch(`${base}${endpoint}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -285,7 +302,7 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
         setLoading(false);
       }
     },
-    [endpoint],
+    [endpoint, base],
   );
 
   return { mutate, loading, error };
@@ -1411,9 +1428,7 @@ export function useSubmitReimbursementRequest() {
 }
 
 export function useMyReimbursementRequests() {
-  return useApiMutation<ReimbursementListResponse>(
-    "/reimbursements/my",
-  );
+  return useApiMutation<ReimbursementListResponse>("/reimbursements/my");
 }
 
 export function useWithdrawReimbursementRequest() {
@@ -1429,9 +1444,7 @@ export function useReimbursementUploadUrl() {
 }
 
 export function usePendingReimbursements() {
-  return useApiMutation<ReimbursementListResponse>(
-    "/reimbursements/pending",
-  );
+  return useApiMutation<ReimbursementListResponse>("/reimbursements/pending");
 }
 
 export function useApproveReimbursementRequest() {
@@ -1513,26 +1526,31 @@ export function useFetchHourlyRates() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch_ = useCallback(async (userId: string): Promise<HourlyRateHistoryResponse> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/backend/hourly-rates?user_id=${encodeURIComponent(userId)}`);
-      const result = await response.json();
-      if (!response.ok || (result.status && result.status >= 300)) {
-        const msg = result.message || "Failed to fetch rate history";
+  const fetch_ = useCallback(
+    async (userId: string): Promise<HourlyRateHistoryResponse> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(
+          `/backend/hourly-rates?user_id=${encodeURIComponent(userId)}`,
+        );
+        const result = await response.json();
+        if (!response.ok || (result.status && result.status >= 300)) {
+          const msg = result.message || "Failed to fetch rate history";
+          setError(msg);
+          throw new Error(msg);
+        }
+        return result as HourlyRateHistoryResponse;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
         setError(msg);
-        throw new Error(msg);
+        throw err;
+      } finally {
+        setLoading(false);
       }
-      return result as HourlyRateHistoryResponse;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      setError(msg);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   return { fetch: fetch_, loading, error };
 }
@@ -1546,7 +1564,10 @@ export function useDeleteHourlyRate() {
   const [error, setError] = useState<string | null>(null);
 
   const deleteRate = useCallback(
-    async (rateId: number, userId: string): Promise<HourlyRateMutationResponse> => {
+    async (
+      rateId: number,
+      userId: string,
+    ): Promise<HourlyRateMutationResponse> => {
       setLoading(true);
       setError(null);
       try {
@@ -1574,4 +1595,112 @@ export function useDeleteHourlyRate() {
   );
 
   return { deleteRate, loading, error };
+}
+
+// ─── Comms platform ──────────────────────────────────────────────────
+//
+// These hooks hit the SEPARATE comms service via the "/comms" proxy
+// (src/app/comms/[...path]/route.ts → COMMS_PROXY_URL), NOT Mikro's own
+// "/backend" proxy. Endpoint paths mirror comms/views/*.py (routes are
+// registered at the comms service root, no "/api" prefix).
+
+const COMMS_BASE = "/comms";
+
+// Comms: notifications ────────────────────────────────────────────────
+
+// User: paginated notification list for the bell panel. POST /notifications/fetch
+export function useNotifications() {
+  return useApiMutation<NotificationsResponse>(
+    "/notifications/fetch",
+    COMMS_BASE,
+  );
+}
+
+// User: unread count for the bell badge (polled 30s). POST /notifications/unread_count
+export function useNotificationUnreadCount() {
+  return useApiCall<NotificationUnreadCountResponse>(
+    "/notifications/unread_count",
+    { base: COMMS_BASE },
+  );
+}
+
+// User: mark one-or-all notifications read. POST /notifications/mark_read
+export function useMarkNotificationsRead() {
+  return useApiMutation<{ status: number; updated: number }>(
+    "/notifications/mark_read",
+    COMMS_BASE,
+  );
+}
+
+// User: fetch notify_* preference flags. POST /notifications/preferences
+export function useNotificationPreferences() {
+  return useApiCall<NotificationPreferencesResponse>(
+    "/notifications/preferences",
+    { base: COMMS_BASE },
+  );
+}
+
+// User: update notify_* preference flags. POST /notifications/update_preferences
+export function useUpdateNotificationPreferences() {
+  return useApiMutation<NotificationPreferencesResponse>(
+    "/notifications/update_preferences",
+    COMMS_BASE,
+  );
+}
+
+// Comms: email campaigns (admin) ──────────────────────────────────────
+
+// Admin: list past campaigns. POST /email/campaigns_list
+export function useEmailCampaignsList() {
+  return useApiCall<EmailCampaignsListResponse>("/email/campaigns_list", {
+    base: COMMS_BASE,
+  });
+}
+
+// Admin: create+send a campaign. POST /email/campaigns_create
+export function useCreateEmailCampaign() {
+  return useApiMutation<EmailCampaignCreateResponse>(
+    "/email/campaigns_create",
+    COMMS_BASE,
+  );
+}
+
+// Admin: preview recipient count / rendered html. POST /email/campaigns_preview
+export function usePreviewEmailCampaign() {
+  return useApiMutation<EmailCampaignPreviewResponse>(
+    "/email/campaigns_preview",
+    COMMS_BASE,
+  );
+}
+
+// Comms: messenger ────────────────────────────────────────────────────
+
+// User: list conversations (DMs + org). POST /messages/conversations
+// useApiCall so the page gets { data, refetch } and auto-fetches on mount.
+export function useConversations() {
+  return useApiCall<ConversationsResponse>("/messages/conversations", {
+    base: COMMS_BASE,
+  });
+}
+
+// User: paginated thread for a scope. POST /messages/thread
+export function useMessageThread() {
+  return useApiMutation<MessagesThreadResponse>("/messages/thread", COMMS_BASE);
+}
+
+// User: send a message (DM / org broadcast). POST /messages/send
+export function useSendMessage() {
+  return useApiMutation<MessagesSendResponse>("/messages/send", COMMS_BASE);
+}
+
+// User: upsert read watermark for a scope. POST /messages/mark_read
+export function useMarkMessagesRead() {
+  return useApiMutation<{ status: number }>("/messages/mark_read", COMMS_BASE);
+}
+
+// User: total unread across conversations (polled 30s). POST /messages/unread_count
+export function useMessagesUnreadCount() {
+  return useApiCall<MessagesUnreadCountResponse>("/messages/unread_count", {
+    base: COMMS_BASE,
+  });
 }

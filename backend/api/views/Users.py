@@ -54,6 +54,9 @@ from ..database import (
     db,
 )
 from ..filters import resolve_filtered_user_ids
+from .. import comms_client
+from ..comms_client import NotificationType
+from ..targeting import org_admin_users
 
 from ..stats import get_user_task_stats, get_batch_user_task_stats, get_batch_user_task_stats_fast
 from ..services.payment_balance import PaymentBalanceService
@@ -851,6 +854,7 @@ class UserAPI(MethodView):
             "timezone",
         ]
         country_changed = False
+        payment_email_changed = False
         # Snapshot pre-write name values so we can audit after the loop.
         pre_first = g.user.first_name
         pre_last = g.user.last_name
@@ -859,6 +863,8 @@ class UserAPI(MethodView):
             if value is not None and value != "" and value != getattr(g.user, field):
                 if field == "country":
                     country_changed = True
+                if field == "payment_email":
+                    payment_email_changed = True
                 setattr(g.user, field, value)
                 g.user.update()
         # Audit name change (helper no-ops if nothing changed).
@@ -891,6 +897,24 @@ class UserAPI(MethodView):
         # Auto-assign country when country text changes
         if country_changed:
             _auto_assign_country(g.user, g.user.country)
+
+        # Notify org admins when a user changes their payment ("bank") info.
+        if payment_email_changed:
+            try:
+                admins = org_admin_users(g.user.org_id, exclude_user_id=g.user.id)
+                actor_name = g.user.full_name or g.user.email or "A user"
+                comms_client.emit_batch(
+                    user_ids=[a.id for a in admins],
+                    org_id=g.user.org_id,
+                    type=NotificationType.BANK_INFO_CHANGED,
+                    message=f"{actor_name} updated their payment information.",
+                    link=f"/admin/users/{g.user.id}",
+                    actor_id=g.user.id,
+                    entity_type="user",
+                    entity_id=g.user.id,
+                )
+            except Exception:
+                pass
 
         # Return success response
         response = {"message": "User details updated", "status": 200}
@@ -1485,6 +1509,24 @@ class UserAPI(MethodView):
         else:
             ProjectUser.create(user_id=user_id, project_id=project_id)
             response["message"] = f"User {user_id} assigned to Project {project_id}"
+            # Notify the user they were assigned to the project.
+            try:
+                target_user = User.query.get(user_id)
+                project = Project.query.get(project_id)
+                project_name = getattr(project, "name", None) or f"Project {project_id}"
+                recipient_org = getattr(target_user, "org_id", None) or g.user.org_id
+                comms_client.emit(
+                    user_id=user_id,
+                    org_id=recipient_org,
+                    type=NotificationType.ASSIGNED_TO_PROJECT,
+                    message=f"You were assigned to {project_name}.",
+                    link=f"/user/projects/{project_id}",
+                    actor_id=g.user.id,
+                    entity_type="project",
+                    entity_id=project_id,
+                )
+            except Exception:
+                pass
         # Set status code for response
         response["status"] = 200
         return response

@@ -130,6 +130,10 @@ services:
       - key: FLASK_BACKEND_URL
         value: http://mikro-backend:8080
 
+      # Comms service (internal routing) — the /comms Next proxy forwards here.
+      - key: COMMS_PROXY_URL
+        value: http://comms:8080
+
   # Comms - shared notifications / email service.
   # Deploys from its OWN branch (comms-release), NOT master, so Mikro pushes
   # never rebuild comms and comms pushes never rebuild Mikro. Ship comms by

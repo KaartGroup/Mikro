@@ -4,3 +4,4 @@ export * from "./usePaymentsVisible";
 export * from "./useCurrentUserRole";
 export * from "./useManagedTeams";
 export * from "./useCursorHistory";
+export * from "./useVisibilityPoll";
