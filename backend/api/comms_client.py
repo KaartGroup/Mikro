@@ -52,6 +52,18 @@ class NotificationType:
     MESSAGE_RECEIVED: Final[str] = "message_received"
 
 
+class CommsError(Exception):
+    """Raised when a synchronous comms campaign call cannot complete.
+
+    Unlike the fire-and-forget notification path (which swallows all
+    errors), the campaign endpoints are user-facing: the caller needs the
+    result, so a failure must surface as an exception the view can turn
+    into a 502.
+    """
+
+    pass
+
+
 def _comms_config() -> tuple[Optional[str], Optional[str]]:
     """(base_url, secret) from current_app.config, falling back to env."""
     try:
@@ -227,3 +239,113 @@ def emit_batch(
         _post("notify_batch", body)
     except Exception as e:
         _log("warning", f"[COMMS] emit_batch error (swallowed): {e}")
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Synchronous campaign calls (announcements / broadcast email)
+#
+# These are NOT fire-and-forget: the user is waiting on the result, so they
+# block the request thread, return the comms response, and raise CommsError
+# on failure rather than swallowing it. They reuse the same HMAC signing and
+# config helpers as the notify path. The recipient resolution + authorization
+# happens in Mikro (api/views/Comms.py) BEFORE these are called; comms only
+# applies the opt-out filter and persists.
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def send_campaign(
+    *,
+    org_id: str,
+    subject: str,
+    body_html: str,
+    audience: str,
+    is_forced: bool,
+    sent_by: str,
+    recipients: list,
+) -> dict:
+    """Send a campaign synchronously via comms ``/emit/campaign``.
+
+    ``recipients`` is a list of ``{"sub": ..., "email": ...}`` dicts already
+    resolved + authorized by the caller. Returns the parsed comms JSON
+    response on success. Raises :class:`CommsError` if comms is not
+    configured or the request fails / returns a non-2xx status.
+    """
+    url, secret = _comms_config()
+    if not url or not secret:
+        raise CommsError("comms not configured")
+
+    body = {
+        "org_id": org_id,
+        "subject": subject,
+        "body_html": body_html,
+        "audience": audience,
+        "is_forced": is_forced,
+        "sent_by": sent_by,
+        "recipients": recipients,
+    }
+    raw_body = json.dumps(body).encode("utf-8")
+    signature = _sign(secret, raw_body)
+    target = f"{url.rstrip('/')}/emit/campaign"
+
+    try:
+        resp = requests.post(
+            target,
+            data=raw_body,
+            headers={
+                "Content-Type": "application/json",
+                "X-Comms-Signature": signature,
+            },
+            timeout=15,
+        )
+    except Exception as e:
+        raise CommsError(str(e))
+
+    if resp.status_code < 200 or resp.status_code >= 300:
+        raise CommsError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+
+    try:
+        return resp.json()
+    except Exception as e:
+        raise CommsError(f"invalid response from comms: {e}")
+
+
+def fetch_campaigns(*, org_id: str, sent_by: Optional[str] = None) -> list:
+    """Fetch campaign history synchronously via comms ``/emit/campaign_list``.
+
+    Returns the list of campaign dicts. History is non-critical: on ANY
+    failure (unconfigured, network error, non-2xx, bad JSON) this logs a
+    warning and returns ``[]`` so the page never 500s.
+    """
+    url, secret = _comms_config()
+    if not url or not secret:
+        _log("info", "[COMMS] fetch_campaigns skipped (not configured)")
+        return []
+
+    body = {"org_id": org_id}
+    if sent_by is not None:
+        body["sent_by"] = sent_by
+    raw_body = json.dumps(body).encode("utf-8")
+    signature = _sign(secret, raw_body)
+    target = f"{url.rstrip('/')}/emit/campaign_list"
+
+    try:
+        resp = requests.post(
+            target,
+            data=raw_body,
+            headers={
+                "Content-Type": "application/json",
+                "X-Comms-Signature": signature,
+            },
+            timeout=10,
+        )
+        if resp.status_code < 200 or resp.status_code >= 300:
+            _log(
+                "warning",
+                f"[COMMS] fetch_campaigns -> HTTP {resp.status_code}: "
+                f"{resp.text[:200]}",
+            )
+            return []
+        return resp.json().get("campaigns", [])
+    except Exception as e:
+        _log("warning", f"[COMMS] fetch_campaigns failed: {e}")
+        return []
