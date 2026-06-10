@@ -23,6 +23,7 @@ from .CommunityData import CommunityDataAPI
 from .ChannelMonitor import ChannelMonitorAPI
 from .Organizations import OrganizationAPI
 from .HourlyRates import HourlyRatesAPI
+from .Comms import CommsAPI
 
 __all__ = {
     "UserAPI",
@@ -48,4 +49,5 @@ __all__ = {
     "ChannelMonitorAPI",
     "OrganizationAPI",
     "HourlyRatesAPI",
+    "CommsAPI",
 }
