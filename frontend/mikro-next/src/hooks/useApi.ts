@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type {
   AdminDashboardStats,
   UserDashboardStats,
@@ -1697,9 +1697,18 @@ export function useTargetableUsers() {
 // keep DM + org behavior unchanged. group_keys is part of the request body, so
 // changing it re-fetches (it's in fetchData's deps via options.body).
 export function useConversations(groupKeys?: string[]) {
+  // Memoize the request body on a STABLE key. useApiCall has options.body in
+  // its fetch dependency, so a fresh object literal every render would re-fire
+  // the fetch endlessly (a render→fetch→render loop). Keying on the joined
+  // group keys gives a stable reference until the keys actually change.
+  const groupKey = (groupKeys ?? []).join(",");
+  const body = useMemo(
+    () => (groupKey ? { group_keys: groupKey.split(",") } : undefined),
+    [groupKey],
+  );
   return useApiCall<ConversationsResponse>("/messages/conversations", {
     base: COMMS_BASE,
-    body: groupKeys && groupKeys.length ? { group_keys: groupKeys } : undefined,
+    body,
   });
 }
 
@@ -1723,9 +1732,16 @@ export function useMarkMessagesRead() {
 // Pass `groupKeys` to fold the caller's team/group threads into the unread
 // total. Callers that pass nothing keep the DM + org behavior unchanged.
 export function useMessagesUnreadCount(groupKeys?: string[]) {
+  // Stable body reference — see useConversations above (unstable body would
+  // re-fire the fetch every render).
+  const groupKey = (groupKeys ?? []).join(",");
+  const body = useMemo(
+    () => (groupKey ? { group_keys: groupKey.split(",") } : undefined),
+    [groupKey],
+  );
   return useApiCall<MessagesUnreadCountResponse>("/messages/unread_count", {
     base: COMMS_BASE,
-    body: groupKeys && groupKeys.length ? { group_keys: groupKeys } : undefined,
+    body,
   });
 }
 
