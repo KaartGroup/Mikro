@@ -70,6 +70,8 @@ import type {
   EmailCampaignsListResponse,
   EmailCampaignCreateResponse,
   EmailCampaignPreviewResponse,
+  TargetableAudiencesResponse,
+  TargetableUsersResponse,
   ConversationsResponse,
   MessagesThreadResponse,
   MessagesSendResponse,
@@ -1648,29 +1650,40 @@ export function useUpdateNotificationPreferences() {
   );
 }
 
-// Comms: email campaigns (admin) ──────────────────────────────────────
+// Email campaigns (admin) ─────────────────────────────────────────────
+//
+// These route through Mikro's own "/backend" proxy (default base) to the
+// new /api/comms/* endpoints. Mikro resolves the role-scoped audience and
+// recipients itself, then hands the send off to the comms service
+// server-side — the browser never talks to comms directly for campaigns.
 
-// Admin: list past campaigns. POST /email/campaigns_list
+// Admin: list past campaigns. POST /comms/campaign_list
 export function useEmailCampaignsList() {
-  return useApiCall<EmailCampaignsListResponse>("/email/campaigns_list", {
-    base: COMMS_BASE,
-  });
+  return useApiCall<EmailCampaignsListResponse>("/comms/campaign_list");
 }
 
-// Admin: create+send a campaign. POST /email/campaigns_create
+// Admin: create+send a campaign. POST /comms/campaign_send
 export function useCreateEmailCampaign() {
-  return useApiMutation<EmailCampaignCreateResponse>(
-    "/email/campaigns_create",
-    COMMS_BASE,
-  );
+  return useApiMutation<EmailCampaignCreateResponse>("/comms/campaign_send");
 }
 
-// Admin: preview recipient count / rendered html. POST /email/campaigns_preview
+// Admin: preview recipient count. POST /comms/campaign_preview
 export function usePreviewEmailCampaign() {
   return useApiMutation<EmailCampaignPreviewResponse>(
-    "/email/campaigns_preview",
-    COMMS_BASE,
+    "/comms/campaign_preview",
   );
+}
+
+// Admin: which audience kinds the caller can target + the concrete
+// teams/regions to choose from. POST /comms/targetable_audiences
+export function useTargetableAudiences() {
+  return useApiCall<TargetableAudiencesResponse>("/comms/targetable_audiences");
+}
+
+// Admin: users the caller can target individually (for the "Specific
+// people" custom audience). POST /comms/targetable_users
+export function useTargetableUsers() {
+  return useApiCall<TargetableUsersResponse>("/comms/targetable_users");
 }
 
 // Comms: messenger ────────────────────────────────────────────────────

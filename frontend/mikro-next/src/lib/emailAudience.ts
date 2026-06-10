@@ -7,13 +7,15 @@
  *   "all_org"     → everyone in the sender's org (comms resolves this itself)
  *   "team:<id>"   → members of that team (app-resolved recipients)
  *   "region:<id>" → users whose country belongs to that region (app-resolved)
+ *   "custom"      → an explicit set of users; recipient_user_ids carries the subs
  */
 
 export const AUDIENCE_ALL_ORG = "all_org";
+export const AUDIENCE_CUSTOM = "custom";
 export const AUDIENCE_TEAM_PREFIX = "team:";
 export const AUDIENCE_REGION_PREFIX = "region:";
 
-export type AudienceKind = "all_org" | "team" | "region" | "unknown";
+export type AudienceKind = "all_org" | "custom" | "team" | "region" | "unknown";
 
 export interface ParsedAudience {
   kind: AudienceKind;
@@ -23,6 +25,9 @@ export interface ParsedAudience {
 export function parseAudience(audience: string): ParsedAudience {
   if (audience === AUDIENCE_ALL_ORG) {
     return { kind: "all_org", targetId: null };
+  }
+  if (audience === AUDIENCE_CUSTOM) {
+    return { kind: "custom", targetId: null };
   }
   if (audience.startsWith(AUDIENCE_TEAM_PREFIX)) {
     const n = Number(audience.slice(AUDIENCE_TEAM_PREFIX.length));
@@ -59,6 +64,7 @@ export function audienceLabel(
 ): string {
   const parsed = parseAudience(audience);
   if (parsed.kind === "all_org") return "All Organization";
+  if (parsed.kind === "custom") return "Specific people";
   if (parsed.kind === "team" && parsed.targetId !== null) {
     const team = teams.find((t) => t.id === parsed.targetId);
     return team ? `Team: ${team.name}` : audience;
