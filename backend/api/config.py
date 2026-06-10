@@ -108,6 +108,10 @@ class BaseConfig:
     # Webhook Integration
     MIKRO_WEBHOOK_SECRET = os.environ.get("MIKRO_WEBHOOK_SECRET")
 
+    # Comms service (standalone notification service)
+    COMMS_URL = os.environ.get("COMMS_URL")
+    COMMS_WEBHOOK_SECRET = os.environ.get("COMMS_WEBHOOK_SECRET")
+
     # Google Sheets Integration (community data)
     GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
     GOOGLE_SHEETS_SPREADSHEET_ID = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID")

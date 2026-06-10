@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { RolePreviewSwitcher } from "./RolePreviewSwitcher";
+import { MessengerIcon } from "@/components/comms/MessengerIcon";
+import { NotificationBell } from "@/components/comms/NotificationBell";
 
 interface HeaderProps {
   displayName?: string;
@@ -77,6 +79,8 @@ export function Header({ displayName }: HeaderProps) {
               >
                 {displayName || user.name || user.email}
               </span>
+              <MessengerIcon />
+              <NotificationBell />
               <RolePreviewSwitcher />
               <Link
                 href="/account"

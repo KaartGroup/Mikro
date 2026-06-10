@@ -42,6 +42,7 @@ const adminNavItems: NavItem[] = [
   { label: "Payments", href: "/payments", icon: "dollar" },
   { label: "Reports", href: "/reports", icon: "chart" },
   { label: "Regions", href: "/admin/regions", icon: "globe" },
+  { label: "Announcements", href: "/admin/announcements", icon: "megaphone" },
   { label: "Punks List", href: "/admin/punks", icon: "shield" },
   { label: "Friends List", href: "/admin/friends", icon: "users" },
 ];
@@ -64,6 +65,7 @@ const teamAdminNavItems: NavItem[] = [
   { label: "Payments", href: "/payments", icon: "dollar" },
   { label: "Reports", href: "/reports", icon: "chart" },
   { label: "Regions", href: "/admin/regions", icon: "globe" },
+  { label: "Announcements", href: "/admin/announcements", icon: "megaphone" },
   { label: "Punks List", href: "/admin/punks", icon: "shield" },
   { label: "Friends List", href: "/admin/friends", icon: "users" },
 ];
@@ -297,6 +299,21 @@ const iconMap: Record<string, React.ReactNode> = {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+      />
+    </svg>
+  ),
+  megaphone: (
+    <svg
+      style={{ width: 20, height: 20 }}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
       />
     </svg>
   ),

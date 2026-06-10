@@ -17,6 +17,7 @@ import { usePaymentsVisible } from "@/hooks";
 import { roleLabel } from "@/types";
 import { PayRateCard } from "@/components/user/PayRateCard";
 import { MonthlyPaySummaryCard } from "@/components/user/MonthlyPaySummaryCard";
+import { NotificationPreferencesCard } from "@/components/comms/NotificationPreferencesCard";
 
 interface UserProfile {
   id: number;
@@ -1046,6 +1047,9 @@ export default function AccountPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Notification Preferences */}
+      <NotificationPreferencesCard />
 
       {/* Session Card */}
       <Card>
