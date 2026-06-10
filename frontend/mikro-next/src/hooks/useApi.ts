@@ -1690,9 +1690,16 @@ export function useTargetableUsers() {
 
 // User: list conversations (DMs + org). POST /messages/conversations
 // useApiCall so the page gets { data, refetch } and auto-fetches on mount.
-export function useConversations() {
+//
+// Pass `groupKeys` (e.g. ["team:12"]) to also receive the group/team threads
+// the caller is a member of — comms only returns group conversations when the
+// app asserts membership via group_keys. Callers that pass nothing (the bell)
+// keep DM + org behavior unchanged. group_keys is part of the request body, so
+// changing it re-fetches (it's in fetchData's deps via options.body).
+export function useConversations(groupKeys?: string[]) {
   return useApiCall<ConversationsResponse>("/messages/conversations", {
     base: COMMS_BASE,
+    body: groupKeys && groupKeys.length ? { group_keys: groupKeys } : undefined,
   });
 }
 
@@ -1712,9 +1719,13 @@ export function useMarkMessagesRead() {
 }
 
 // User: total unread across conversations (polled 30s). POST /messages/unread_count
-export function useMessagesUnreadCount() {
+//
+// Pass `groupKeys` to fold the caller's team/group threads into the unread
+// total. Callers that pass nothing keep the DM + org behavior unchanged.
+export function useMessagesUnreadCount(groupKeys?: string[]) {
   return useApiCall<MessagesUnreadCountResponse>("/messages/unread_count", {
     base: COMMS_BASE,
+    body: groupKeys && groupKeys.length ? { group_keys: groupKeys } : undefined,
   });
 }
 

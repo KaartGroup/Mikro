@@ -18,9 +18,18 @@ import {
   useUsersList,
   useDeleteMessage,
   useDeleteConversation,
+  useFetchUserTeams,
+  useFetchTeamMembers,
+  useManagedTeams,
 } from "@/hooks";
 import { useRole } from "@/contexts/RoleContext";
-import type { Conversation, Message, MessageScopeType, User } from "@/types";
+import type {
+  Conversation,
+  Message,
+  MessageScopeType,
+  TeamMemberItem,
+  User,
+} from "@/types";
 import { isAnyAdmin } from "@/types";
 import { relativeTime } from "@/lib/relativeTime";
 import { CountBadge } from "@/components/comms/CountBadge";
@@ -30,17 +39,18 @@ import { CountBadge } from "@/components/comms/CountBadge";
  * scope. Right: thread view + composer. Polls the active thread every 5s
  * while open; conversation list refreshes every 30s.
  *
- * V1 SCOPE-DOWN: the comms service is app-agnostic — it targets DMs
- * (scope_type "user"), opaque "group" keys, and "org" broadcasts. Mikro
- * does not yet resolve team/region membership → recipient subs for the
- * "group" path, so this UI is scoped to Direct Messages + Organization
- * broadcast only. The donor's team/region tabs are intentionally dropped;
- * re-add them once Mikro wires group_keys + recipient_user_ids resolution.
+ * The comms service is app-agnostic — it targets DMs (scope_type "user"),
+ * opaque "group" keys, and "org" broadcasts. Mikro resolves team membership
+ * → recipient subs for the "group" path: a team thread is keyed "team:<id>".
+ * Admins start team threads from the compose modal's Team tab (org admins →
+ * any team, team leads → only led teams); members see the thread because the
+ * page asserts their membership via group_keys on the conversations call.
+ * Team threads render the team NAME, never the raw "team:<id>" key.
  */
 
 const TARGET_LABELS: Record<MessageScopeType, string> = {
   user: "Direct Messages",
-  group: "Groups",
+  group: "Teams",
   org: "Organization",
 };
 
@@ -64,12 +74,46 @@ function MessagesPageInner() {
   const { role } = useRole();
   const amAdmin = isAnyAdmin(role);
 
-  const { data: convData, refetch: refetchConversations } = useConversations();
+  // Teams the current user BELONGS to. comms only returns group/team threads
+  // when the app asserts membership via group_keys.
+  const { data: userTeamsData } = useFetchUserTeams();
+
+  // Teams the current user can MANAGE (led teams for team_admin, all org teams
+  // for org_admin) — drives the compose "Team" tab AND supplies names for any
+  // managed-team thread the admin starts. Role-scoped server-side.
+  const { teams: managedTeams } = useManagedTeams();
+
+  // group_keys ("team:<id>") the page asserts on the conversations call: teams
+  // the user belongs to UNION teams they manage — so an admin who messages a
+  // team they don't belong to still sees that thread afterward.
+  const myGroupKeys = useMemo(() => {
+    const keys = new Set<string>();
+    (userTeamsData?.teams ?? []).forEach((t) => keys.add(`team:${t.id}`));
+    managedTeams.forEach((t) => keys.add(`team:${t.id}`));
+    return Array.from(keys);
+  }, [userTeamsData, managedTeams]);
+
+  // team:<id> → team NAME. Built from BOTH membership and managed teams so a
+  // team thread always renders its name, never the raw "team:<id>" key.
+  const teamNameByKey = useMemo(() => {
+    const map: Record<string, string> = {};
+    (userTeamsData?.teams ?? []).forEach((t) => {
+      map[`team:${t.id}`] = t.name;
+    });
+    managedTeams.forEach((t) => {
+      map[`team:${t.id}`] = t.name;
+    });
+    return map;
+  }, [userTeamsData, managedTeams]);
+
+  const { data: convData, refetch: refetchConversations } =
+    useConversations(myGroupKeys);
   const { mutate: fetchThread } = useMessageThread();
   const { mutate: sendMessage, loading: sending } = useSendMessage();
   const { mutate: markRead } = useMarkMessagesRead();
   const { mutate: deleteMessage } = useDeleteMessage();
   const { mutate: deleteConversation } = useDeleteConversation();
+  const { mutate: fetchTeamMembers } = useFetchTeamMembers();
   const { data: usersData, loading: usersLoading } = useUsersList();
 
   // sub → display name map, used to label DM/org message senders and DM
@@ -108,11 +152,14 @@ function MessagesPageInner() {
   // org/group use the server label. safeLabel guarantees a sub never leaks
   // even if the server label itself is a raw sub.
   const convLabel = useCallback(
-    (c: Conversation): string =>
-      c.scope_type === "user"
-        ? nameForSub(c.scope_key)
-        : safeLabel(c.label),
-    [nameForSub],
+    (c: Conversation): string => {
+      if (c.scope_type === "user") return nameForSub(c.scope_key);
+      // Team threads: comms only knows the raw "team:<id>" key — resolve the
+      // real team name locally, never leak the key.
+      if (c.scope_type === "group") return teamNameByKey[c.scope_key] || "Team";
+      return safeLabel(c.label);
+    },
+    [nameForSub, teamNameByKey],
   );
 
   // Only the scope is stored — the visible label is DERIVED below so it can
@@ -127,8 +174,15 @@ function MessagesPageInner() {
   const selectedLabel = useMemo(() => {
     if (!selected) return "";
     if (selected.scope_type === "user") return nameForSub(selected.scope_key);
+    if (selected.scope_type === "group")
+      return teamNameByKey[selected.scope_key] || "Team";
     return TARGET_LABELS[selected.scope_type] || "Conversation";
-  }, [selected, nameForSub]);
+  }, [selected, nameForSub, teamNameByKey]);
+  // Resolved recipient subs for the selected team thread — a "group" send
+  // must carry recipient_user_ids so comms can fan the message out. Seeded
+  // from the compose modal (which already resolved members) and re-derived
+  // whenever a team thread is opened from the list.
+  const [groupRecipients, setGroupRecipients] = useState<string[]>([]);
   const [thread, setThread] = useState<Message[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
   const [composer, setComposer] = useState("");
@@ -213,6 +267,39 @@ function MessagesPageInner() {
     return () => window.clearInterval(id);
   }, [selected, loadThread]);
 
+  // Resolve recipients whenever a TEAM thread is selected (e.g. opened from
+  // the list, or restored from a URL) so the first send isn't empty. When a
+  // team is started from the compose modal, the modal seeds groupRecipients
+  // directly (see onStarted) — this effect then keeps it correct. For non-team
+  // scopes, clear it. Membership = assigned === "Assigned"; exclude myself.
+  useEffect(() => {
+    if (selected?.scope_type !== "group") {
+      setGroupRecipients([]);
+      return;
+    }
+    const teamId = Number(selected.scope_key.split(":")[1]);
+    if (!Number.isFinite(teamId)) {
+      setGroupRecipients([]);
+      return;
+    }
+    let cancelled = false;
+    fetchTeamMembers({ teamId })
+      .then((res) => {
+        if (cancelled) return;
+        const subs = (res?.users ?? [])
+          .filter((m: TeamMemberItem) => m.assigned === "Assigned")
+          .map((m: TeamMemberItem) => m.id)
+          .filter((id: string) => id && id !== myId);
+        setGroupRecipients(subs);
+      })
+      .catch(() => {
+        if (!cancelled) setGroupRecipients([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, fetchTeamMembers, myId]);
+
   // Mark read on open + when new messages arrive.
   useEffect(() => {
     if (!selected || thread.length === 0) return;
@@ -236,9 +323,14 @@ function MessagesPageInner() {
       target_type: selected.scope_type,
       content: composer.trim(),
     };
-    // DM → target_user_id; org broadcast needs no extra targeting.
-    if (selected.scope_type === "user")
+    // DM → target_user_id; org broadcast needs no extra targeting; team
+    // message → target_group_key + the resolved member subs as recipients.
+    if (selected.scope_type === "user") {
       body.target_user_id = selected.scope_key;
+    } else if (selected.scope_type === "group") {
+      body.target_group_key = selected.scope_key;
+      body.recipient_user_ids = groupRecipients;
+    }
     try {
       await sendMessage(body);
       setComposer("");
@@ -695,8 +787,11 @@ function MessagesPageInner() {
       {showNewModal && (
         <NewMessageModal
           onClose={() => setShowNewModal(false)}
-          onStarted={(scope) => {
+          onStarted={(scope, recipients) => {
             setShowNewModal(false);
+            // Seed recipients first so a team's first send isn't empty (the
+            // selected-effect would otherwise race the immediate compose).
+            setGroupRecipients(recipients ?? []);
             setSelected(scope);
           }}
           isAdmin={amAdmin}
@@ -708,6 +803,8 @@ function MessagesPageInner() {
   );
 }
 
+type ComposeTab = "user" | "group" | "org";
+
 function NewMessageModal({
   onClose,
   onStarted,
@@ -716,16 +813,27 @@ function NewMessageModal({
   users,
 }: {
   onClose: () => void;
-  onStarted: (scope: {
-    scope_type: MessageScopeType;
-    scope_key: string;
-  }) => void;
+  onStarted: (
+    scope: {
+      scope_type: MessageScopeType;
+      scope_key: string;
+    },
+    recipients?: string[],
+  ) => void;
   isAdmin: boolean;
   myId: string;
   users: User[];
 }) {
-  const [tab, setTab] = useState<"user" | "org">("user");
+  const [tab, setTab] = useState<ComposeTab>("user");
   const [search, setSearch] = useState("");
+  const [teamSearch, setTeamSearch] = useState("");
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [resolvingTeamId, setResolvingTeamId] = useState<number | null>(null);
+
+  // Teams the caller may message: led teams for team_admin, all org teams for
+  // org_admin (role-scoped server-side). Only shown on the admin-only Team tab.
+  const { teams: managedTeams, loading: teamsLoading } = useManagedTeams();
+  const { mutate: fetchTeamMembers } = useFetchTeamMembers();
 
   const contacts = useMemo(
     () => users.filter((u) => u.id && u.id !== myId),
@@ -741,8 +849,41 @@ function NewMessageModal({
     );
   });
 
-  const tabs: { key: "user" | "org"; label: string; enabled: boolean }[] = [
+  const filteredTeams = useMemo(() => {
+    const q = teamSearch.toLowerCase().trim();
+    if (!q) return managedTeams;
+    return managedTeams.filter((t) => t.name.toLowerCase().includes(q));
+  }, [managedTeams, teamSearch]);
+
+  // Resolve a team's assigned members → recipient subs, then open the thread.
+  // No-op (with a note) if the team has no assignable members.
+  const startTeam = useCallback(
+    async (teamId: number) => {
+      setTeamError(null);
+      setResolvingTeamId(teamId);
+      try {
+        const res = await fetchTeamMembers({ teamId });
+        const subs = (res?.users ?? [])
+          .filter((m: TeamMemberItem) => m.assigned === "Assigned")
+          .map((m: TeamMemberItem) => m.id)
+          .filter((id: string) => id && id !== myId);
+        if (subs.length === 0) {
+          setTeamError("This team has no other assignable members to message.");
+          return;
+        }
+        onStarted({ scope_type: "group", scope_key: `team:${teamId}` }, subs);
+      } catch {
+        setTeamError("Couldn't load this team's members. Please try again.");
+      } finally {
+        setResolvingTeamId(null);
+      }
+    },
+    [fetchTeamMembers, myId, onStarted],
+  );
+
+  const tabs: { key: ComposeTab; label: string; enabled: boolean }[] = [
     { key: "user", label: "Direct Message", enabled: true },
+    { key: "group", label: "Team", enabled: isAdmin },
     { key: "org", label: "Organization", enabled: isAdmin },
   ];
 
@@ -870,6 +1011,118 @@ function NewMessageModal({
                     >
                       {c.email}
                     </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </>
+        )}
+
+        {tab === "group" && (
+          <>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--muted-foreground)",
+                marginBottom: 8,
+              }}
+            >
+              Message an entire <strong>team</strong>. Every assigned member
+              sees the thread in their messages.
+            </div>
+            <input
+              value={teamSearch}
+              onChange={(e) => setTeamSearch(e.target.value)}
+              placeholder="Search teams…"
+              style={{
+                width: "100%",
+                padding: 8,
+                fontSize: 13,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: "var(--background)",
+                color: "var(--foreground)",
+                marginBottom: 8,
+              }}
+            />
+            {teamError && (
+              <div
+                style={{
+                  color: "#dc2626",
+                  fontSize: 12,
+                  marginBottom: 8,
+                }}
+              >
+                {teamError}
+              </div>
+            )}
+            <div
+              style={{
+                maxHeight: 320,
+                overflowY: "auto",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+              }}
+            >
+              {teamsLoading ? (
+                <div
+                  style={{
+                    padding: 16,
+                    color: "var(--muted-foreground)",
+                    fontSize: 13,
+                    textAlign: "center",
+                  }}
+                >
+                  Loading teams…
+                </div>
+              ) : filteredTeams.length === 0 ? (
+                <div
+                  style={{
+                    padding: 16,
+                    color: "var(--muted-foreground)",
+                    fontSize: 13,
+                    textAlign: "center",
+                  }}
+                >
+                  {managedTeams.length === 0
+                    ? "No teams available to message."
+                    : "No matches."}
+                </div>
+              ) : (
+                filteredTeams.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => startTeam(t.id)}
+                    disabled={resolvingTeamId !== null}
+                    title={`Message the ${t.name} team`}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "8px 12px",
+                      border: "none",
+                      borderBottom: "1px solid var(--border)",
+                      background: "transparent",
+                      cursor: resolvingTeamId !== null ? "wait" : "pointer",
+                      opacity:
+                        resolvingTeamId !== null && resolvingTeamId !== t.id
+                          ? 0.6
+                          : 1,
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                      {t.name}
+                    </div>
+                    {resolvingTeamId === t.id && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "var(--muted-foreground)",
+                        }}
+                      >
+                        Opening…
+                      </div>
+                    )}
                   </button>
                 ))
               )}
