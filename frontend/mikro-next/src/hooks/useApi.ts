@@ -70,6 +70,8 @@ import type {
   EmailCampaignsListResponse,
   EmailCampaignCreateResponse,
   EmailCampaignPreviewResponse,
+  TargetableAudiencesResponse,
+  TargetableUsersResponse,
   ConversationsResponse,
   MessagesThreadResponse,
   MessagesSendResponse,
@@ -1648,38 +1650,56 @@ export function useUpdateNotificationPreferences() {
   );
 }
 
-// Comms: email campaigns (admin) ──────────────────────────────────────
+// Email campaigns (admin) ─────────────────────────────────────────────
+//
+// These route through Mikro's own "/backend" proxy (default base) to the
+// new /api/comms/* endpoints. Mikro resolves the role-scoped audience and
+// recipients itself, then hands the send off to the comms service
+// server-side — the browser never talks to comms directly for campaigns.
 
-// Admin: list past campaigns. POST /email/campaigns_list
+// Admin: list past campaigns. POST /comms/campaign_list
 export function useEmailCampaignsList() {
-  return useApiCall<EmailCampaignsListResponse>("/email/campaigns_list", {
-    base: COMMS_BASE,
-  });
+  return useApiCall<EmailCampaignsListResponse>("/comms/campaign_list");
 }
 
-// Admin: create+send a campaign. POST /email/campaigns_create
+// Admin: create+send a campaign. POST /comms/campaign_send
 export function useCreateEmailCampaign() {
-  return useApiMutation<EmailCampaignCreateResponse>(
-    "/email/campaigns_create",
-    COMMS_BASE,
-  );
+  return useApiMutation<EmailCampaignCreateResponse>("/comms/campaign_send");
 }
 
-// Admin: preview recipient count / rendered html. POST /email/campaigns_preview
+// Admin: preview recipient count. POST /comms/campaign_preview
 export function usePreviewEmailCampaign() {
   return useApiMutation<EmailCampaignPreviewResponse>(
-    "/email/campaigns_preview",
-    COMMS_BASE,
+    "/comms/campaign_preview",
   );
+}
+
+// Admin: which audience kinds the caller can target + the concrete
+// teams/regions to choose from. POST /comms/targetable_audiences
+export function useTargetableAudiences() {
+  return useApiCall<TargetableAudiencesResponse>("/comms/targetable_audiences");
+}
+
+// Admin: users the caller can target individually (for the "Specific
+// people" custom audience). POST /comms/targetable_users
+export function useTargetableUsers() {
+  return useApiCall<TargetableUsersResponse>("/comms/targetable_users");
 }
 
 // Comms: messenger ────────────────────────────────────────────────────
 
 // User: list conversations (DMs + org). POST /messages/conversations
 // useApiCall so the page gets { data, refetch } and auto-fetches on mount.
-export function useConversations() {
+//
+// Pass `groupKeys` (e.g. ["team:12"]) to also receive the group/team threads
+// the caller is a member of — comms only returns group conversations when the
+// app asserts membership via group_keys. Callers that pass nothing (the bell)
+// keep DM + org behavior unchanged. group_keys is part of the request body, so
+// changing it re-fetches (it's in fetchData's deps via options.body).
+export function useConversations(groupKeys?: string[]) {
   return useApiCall<ConversationsResponse>("/messages/conversations", {
     base: COMMS_BASE,
+    body: groupKeys && groupKeys.length ? { group_keys: groupKeys } : undefined,
   });
 }
 
@@ -1699,8 +1719,30 @@ export function useMarkMessagesRead() {
 }
 
 // User: total unread across conversations (polled 30s). POST /messages/unread_count
-export function useMessagesUnreadCount() {
+//
+// Pass `groupKeys` to fold the caller's team/group threads into the unread
+// total. Callers that pass nothing keep the DM + org behavior unchanged.
+export function useMessagesUnreadCount(groupKeys?: string[]) {
   return useApiCall<MessagesUnreadCountResponse>("/messages/unread_count", {
     base: COMMS_BASE,
+    body: groupKeys && groupKeys.length ? { group_keys: groupKeys } : undefined,
   });
+}
+
+// Delete a single message. Admins may delete any message in their org; a
+// sender may delete their own. POST /messages/delete_message { message_id }
+export function useDeleteMessage() {
+  return useApiMutation<{ status: number }>(
+    "/messages/delete_message",
+    COMMS_BASE,
+  );
+}
+
+// Delete a whole conversation (all its messages + read watermarks). Admin
+// only. POST /messages/delete_conversation { scope_type, scope_key }
+export function useDeleteConversation() {
+  return useApiMutation<{ status: number }>(
+    "/messages/delete_conversation",
+    COMMS_BASE,
+  );
 }

@@ -1784,6 +1784,39 @@ export interface EmailCampaignPreviewResponse {
   html?: string;
 }
 
+// Audience picker (Mikro-resolved, role-scoped). The backend tells the
+// frontend which audience kinds the caller may target and supplies the
+// concrete teams/regions to choose from.
+export interface TargetableTeam {
+  id: number;
+  name: string;
+}
+
+export interface TargetableRegion {
+  id: number;
+  name: string;
+}
+
+export interface TargetableAudiencesResponse {
+  status: number;
+  can_target_org: boolean;
+  can_target_regions: boolean;
+  can_target_individuals: boolean;
+  teams: TargetableTeam[];
+  regions: TargetableRegion[];
+}
+
+export interface TargetableUser {
+  sub: string;
+  name: string;
+  email: string;
+}
+
+export interface TargetableUsersResponse {
+  status: number;
+  users: TargetableUser[];
+}
+
 // Messenger scope types — aligned to the comms service (user/group/org).
 export type MessageScopeType = "user" | "group" | "org";
 

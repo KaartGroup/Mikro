@@ -15,9 +15,20 @@ import {
   useSendMessage,
   useMarkMessagesRead,
   useUsersList,
+  useDeleteMessage,
+  useDeleteConversation,
+  useFetchUserTeams,
+  useFetchTeamMembers,
+  useManagedTeams,
 } from "@/hooks";
 import { useRole } from "@/contexts/RoleContext";
-import type { Conversation, Message, MessageScopeType, User } from "@/types";
+import type {
+  Conversation,
+  Message,
+  MessageScopeType,
+  TeamMemberItem,
+  User,
+} from "@/types";
 import { isAnyAdmin } from "@/types";
 import { relativeTime } from "@/lib/relativeTime";
 import { CountBadge } from "@/components/comms/CountBadge";
@@ -27,19 +38,28 @@ import { CountBadge } from "@/components/comms/CountBadge";
  * scope. Right: thread view + composer. Polls the active thread every 5s
  * while open; conversation list refreshes every 30s.
  *
- * V1 SCOPE-DOWN: the comms service is app-agnostic — it targets DMs
- * (scope_type "user"), opaque "group" keys, and "org" broadcasts. Mikro
- * does not yet resolve team/region membership → recipient subs for the
- * "group" path, so this UI is scoped to Direct Messages + Organization
- * broadcast only. The donor's team/region tabs are intentionally dropped;
- * re-add them once Mikro wires group_keys + recipient_user_ids resolution.
+ * The comms service is app-agnostic — it targets DMs (scope_type "user"),
+ * opaque "group" keys, and "org" broadcasts. Mikro resolves team membership
+ * → recipient subs for the "group" path: a team thread is keyed "team:<id>".
+ * Admins start team threads from the compose modal's Team tab (org admins →
+ * any team, team leads → only led teams); members see the thread because the
+ * page asserts their membership via group_keys on the conversations call.
+ * Team threads render the team NAME, never the raw "team:<id>" key.
  */
 
 const TARGET_LABELS: Record<MessageScopeType, string> = {
   user: "Direct Messages",
-  group: "Groups",
+  group: "Teams",
   org: "Organization",
 };
+
+// A raw Auth0 sub ("auth0|abc", "google-oauth2|123", "samlp|...", "waad|...")
+// must NEVER be shown to a user. If a name can't be resolved, fall back to
+// this generic label instead of leaking the ID.
+const FALLBACK_NAME = "Unknown user";
+const looksLikeSub = (s: string): boolean => /^[a-z0-9_-]+\|/i.test(s);
+const safeLabel = (s: string | null | undefined): string =>
+  s && !looksLikeSub(s) ? s : FALLBACK_NAME;
 
 function MessagesPageInner() {
   const params = useSearchParams();
@@ -51,45 +71,117 @@ function MessagesPageInner() {
   const { role, sub: myId, displayName: myName, email: myEmail } = useRole();
   const amAdmin = isAnyAdmin(role);
 
-  const { data: convData, refetch: refetchConversations } = useConversations();
+  // Teams the current user BELONGS to. comms only returns group/team threads
+  // when the app asserts membership via group_keys.
+  const { data: userTeamsData } = useFetchUserTeams();
+
+  // Teams the current user can MANAGE (led teams for team_admin, all org teams
+  // for org_admin) — drives the compose "Team" tab AND supplies names for any
+  // managed-team thread the admin starts. Role-scoped server-side.
+  const { teams: managedTeams } = useManagedTeams();
+
+  // group_keys ("team:<id>") the page asserts on the conversations call: teams
+  // the user belongs to UNION teams they manage — so an admin who messages a
+  // team they don't belong to still sees that thread afterward.
+  const myGroupKeys = useMemo(() => {
+    const keys = new Set<string>();
+    (userTeamsData?.teams ?? []).forEach((t) => keys.add(`team:${t.id}`));
+    managedTeams.forEach((t) => keys.add(`team:${t.id}`));
+    return Array.from(keys);
+  }, [userTeamsData, managedTeams]);
+
+  // team:<id> → team NAME. Built from BOTH membership and managed teams so a
+  // team thread always renders its name, never the raw "team:<id>" key.
+  const teamNameByKey = useMemo(() => {
+    const map: Record<string, string> = {};
+    (userTeamsData?.teams ?? []).forEach((t) => {
+      map[`team:${t.id}`] = t.name;
+    });
+    managedTeams.forEach((t) => {
+      map[`team:${t.id}`] = t.name;
+    });
+    return map;
+  }, [userTeamsData, managedTeams]);
+
+  const { data: convData, refetch: refetchConversations } =
+    useConversations(myGroupKeys);
   const { mutate: fetchThread } = useMessageThread();
   const { mutate: sendMessage, loading: sending } = useSendMessage();
   const { mutate: markRead } = useMarkMessagesRead();
-  const { data: usersData } = useUsersList();
+  const { mutate: deleteMessage } = useDeleteMessage();
+  const { mutate: deleteConversation } = useDeleteConversation();
+  const { mutate: fetchTeamMembers } = useFetchTeamMembers();
+  const { data: usersData, loading: usersLoading } = useUsersList();
 
   // sub → display name map, used to label DM/org message senders and DM
   // conversation rows. comms is app-agnostic — it returns only the raw
   // Auth0 sub (sender_id / peer scope_key), never a display name — so the
-  // frontend resolves names from Mikro's own user list. Include the current
-  // authenticated user so my own sent messages show my name, not my sub.
+  // frontend resolves names from Mikro's own user list. Only store real
+  // names/emails here: a raw sub must never become a value (it would leak the
+  // ID). Include the current authenticated user so my own messages show me.
   const nameBySub = useMemo(() => {
     const map: Record<string, string> = {};
     (usersData?.users ?? []).forEach((u: User) => {
-      if (u.id) map[u.id] = u.name || u.email || u.id;
+      const label = u.name || u.email;
+      if (u.id && label) map[u.id] = label;
     });
     if (myId) {
-      map[myId] = myName || myEmail || map[myId] || myId;
+      // Never store the raw sub as a value (it would leak the ID) — only a
+      // real name/email, or leave it unset for safeLabel to handle.
+      const mine = myName || myEmail || map[myId];
+      if (mine) map[myId] = mine;
     }
     return map;
   }, [usersData, myId, myName, myEmail]);
 
-  // Label a conversation row. For DMs, comms returns the peer's raw sub as
-  // the label when that peer has no comms Identity yet, so override with the
-  // Mikro user name keyed on the peer sub (scope_key). org/group keep their
-  // server label.
-  const convLabel = useCallback(
-    (c: Conversation): string =>
-      c.scope_type === "user"
-        ? nameBySub[c.scope_key] || c.label
-        : c.label,
-    [nameBySub],
+  // Resolve a sub to a display name. NEVER returns the raw sub. While the
+  // user list is still loading we return a neutral placeholder ("…") rather
+  // than "Unknown user" — so a real person's name doesn't briefly flash as
+  // unknown (and a sub never flashes at all).
+  const nameForSub = useCallback(
+    (sub: string): string => {
+      const resolved = nameBySub[sub];
+      if (resolved && !looksLikeSub(resolved)) return resolved;
+      return usersLoading ? "…" : FALLBACK_NAME;
+    },
+    [nameBySub, usersLoading],
   );
 
+  // Label a conversation row. For DMs, resolve the peer (scope_key) to a name;
+  // org/group use the server label. safeLabel guarantees a sub never leaks
+  // even if the server label itself is a raw sub.
+  const convLabel = useCallback(
+    (c: Conversation): string => {
+      if (c.scope_type === "user") return nameForSub(c.scope_key);
+      // Team threads: comms only knows the raw "team:<id>" key — resolve the
+      // real team name locally, never leak the key.
+      if (c.scope_type === "group") return teamNameByKey[c.scope_key] || "Team";
+      return safeLabel(c.label);
+    },
+    [nameForSub, teamNameByKey],
+  );
+
+  // Only the scope is stored — the visible label is DERIVED below so it can
+  // never freeze on a stale value (and so a sub can never get captured into
+  // state and rendered before names resolve).
   const [selected, setSelected] = useState<{
     scope_type: MessageScopeType;
     scope_key: string;
-    label: string;
   } | null>(null);
+
+  // Reactive label for the open thread header — recomputes as names load.
+  const selectedLabel = useMemo(() => {
+    if (!selected) return "";
+    if (selected.scope_type === "user") return nameForSub(selected.scope_key);
+    if (selected.scope_type === "group")
+      return teamNameByKey[selected.scope_key] || "Team";
+    return TARGET_LABELS[selected.scope_type] || "Conversation";
+  }, [selected, nameForSub, teamNameByKey]);
+  // Resolved recipient subs for the selected team thread — a "group" send
+  // must carry recipient_user_ids so comms can fan the message out. Seeded
+  // from the compose modal (which already resolved members) and re-derived
+  // whenever a team thread is opened from the list.
+  const [groupRecipients, setGroupRecipients] = useState<string[]>([]);
   const [thread, setThread] = useState<Message[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
   const [composer, setComposer] = useState("");
@@ -114,7 +206,6 @@ function MessagesPageInner() {
         setSelected({
           scope_type: match.scope_type,
           scope_key: match.scope_key,
-          label: convLabel(match),
         });
         return;
       }
@@ -122,20 +213,9 @@ function MessagesPageInner() {
       setSelected({
         scope_type: initialScopeType,
         scope_key: initialScopeKey,
-        label:
-          initialScopeType === "user"
-            ? nameBySub[initialScopeKey] || "Conversation"
-            : TARGET_LABELS[initialScopeType] || "Conversation",
       });
     }
-  }, [
-    conversations,
-    initialScopeKey,
-    initialScopeType,
-    selected,
-    convLabel,
-    nameBySub,
-  ]);
+  }, [conversations, initialScopeKey, initialScopeType, selected]);
 
   // Poll conversation list every 30s.
   useEffect(() => {
@@ -186,6 +266,39 @@ function MessagesPageInner() {
     return () => window.clearInterval(id);
   }, [selected, loadThread]);
 
+  // Resolve recipients whenever a TEAM thread is selected (e.g. opened from
+  // the list, or restored from a URL) so the first send isn't empty. When a
+  // team is started from the compose modal, the modal seeds groupRecipients
+  // directly (see onStarted) — this effect then keeps it correct. For non-team
+  // scopes, clear it. Membership = assigned === "Assigned"; exclude myself.
+  useEffect(() => {
+    if (selected?.scope_type !== "group") {
+      setGroupRecipients([]);
+      return;
+    }
+    const teamId = Number(selected.scope_key.split(":")[1]);
+    if (!Number.isFinite(teamId)) {
+      setGroupRecipients([]);
+      return;
+    }
+    let cancelled = false;
+    fetchTeamMembers({ teamId })
+      .then((res) => {
+        if (cancelled) return;
+        const subs = (res?.users ?? [])
+          .filter((m: TeamMemberItem) => m.assigned === "Assigned")
+          .map((m: TeamMemberItem) => m.id)
+          .filter((id: string) => id && id !== myId);
+        setGroupRecipients(subs);
+      })
+      .catch(() => {
+        if (!cancelled) setGroupRecipients([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, fetchTeamMembers, myId]);
+
   // Mark read on open + when new messages arrive.
   useEffect(() => {
     if (!selected || thread.length === 0) return;
@@ -209,9 +322,14 @@ function MessagesPageInner() {
       target_type: selected.scope_type,
       content: composer.trim(),
     };
-    // DM → target_user_id; org broadcast needs no extra targeting.
-    if (selected.scope_type === "user")
+    // DM → target_user_id; org broadcast needs no extra targeting; team
+    // message → target_group_key + the resolved member subs as recipients.
+    if (selected.scope_type === "user") {
       body.target_user_id = selected.scope_key;
+    } else if (selected.scope_type === "group") {
+      body.target_group_key = selected.scope_key;
+      body.recipient_user_ids = groupRecipients;
+    }
     try {
       await sendMessage(body);
       setComposer("");
@@ -223,6 +341,51 @@ function MessagesPageInner() {
         err instanceof Error && err.message
           ? err.message
           : "Couldn't send — please try again.",
+      );
+    }
+  };
+
+  // Delete a single message (admin: any; otherwise: own only). Optimistically
+  // drop it from the open thread, then refresh.
+  const handleDeleteMessage = async (m: Message) => {
+    if (!amAdmin && m.sender_id !== myId) return;
+    if (!window.confirm("Delete this message? This cannot be undone.")) return;
+    try {
+      await deleteMessage({ message_id: m.id });
+      setThread((prev) => prev.filter((x) => x.id !== m.id));
+      refetchConversations().catch(() => {});
+    } catch (err) {
+      setSendError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't delete the message.",
+      );
+    }
+  };
+
+  // Delete the whole open conversation (admin only). Clears the pane.
+  const handleDeleteConversation = async () => {
+    if (!selected || !amAdmin) return;
+    if (
+      !window.confirm(
+        "Delete this entire conversation for everyone? This permanently " +
+          "removes all of its messages and cannot be undone.",
+      )
+    )
+      return;
+    try {
+      await deleteConversation({
+        scope_type: selected.scope_type,
+        scope_key: selected.scope_key,
+      });
+      setSelected(null);
+      setThread([]);
+      refetchConversations().catch(() => {});
+    } catch (err) {
+      setSendError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't delete the conversation.",
       );
     }
   };
@@ -239,8 +402,7 @@ function MessagesPageInner() {
     return g;
   }, [conversations]);
 
-  const senderLabel = (m: Message): string =>
-    nameBySub[m.sender_id] || m.sender_id;
+  const senderLabel = (m: Message): string => nameForSub(m.sender_id);
 
   return (
     <div
@@ -315,7 +477,6 @@ function MessagesPageInner() {
                         setSelected({
                           scope_type: c.scope_type,
                           scope_key: c.scope_key,
-                          label: convLabel(c),
                         })
                       }
                       style={{
@@ -406,11 +567,37 @@ function MessagesPageInner() {
         ) : (
           <>
             <div
-              style={{ padding: 12, borderBottom: "1px solid var(--border)" }}
+              style={{
+                padding: 12,
+                borderBottom: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+              }}
             >
               <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>
-                {selected.label}
+                {selectedLabel}
               </h3>
+              {amAdmin && (
+                <button
+                  onClick={handleDeleteConversation}
+                  title="Delete this entire conversation for everyone"
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: "transparent",
+                    color: "#dc2626",
+                    border: "1px solid #dc2626",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Delete conversation
+                </button>
+              )}
             </div>
             <div
               style={{
@@ -439,6 +626,7 @@ function MessagesPageInner() {
               ) : (
                 thread.map((m) => {
                   const isMe = m.sender_id === myId;
+                  const canDelete = amAdmin || isMe;
                   return (
                     <div
                       key={m.id}
@@ -469,8 +657,37 @@ function MessagesPageInner() {
                       <div style={{ fontSize: 13, lineHeight: 1.4 }}>
                         {m.content}
                       </div>
-                      <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>
-                        {relativeTime(m.created_at)}
+                      <div
+                        style={{
+                          fontSize: 10,
+                          opacity: 0.7,
+                          marginTop: 4,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                        }}
+                      >
+                        <span>{relativeTime(m.created_at)}</span>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteMessage(m)}
+                            title="Delete this message"
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              padding: 0,
+                              cursor: "pointer",
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "inherit",
+                              opacity: 0.85,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -569,8 +786,11 @@ function MessagesPageInner() {
       {showNewModal && (
         <NewMessageModal
           onClose={() => setShowNewModal(false)}
-          onStarted={(scope) => {
+          onStarted={(scope, recipients) => {
             setShowNewModal(false);
+            // Seed recipients first so a team's first send isn't empty (the
+            // selected-effect would otherwise race the immediate compose).
+            setGroupRecipients(recipients ?? []);
             setSelected(scope);
           }}
           isAdmin={amAdmin}
@@ -582,6 +802,8 @@ function MessagesPageInner() {
   );
 }
 
+type ComposeTab = "user" | "group" | "org";
+
 function NewMessageModal({
   onClose,
   onStarted,
@@ -590,17 +812,27 @@ function NewMessageModal({
   users,
 }: {
   onClose: () => void;
-  onStarted: (scope: {
-    scope_type: MessageScopeType;
-    scope_key: string;
-    label: string;
-  }) => void;
+  onStarted: (
+    scope: {
+      scope_type: MessageScopeType;
+      scope_key: string;
+    },
+    recipients?: string[],
+  ) => void;
   isAdmin: boolean;
   myId: string;
   users: User[];
 }) {
-  const [tab, setTab] = useState<"user" | "org">("user");
+  const [tab, setTab] = useState<ComposeTab>("user");
   const [search, setSearch] = useState("");
+  const [teamSearch, setTeamSearch] = useState("");
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [resolvingTeamId, setResolvingTeamId] = useState<number | null>(null);
+
+  // Teams the caller may message: led teams for team_admin, all org teams for
+  // org_admin (role-scoped server-side). Only shown on the admin-only Team tab.
+  const { teams: managedTeams, loading: teamsLoading } = useManagedTeams();
+  const { mutate: fetchTeamMembers } = useFetchTeamMembers();
 
   const contacts = useMemo(
     () => users.filter((u) => u.id && u.id !== myId),
@@ -616,8 +848,41 @@ function NewMessageModal({
     );
   });
 
-  const tabs: { key: "user" | "org"; label: string; enabled: boolean }[] = [
+  const filteredTeams = useMemo(() => {
+    const q = teamSearch.toLowerCase().trim();
+    if (!q) return managedTeams;
+    return managedTeams.filter((t) => t.name.toLowerCase().includes(q));
+  }, [managedTeams, teamSearch]);
+
+  // Resolve a team's assigned members → recipient subs, then open the thread.
+  // No-op (with a note) if the team has no assignable members.
+  const startTeam = useCallback(
+    async (teamId: number) => {
+      setTeamError(null);
+      setResolvingTeamId(teamId);
+      try {
+        const res = await fetchTeamMembers({ teamId });
+        const subs = (res?.users ?? [])
+          .filter((m: TeamMemberItem) => m.assigned === "Assigned")
+          .map((m: TeamMemberItem) => m.id)
+          .filter((id: string) => id && id !== myId);
+        if (subs.length === 0) {
+          setTeamError("This team has no other assignable members to message.");
+          return;
+        }
+        onStarted({ scope_type: "group", scope_key: `team:${teamId}` }, subs);
+      } catch {
+        setTeamError("Couldn't load this team's members. Please try again.");
+      } finally {
+        setResolvingTeamId(null);
+      }
+    },
+    [fetchTeamMembers, myId, onStarted],
+  );
+
+  const tabs: { key: ComposeTab; label: string; enabled: boolean }[] = [
     { key: "user", label: "Direct Message", enabled: true },
+    { key: "group", label: "Team", enabled: isAdmin },
     { key: "org", label: "Organization", enabled: isAdmin },
   ];
 
@@ -721,7 +986,6 @@ function NewMessageModal({
                       onStarted({
                         scope_type: "user",
                         scope_key: c.id,
-                        label: c.name || c.email,
                       })
                     }
                     style={{
@@ -753,6 +1017,118 @@ function NewMessageModal({
           </>
         )}
 
+        {tab === "group" && (
+          <>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--muted-foreground)",
+                marginBottom: 8,
+              }}
+            >
+              Message an entire <strong>team</strong>. Every assigned member
+              sees the thread in their messages.
+            </div>
+            <input
+              value={teamSearch}
+              onChange={(e) => setTeamSearch(e.target.value)}
+              placeholder="Search teams…"
+              style={{
+                width: "100%",
+                padding: 8,
+                fontSize: 13,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: "var(--background)",
+                color: "var(--foreground)",
+                marginBottom: 8,
+              }}
+            />
+            {teamError && (
+              <div
+                style={{
+                  color: "#dc2626",
+                  fontSize: 12,
+                  marginBottom: 8,
+                }}
+              >
+                {teamError}
+              </div>
+            )}
+            <div
+              style={{
+                maxHeight: 320,
+                overflowY: "auto",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+              }}
+            >
+              {teamsLoading ? (
+                <div
+                  style={{
+                    padding: 16,
+                    color: "var(--muted-foreground)",
+                    fontSize: 13,
+                    textAlign: "center",
+                  }}
+                >
+                  Loading teams…
+                </div>
+              ) : filteredTeams.length === 0 ? (
+                <div
+                  style={{
+                    padding: 16,
+                    color: "var(--muted-foreground)",
+                    fontSize: 13,
+                    textAlign: "center",
+                  }}
+                >
+                  {managedTeams.length === 0
+                    ? "No teams available to message."
+                    : "No matches."}
+                </div>
+              ) : (
+                filteredTeams.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => startTeam(t.id)}
+                    disabled={resolvingTeamId !== null}
+                    title={`Message the ${t.name} team`}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "8px 12px",
+                      border: "none",
+                      borderBottom: "1px solid var(--border)",
+                      background: "transparent",
+                      cursor: resolvingTeamId !== null ? "wait" : "pointer",
+                      opacity:
+                        resolvingTeamId !== null && resolvingTeamId !== t.id
+                          ? 0.6
+                          : 1,
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                      {t.name}
+                    </div>
+                    {resolvingTeamId === t.id && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "var(--muted-foreground)",
+                        }}
+                      >
+                        Opening…
+                      </div>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </>
+        )}
+
         {tab === "org" && (
           <div
             style={{
@@ -769,7 +1145,6 @@ function NewMessageModal({
                   onStarted({
                     scope_type: "org",
                     scope_key: "",
-                    label: "Organization",
                   })
                 }
                 style={{
