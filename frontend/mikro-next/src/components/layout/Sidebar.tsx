@@ -18,7 +18,6 @@ const userNavItems: NavItem[] = [
   { label: "Projects", href: "/projects", icon: "folder" },
   // { label: "Time", href: "/time", icon: "clock" },
   { label: "Training", href: "/training", icon: "book" },
-  { label: "Payments", href: "/payments", icon: "dollar" },
   // { label: "Teams", href: "/teams", icon: "team" },
 ];
 
@@ -26,7 +25,6 @@ const validatorNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "home" },
   { label: "Projects", href: "/projects", icon: "folder" },
   { label: "Training", href: "/training", icon: "book" },
-  { label: "Payments", href: "/payments", icon: "dollar" },
   { label: "Teams", href: "/teams", icon: "team" },
 ];
 
@@ -38,7 +36,7 @@ const adminNavItems: NavItem[] = [
   { label: "Training", href: "/training", icon: "book" },
   { label: "Users", href: "/users", icon: "users" },
   { label: "Teams", href: "/teams", icon: "team" },
-  { label: "Payments", href: "/payments", icon: "dollar" },
+  { label: "Payments", href: "/admin/payments", icon: "dollar" },
   { label: "Reports", href: "/reports", icon: "chart" },
   { label: "Regions", href: "/admin/regions", icon: "globe" },
   { label: "Email", href: "/admin/announcements", icon: "mail" },
@@ -61,7 +59,7 @@ const teamAdminNavItems: NavItem[] = [
   { label: "Training", href: "/training", icon: "book" },
   { label: "Users", href: "/users", icon: "users" },
   { label: "Teams", href: "/teams", icon: "team" },
-  { label: "Payments", href: "/payments", icon: "dollar" },
+  { label: "Payments", href: "/admin/payments", icon: "dollar" },
   { label: "Reports", href: "/reports", icon: "chart" },
   { label: "Regions", href: "/admin/regions", icon: "globe" },
   { label: "Email", href: "/admin/announcements", icon: "mail" },
