@@ -102,8 +102,14 @@ class ProjectAPI(MethodView):
             return self.calculate_budget()
         elif path == "fetch_org_projects":
             return self.fetch_org_projects()
+        elif path == "fetch_org_projects_paged":
+            return self.fetch_org_projects_paged()
+        elif path == "fetch_org_projects_stats":
+            return self.fetch_org_projects_stats()
         elif path == "fetch_user_projects":
             return self.fetch_user_projects()
+        elif path == "fetch_user_projects_paged":
+            return self.fetch_user_projects_paged()
         elif path == "update_project":
             return self.update_project()
         elif path == "assign_user_project":
@@ -408,52 +414,31 @@ class ProjectAPI(MethodView):
             "mr_status_breakdown": mr_status_counts,
         }
 
-    @requires_team_admin_or_above
-    def fetch_org_projects(self):
-        if not g:
-            return {"message": "User not found", "status": 304}
+    _EMPTY_TASK_COUNTS = {
+        "effective_mapped": 0, "effective_validated": 0, "effective_invalidated": 0,
+        "raw_mapped": 0, "raw_validated": 0, "raw_invalidated": 0,
+        "split_task_groups": 0, "split_task_count": 0, "mr_status_breakdown": {},
+    }
 
-        req_body = request.json if request.json else {}
+    @staticmethod
+    def _int_or_none(val):
+        try:
+            return int(val) if val is not None else None
+        except (TypeError, ValueError):
+            return None
 
-        def _int_or_none(val):
-            try:
-                return int(val) if val is not None else None
-            except (TypeError, ValueError):
-                return None
-
-        svc = ProjectService()
-        projects = svc.get(
-            org_id=g.user.org_id,
-            user=g.user,
-            filters={
-                "country_id": _int_or_none(req_body.get("country_id")),
-                "region_id": _int_or_none(req_body.get("region_id")),
-                "team_id": _int_or_none(req_body.get("team_id")),
-                "created_by_me": req_body.get("created_by_me", False),
-                "user_ids": resolve_filtered_user_ids(
-                    req_body.get("filters"), g.user.org_id
-                ),
-            },
-        )
-
-        active_projects = [p for p in projects if p.status]
-        inactive_projects = [p for p in projects if not p.status]
-
-        all_project_ids = [p.id for p in projects]
-
-        _loc_counts = svc.get_location_counts(all_project_ids)
-        _trn_counts = svc.get_training_counts(all_project_ids)
-
-        _batch_task_stats = get_batch_project_stats_fast(all_project_ids)
-
-        _empty_task_counts = {
-            "effective_mapped": 0, "effective_validated": 0, "effective_invalidated": 0,
-            "raw_mapped": 0, "raw_validated": 0, "raw_invalidated": 0,
-            "split_task_groups": 0, "split_task_count": 0, "mr_status_breakdown": {},
-        }
+    def _serialize_projects(self, svc, projects):
+        """Serialize a list of Project rows to the response shape, computing
+        the per-project task / location / training stats in batch for ONLY
+        the supplied projects. Shared by the full-list and paginated
+        endpoints so their item shape never drifts."""
+        project_ids = [p.id for p in projects]
+        loc_counts = svc.get_location_counts(project_ids)
+        trn_counts = svc.get_training_counts(project_ids)
+        batch_task_stats = get_batch_project_stats_fast(project_ids)
 
         def _serialize(project):
-            tc = _batch_task_stats.get(project.id, _empty_task_counts)
+            tc = batch_task_stats.get(project.id, self._EMPTY_TASK_COUNTS)
             return {
                 "id": project.id,
                 "name": project.name,
@@ -486,16 +471,108 @@ class ProjectAPI(MethodView):
                 "mr_status_breakdown": tc.get("mr_status_breakdown", {}),
                 "status": project.status,
                 "payments_enabled": project.payments_enabled,
-                "assigned_locations": _loc_counts.get(project.id, 0),
-                "assigned_trainings": _trn_counts.get(project.id, 0),
+                "assigned_locations": loc_counts.get(project.id, 0),
+                "assigned_trainings": trn_counts.get(project.id, 0),
                 "last_synced": project.last_sync_cursor.isoformat() if project.last_sync_cursor else None,
             }
 
+        return [_serialize(p) for p in projects]
+
+    @requires_team_admin_or_above
+    def fetch_org_projects(self):
+        if not g:
+            return {"message": "User not found", "status": 304}
+
+        req_body = request.json if request.json else {}
+
+        svc = ProjectService()
+        projects = svc.get(
+            org_id=g.user.org_id,
+            user=g.user,
+            filters={
+                "country_id": self._int_or_none(req_body.get("country_id")),
+                "region_id": self._int_or_none(req_body.get("region_id")),
+                "team_id": self._int_or_none(req_body.get("team_id")),
+                "created_by_me": req_body.get("created_by_me", False),
+                "user_ids": resolve_filtered_user_ids(
+                    req_body.get("filters"), g.user.org_id
+                ),
+            },
+        )
+
+        active_projects = [p for p in projects if p.status]
+        inactive_projects = [p for p in projects if not p.status]
+
         return {
-            "org_active_projects": [_serialize(p) for p in active_projects],
-            "org_inactive_projects": [_serialize(p) for p in inactive_projects],
+            "org_active_projects": self._serialize_projects(svc, active_projects),
+            "org_inactive_projects": self._serialize_projects(svc, inactive_projects),
             "message": "Projects found",
             "status": 200,
+        }
+
+    @requires_team_admin_or_above
+    def fetch_org_projects_paged(self):
+        """One sorted, filtered, paginated page of projects for a single
+        status tab. Body: status (bool), search, community (bool),
+        priority, country_id, region_id, team_id, created_by_me,
+        sort_key, sort_dir, page, page_size."""
+        if not g:
+            return {"message": "User not found", "status": 304}
+
+        req_body = request.json if request.json else {}
+        svc = ProjectService()
+
+        status = req_body.get("status")
+        items, total = svc.get_page(
+            org_id=g.user.org_id,
+            user=g.user,
+            filters=self._list_filters(req_body, status=status),
+            sort_key=req_body.get("sort_key") or "name",
+            sort_dir=req_body.get("sort_dir") or "asc",
+            page=self._int_or_none(req_body.get("page")) or 1,
+            page_size=self._int_or_none(req_body.get("page_size")) or 20,
+        )
+
+        return {
+            "projects": self._serialize_projects(svc, items),
+            "total": total,
+            "page": self._int_or_none(req_body.get("page")) or 1,
+            "page_size": self._int_or_none(req_body.get("page_size")) or 20,
+            "status": 200,
+        }
+
+    @requires_team_admin_or_above
+    def fetch_org_projects_stats(self):
+        """Aggregate counts for the stat cards + tab badges over the filtered
+        set (status excluded so both active/inactive counts are reported)."""
+        if not g:
+            return {"message": "User not found", "status": 304}
+
+        req_body = request.json if request.json else {}
+        svc = ProjectService()
+        counts = svc.get_status_counts(
+            org_id=g.user.org_id,
+            user=g.user,
+            filters=self._list_filters(req_body, status=None),
+        )
+        return {**counts, "status": 200}
+
+    def _list_filters(self, req_body, status):
+        """Build the ProjectService filter dict shared by the paged + stats
+        endpoints. ``status`` is passed explicitly (None to omit)."""
+        community = req_body.get("community")
+        return {
+            "status": status if isinstance(status, bool) else None,
+            "search": req_body.get("search"),
+            "community": community if isinstance(community, bool) else None,
+            "priority": req_body.get("priority"),
+            "country_id": self._int_or_none(req_body.get("country_id")),
+            "region_id": self._int_or_none(req_body.get("region_id")),
+            "team_id": self._int_or_none(req_body.get("team_id")),
+            "created_by_me": req_body.get("created_by_me", False),
+            "user_ids": resolve_filtered_user_ids(
+                req_body.get("filters"), g.user.org_id
+            ),
         }
 
     @requires_team_admin_or_above
@@ -889,21 +966,17 @@ class ProjectAPI(MethodView):
             },
         )
 
-        project_ids = [p.id for p in active_projects]
-        _last_worked = dict(
-            db.session.query(TimeEntry.project_id, func.max(TimeEntry.clock_out))
-            .filter(
-                TimeEntry.user_id == g.user.id,
-                TimeEntry.project_id.in_(project_ids),
-                TimeEntry.status != "voided",
-            )
-            .group_by(TimeEntry.project_id)
-            .all()
-        )
-        for p in active_projects:
-            ts = _last_worked.get(p.id)
-            p.last_worked_on = (ts.isoformat() + "Z") if ts else None
+        return {
+            "user_projects": self._serialize_user_projects(active_projects),
+            "message": "Projects found",
+            "status": 200,
+        }
 
+    def _serialize_user_projects(self, projects):
+        """Enrich + serialize the current user's assigned projects, computing
+        per-user task counts for ONLY the supplied projects. Shared by the
+        full-list + paginated user endpoints."""
+        project_ids = [p.id for p in projects]
         user_projects = []
 
         user_task_ids = {
@@ -914,7 +987,7 @@ class ProjectAPI(MethodView):
         for t in Task.query.filter(Task.project_id.in_(project_ids)).all():
             tasks_by_project.setdefault(t.project_id, []).append(t)
 
-        for project in active_projects:
+        for project in projects:
             all_project_tasks = tasks_by_project.get(project.id, [])
             _proj_stats = get_project_stats_from_tasks(all_project_tasks)
             user_project_tasks = [t for t in all_project_tasks if t.id in user_task_ids]
@@ -960,17 +1033,44 @@ class ProjectAPI(MethodView):
                     "total_invalidated": _proj_stats["tasks_invalidated"],
                     "user_earnings": 0,
                     "status": project.status,
-                    # For F1 — frontend sorts the clock-in dropdown
-                    # so the user's most-recent project pins to the
-                    # top. null for projects they've never clocked
-                    # into (sort to bottom on the client).
-                    "last_worked_on": project.last_worked_on,
                 }
             )
 
+        return user_projects
+
+    def fetch_user_projects_paged(self):
+        """One sorted, filtered, paginated page of the current user's assigned
+        (active) projects. Body: search, community, priority, country_id,
+        region_id, sort_key, sort_dir, page, page_size."""
+        if not g.user:
+            return {"message": "User not found", "status": 304}
+
+        body = request.get_json(silent=True) or {}
+        community = body.get("community")
+        svc = ProjectService()
+        items, total = svc.get_page(
+            org_id=g.user.org_id,
+            user=g.user,
+            filters={
+                "for_user_id": g.user.id,
+                "status": True,
+                "search": body.get("search"),
+                "community": community if isinstance(community, bool) else None,
+                "priority": body.get("priority"),
+                "country_id": self._int_or_none(body.get("country_id")),
+                "region_id": self._int_or_none(body.get("region_id")),
+            },
+            sort_key=body.get("sort_key") or "name",
+            sort_dir=body.get("sort_dir") or "asc",
+            page=self._int_or_none(body.get("page")) or 1,
+            page_size=self._int_or_none(body.get("page_size")) or 20,
+        )
+
         return {
-            "user_projects": user_projects,
-            "message": "Projects found",
+            "user_projects": self._serialize_user_projects(items),
+            "total": total,
+            "page": self._int_or_none(body.get("page")) or 1,
+            "page_size": self._int_or_none(body.get("page_size")) or 20,
             "status": 200,
         }
 

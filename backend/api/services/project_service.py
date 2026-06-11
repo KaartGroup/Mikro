@@ -11,7 +11,7 @@ import re
 
 import requests
 from ..database import Team, TeamLead, TeamUser
-from sqlalchemy import func
+from sqlalchemy import func, cast, String, or_, case
 from ..auth.team_scoping import is_org_admin_or_above
 from ..database.core import ProjectTeam, ProjectUser
 from ..stats import (
@@ -445,6 +445,74 @@ class ProjectService:
         return query.filter(Project.id.in_(project_ids))
 
     @staticmethod
+    def get_project_by_search(query, search: str):
+        """Case-insensitive substring match on name / short_name / url, plus
+        an exact-ish match on the numeric source id (cast to text).
+
+        Replaces the old client-side search. NOTE: this is case-insensitive
+        only — the previous client filter also folded accents (NFD), which
+        Postgres can't do without the ``unaccent`` extension. Accept ILIKE
+        for now; enabling ``unaccent`` is a possible follow-up.
+        """
+        term = (search or "").strip()
+        if not term:
+            return query
+        like = f"%{term}%"
+        return query.filter(
+            or_(
+                Project.name.ilike(like),
+                Project.short_name.ilike(like),
+                Project.url.ilike(like),
+                cast(Project.id, String).like(like),
+            )
+        )
+
+    @staticmethod
+    def get_project_by_community(query, community: bool):
+        if isinstance(community, bool):
+            return query.filter(Project.community == community)
+        return query
+
+    @staticmethod
+    def get_project_by_priority(query, priority: str):
+        if priority:
+            return query.filter(Project.priority == priority)
+        return query
+
+    # Maps UI sort keys → an ORDER BY expression. ``name`` collates on the
+    # displayed label (short_name falling back to name); ``difficulty`` uses
+    # an explicit Easy<Medium<Hard ordering with unknowns last. Every sort
+    # appends Project.id as a stable tiebreaker so paging never duplicates or
+    # skips rows when the primary key has ties.
+    @staticmethod
+    def _sort_expression(sort_key: str):
+        if sort_key == "source_id":
+            return Project.id
+        if sort_key == "total_tasks":
+            return Project.total_tasks
+        if sort_key == "mapping_rate":
+            return Project.mapping_rate_per_task
+        if sort_key == "budget":
+            return Project.max_payment
+        if sort_key == "difficulty":
+            return case(
+                (Project.difficulty == "Easy", 1),
+                (Project.difficulty == "Medium", 2),
+                (Project.difficulty == "Hard", 3),
+                else_=99,
+            )
+        # default + "name"
+        return func.lower(func.coalesce(Project.short_name, Project.name))
+
+    @classmethod
+    def _apply_sort(cls, query, sort_key: str, sort_dir: str):
+        expr = cls._sort_expression(sort_key)
+        descending = str(sort_dir).lower() == "desc"
+        primary = expr.desc() if descending else expr.asc()
+        tiebreak = Project.id.desc() if descending else Project.id.asc()
+        return query.order_by(primary, tiebreak)
+
+    @staticmethod
     def filter_by_assigned_user(query, user_id: str):
         """Restrict a Project query to projects the user is directly assigned to."""
         project_ids = (
@@ -476,11 +544,13 @@ class ProjectService:
             .all()
         )
 
-    def get(self, org_id: str, user, filters: dict | None = None) -> list:
-        """Return projects visible to the user.
+    def _build_query(self, org_id: str, user, filters: dict | None = None):
+        """Assemble the scoped, filtered Project query (without executing it).
 
-        Pass ``for_user_id`` in filters to fetch a specific user's assigned
-        projects (bypasses role scoping; uses ProjectUser as the scope gate).
+        Shared by ``get`` (full list), ``get_page`` (paginated), and
+        ``get_status_counts`` (aggregates). New filter keys (``search``,
+        ``community``, ``priority``) are no-ops when absent, so existing
+        callers of ``get`` are unaffected.
         """
         filters = filters or {}
         query = Project.query.filter(Project.org_id == org_id)
@@ -508,4 +578,82 @@ class ProjectService:
         if filters.get("user_ids") is not None:
             query = self.get_project_by_assigned_users(query, filters["user_ids"])
 
-        return query.all()
+        if filters.get("search"):
+            query = self.get_project_by_search(query, filters["search"])
+
+        if filters.get("community") is not None:
+            query = self.get_project_by_community(query, filters["community"])
+
+        if filters.get("priority"):
+            query = self.get_project_by_priority(query, filters["priority"])
+
+        return query
+
+    def get(self, org_id: str, user, filters: dict | None = None) -> list:
+        """Return projects visible to the user.
+
+        Pass ``for_user_id`` in filters to fetch a specific user's assigned
+        projects (bypasses role scoping; uses ProjectUser as the scope gate).
+        """
+        return self._build_query(org_id, user, filters).all()
+
+    def get_page(
+        self,
+        org_id: str,
+        user,
+        filters: dict | None = None,
+        sort_key: str = "name",
+        sort_dir: str = "asc",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple:
+        """Return one sorted, paginated page plus the total matching count.
+
+        ``total`` is the count across the full filtered set (ignoring
+        page/limit) so the frontend can render "page N of M".
+        """
+        query = self._build_query(org_id, user, filters)
+        total = query.order_by(None).count()
+
+        page = max(1, int(page or 1))
+        page_size = max(1, int(page_size or 20))
+        items = (
+            self._apply_sort(query, sort_key, sort_dir)
+            .limit(page_size)
+            .offset((page - 1) * page_size)
+            .all()
+        )
+        return items, total
+
+    def get_status_counts(
+        self, org_id: str, user, filters: dict | None = None
+    ) -> dict:
+        """Aggregate counts for the stat cards over the filtered set.
+
+        Status is intentionally excluded from ``filters`` here so the active
+        and inactive counts are both reported for the same filtered universe.
+        """
+        filters = dict(filters or {})
+        filters.pop("status", None)
+        query = self._build_query(org_id, user, filters).order_by(None)
+
+        active_count = query.filter(Project.status == True).count()  # noqa: E712
+        inactive_count = query.filter(
+            Project.status != True  # noqa: E712
+        ).count()
+        total_tasks = (
+            query.with_entities(
+                func.coalesce(func.sum(Project.total_tasks), 0)
+            ).scalar()
+            or 0
+        )
+        mr_count = query.filter(Project.source == "mr").count()
+        tm4_count = query.filter(Project.source != "mr").count()
+
+        return {
+            "active_count": active_count,
+            "inactive_count": inactive_count,
+            "total_tasks": int(total_tasks),
+            "tm4_count": tm4_count,
+            "mr_count": mr_count,
+        }

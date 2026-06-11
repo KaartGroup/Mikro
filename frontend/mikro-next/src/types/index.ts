@@ -138,6 +138,52 @@ export interface ProjectsResponse {
   status: number;
 }
 
+/** One sorted/filtered page of projects for a single status tab. */
+export interface ProjectsPagedResponse {
+  projects: Project[];
+  total: number;
+  page: number;
+  page_size: number;
+  status: number;
+}
+
+/** One sorted/filtered page of the current user's assigned projects. */
+export interface UserProjectsPagedResponse {
+  user_projects: Project[];
+  total: number;
+  page: number;
+  page_size: number;
+  status: number;
+}
+
+/** Aggregate counts for the stat cards + tab badges (over the filtered set,
+ *  ignoring the status tab so both active/inactive are reported). */
+export interface ProjectStatsResponse {
+  active_count: number;
+  inactive_count: number;
+  total_tasks: number;
+  tm4_count: number;
+  mr_count: number;
+  status: number;
+}
+
+/** Request body for the paginated projects list. */
+export interface ProjectPageParams {
+  status?: boolean;
+  search?: string;
+  community?: boolean | null;
+  priority?: string | null;
+  country_id?: number;
+  region_id?: number;
+  team_id?: number;
+  created_by_me?: boolean;
+  filters?: Record<string, string[]>;
+  sort_key?: string;
+  sort_dir?: "asc" | "desc";
+  page?: number;
+  page_size?: number;
+}
+
 // Task types
 export interface Task {
   id: number;

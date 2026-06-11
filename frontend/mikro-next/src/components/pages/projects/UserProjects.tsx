@@ -11,14 +11,14 @@ import {
   Val,
   useToastActions,
 } from "@/components/ui";
-import { useUserProjects, useFetchFilterOptions } from "@/hooks";
+import { useUserProjectsPaged, useFetchFilterOptions } from "@/hooks";
 import { useRole } from "@/contexts/RoleContext";
 import {
   getProjectExternalUrl,
   formatNumber,
   formatCurrency,
 } from "@/lib/utils";
-import type { Project } from "@/types";
+import type { Project, UserProjectsPagedResponse } from "@/types";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
 
@@ -151,103 +151,104 @@ function ProjectCard({
   );
 }
 
-const normalizeForSearch = (s: string): string =>
-  (s || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
-
 export function UserProjects() {
-  const { data: projects, loading, error, refetch } = useUserProjects();
+  const { mutate: fetchUserPage } = useUserProjectsPaged();
   const { data: filterOptions } = useFetchFilterOptions();
   const { paymentsVisible } = useRole();
   const toast = useToastActions();
 
-
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
-
-  const buildRefetchBody = useCallback((): Record<string, unknown> => {
-    const body: Record<string, unknown> = {};
-    if (filters.countryId) body.country_id = Number(filters.countryId);
-    if (filters.regionId) body.region_id = Number(filters.regionId);
-    return body;
-  }, [filters.countryId, filters.regionId]);
-
-  useEffect(() => {
-    if (refetch) {
-      const body = buildRefetchBody();
-      refetch(Object.keys(body).length > 0 ? body : {});
-    }
-  }, [buildRefetchBody, refetch]);
-
-  // Show error as toast instead of inline
-  useEffect(() => {
-    if (error) {
-      toast.error(`Projects: ${error}`);
-    }
-  }, [error]);
-
+  // Debounced search → one server request after typing settles.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const ROWS_PER_PAGE = 20;
   const [currentPage, setCurrentPage] = useState(1);
 
+  const [listResp, setListResp] = useState<UserProjectsPagedResponse | null>(
+    null,
+  );
+  const [listLoading, setListLoading] = useState(true);
+
+  // Debounce the search box.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(filters.search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [filters.search]);
+
+  // Filter dimensions sent to the server. Depends on individual fields (not
+  // the whole `filters` object) so it doesn't change on every keystroke —
+  // only the debounced search feeds it.
+  const buildFilterBody = useCallback((): Record<string, unknown> => {
+    const body: Record<string, unknown> = {};
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (filters.countryId) body.country_id = Number(filters.countryId);
+    if (filters.regionId) body.region_id = Number(filters.regionId);
+    if (filters.communityFilter)
+      body.community = filters.communityFilter === "community";
+    if (filters.priorityFilter) body.priority = filters.priorityFilter;
+    return body;
+  }, [
+    debouncedSearch,
+    filters.countryId,
+    filters.regionId,
+    filters.communityFilter,
+    filters.priorityFilter,
+  ]);
+
+  const fetchList = useCallback(async () => {
+    setListLoading(true);
+    try {
+      const resp = await fetchUserPage({
+        ...buildFilterBody(),
+        page: currentPage,
+        page_size: ROWS_PER_PAGE,
+      });
+      setListResp(resp ?? null);
+    } catch (e) {
+      toast.error(
+        `Projects: ${e instanceof Error ? e.message : "Failed to load"}`,
+      );
+    } finally {
+      setListLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildFilterBody, currentPage]);
+
+  useEffect(() => {
+    fetchList();
+  }, [fetchList]);
+
+  // Reset to page 1 whenever the filtered result set changes (debounced
+  // for search). Page itself is intentionally excluded.
   useEffect(() => {
     setCurrentPage(1);
-  }, [filters]);
+  }, [
+    debouncedSearch,
+    filters.countryId,
+    filters.regionId,
+    filters.communityFilter,
+    filters.priorityFilter,
+  ]);
 
-  const getCompletionPct = (p: Project): number =>
-    p.total_tasks > 0 ? Math.round(((p.total_mapped ?? 0) / p.total_tasks) * 100) : 0;
-
-  const allProjects = projects?.user_projects ?? [];
-  const activeProjects = allProjects.filter((p) => {
-    if (filters.search.trim()) {
-      const q = normalizeForSearch(filters.search.trim());
-      const matches =
-        normalizeForSearch(p.name || "").includes(q) ||
-        normalizeForSearch(p.short_name || "").includes(q) ||
-        normalizeForSearch(p.url || "").includes(q) ||
-        String(p.id).includes(q);
-      if (!matches) return false;
-    }
-    if (filters.completionFilter) {
-      const pct = getCompletionPct(p);
-      if (filters.completionFilter === "not-started" && pct !== 0) return false;
-      if (filters.completionFilter === "in-progress" && (pct < 1 || pct > 49)) return false;
-      if (filters.completionFilter === "almost-done" && (pct < 50 || pct > 99)) return false;
-      if (filters.completionFilter === "complete" && pct !== 100) return false;
-    }
-    if (filters.communityFilter === "community" && !p.community) return false;
-    if (filters.communityFilter === "internal" && p.community) return false;
-    if (filters.priorityFilter && p.priority !== filters.priorityFilter) return false;
-    return true;
-  });
-
-  const totalPages = Math.ceil(activeProjects.length / ROWS_PER_PAGE);
-  const paginatedProjects = activeProjects.slice(
-    (currentPage - 1) * ROWS_PER_PAGE,
-    currentPage * ROWS_PER_PAGE,
-  );
-  const showingStart =
-    activeProjects.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
-  const showingEnd = Math.min(
-    currentPage * ROWS_PER_PAGE,
-    activeProjects.length,
-  );
+  const projectsPage = listResp?.user_projects ?? [];
+  const total = listResp?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
+  const showingStart = total > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
+  const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, total);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
       <ProjectFilters
         filterOptions={filterOptions ?? null}
         onChange={setFilters}
-        withCompletion
       />
-      {loading && !projects ? (
+      {listLoading && !listResp ? (
         <div className="flex justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-kaart-orange" />
         </div>
-      ) : activeProjects.length > 0 ? (
+      ) : total > 0 ? (
         <>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {paginatedProjects.map((project) => (
+            {projectsPage.map((project) => (
               <ProjectCard
                 key={project.id}
                 project={project}
@@ -255,16 +256,16 @@ export function UserProjects() {
               />
             ))}
           </div>
-          {activeProjects.length > ROWS_PER_PAGE && (
+          {total > ROWS_PER_PAGE && (
             <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
               <span>
-                Showing {showingStart}-{showingEnd} of {activeProjects.length}
+                Showing {showingStart}-{showingEnd} of {total}
               </span>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={currentPage === 1}
+                  disabled={currentPage === 1 || listLoading}
                   onClick={() => setCurrentPage((p) => p - 1)}
                 >
                   Previous
@@ -275,7 +276,7 @@ export function UserProjects() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={currentPage === totalPages}
+                  disabled={currentPage >= totalPages || listLoading}
                   onClick={() => setCurrentPage((p) => p + 1)}
                 >
                   Next

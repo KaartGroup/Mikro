@@ -7,6 +7,9 @@ import type {
   ValidatorDashboardStats,
   UsersResponse,
   ProjectsResponse,
+  ProjectsPagedResponse,
+  ProjectStatsResponse,
+  UserProjectsPagedResponse,
   TransactionsResponse,
   TrainingsResponse,
   UserPayableResponse,
@@ -188,16 +191,41 @@ export function useUsersList() {
   return useApiCall<UsersResponse>("/user/fetch_users");
 }
 
-// Projects List (Admin)
+// Projects List (Admin) — full active/inactive lists. Still used by dropdowns
+// on the time + weekly-reports pages, so keep it as-is.
 export function useOrgProjects() {
   return useApiCall<ProjectsResponse>("/project/fetch_org_projects");
 }
 
-// User's Projects
+// Projects List (Admin) — server-side paginated/filtered/sorted page for one
+// status tab. Imperative; call mutate(body) on filter/sort/page change.
+export function useOrgProjectsPaged() {
+  return useApiMutation<ProjectsPagedResponse>(
+    "/project/fetch_org_projects_paged",
+  );
+}
+
+// Project stat-card + tab-badge counts over the filtered set.
+export function useOrgProjectStats() {
+  return useApiMutation<ProjectStatsResponse>(
+    "/project/fetch_org_projects_stats",
+  );
+}
+
+// User's Projects — full list. Still used by the clock-in dropdowns
+// (SidebarClock, UserTime), so keep it as-is.
 export function useUserProjects(enabled = true) {
   return useApiCall<ProjectsResponse>("/project/fetch_user_projects", {
     immediate: enabled,
   });
+}
+
+// User's Projects — server-side paginated/filtered/sorted page. Imperative;
+// call mutate(body) on filter/page change.
+export function useUserProjectsPaged() {
+  return useApiMutation<UserProjectsPagedResponse>(
+    "/project/fetch_user_projects_paged",
+  );
 }
 
 // Transactions (Admin)

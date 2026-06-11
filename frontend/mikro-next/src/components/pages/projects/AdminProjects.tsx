@@ -23,7 +23,8 @@ import {
 } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
 import {
-  useOrgProjects,
+  useOrgProjectsPaged,
+  useOrgProjectStats,
   useDeleteProject,
   useSyncProject,
   useCheckSyncStatus,
@@ -43,11 +44,16 @@ import {
   getProjectExternalUrl,
 } from "@/lib/utils";
 import { Val } from "@/components/ui";
-import { isOrgAdminOrAbove, isAnyAdmin } from "@/types";
-import type { Project } from "@/types";
+import { isAnyAdmin } from "@/types";
+import type {
+  Project,
+  ProjectsPagedResponse,
+  ProjectStatsResponse,
+} from "@/types";
 
 export function AdminProjects() {
-  const { data: projects, loading, refetch } = useOrgProjects();
+  const { mutate: fetchProjectsPage } = useOrgProjectsPaged();
+  const { mutate: fetchProjectStats } = useOrgProjectStats();
   const { data: filterOptions } = useFetchFilterOptions();
   const { mutate: deleteProject, loading: deleting } = useDeleteProject();
   const { mutate: syncProject } = useSyncProject();
@@ -72,36 +78,121 @@ export function AdminProjects() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
+  // Debounced mirror of the search box → drives the server query (one request
+  // after typing settles, not per keystroke).
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"active" | "inactive">("active");
   const [activePageNum, setActivePageNum] = useState(1);
   const [inactivePageNum, setInactivePageNum] = useState(1);
+  const [projSortKey, setProjSortKey] = useState<string>("name");
+  const [projSortDir, setProjSortDir] = useState<"asc" | "desc">("asc");
   const ROWS_PER_PAGE = 20;
 
-  useEffect(() => {
-    setActivePageNum(1);
-    setInactivePageNum(1);
-  }, [filters]);
+  // Server-driven data: one page for the current tab + aggregate stat counts.
+  const [listResp, setListResp] = useState<ProjectsPagedResponse | null>(null);
+  const [stats, setStats] = useState<ProjectStatsResponse | null>(null);
+  const [listLoading, setListLoading] = useState(true);
 
-  const buildRefetchBody = useCallback((): Record<string, unknown> => {
+  const currentPageNum =
+    activeTab === "active" ? activePageNum : inactivePageNum;
+  const setCurrentPageNum =
+    activeTab === "active" ? setActivePageNum : setInactivePageNum;
+
+  // Debounce the search box.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(filters.search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [filters.search]);
+
+  // Filter dimensions shared by the list + stats requests. Depends on the
+  // individual filter fields (NOT the whole `filters` object) so it doesn't
+  // change on every search keystroke — only the debounced search feeds it.
+  const buildFilterBody = useCallback((): Record<string, unknown> => {
     const body: Record<string, unknown> = {};
+    if (debouncedSearch) body.search = debouncedSearch;
     if (filters.showMyProjects) body.created_by_me = true;
     if (filters.countryId) body.country_id = Number(filters.countryId);
     if (filters.regionId) body.region_id = Number(filters.regionId);
     if (filters.teamId) body.team_id = Number(filters.teamId);
+    if (filters.communityFilter)
+      body.community = filters.communityFilter === "community";
+    if (filters.priorityFilter) body.priority = filters.priorityFilter;
     return body;
-  }, [filters]);
+  }, [
+    debouncedSearch,
+    filters.showMyProjects,
+    filters.countryId,
+    filters.regionId,
+    filters.teamId,
+    filters.communityFilter,
+    filters.priorityFilter,
+  ]);
 
-  // Re-fetch projects when any filter changes. country_id, region_id,
-  // and team_id are project-direct (look up via ProjectCountry /
-  // ProjectTeam) — see fetch_org_projects in Projects.py.
-  useEffect(() => {
-    if (refetch) {
-      const body = buildRefetchBody();
-      refetch(Object.keys(body).length > 0 ? body : {});
+  // Fetch one page of the active tab (status + sort + page).
+  const fetchList = useCallback(async () => {
+    setListLoading(true);
+    try {
+      const resp = await fetchProjectsPage({
+        ...buildFilterBody(),
+        status: activeTab === "active",
+        sort_key: projSortKey,
+        sort_dir: projSortDir,
+        page: currentPageNum,
+        page_size: ROWS_PER_PAGE,
+      });
+      setListResp(resp ?? null);
+    } catch {
+      /* errors surfaced by the mutation hook */
+    } finally {
+      setListLoading(false);
     }
-  }, [buildRefetchBody, refetch]);
+    // projSortKey/projSortDir are declared below; included as deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildFilterBody, activeTab, currentPageNum, projSortKey, projSortDir]);
 
-  const activeProjects = projects?.org_active_projects ?? [];
-  const inactiveProjects = projects?.org_inactive_projects ?? [];
+  // Fetch aggregate counts (status excluded → both tab counts reported).
+  // Only depends on the filter set, so it doesn't refire on tab/page/sort.
+  const fetchStats = useCallback(async () => {
+    try {
+      const resp = await fetchProjectStats(buildFilterBody());
+      setStats(resp ?? null);
+    } catch {
+      /* errors surfaced by the mutation hook */
+    }
+  }, [buildFilterBody, fetchProjectStats]);
+
+  const refreshAll = useCallback(() => {
+    fetchList();
+    fetchStats();
+  }, [fetchList, fetchStats]);
+
+  useEffect(() => {
+    fetchList();
+  }, [fetchList]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  // Reset both tabs to page 1 whenever the result set or ordering changes
+  // (debounced for search). Page itself is intentionally excluded.
+  useEffect(() => {
+    setActivePageNum(1);
+    setInactivePageNum(1);
+  }, [
+    debouncedSearch,
+    filters.showMyProjects,
+    filters.countryId,
+    filters.regionId,
+    filters.teamId,
+    filters.communityFilter,
+    filters.priorityFilter,
+    projSortKey,
+    projSortDir,
+  ]);
+
+  const projects = listResp?.projects ?? [];
+  const total = listResp?.total ?? 0;
 
   const handleDeleteProject = async () => {
     if (!selectedProject) return;
@@ -111,7 +202,7 @@ export function AdminProjects() {
       toast.success("Project deleted successfully");
       setShowDeleteModal(false);
       setSelectedProject(null);
-      refetch(buildRefetchBody());
+      refreshAll();
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to delete project";
@@ -137,7 +228,7 @@ export function AdminProjects() {
             clearInterval(poll);
             setSyncingProjectId(null);
             toast.success(status.progress || `${projectName} synced`);
-            refetch(buildRefetchBody());
+            refreshAll();
           } else if (status.sync_status === "failed") {
             clearInterval(poll);
             setSyncingProjectId(null);
@@ -166,9 +257,6 @@ export function AdminProjects() {
     setShowDeleteModal(true);
   };
 
-  const [projSortKey, setProjSortKey] = useState<string>("name");
-  const [projSortDir, setProjSortDir] = useState<"asc" | "desc">("asc");
-
   const handleProjSort = (key: string) => {
     if (projSortKey === key) {
       setProjSortDir(projSortDir === "asc" ? "desc" : "asc");
@@ -176,102 +264,6 @@ export function AdminProjects() {
       setProjSortKey(key);
       setProjSortDir("asc");
     }
-  };
-
-  const sortProjects = (list: Project[]) => {
-    const sorted = [...list];
-    const dir = projSortDir === "asc" ? 1 : -1;
-    sorted.sort((a, b) => {
-      let aVal: string | number = "";
-      let bVal: string | number = "";
-      switch (projSortKey) {
-        case "name":
-          aVal = (a.short_name || a.name || "").toLowerCase();
-          bVal = (b.short_name || b.name || "").toLowerCase();
-          break;
-        case "source_id":
-          // project.id IS the source id (upstream TM4/MR numeric id is
-          // persisted as our PK). Numeric compare for stable ordering.
-          aVal = a.id ?? 0;
-          bVal = b.id ?? 0;
-          break;
-        case "total_tasks":
-          aVal = a.total_tasks ?? 0;
-          bVal = b.total_tasks ?? 0;
-          break;
-        case "mapping_rate":
-          aVal = a.mapping_rate_per_task ?? 0;
-          bVal = b.mapping_rate_per_task ?? 0;
-          break;
-        case "budget":
-          aVal = a.max_payment ?? 0;
-          bVal = b.max_payment ?? 0;
-          break;
-        case "completion":
-          aVal = getCompletionPct(a) ?? -1;
-          bVal = getCompletionPct(b) ?? -1;
-          break;
-        case "difficulty":
-          const diffOrder: Record<string, number> = {
-            Easy: 1,
-            Medium: 2,
-            Hard: 3,
-          };
-          aVal = diffOrder[a.difficulty || ""] ?? 0;
-          bVal = diffOrder[b.difficulty || ""] ?? 0;
-          break;
-        default:
-          return 0;
-      }
-      if (aVal < bVal) return -1 * dir;
-      if (aVal > bVal) return 1 * dir;
-      return 0;
-    });
-    return sorted;
-  };
-
-  /** NFD-decompose + strip combining marks so accents don't sink an otherwise
-   *  obvious match (e.g. searching "Vias Chia" needs to find "Vías Chía"). */
-  const normalizeForSearch = (s: string): string =>
-    (s || "")
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
-      .toLowerCase();
-
-  const filterProjectsBySearch = (list: Project[]) => {
-    if (!filters.search.trim()) return list;
-    const q = normalizeForSearch(filters.search.trim());
-    return list.filter((p) => {
-      if (normalizeForSearch(p.name || "").includes(q)) return true;
-      if (normalizeForSearch(p.short_name || "").includes(q)) return true;
-      if (normalizeForSearch(p.url || "").includes(q)) return true;
-      if (String(p.id).includes(q)) return true;
-      return false;
-    });
-  };
-
-  const filterProjectsByCompletion = (list: Project[]) => {
-    if (!filters.completionFilter) return list;
-    return list.filter((p) => {
-      const pct = getCompletionPct(p) ?? 0;
-      if (filters.completionFilter === "not-started") return pct === 0;
-      if (filters.completionFilter === "in-progress") return pct >= 1 && pct <= 49;
-      if (filters.completionFilter === "almost-done") return pct >= 50 && pct <= 99;
-      if (filters.completionFilter === "complete") return pct === 100;
-      return true;
-    });
-  };
-
-  const filterProjectsByCommunity = (list: Project[]) => {
-    if (!filters.communityFilter) return list;
-    return list.filter((p) =>
-      filters.communityFilter === "community" ? p.community : !p.community,
-    );
-  };
-
-  const filterProjectsByPriority = (list: Project[]) => {
-    if (!filters.priorityFilter) return list;
-    return list.filter((p) => p.priority === filters.priorityFilter);
   };
 
   /** Calculate completion % for a project (TM4 or MR). Capped at 100%. */
@@ -318,32 +310,21 @@ export function AdminProjects() {
     { key: "source_id", label: "Source ID", width: "w-[8%]" },
     { key: "total_tasks", label: "Tasks", width: "w-[6%]" },
     { key: "", label: "Progress", width: "w-[14%]" },
-    { key: "completion", label: "Done", width: "w-[6%]" },
+    { key: "", label: "Done", width: "w-[6%]" },
     { key: "mapping_rate", label: "Rates", width: "w-[9%]" },
     { key: "budget", label: "Budget", width: "w-[9%]" },
     { key: "difficulty", label: "Difficulty", width: "w-[10%]" },
   ];
 
-  const ProjectTable = ({
-    projectList,
-    currentPage,
-    setCurrentPage,
-  }: {
-    projectList: Project[];
-    currentPage: number;
-    setCurrentPage: (v: number | ((p: number) => number)) => void;
-  }) => {
-    const totalPages = Math.ceil(projectList.length / ROWS_PER_PAGE);
-    const paginatedProjects = projectList.slice(
-      (currentPage - 1) * ROWS_PER_PAGE,
-      currentPage * ROWS_PER_PAGE,
-    );
-    const showingStart =
-      projectList.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
-    const showingEnd = Math.min(
-      currentPage * ROWS_PER_PAGE,
-      projectList.length,
-    );
+  // Renders the current tab's server-fetched page. Reads `projects`, `total`,
+  // `currentPageNum`, `setCurrentPageNum`, and `listLoading` from closure —
+  // the server already filtered/sorted/sliced, so there's no client work here.
+  const ProjectTable = () => {
+    const currentPage = currentPageNum;
+    const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
+    const paginatedProjects = projects;
+    const showingStart = total > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
+    const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, total);
 
     return (
       <>
@@ -653,30 +634,29 @@ export function AdminProjects() {
                 </TableCell>
               </TableRow>
             ))}
-            {projectList.length === 0 && (
+            {total === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={9}
                   className="text-center py-8 text-muted-foreground"
                 >
-                  No projects found
+                  {listLoading ? "Loading…" : "No projects found"}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
-        {projectList.length > ROWS_PER_PAGE && (
+        {total > ROWS_PER_PAGE && (
           <div className="flex items-center justify-between mt-4 px-2">
             <span className="text-sm text-muted-foreground">
-              Showing {showingStart}–{showingEnd} of {projectList.length}{" "}
-              projects
+              Showing {showingStart}–{showingEnd} of {total} projects
             </span>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p: number) => p - 1)}
+                disabled={currentPage === 1 || listLoading}
+                onClick={() => setCurrentPageNum((p: number) => p - 1)}
               >
                 Previous
               </Button>
@@ -686,8 +666,8 @@ export function AdminProjects() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((p: number) => p + 1)}
+                disabled={currentPage >= totalPages || listLoading}
+                onClick={() => setCurrentPageNum((p: number) => p + 1)}
               >
                 Next
               </Button>
@@ -698,7 +678,7 @@ export function AdminProjects() {
     );
   };
 
-  if (loading && !projects) {
+  if (listLoading && !listResp) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -746,7 +726,7 @@ export function AdminProjects() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              <Val>{formatNumber(activeProjects.length)}</Val>
+              <Val>{formatNumber(stats?.active_count ?? 0)}</Val>
             </div>
           </CardContent>
         </Card>
@@ -758,7 +738,7 @@ export function AdminProjects() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
-              <Val>{formatNumber(inactiveProjects.length)}</Val>
+              <Val>{formatNumber(stats?.inactive_count ?? 0)}</Val>
             </div>
           </CardContent>
         </Card>
@@ -768,14 +748,7 @@ export function AdminProjects() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <Val>
-                {formatNumber(
-                  [...activeProjects, ...inactiveProjects].reduce(
-                    (sum, p) => sum + p.total_tasks,
-                    0,
-                  ),
-                )}
-              </Val>
+              <Val>{formatNumber(stats?.total_tasks ?? 0)}</Val>
             </div>
           </CardContent>
         </Card>
@@ -784,34 +757,27 @@ export function AdminProjects() {
             <CardTitle className="text-sm font-medium">By Platform</CardTitle>
           </CardHeader>
           <CardContent>
-            {(() => {
-              const all = [...activeProjects, ...inactiveProjects];
-              const tm4 = all.filter((p) => p.source !== "mr").length;
-              const mr = all.filter((p) => p.source === "mr").length;
-              return (
-                <div className="flex items-baseline gap-3">
-                  <div>
-                    <span className="text-2xl font-bold">
-                      <Val>{formatNumber(tm4)}</Val>
-                    </span>
-                    <Badge variant="secondary" className="ml-1 text-[10px]">
-                      TM4
-                    </Badge>
-                  </div>
-                  <div>
-                    <span className="text-2xl font-bold">
-                      <Val>{formatNumber(mr)}</Val>
-                    </span>
-                    <Badge
-                      variant="default"
-                      className="ml-1 text-[10px] bg-blue-500"
-                    >
-                      MR
-                    </Badge>
-                  </div>
-                </div>
-              );
-            })()}
+            <div className="flex items-baseline gap-3">
+              <div>
+                <span className="text-2xl font-bold">
+                  <Val>{formatNumber(stats?.tm4_count ?? 0)}</Val>
+                </span>
+                <Badge variant="secondary" className="ml-1 text-[10px]">
+                  TM4
+                </Badge>
+              </div>
+              <div>
+                <span className="text-2xl font-bold">
+                  <Val>{formatNumber(stats?.mr_count ?? 0)}</Val>
+                </span>
+                <Badge
+                  variant="default"
+                  className="ml-1 text-[10px] bg-blue-500"
+                >
+                  MR
+                </Badge>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -821,42 +787,35 @@ export function AdminProjects() {
         onChange={setFilters}
         withTeam
         withMyProjects
-        withCompletion
       />
 
-      {/* Projects Tabs */}
-      <Tabs defaultValue="active">
+      {/* Projects Tabs — controlled so the active tab drives the server query.
+      Both panels render the same server-fetched page (only the active one is
+      visible), so switching tabs refetches that status. */}
+      <Tabs
+        defaultValue="active"
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "active" | "inactive")}
+      >
         <TabsList>
           <TabsTrigger value="active">
-            Active ({activeProjects.length})
+            Active ({formatNumber(stats?.active_count ?? 0).text})
           </TabsTrigger>
           <TabsTrigger value="inactive">
-            Inactive ({inactiveProjects.length})
+            Inactive ({formatNumber(stats?.inactive_count ?? 0).text})
           </TabsTrigger>
         </TabsList>
         <TabsContent value="active">
           <Card>
             <CardContent className="p-0">
-              <ProjectTable
-                projectList={sortProjects(
-                  filterProjectsByPriority(filterProjectsByCommunity(filterProjectsByCompletion(filterProjectsBySearch(activeProjects)))),
-                )}
-                currentPage={activePageNum}
-                setCurrentPage={setActivePageNum}
-              />
+              <ProjectTable />
             </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="inactive">
           <Card>
             <CardContent className="p-0">
-              <ProjectTable
-                projectList={sortProjects(
-                  filterProjectsByPriority(filterProjectsByCommunity(filterProjectsByCompletion(filterProjectsBySearch(inactiveProjects)))),
-                )}
-                currentPage={inactivePageNum}
-                setCurrentPage={setInactivePageNum}
-              />
+              <ProjectTable />
             </CardContent>
           </Card>
         </TabsContent>
@@ -865,7 +824,7 @@ export function AdminProjects() {
       <AddProjectModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onCreated={() => refetch(buildRefetchBody())}
+        onCreated={() => refreshAll()}
       />
 
       <EditProjectModal
@@ -875,7 +834,7 @@ export function AdminProjects() {
           setShowEditModal(false);
           setSelectedProject(null);
         }}
-        onSaved={() => refetch(buildRefetchBody())}
+        onSaved={() => refreshAll()}
       />
 
       {/* Delete Confirmation */}
