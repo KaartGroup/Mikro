@@ -13,21 +13,13 @@ import {
   useFetchMyTimeHistory,
   useUpdateMyNotes,
   useDiscardActiveSession,
+  useUserProjects,
 } from "@/hooks";
 import { NotesButton } from "./NotesButton";
 import { sortProjectsRecentPinned } from "@/lib/sortProjects";
 import { ConfirmDialog } from "@/components/ui/Modal";
 
 const DISCARD_WINDOW_SECONDS = 300;
-
-interface TimeTrackingWidgetProps {
-  projects?: {
-    id: number;
-    name: string;
-    short_name?: string;
-    last_worked_on?: string | null;
-  }[];
-}
 
 import {
   TOPIC_OPTIONS as _TOPIC_OPTIONS,
@@ -45,8 +37,26 @@ const TOPIC_OPTIONS: SelectOption[] = _TOPIC_OPTIONS.map((t) => ({
   label: t.label,
 }));
 
+type UserProject = {
+  id: number;
+  name: string;
+  short_name?: string;
+  last_worked_on?: string | null;
+};
+
+
 // Duration helpers consolidated into @/lib/timeTracking:
-export function TimeTrackingWidget({ projects = [] }: TimeTrackingWidgetProps) {
+export function TimeTrackingWidget() {
+  const { data: unFormattedProjects } = useUserProjects();
+
+  const projects =
+    unFormattedProjects?.user_projects?.map((p: UserProject) => ({
+      id: p.id,
+      name: p.name,
+      short_name: p.short_name,
+      last_worked_on: p.last_worked_on ?? null,
+    })) ?? [];
+
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null); // Date.now() when timer was initialized
   const [initialElapsed, setInitialElapsed] = useState(0); // Server-provided elapsed seconds at start

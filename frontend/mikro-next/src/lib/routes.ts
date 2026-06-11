@@ -8,7 +8,6 @@ export const ROUTES = {
   dashboard: "/dashboard",
   messages: "/messages",
   onboarding: "/onboarding",
-  payments: "/payments",
   projects: "/projects",
   reports: "/reports",
   teams: "/teams",
@@ -23,6 +22,7 @@ export const ROUTES = {
   adminRegions: "/admin/regions",
   adminTasks: "/admin/tasks",
   adminTime: "/admin/time",
+  adminPayments: "/admin/payments",
 
   // Public
   welcome: "/welcome",

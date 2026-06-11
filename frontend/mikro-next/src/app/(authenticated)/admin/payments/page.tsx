@@ -72,17 +72,7 @@ function lastOfMonthIso(d = new Date()): string {
   ).padStart(2, "0")}`;
 }
 
-function firstOfLastMonthIso(d = new Date()): string {
-  const target = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-  return firstOfMonthIso(target);
-}
-
-function lastOfLastMonthIso(d = new Date()): string {
-  const target = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-  return lastOfMonthIso(target);
-}
-
-export function AdminPayments() {
+export  default function PaymentsPage() {
   const toast = useToastActions();
   const searchParams = useSearchParams();
   const router = useRouter();

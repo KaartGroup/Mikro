@@ -10,7 +10,6 @@ Mikro is an OSM micropayments platform by Kaart. It manages mapper tasks, paymen
 
 - **Backend**: Python 3, Flask, SQLAlchemy, PostgreSQL with PostGIS
 - **Frontend**: Next.js 16, React 19, Tailwind CSS 4, Auth0 (`frontend/mikro-next/`)
-- **Deployment**: GitLab CI/CD deploying to Kubernetes
 
 ## Development
 
@@ -57,8 +56,6 @@ python -m pytest tests/test_team_scoping.py
 # Single test
 python -m pytest tests/test_team_scoping.py::test_name
 ```
-
-Backend tests use SQLite in-memory (`sqlite:///:memory:`). Auth-logic unit tests mock SQLAlchemy models with lightweight fake classes — no DB setup needed. Integration tests create real rows in the test DB.
 
 ## Architecture
 

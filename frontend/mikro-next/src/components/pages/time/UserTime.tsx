@@ -14,15 +14,13 @@ import {
   TableCell,
   Skeleton,
   Val,
-  useToastActions,
 } from "@/components/ui";
 import {
   useCursorHistory,
   useUpdateMyNotes,
-  useUserProjects,
   useMyReimbursementRequests,
 } from "@/hooks";
-import { ReimbursementSubmitModal } from "@/components/user/ReimbursementsSection";
+import { ReimbursementSubmitModal } from "@/components/modals/reimbursement/RequestReimbursementModal";
 import { AdjustmentRequestModal } from "@/components/modals/AdjustmentRequestModal";
 import { useFetchMyChangesetHeatmap } from "@/hooks/useApi";
 import { ChangesetHeatmapCard } from "@/components/compounds/ChangesetHeatmapCard";
@@ -78,25 +76,14 @@ function getDateRange(preset: DatePreset): {
   }
 }
 
-
-
 function secondsToHours(seconds: number): number {
   return Math.round((seconds / 3600) * 10) / 10;
 }
 
 const PAGE_SIZE = 20;
 
-type UserProject = {
-  id: number;
-  name: string;
-  short_name?: string;
-  last_worked_on?: string | null;
-};
 
 export function UserDashboard() {
-  const toast = useToastActions();
-  const { data: projects } = useUserProjects();
-
   const [datePreset, setDatePreset] = useState<DatePreset>("this_month");
   const [category, setCategory] = useState<string>("All");
   const [page, setPage] = useState(0);
@@ -227,16 +214,7 @@ export function UserDashboard() {
       {/* Clock Widget + Heatmap */}
       <div className="flex gap-4 items-stretch">
         <div className="shrink-0 w-80">
-          <TimeTrackingWidget
-            projects={
-              projects?.user_projects?.map((p: UserProject) => ({
-                id: p.id,
-                name: p.name,
-                short_name: p.short_name,
-                last_worked_on: p.last_worked_on ?? null,
-              })) ?? []
-            }
-          />
+          <TimeTrackingWidget />
         </div>
         <div className="flex flex-1 min-w-0">
           <ChangesetHeatmapCard
@@ -454,24 +432,6 @@ export function UserDashboard() {
         </CardContent>
       </Card>
 
-      {/* Adjustment Request Modal */}
-      <AdjustmentRequestModal
-        isOpen={adjustmentEntryId !== null}
-        entryId={adjustmentEntryId}
-        onClose={closeAdjustmentModal}
-        onSubmitted={fetchWithFilters}
-      />
-
-      {/* Reimbursement Submit Modal */}
-      <ReimbursementSubmitModal
-        isOpen={showReimbursementModal}
-        onClose={() => setShowReimbursementModal(false)}
-        onSubmitted={() => {
-          setShowReimbursementModal(false);
-          refreshReimbursements();
-        }}
-      />
-
       {/* Pagination */}
       {totalEntries > 0 && (
         <div className="flex justify-between items-center">
@@ -507,6 +467,24 @@ export function UserDashboard() {
           </div>
         </div>
       )}
+
+      {/* Adjustment Request Modal */}
+      <AdjustmentRequestModal
+        isOpen={adjustmentEntryId !== null}
+        entryId={adjustmentEntryId}
+        onClose={closeAdjustmentModal}
+        onSubmitted={fetchWithFilters}
+      />
+
+      {/* Reimbursement Submit Modal */}
+      <ReimbursementSubmitModal
+        isOpen={showReimbursementModal}
+        onClose={() => setShowReimbursementModal(false)}
+        onSubmitted={() => {
+          setShowReimbursementModal(false);
+          refreshReimbursements();
+        }}
+      />
     </div>
   );
 }
