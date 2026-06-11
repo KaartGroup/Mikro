@@ -32,7 +32,7 @@ import {
 } from "@/hooks";
 import type { PunkDetailResponse } from "@/types";
 import { formatNumber, formatDate } from "@/lib/utils";
-import { ROUTES } from "@/lib/routes";
+import { dynamicRoutes } from "@/lib/routes";
 
 const MappingHeatmap = dynamic(() => import("@/components/MappingHeatmap"), {
   ssr: false,
@@ -142,7 +142,7 @@ export default function PunkDetailPage() {
     return (
       <div className="space-y-4">
         <Link
-          href={ROUTES.adminPunks}
+          href={dynamicRoutes.adminWatchlistTab("punks")}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Punks List
@@ -179,7 +179,7 @@ export default function PunkDetailPage() {
       {/* Header */}
       <div>
         <Link
-          href={ROUTES.adminPunks}
+          href={dynamicRoutes.adminWatchlistTab("punks")}
           className="text-kaart-orange hover:underline text-sm"
         >
           {"\u2190"} Back to Punks List
@@ -417,13 +417,13 @@ export default function PunkDetailPage() {
           <Card>
             <CardHeader className="pb-2">
               <p className="text-sm text-muted-foreground">
-                  Comments on this user&apos;s changesets from other OSM editors
-                  {data.discussions && data.discussions.length > 0 && (
-                    <span className="ml-2 text-xs">
-                      (sorted: flagged first, then newest)
-                    </span>
-                  )}
-                </p>
+                Comments on this user&apos;s changesets from other OSM editors
+                {data.discussions && data.discussions.length > 0 && (
+                  <span className="ml-2 text-xs">
+                    (sorted: flagged first, then newest)
+                  </span>
+                )}
+              </p>
             </CardHeader>
             <CardContent>
               {data.discussions && data.discussions.length > 0 ? (
