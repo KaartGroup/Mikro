@@ -34,7 +34,7 @@ import {
 } from "@/hooks/useApi";
 import { useCurrentUserRole, useManagedTeams } from "@/hooks";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
-import { formatNumber, formatDate } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 import {
   localWeekStartIsoUtc,
   localWeekEndIsoUtc,
@@ -160,10 +160,17 @@ function formatDateRangeLabel(
   if (preset === "all_time") return null;
   if (preset === "custom") {
     if (!customStart && !customEnd) return null;
+    // Use formatDateRangeShort (which anchors "YYYY-MM-DD" to LOCAL
+    // midnight) rather than formatDate (which parses "YYYY-MM-DD" as UTC
+    // midnight and then renders local — shifting the label a day earlier
+    // for negative-UTC admins like Kaart HQ/America/Denver). This keeps the
+    // stat-card subtitle in sync with the resolved-range caption below the
+    // pickers, which already uses formatDateRangeShort. The custom inputs
+    // are raw inclusive day stamps, so no endExclusive adjustment.
     if (customStart && customEnd)
-      return `${formatDate(customStart)} – ${formatDate(customEnd)}`;
-    if (customStart) return `From ${formatDate(customStart)}`;
-    return `Through ${formatDate(customEnd)}`;
+      return formatDateRangeShort(customStart, customEnd);
+    if (customStart) return `From ${formatDateRangeShort(customStart, customStart)}`;
+    return `Through ${formatDateRangeShort(customEnd, customEnd)}`;
   }
   return DATE_PRESET_LABELS[preset];
 }
