@@ -3,7 +3,6 @@ from .payment_cycle import PaymentCycleService
 from .payment_txn import PaymentTxnService
 from .project_service import ProjectService
 from .reimbursements import ReimbursementService
-from .time_entry import TimeEntryService
 from .hourly_payment import HourlyPaymentService
 from .subcategory import SubcategoryService
 
@@ -13,7 +12,6 @@ __all__ = [
     "PaymentTxnService",
     "ProjectService",
     "ReimbursementService",
-    "TimeEntryService",
     "HourlyPaymentService",
     "SubcategoryService",
 ]
