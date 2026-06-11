@@ -16,7 +16,7 @@ Always scopes to status IN ("completed", "voided"). viewer.role drives user scop
 import pytest
 from datetime import datetime
 
-from api.database import TimeEntry, Team, TeamUser
+from api.database import TimeEntry, Team, TeamUser, User
 from api.utils.time_entry_query import TimeEntryQuery
 from tests.conftest import USER_ID, OTHER_USER_ID, ORG
 
@@ -49,6 +49,14 @@ ADMIN_VIEWER = _FakeViewer(role="org_admin")
 
 def _query(data=None, viewer=None):
     return TimeEntryQuery(ORG, data or {}, viewer=viewer or ADMIN_VIEWER)
+
+
+def _name(db_session, user_id, first, last):
+    """Set first/last name on a fixture user row for search tests."""
+    user = User.query.get(user_id)
+    user.first_name = first
+    user.last_name = last
+    db_session.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -480,6 +488,108 @@ def test_cursor_no_results_on_last_page(db_session):
     }}).fetch_all()
 
     assert results == []
+
+
+# ---------------------------------------------------------------------------
+# Group 10 — user name search filter
+# ---------------------------------------------------------------------------
+
+def test_search_matches_first_name(db_session):
+    _name(db_session, USER_ID, "Jane", "Mapper")
+    _name(db_session, OTHER_USER_ID, "Bob", "Builder")
+    db_session.add_all([
+        _entry(user_id=USER_ID),
+        _entry(user_id=OTHER_USER_ID),
+    ])
+    db_session.flush()
+
+    results = _query(data={"search": "jane"}).fetch_all()
+
+    assert len(results) == 1
+    assert results[0].user_id == USER_ID
+
+
+def test_search_matches_full_name_across_first_and_last(db_session):
+    """A term spanning first + last (e.g. 'jane m') matches the concatenation."""
+    _name(db_session, USER_ID, "Jane", "Mapper")
+    _name(db_session, OTHER_USER_ID, "Bob", "Builder")
+    db_session.add_all([
+        _entry(user_id=USER_ID),
+        _entry(user_id=OTHER_USER_ID),
+    ])
+    db_session.flush()
+
+    results = _query(data={"search": "jane m"}).fetch_all()
+
+    assert len(results) == 1
+    assert results[0].user_id == USER_ID
+
+
+def test_search_matches_last_name_substring(db_session):
+    _name(db_session, USER_ID, "Jane", "Mapper")
+    _name(db_session, OTHER_USER_ID, "Bob", "Builder")
+    db_session.add_all([
+        _entry(user_id=USER_ID),
+        _entry(user_id=OTHER_USER_ID),
+    ])
+    db_session.flush()
+
+    results = _query(data={"search": "builder"}).fetch_all()
+
+    assert len(results) == 1
+    assert results[0].user_id == OTHER_USER_ID
+
+
+def test_search_is_case_insensitive(db_session):
+    _name(db_session, USER_ID, "Jane", "Mapper")
+    db_session.add(_entry(user_id=USER_ID))
+    db_session.flush()
+
+    results = _query(data={"search": "JANE MAPPER"}).fetch_all()
+
+    assert len(results) == 1
+    assert results[0].user_id == USER_ID
+
+
+def test_search_no_match_returns_empty(db_session):
+    _name(db_session, USER_ID, "Jane", "Mapper")
+    db_session.add(_entry(user_id=USER_ID))
+    db_session.flush()
+
+    results = _query(data={"search": "nonexistent"}).fetch_all()
+
+    assert results == []
+
+
+def test_search_blank_is_noop(db_session):
+    """Empty/whitespace search applies no restriction."""
+    _name(db_session, USER_ID, "Jane", "Mapper")
+    _name(db_session, OTHER_USER_ID, "Bob", "Builder")
+    db_session.add_all([
+        _entry(user_id=USER_ID),
+        _entry(user_id=OTHER_USER_ID),
+    ])
+    db_session.flush()
+
+    results = _query(data={"search": "   "}).fetch_all()
+
+    assert len(results) == 2
+
+
+def test_search_combines_with_category(db_session):
+    """search AND category both apply (intersection)."""
+    _name(db_session, USER_ID, "Jane", "Mapper")
+    _name(db_session, OTHER_USER_ID, "Jane", "Validator")
+    db_session.add_all([
+        _entry(user_id=USER_ID, activity="editing"),
+        _entry(user_id=OTHER_USER_ID, activity="training"),
+    ])
+    db_session.flush()
+
+    results = _query(data={"search": "jane", "category": "editing"}).fetch_all()
+
+    assert len(results) == 1
+    assert results[0].user_id == USER_ID
 
 
 def test_cursor_ordering_is_stable_across_pages(db_session, monkeypatch):

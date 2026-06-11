@@ -3,7 +3,7 @@ from datetime import timedelta
 from sqlalchemy import func, or_, and_
 
 from .tz import parse_filter_datetime
-from ..database import TimeEntry, TeamUser, db
+from ..database import TimeEntry, TeamUser, User, db
 from ..filters import resolve_filtered_user_ids
 from .time_tracking_helpers import TimeTrackingHelpers
 
@@ -16,9 +16,10 @@ class TimeEntryQuery:
         scope = self._user_scope_conditions(data, viewer, org_id)
         date = self._date_conditions(data)
         category = self._category_conditions(data)
+        search = self._search_conditions(data)
         cursor = self._cursor_conditions(data)
 
-        filter_conditions = base + scope + date + category
+        filter_conditions = base + scope + date + category + search
 
         self._query = TimeEntry.query.filter(*(filter_conditions + cursor)).order_by(
             TimeEntry.clock_in.desc(), TimeEntry.id.desc()
@@ -94,6 +95,31 @@ class TimeEntryQuery:
             conditions.append(TimeEntry.subcategory_name == subcategory_name)
 
         return conditions
+
+    def _search_conditions(self, data: dict) -> list:
+        """Restrict to entries whose user's name matches a free-text search.
+
+        Mirrors the frontend's old client-side `userName.includes(term)`
+        filter, but runs against the DB so it applies to the full result
+        set rather than just the loaded page. `userName` on the wire is
+        `User.full_name` (first + last), which is a Python property, not a
+        column — so we match a coalesced lower(first || ' ' || last)
+        concatenation. Matched user ids feed an `in_` subquery so this
+        composes with the AND'd scope/team-admin conditions.
+        """
+        search = (data.get("search") or "").strip().lower()
+        if not search:
+            return []
+
+        full_name = func.lower(
+            func.coalesce(User.first_name, "")
+            + " "
+            + func.coalesce(User.last_name, "")
+        )
+        matching_ids = db.session.query(User.id).filter(
+            full_name.like(f"%{search}%")
+        )
+        return [TimeEntry.user_id.in_(matching_ids)]
 
     def _cursor_conditions(self, data: dict) -> list:
         cursor = data.get("cursor")

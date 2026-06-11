@@ -231,6 +231,9 @@ export default function AdminTime() {
   const [customEnd, setCustomEnd] = useState("");
   const [category, setCategory] = useState<string>("All");
   const [userSearch, setUserSearch] = useState("");
+  // Debounced mirror of userSearch — drives the server-side history query
+  // so we send one request after the user stops typing, not per keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterRegionId, setFilterRegionId] = useState<string | null>(null);
   const [filterCountryId, setFilterCountryId] = useState<string | null>(null);
   const [filterTeamId, setFilterTeamId] = useState<string | null>(null);
@@ -332,6 +335,13 @@ export default function AdminTime() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Debounce the free-text user search so we issue one history request
+  // after typing settles rather than one per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(userSearch.trim()), 300);
+    return () => clearTimeout(t);
+  }, [userSearch]);
+
   // Build filter body and refetch when filters change. Resets the
   // accumulated entry list and cursor back to page 1.
   const fetchWithFilters = useCallback(async () => {
@@ -344,6 +354,7 @@ export default function AdminTime() {
     if (endDate) body.endDate = endDate;
     const categoryKey = resolveCategoryKey(category);
     if (categoryKey) body.category = categoryKey;
+    if (debouncedSearch) body.search = debouncedSearch;
     const filters: Record<string, string[]> = {};
     if (filterCountryId) filters.country = [filterCountryId];
     if (filterRegionId) filters.region = [filterRegionId];
@@ -371,6 +382,7 @@ export default function AdminTime() {
     customStart,
     customEnd,
     category,
+    debouncedSearch,
     filterCountryId,
     filterRegionId,
     filterTeamId,
@@ -446,7 +458,12 @@ export default function AdminTime() {
     return () => clearInterval(interval);
   }, [sessions]);
 
-  // Client-side filtering (fallback if backend doesn't filter)
+  // Client-side filtering (fallback if backend doesn't filter).
+  // Date + category mirror the server filters (redundant but harmless).
+  // User search is intentionally NOT applied here — it's a server-side
+  // filter now, so the loaded page is already the correct, fully-filtered
+  // result set. Re-filtering it client-side would desync the pagination
+  // count from what the server returned.
   const filteredEntries = useMemo(() => {
     let entries = allEntries;
 
@@ -472,15 +489,8 @@ export default function AdminTime() {
       );
     }
 
-    if (userSearch.trim()) {
-      const search = userSearch.trim().toLowerCase();
-      entries = entries.filter((e) =>
-        e.userName?.toLowerCase().includes(search),
-      );
-    }
-
     return entries;
-  }, [allEntries, datePreset, customStart, customEnd, category, userSearch]);
+  }, [allEntries, datePreset, customStart, customEnd, category]);
 
   // Filter active sessions by category and user search
   const filteredSessions = useMemo(() => {
@@ -643,6 +653,7 @@ export default function AdminTime() {
         startDate: startDate ?? undefined,
         endDate: endDate ?? undefined,
         category: resolveCategoryKey(category) ?? undefined,
+        search: debouncedSearch || undefined,
         filters: Object.keys(filters).length > 0 ? filters : undefined,
         format,
         omit_columns: omitColumns.length ? omitColumns : undefined,
@@ -1671,12 +1682,22 @@ export default function AdminTime() {
                   isLoading={loadingMore}
                   disabled={page >= totalPages - 1 && !nextCursor}
                   onClick={async () => {
-                    if (page < totalPages - 1) {
-                      setPage((p) => p + 1);
-                    } else if (nextCursor) {
+                    const target = page + 1;
+                    // The backend returns 50 entries per fetch but we
+                    // display PAGE_SIZE (20) per page, so a display page can
+                    // straddle a not-yet-loaded backend boundary. If the
+                    // destination page isn't fully loaded yet, pull the next
+                    // backend page BEFORE advancing. Without this, stepping
+                    // past a partially-loaded page silently skips the
+                    // unloaded rows — they only reappear when you navigate
+                    // back after a later load-more.
+                    if (
+                      sortedEntries.length < (target + 1) * PAGE_SIZE &&
+                      nextCursor
+                    ) {
                       await loadMoreHistory();
-                      setPage((p) => p + 1);
                     }
+                    setPage(target);
                   }}
                 >
                   Next

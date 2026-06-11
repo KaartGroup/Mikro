@@ -428,6 +428,8 @@ export interface TimeHistoryFilterParams {
   category?: string;
   /** Snapshot subcategory name filter (matches entry.subcategoryName). */
   subcategoryName?: string;
+  /** Free-text search matched server-side against the user's full name. */
+  search?: string;
   filters?: Record<string, string[]>;
   cursor?: { clockIn: string; id: number };
   limit?: number;
