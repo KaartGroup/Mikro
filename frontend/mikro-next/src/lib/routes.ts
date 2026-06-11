@@ -19,6 +19,7 @@ export const ROUTES = {
   adminFriends: "/admin/friends",
   adminOrganizations: "/admin/organizations",
   adminPunks: "/admin/punks",
+  adminWatchlist: "/admin/watchlist",
   adminRegions: "/admin/regions",
   adminTasks: "/admin/tasks",
   adminTime: "/admin/time",
@@ -47,6 +48,9 @@ export const AUTH_ROUTES: readonly Route[] = [
 export const dynamicRoutes = {
   adminFriend: (id: string | number) => `/admin/friends/${id}`,
   adminPunk: (id: string | number) => `/admin/punks/${id}`,
+  /** Watchlist page opened on a specific tab. */
+  adminWatchlistTab: (tab: "friends" | "punks") =>
+    `/admin/watchlist?tab=${tab}`,
   project: (id: string | number) => `/projects/${id}`,
   team: (id: string | number) => `/teams/${id}`,
   user: (id: string | number) => `/users/${id}`,
