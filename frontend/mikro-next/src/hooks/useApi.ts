@@ -45,8 +45,6 @@ import type {
   PunkDetailResponse,
   FriendsResponse,
   FriendDetailResponse,
-  WeeklyReportDraft,
-  WeeklyReportDraftsResponse,
   CommunityEntriesResponse,
   CommunitySheetConfigResponse,
   ChannelsResponse,

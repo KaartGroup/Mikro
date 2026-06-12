@@ -17,7 +17,6 @@ from .Reimbursements import ReimbursementsAPI
 from .Regions import RegionAPI
 from .Webhook import WebhookAPI
 from .Punks import PunkAPI
-from .WeeklyReport import WeeklyReportAPI
 from .Friends import FriendAPI
 from .CommunityData import CommunityDataAPI
 from .ChannelMonitor import ChannelMonitorAPI
@@ -44,7 +43,6 @@ __all__ = {
     "RegionAPI",
     "WebhookAPI",
     "PunkAPI",
-    "WeeklyReportAPI",
     "FriendAPI",
     "CommunityDataAPI",
     "ChannelMonitorAPI",

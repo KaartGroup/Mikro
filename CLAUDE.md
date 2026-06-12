@@ -91,7 +91,6 @@ Team scoping logic lives in `api/auth/team_scoping.py`. Team admins see only the
 - **Task attribution** stores `mapped_by` / `validated_by` as OSM username strings, not FK to User. This preserves historical data if a user later unlinks their OSM account.
 - **Deactivation has two mechanisms**: `is_active=False` blocks login immediately; `deleted_date` is a soft-delete for audit trail. A user can have `is_active=False` and no `deleted_date`.
 - **Task sources**: Tasks come from TM4 (Tasking Manager) or MapRoulette, tracked via a `source` column. Background sync jobs pull from each source's API.
-- **WeeklyReport.sections** is a JSON blob (stored as `db.Text`), allowing flexible section structure without schema migrations.
 - **Compensation model** (`compensation_model` column on User) is nullable for users created before its introduction; backend treats `NULL` as per-task.
 
 ### Frontend Structure

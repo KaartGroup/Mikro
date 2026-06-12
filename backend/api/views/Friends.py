@@ -10,27 +10,11 @@ detail/heatmap data for analysis.
 from flask.views import MethodView
 from flask import g, request, current_app
 from datetime import datetime
-from email.utils import parsedate_to_datetime
 from ..utils import requires_team_admin_or_above
 from ..database import db, Friend, FriendChangeset
 import json
 import requests as http_requests
 import xml.etree.ElementTree as ET
-
-
-def _parse_date(date_str):
-    """Parse a date string — handles ISO 8601 (from OSM API) and RFC 822 (legacy RSS)."""
-    if not date_str:
-        return ""
-    try:
-        return datetime.fromisoformat(date_str.replace("Z", "+00:00")).isoformat()
-    except Exception:
-        pass
-    try:
-        return parsedate_to_datetime(date_str).isoformat()
-    except Exception:
-        return ""
-
 
 OSM_API_BASE = "https://api.openstreetmap.org/api/0.6"
 OSM_HEADERS = {"User-Agent": "Mikro/1.0 (https://mikro.kaart.com)"}

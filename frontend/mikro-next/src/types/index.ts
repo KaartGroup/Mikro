@@ -1229,25 +1229,6 @@ export interface FriendDetailResponse {
   status: number;
 }
 
-// Weekly Report types
-export interface WeeklyReportDraft {
-  id: number;
-  title: string;
-  report_date: string;
-  start_date: string;
-  end_date: string;
-  sections: string; // JSON string
-  status: string;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WeeklyReportDraftsResponse {
-  drafts: WeeklyReportDraft[];
-  status: number;
-}
-
 // Community Data types
 export interface CommunityEntry {
   id: number;

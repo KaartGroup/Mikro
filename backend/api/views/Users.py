@@ -48,7 +48,6 @@ from ..database import (
     SyncJob,
     Punk,
     Friend,
-    WeeklyReport,
     CommunityEntry,
     MonitoredChannel,
     db,
@@ -1098,7 +1097,6 @@ class UserAPI(MethodView):
                 SyncJob,
                 Punk,
                 Friend,
-                WeeklyReport,
                 CommunityEntry,
                 MonitoredChannel,
             ]

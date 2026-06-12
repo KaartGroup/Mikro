@@ -1171,27 +1171,6 @@ class FriendChangeset(CRUDMixin, SurrogatePK, db.Model):
     hashtags = Column(MutableList.as_mutable(ARRAY(String(255))), nullable=True)
 
 
-class WeeklyReport(CRUDMixin, db.Model):
-    """Weekly report draft for client-facing PDF generation."""
-
-    __tablename__ = "weekly_reports"
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    org_id = db.Column(db.String(255), nullable=True, index=True)
-    title = db.Column(db.String(255), nullable=False)
-    report_date = db.Column(db.Date, nullable=False)
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date, nullable=False)
-    sections = db.Column(db.Text, nullable=False)  # JSON blob of all section data
-    status = db.Column(db.String(20), default="draft", server_default="draft")
-    created_by = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=func.now())
-    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
-
-    def __repr__(self):
-        return f"<WeeklyReport {self.id} title={self.title} status={self.status}>"
-
-
 class CommunityEntry(CRUDMixin, db.Model):
     """Community update entry synced from Google Sheets or entered manually."""
 
