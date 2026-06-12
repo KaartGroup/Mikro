@@ -514,18 +514,9 @@ class TimeTrackingAPI(MethodView):
             return jsonify({"message": "Unauthorized", "status": 401}), 401
 
         data = request.get_json() or {}
+        # session_id is optional: when omitted, the service closes the
+        # caller's active session. The frontend relies on this fallback.
         session_id = data.get("session_id")
-
-        if not session_id:
-            return (
-                jsonify(
-                    {
-                        "message": "session_id is required",
-                        "status": 400,
-                    }
-                ),
-                400,
-            )
 
         logger.info(
             f"[CLOCK] clock_out called by user={g.user.id} "

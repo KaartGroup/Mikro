@@ -14,11 +14,14 @@ The OSM ``ChangesetFetcher`` is injected (defaulting to a fresh instance)
 so tests can substitute a fake without monkeypatching the network.
 """
 
+import logging
 from datetime import datetime
 
 from ..database import TimeEntry, User, CustomTopic, db
 from ..utils.changeset_fetcher import ChangesetFetcher
 from .presenter import TimeTrackingHelpers
+
+logger = logging.getLogger(__name__)
 
 
 class DiscardWindowError(ValueError):
@@ -122,15 +125,19 @@ class TimeEntryService:
     # ── mutation ────────────────────────────────────────────────────
     def clock_out(
         self,
-        session_id: int,
+        session_id,
         user_id: str,
         user_notes=None,
         update_notes: bool = False,
         force_clocked_out_by: str = None,
     ):
-        entry = TimeEntry.query.filter_by(
-            id=session_id, user_id=user_id, status="active"
-        ).first()
+        # session_id is optional for self clock-out: when omitted, close the
+        # caller's single active session. Admin force-clock-out always pins a
+        # specific session by id.
+        query = TimeEntry.query.filter_by(user_id=user_id, status="active")
+        if session_id is not None:
+            query = query.filter_by(id=session_id)
+        entry = query.first()
 
         if not entry:
             return None
@@ -147,14 +154,30 @@ class TimeEntryService:
         # Fetch OSM changesets (best-effort).
         user = User.query.get(entry.user_id)
         if user and user.osm_username:
-            changeset_count, changes_count = self.changeset_fetcher._fetch_for_user(
-                user.osm_username, entry.clock_in
+            entry.changeset_count, entry.changes_count = self._count_changesets(
+                user.osm_username, entry.clock_in, now
             )
-            entry.changeset_count = changeset_count
-            entry.changes_count = changes_count
 
         entry.save()
         return entry
+
+    def _count_changesets(self, osm_username, since, until):
+        """Best-effort OSM changeset tally for the [since, until] window.
+
+        Returns a ``(changeset_count, changes_count)`` tuple — ``(0, 0)`` on
+        any failure, so an OSM API hiccup can never block a clock-out."""
+        try:
+            changesets = self.changeset_fetcher.fetch([osm_username], since, until)
+        except Exception:
+            logger.warning(
+                "OSM changeset fetch failed for %s; recording (0, 0)",
+                osm_username,
+                exc_info=True,
+            )
+            return 0, 0
+        changeset_count = len(changesets)
+        changes_count = sum(cs.get("changes_count", 0) for cs in changesets)
+        return changeset_count, changes_count
 
     def void(self, entry_id: int, org_id: str, voided_by: str):
         entry = TimeEntry.query.filter_by(id=entry_id, org_id=org_id).first()
