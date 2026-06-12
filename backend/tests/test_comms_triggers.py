@@ -254,21 +254,23 @@ def test_force_clock_out_notifies_session_owner():
 
     entry = _FakeEntry(id=7, user_id="auth0|owner", status="active", activity="mapping")
     entry.clock_in = datetime.datetime(2026, 6, 1, 12, 0, 0)
-    owner = _FakeUser("auth0|owner", role="user", osm_username=None)
 
     with app.test_request_context(json={"session_id": 7}):
         g.user = _admin()
         with patch("api.views.TimeTracking.TimeEntry") as TE, patch(
-            "api.views.TimeTracking.User"
-        ) as U, patch(
+            "api.views.TimeTracking.TimeEntryService"
+        ) as Svc, patch(
             "api.views.TimeTracking.is_org_admin_or_above", return_value=True
         ), patch(
             "api.views.TimeTracking.TimeTrackingHelpers"
         ) as H, patch(
             "api.views.TimeTracking.comms_client"
         ) as spy:
+            # The view fetches the active entry for the access check, then
+            # delegates the mutation to TimeEntryService (which owns the
+            # clock-out + changeset fetch and returns the closed entry).
             TE.query.filter_by.return_value.first.return_value = entry
-            U.query.get.return_value = owner
+            Svc.return_value.clock_out.return_value = entry
             H._format_entry.return_value = {}
             resp, code = TimeTrackingAPI().admin_force_clock_out()
 
@@ -289,11 +291,18 @@ def test_void_entry_notifies_owner():
     with app.test_request_context(json={"entry_id": 9}):
         g.user = _admin()
         with patch("api.views.TimeTracking.TimeEntry") as TE, patch(
+            "api.views.TimeTracking.TimeEntryService"
+        ) as Svc, patch(
             "api.views.TimeTracking.is_org_admin_or_above", return_value=True
-        ), patch("api.views.TimeTracking.TimeTrackingHelpers") as H, patch(
+        ), patch(
+            "api.views.TimeTracking.TimeTrackingHelpers"
+        ) as H, patch(
             "api.views.TimeTracking.comms_client"
         ) as spy:
+            # View fetches the entry for the access/already-voided checks,
+            # then delegates the void mutation to TimeEntryService.
             TE.query.filter_by.return_value.first.return_value = entry
+            Svc.return_value.void.return_value = entry
             H._format_entry.return_value = {}
             resp, code = TimeTrackingAPI().admin_void_entry()
 

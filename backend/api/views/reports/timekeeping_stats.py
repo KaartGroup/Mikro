@@ -5,8 +5,8 @@ from sqlalchemy import func
 
 from ...database import db, TimeEntry, User
 from ...utils.tz import parse_filter_datetime
+from ...time_tracking import TimeEntryScope, ACTIVITY_SLUGS
 from .helpers import resolve_member_id_filter
-from ..TimeTracking import ACTIVITY_SLUGS
 
 
 # ---------------------------------------------------------------------------
@@ -90,20 +90,23 @@ def get_timekeeping_stats(org_id, start_date, end_date, member_ids=None, cmp_sta
 # ---------------------------------------------------------------------------
 
 def _build_filter(org_id, start_date, end_date, member_ids):
-    """Build the base SQLAlchemy filter list for TimeEntry queries."""
-    f = [
+    """Build the base SQLAlchemy filter list for TimeEntry queries.
+
+    The member-scope tri-state (None → all org / [] → none / [ids] → subset)
+    is delegated to ``TimeEntryScope.member_ids_conditions`` so the empty-set
+    guard stays identical to every other read path — it replaces the
+    hand-rolled ``"__no_match__"`` sentinel this filter used to carry. Dates
+    arrive already parsed (and date-only upper bounds already +1'd) from the
+    controller, so the ``clock_in`` window stays inline rather than routing
+    back through the string-parsing query constructor.
+    """
+    scope = TimeEntryScope(viewer=None, org_id=org_id)
+    return [
         TimeEntry.org_id == org_id,
         TimeEntry.status == "completed",
         TimeEntry.clock_in >= start_date,
         TimeEntry.clock_in < end_date,
-    ]
-    if member_ids is None:
-        pass  # no user filter — all org members
-    elif member_ids:
-        f.append(TimeEntry.user_id.in_(member_ids))
-    else:
-        f.append(TimeEntry.user_id == "__no_match__")  # empty list → zero rows
-    return f
+    ] + scope.member_ids_conditions(member_ids)
 
 
 # ---------------------------------------------------------------------------

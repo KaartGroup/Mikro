@@ -7,6 +7,7 @@ from sqlalchemy import func
 from ...database import db, Task, Project, User, TimeEntry
 from ...stats import get_batch_project_stats
 from ...utils.tz import parse_filter_datetime
+from ...time_tracking import AggregateQuery
 from .helpers import resolve_osm_username_filter
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,6 @@ def get_editing_stats(org_id, source, start_date, end_date, osm_usernames, cmp_s
             if source == "mr" else None
         ),
         "projects": _get_projects_list(org_id, source),
-        "top_contributors": _get_top_contributors(org_id, source, start_date, end_date, osm_usernames),
         "comparison": (
             _get_comparison(org_id, source, cmp_start, cmp_end, osm_usernames)
             if cmp_start and cmp_end else None
@@ -266,17 +266,12 @@ def _get_mr_status_over_time_daily(org_id, start_date, end_date, osm_usernames):
 
 
 def _get_time_per_project(org_id):
-    rows = (
-        db.session.query(TimeEntry.project_id, func.sum(TimeEntry.duration_seconds))
-        .filter(
-            TimeEntry.org_id == org_id,
-            TimeEntry.status == "completed",
-            TimeEntry.project_id != None,
-            TimeEntry.duration_seconds != None,
-        )
-        .group_by(TimeEntry.project_id)
-        .all()
-    )
+    # All-time, org-wide completed seconds per project. The null-project and
+    # zero-second buckets that the old explicit `project_id != None` /
+    # `duration_seconds != None` filters excluded are dropped by the
+    # `if proj_id and secs` comprehension guard instead (func.sum already
+    # skips NULL durations, so the totals are identical).
+    rows = AggregateQuery(org_id, {}, viewer=None).sum_seconds_by(TimeEntry.project_id)
     return {proj_id: secs for proj_id, secs in rows if proj_id and secs}
 
 
@@ -347,79 +342,6 @@ def _get_projects_list(org_id, source):
         result.append(proj_dict)
 
     return result
-
-
-def _get_top_contributors(org_id, source, start_date, end_date, osm_usernames):
-    contrib_q = (
-        db.session.query(Task.mapped_by, func.count().label("mapped_count"))
-        .filter(
-            Task.org_id == org_id, Task.source == source,
-            Task.mapped == True,
-            Task.date_mapped >= start_date, Task.date_mapped < end_date,
-            Task.mapped_by != None,
-        )
-    )
-    if osm_usernames:
-        contrib_q = contrib_q.filter(Task.mapped_by.in_(osm_usernames))
-    rows = contrib_q.group_by(Task.mapped_by).order_by(func.count().desc()).limit(20).all()
-
-    contributors = []
-    for row in rows:
-        osm_un = row.mapped_by
-        user = User.query.filter_by(osm_username=osm_un, org_id=org_id).first()
-
-        val_count = Task.query.filter(
-            Task.org_id == org_id, Task.source == source,
-            Task.validated_by == osm_un, Task.validated == True,
-            Task.date_validated >= start_date, Task.date_validated < end_date,
-        ).count()
-
-        inv_count = Task.query.filter(
-            Task.org_id == org_id, Task.source == source,
-            Task.validated_by == osm_un, Task.invalidated == True,
-            Task.date_validated >= start_date, Task.date_validated < end_date,
-        ).count()
-
-        hours = 0.0
-        if user:
-            result = (
-                db.session.query(func.sum(TimeEntry.duration_seconds))
-                .filter(
-                    TimeEntry.user_id == user.id,
-                    TimeEntry.status == "completed",
-                    TimeEntry.clock_in >= start_date,
-                    TimeEntry.clock_in < end_date,
-                )
-                .scalar()
-            )
-            hours = round((result or 0) / 3600, 1)
-
-        entry = {
-            "user_id": user.id if user else None,
-            "user_name": f"{user.first_name} {user.last_name}".strip() if user else osm_un,
-            "osm_username": osm_un,
-            "tasks_mapped": row.mapped_count,
-            "tasks_validated": val_count,
-            "tasks_invalidated": inv_count,
-            "total_hours": hours,
-        }
-
-        if source == "mr":
-            mr_rows = (
-                db.session.query(Task.mr_status, func.count())
-                .filter(
-                    Task.org_id == org_id, Task.source == "mr",
-                    Task.mapped_by == osm_un, Task.mr_status != None,
-                    Task.date_mapped >= start_date, Task.date_mapped < end_date,
-                )
-                .group_by(Task.mr_status)
-                .all()
-            )
-            entry["mr_status_breakdown"] = {s: c for s, c in mr_rows if s is not None}
-
-        contributors.append(entry)
-
-    return contributors
 
 
 def _get_comparison(org_id, source, cmp_start, cmp_end, osm_usernames):

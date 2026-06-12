@@ -867,16 +867,6 @@ export interface EditingStatsResponse {
     difficulty: string;
     mr_status_breakdown?: Record<string, number>;
   }>;
-  top_contributors: Array<{
-    user_id: string | null;
-    user_name: string;
-    osm_username: string;
-    tasks_mapped: number;
-    tasks_validated: number;
-    tasks_invalidated: number;
-    total_hours: number;
-    mr_status_breakdown?: Record<string, number>;
-  }>;
   comparison?: {
     summary: {
       total_mapped: number;

@@ -19,6 +19,7 @@ from ..services.payment_txn import PaymentTxnService
 from ..utils import requires_admin, requires_team_admin_or_above
 from ..utils.changeset_fetcher import ChangesetFetcher, changesets_to_heatmap_points
 from ..utils.tz import parse_filter_datetime
+from ..time_tracking import TimeEntryQuery, AggregateQuery
 from ..utils.auth0_org import add_or_invite_user_to_org
 from ..auth import (
     is_org_admin_or_above,
@@ -1470,7 +1471,12 @@ class UserAPI(MethodView):
             p.id: p for p in Project.query.filter(Project.id.in_(project_ids)).all()
         }
 
-        # Aggregation #1 — hours logged + last worked on, grouped by project
+        # Aggregation #1 — hours logged + last worked on, grouped by project.
+        # Deliberately NOT migrated onto AggregateQuery: this read uses a
+        # status != "voided" set (so it counts active in-progress sessions,
+        # which AggregateQuery's completed-only policy would drop) and a
+        # max(clock_out) the aggregate helpers don't express. Kept as a direct
+        # query rather than bending the shared class around a one-off shape.
         time_rows = (
             db.session.query(
                 TimeEntry.project_id,
@@ -1680,14 +1686,13 @@ class UserAPI(MethodView):
                         }
                     )
 
-        # Get recent time entries (limited)
-        time_entries = (
-            TimeEntry.query.filter_by(user_id=user_id)
-            .filter(TimeEntry.status.in_(["completed", "voided"]))
-            .order_by(TimeEntry.clock_in.desc())
-            .limit(50)
-            .all()
-        )
+        # Get recent time entries (limited). Base TimeEntryQuery already
+        # encodes this read's policy — status in (completed, voided), scoped
+        # to a single user, clock_in-desc — so it just needs the userId scope
+        # and a bounded fetch.
+        time_entries = TimeEntryQuery(
+            user.org_id, {"userId": user_id}, viewer=None
+        ).fetch_recent(50)
 
         # Bulk-load projects for time entries
         te_project_ids = {e.project_id for e in time_entries if e.project_id}
@@ -1849,17 +1854,20 @@ class UserAPI(MethodView):
         if end_was_date_only:
             end_date = end_date + timedelta(days=1)
 
-        # Query time entries in date range
-        entries = (
-            TimeEntry.query.filter(
-                TimeEntry.user_id == user_id,
-                TimeEntry.status == "completed",
-                TimeEntry.clock_in >= start_date,
-                TimeEntry.clock_in < end_date,
-            )
-            .order_by(TimeEntry.clock_in.desc())
-            .all()
-        )
+        # Query time entries in date range. start_date/end_date are already
+        # parsed (date-only end already +1'd); pass as ISO strings so
+        # AggregateQuery treats them as exact instants. fetch_all() yields
+        # clock_in-desc rows (the prior explicit ordering) — only used here
+        # for order-independent aggregation below.
+        entries = AggregateQuery(
+            g.user.org_id,
+            {
+                "userId": user_id,
+                "startDate": start_date.isoformat(),
+                "endDate": end_date.isoformat(),
+            },
+            viewer=None,
+        ).fetch_all()
 
         total_seconds = sum(e.duration_seconds or 0 for e in entries)
         total_hours = round(total_seconds / 3600, 1)
@@ -2293,13 +2301,18 @@ class UserAPI(MethodView):
                 if day_key in days:
                     days[day_key]["tasksValidated"] += 1
 
-        # Fill time tracking data
-        entries = TimeEntry.query.filter(
-            TimeEntry.user_id == user_id,
-            TimeEntry.status == "completed",
-            TimeEntry.clock_in >= start_date,
-            TimeEntry.clock_in < end_date,
-        ).all()
+        # Fill time tracking data. start_date/end_date are already-parsed
+        # datetimes (date-only end already +1'd); pass as ISO strings so
+        # AggregateQuery treats them as exact instants.
+        entries = AggregateQuery(
+            g.user.org_id,
+            {
+                "userId": user_id,
+                "startDate": start_date.isoformat(),
+                "endDate": end_date.isoformat(),
+            },
+            viewer=None,
+        ).fetch_all()
         for e in entries:
             day_key = e.clock_in.date().isoformat()
             if day_key in days:

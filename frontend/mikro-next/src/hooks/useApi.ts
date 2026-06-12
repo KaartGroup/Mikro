@@ -1239,26 +1239,6 @@ export function useToggleFriendDiscussionFlag() {
   return useApiMutation("/friend/toggle_discussion_flag");
 }
 
-// Weekly Reports
-export function useSaveWeeklyReport() {
-  return useApiMutation<{ message: string; id: number; status: number }>(
-    "/weeklyreport/save_draft",
-  );
-}
-export function useFetchWeeklyDrafts() {
-  return useApiCall<WeeklyReportDraftsResponse>("/weeklyreport/fetch_drafts");
-}
-export function useFetchWeeklyDraft() {
-  return useApiMutation<{ draft: WeeklyReportDraft; status: number }>(
-    "/weeklyreport/fetch_draft",
-  );
-}
-export function useDeleteWeeklyDraft() {
-  return useApiMutation<{ message: string; status: number }>(
-    "/weeklyreport/delete_draft",
-  );
-}
-
 // Community Data
 export function useSyncCommunitySheet() {
   return useApiMutation<{

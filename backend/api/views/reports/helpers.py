@@ -1,6 +1,6 @@
 from ...auth import managed_team_ids_for, team_member_ids_for
 from ...database import User, TeamUser
-from ...filters import resolve_filtered_osm_usernames, resolve_filtered_user_ids
+from ...filters import resolve_filtered_osm_usernames
 
 
 def _team_admin_osm_usernames(viewer):
@@ -76,29 +76,15 @@ def resolve_osm_username_filter(org_id, viewer, filters, user_id, team_id):
 def resolve_member_id_filter(org_id, viewer, filters, user_id, team_id):
     """Resolve the user-ID allow-list for TimeEntry queries.
 
-    Returns:
+    Thin delegator to ``TimeEntryScope.resolve_member_ids`` — the SSOT for
+    member-scope resolution (precedence + team-admin narrowing) shared with
+    the query classes. Returns:
       - None  → no filter (all org members)
       - []    → no users allowed (caller should short-circuit or use sentinel)
       - list  → specific user IDs to allow
     """
-    member_ids = None
-    if filters:
-        filtered_ids = resolve_filtered_user_ids(filters, org_id)
-        if filtered_ids is not None:
-            member_ids = filtered_ids
-    elif user_id:
-        member_ids = [user_id]
-    elif team_id:
-        member_ids = [tu.user_id for tu in TeamUser.query.filter_by(team_id=team_id).all()]
+    from ...time_tracking import TimeEntryScope
 
-    if viewer and getattr(viewer, "role", None) == "team_admin":
-        managed = managed_team_ids_for(viewer)
-        if not managed:
-            return []
-        ta_member_ids = list(team_member_ids_for(managed))
-        if member_ids is not None:
-            member_ids = [u for u in member_ids if u in set(ta_member_ids)]
-        else:
-            member_ids = ta_member_ids
-
-    return member_ids
+    return TimeEntryScope(viewer, org_id).resolve_member_ids(
+        filters=filters, user_id=user_id, team_id=team_id
+    )

@@ -14,7 +14,11 @@ from datetime import date, datetime, timedelta
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer,
 )
 from xml.sax.saxutils import escape as xml_escape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -28,12 +32,22 @@ try:
 except ImportError:
     _unidecode = None
 
-from ..utils import requires_admin, requires_team_admin_or_above
+from ..utils import requires_team_admin_or_above
 from ..utils.tz import org_month_bounds_utc, parse_filter_datetime
 from sqlalchemy import func, or_, and_
 from ..database import (
-    TimeEntry, User, UserHourlyRate, Project, Task, Team, TeamUser, TeamLead,
-    CustomTopic, ActivitySubcategory, HourlyPayment, db,
+    TimeEntry,
+    User,
+    UserHourlyRate,
+    Project,
+    Task,
+    Team,
+    TeamUser,
+    TeamLead,
+    CustomTopic,
+    ActivitySubcategory,
+    HourlyPayment,
+    db,
 )
 from ..auth import (
     is_org_admin_or_above,
@@ -42,11 +56,18 @@ from ..auth import (
     team_admin_can_access_user,
     team_member_ids_for,
 )
-from ..utils.time_tracking_helpers import (
-    TimeTrackingHelpers, ACTIVITY_SLUGS, ACTIVITY_DISPLAY_MAP,
+
+from ..time_tracking import (
+    TimeTrackingHelpers,
+    ACTIVITY_SLUGS,
+    ACTIVITY_DISPLAY_MAP,
     LONG_SESSION_THRESHOLD_SECONDS,
+    TimeEntryQuery,
+    UserHistoryQuery,
+    AggregateQuery,
+    TimeEntryService,
+    DiscardWindowError,
 )
-from ..utils.time_entry_query import TimeEntryQuery
 from ..services.hourly_rate_history import HourlyRateHistoryService
 from .. import comms_client
 from ..comms_client import NotificationType
@@ -74,11 +95,8 @@ def _ascii_safe(s):
     s = str(s)
     if _unidecode is not None:
         return _unidecode(s)
-    return (
-        unicodedata.normalize("NFKD", s)
-        .encode("ascii", "ignore")
-        .decode("ascii")
-    )
+    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+
 
 # ─── Subcategory helpers (SSOT for visibility / management) ─────────
 #
@@ -108,33 +126,30 @@ def _visible_subcategories_query(user, activity=None):
     # often has membership in the teams they lead, but not always; we
     # only show personal subs for teams the user actually belongs to.
     member_team_ids = [
-        tu.team_id
-        for tu in TeamUser.query.filter_by(user_id=user.id).all()
+        tu.team_id for tu in TeamUser.query.filter_by(user_id=user.id).all()
     ]
 
     visibility_clauses = [
         # Global subs — every user sees these.
-        (ActivitySubcategory.org_id.is_(None)) &
-        (ActivitySubcategory.team_id.is_(None)),
+        (ActivitySubcategory.org_id.is_(None))
+        & (ActivitySubcategory.team_id.is_(None)),
     ]
     if user_org_id:
         # Org-scoped, no team — anyone in that org.
         visibility_clauses.append(
-            (ActivitySubcategory.org_id == user_org_id) &
-            (ActivitySubcategory.team_id.is_(None))
+            (ActivitySubcategory.org_id == user_org_id)
+            & (ActivitySubcategory.team_id.is_(None))
         )
         # Team-scoped — user must be a member of that team.
         if member_team_ids:
             visibility_clauses.append(
-                (ActivitySubcategory.org_id == user_org_id) &
-                (ActivitySubcategory.team_id.in_(member_team_ids))
+                (ActivitySubcategory.org_id == user_org_id)
+                & (ActivitySubcategory.team_id.in_(member_team_ids))
             )
         # Admins see EVERY sub in their org (including team subs they
         # aren't members of) — they're managing the catalog.
         if is_admin:
-            visibility_clauses.append(
-                ActivitySubcategory.org_id == user_org_id
-            )
+            visibility_clauses.append(ActivitySubcategory.org_id == user_org_id)
 
     q = ActivitySubcategory.query.filter(
         ActivitySubcategory.is_active.is_(True),
@@ -157,10 +172,7 @@ def _team_admin_led_team_ids(user):
     """
     if getattr(user, "role", None) != "team_admin":
         return set()
-    return {
-        tl.team_id
-        for tl in TeamLead.query.filter_by(user_id=user.id).all()
-    }
+    return {tl.team_id for tl in TeamLead.query.filter_by(user_id=user.id).all()}
 
 
 def _can_manage_subcategory(user, *, org_id=None, team_id=None, sub=None):
@@ -216,7 +228,11 @@ def _can_manage_subcategory(user, *, org_id=None, team_id=None, sub=None):
 
 
 def _resolve_subcategory_for_write(
-    user, activity, subcategory_id, retained_participants, new_participants,
+    user,
+    activity,
+    subcategory_id,
+    retained_participants,
+    new_participants,
 ):
     """Validate subcategory + event fields for a clock-in / edit write.
 
@@ -251,14 +267,16 @@ def _resolve_subcategory_for_write(
             sub_id_int = int(sub_id_in)
         except (TypeError, ValueError):
             raise ValueError("subcategoryId must be an integer")
-        sub_row = _visible_subcategories_query(user).filter(
-            ActivitySubcategory.id == sub_id_int,
-            ActivitySubcategory.activity == activity,
-        ).first()
-        if sub_row is None:
-            raise ValueError(
-                "Selected subcategory is not available for this activity"
+        sub_row = (
+            _visible_subcategories_query(user)
+            .filter(
+                ActivitySubcategory.id == sub_id_int,
+                ActivitySubcategory.activity == activity,
             )
+            .first()
+        )
+        if sub_row is None:
+            raise ValueError("Selected subcategory is not available for this activity")
 
     # Event-field validation.
     def _coerce_count(value, field_name):
@@ -320,8 +338,6 @@ class TimeTrackingAPI(MethodView):
             return self.admin_edit_entry()
         elif path == "admin_add_entry":
             return self.admin_add_entry()
-        elif path == "admin_add_test_entry":
-            return self.admin_add_test_entry()
         elif path == "request_adjustment":
             return self.request_adjustment()
         elif path == "pending_adjustments":
@@ -381,10 +397,15 @@ class TimeTrackingAPI(MethodView):
 
         # Validate activity (tier 1)
         if activity not in ACTIVITY_SLUGS:
-            return jsonify({
-                "message": f"Invalid category. Must be one of: {', '.join(ACTIVITY_SLUGS)}",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": f"Invalid category. Must be one of: {', '.join(ACTIVITY_SLUGS)}",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         # Validate subcategory (tier 2) + event fields through the SSOT helper.
         try:
@@ -403,74 +424,68 @@ class TimeTrackingAPI(MethodView):
         if sub_fields["subcategory_id"] is not None:
             sub_row = ActivitySubcategory.query.get(sub_fields["subcategory_id"])
             if sub_row and sub_row.requires_project and not project_id:
-                return jsonify({
-                    "message": (
-                        f"Subcategory '{sub_row.name}' requires a project — "
-                        f"please pick a project before clocking in."
+                return (
+                    jsonify(
+                        {
+                            "message": (
+                                f"Subcategory '{sub_row.name}' requires a project — "
+                                f"please pick a project before clocking in."
+                            ),
+                            "status": 400,
+                        }
                     ),
-                    "status": 400,
-                }), 400
+                    400,
+                )
 
         # Validate project if provided
         if project_id:
             project = Project.query.get(project_id)
             if not project:
-                return jsonify({
-                    "message": "Project not found",
-                    "status": 404,
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "message": "Project not found",
+                            "status": 404,
+                        }
+                    ),
+                    404,
+                )
 
         try:
-            user_notes = TimeTrackingHelpers._normalize_user_notes(data.get("userNotes"))
+            user_notes = TimeTrackingHelpers._normalize_user_notes(
+                data.get("userNotes")
+            )
         except ValueError as e:
             return jsonify({"message": str(e), "status": 400}), 400
 
         # Check for existing active session
-        active = TimeEntry.query.filter_by(
-            user_id=g.user.id, status="active"
-        ).first()
+        active = TimeEntry.query.filter_by(user_id=g.user.id, status="active").first()
         if active:
             logger.info(
                 f"[CLOCK] clock_in REJECTED — user={g.user.id} already has active session "
                 f"id={active.id} clock_in={active.clock_in}"
             )
-            return jsonify({
-                "message": "You already have an active session. Clock out first.",
-                "status": 409,
-            }), 409
+            return (
+                jsonify(
+                    {
+                        "message": "You already have an active session. Clock out first.",
+                        "status": 409,
+                    }
+                ),
+                409,
+            )
 
-        # Create new time entry
-        entry = TimeEntry()
-        entry.user_id = g.user.id
-        entry.project_id = project_id
-        entry.org_id = g.user.org_id
-        entry.activity = activity
-        entry.subcategory_id = sub_fields["subcategory_id"]
-        entry.subcategory_name = sub_fields["subcategory_name"]
-        entry.retained_participants = sub_fields["retained_participants"]
-        entry.new_participants = sub_fields["new_participants"]
-        entry.task_name = data.get("task_name")
-        entry.task_ref_type = data.get("task_ref_type")
-        entry.task_ref_id = data.get("task_ref_id")
-        entry.clock_in = datetime.utcnow()
-        entry.status = "active"
-        entry.user_notes = user_notes
-        entry.save()
-
-        # Legacy: "other" with a free-form task_name upserts into custom_topics.
-        # Going forward, free-form names should be added as ActivitySubcategory
-        # rows via the Time Categories admin page — but we still upsert here so
-        # older clients that haven't migrated keep working.
-        if activity == "other" and entry.task_name and sub_fields["subcategory_id"] is None:
-            existing = CustomTopic.query.filter_by(
-                name=entry.task_name, org_id=g.user.org_id
-            ).first()
-            if not existing:
-                topic = CustomTopic()
-                topic.name = entry.task_name
-                topic.org_id = g.user.org_id
-                topic.created_by = g.user.id
-                topic.save()
+        entry = TimeEntryService().clock_in(
+            user_id=g.user.id,
+            org_id=g.user.org_id,
+            activity=activity,
+            sub_fields=sub_fields,
+            project_id=project_id,
+            task_name=data.get("task_name"),
+            task_ref_type=data.get("task_ref_type"),
+            task_ref_id=data.get("task_ref_id"),
+            user_notes=user_notes,
+        )
 
         logger.info(
             f"[CLOCK] clock_in SUCCESS — user={g.user.id} session_id={entry.id} "
@@ -481,12 +496,17 @@ class TimeTrackingAPI(MethodView):
         session_data = TimeTrackingHelpers._format_entry(entry)
         session_data["elapsedSeconds"] = 0  # Just clocked in
 
-        return jsonify({
-            "message": "Clocked in successfully",
-            "status": 200,
-            "session_id": entry.id,
-            "session": session_data,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Clocked in successfully",
+                    "status": 200,
+                    "session_id": entry.id,
+                    "session": session_data,
+                }
+            ),
+            200,
+        )
 
     def clock_out(self):
         """Clock out the current user."""
@@ -496,61 +516,47 @@ class TimeTrackingAPI(MethodView):
         data = request.get_json() or {}
         session_id = data.get("session_id")
 
+        if not session_id:
+            return (
+                jsonify(
+                    {
+                        "message": "session_id is required",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
+
         logger.info(
             f"[CLOCK] clock_out called by user={g.user.id} "
             f"({g.user.osm_username or g.user.email}) session_id={session_id}"
         )
 
-        # Find active session
-        if session_id:
-            entry = TimeEntry.query.filter_by(
-                id=session_id, user_id=g.user.id, status="active"
-            ).first()
-        else:
-            entry = TimeEntry.query.filter_by(
-                user_id=g.user.id, status="active"
-            ).first()
+        update_notes = "userNotes" in data
+        try:
+            entry = TimeEntryService().clock_out(
+                session_id,
+                g.user.id,
+                user_notes=data.get("userNotes"),
+                update_notes=update_notes,
+            )
+        except ValueError as e:
+            return jsonify({"message": str(e), "status": 400}), 400
 
         if not entry:
             logger.warning(
                 f"[CLOCK] clock_out FAILED — no active session found for user={g.user.id} "
                 f"session_id_requested={session_id}"
             )
-            return jsonify({
-                "message": "No active session found",
-                "status": 404,
-            }), 404
-
-        # Optional notes update at clock-out. If the key is absent we leave
-        # whatever the user typed during the session intact; if present we
-        # apply the same normalize/validate path as elsewhere.
-        if "userNotes" in data:
-            try:
-                entry.user_notes = TimeTrackingHelpers._normalize_user_notes(data.get("userNotes"))
-            except ValueError as e:
-                return jsonify({"message": str(e), "status": 400}), 400
-
-        logger.info(
-            f"[CLOCK] clock_out PROCESSING — user={g.user.id} session_id={entry.id} "
-            f"clock_in={entry.clock_in} project={entry.project_id} activity={entry.activity}"
-        )
-
-        # Clock out
-        now = datetime.utcnow()
-        entry.clock_out = now
-        entry.duration_seconds = int((now - entry.clock_in).total_seconds())
-        entry.status = "completed"
-
-        # Fetch OSM changesets (best-effort)
-        osm_username = getattr(g.user, "osm_username", None)
-        if osm_username:
-            changeset_count, changes_count = TimeTrackingHelpers._fetch_osm_changesets(
-                osm_username, entry.clock_in
+            return (
+                jsonify(
+                    {
+                        "message": "No active session found",
+                        "status": 404,
+                    }
+                ),
+                404,
             )
-            entry.changeset_count = changeset_count
-            entry.changes_count = changes_count
-
-        entry.save()
 
         logger.info(
             f"[CLOCK] clock_out SUCCESS — user={g.user.id} session_id={entry.id} "
@@ -558,21 +564,24 @@ class TimeTrackingAPI(MethodView):
             f"changes={entry.changes_count}"
         )
 
-        return jsonify({
-            "message": "Clocked out successfully",
-            "status": 200,
-            "duration_seconds": entry.duration_seconds,
-            "session": TimeTrackingHelpers._format_entry(entry),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Clocked out successfully",
+                    "status": 200,
+                    "duration_seconds": entry.duration_seconds,
+                    "session": TimeTrackingHelpers._format_entry(entry),
+                }
+            ),
+            200,
+        )
 
     def my_active_session(self):
         """Get the current user's active session."""
         if not hasattr(g, "user") or not g.user:
             return jsonify({"message": "Unauthorized", "status": 401}), 401
 
-        entry = TimeEntry.query.filter_by(
-            user_id=g.user.id, status="active"
-        ).first()
+        entry = TimeEntry.query.filter_by(user_id=g.user.id, status="active").first()
 
         if entry:
             logger.debug(
@@ -592,10 +601,15 @@ class TimeTrackingAPI(MethodView):
             elapsed = int((datetime.utcnow() - entry.clock_in).total_seconds())
             session_data["elapsedSeconds"] = max(0, elapsed)
 
-        return jsonify({
-            "status": 200,
-            "session": session_data,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "session": session_data,
+                }
+            ),
+            200,
+        )
 
     def my_history(self):
         """Get the current user's time entry history with cursor-based pagination.
@@ -610,17 +624,21 @@ class TimeTrackingAPI(MethodView):
 
         data = request.get_json() or {}
         # Always scope to the caller's own entries — admin org-wide views
-        # use the dedicated admin endpoints, not this one.
-        data["userId"] = g.user.id
-
-        query = TimeEntryQuery(g.user.org_id, data, viewer=g.user)
+        # use the dedicated admin endpoints, not this one. UserHistoryQuery
+        # forces userId to the viewer.
+        query = UserHistoryQuery(g.user.org_id, data, viewer=g.user)
         page, next_cursor = query.fetch_page()
 
-        return jsonify({
-            "status": 200,
-            "entries": [TimeTrackingHelpers._format_entry(e) for e in page],
-            "nextCursor": next_cursor,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "entries": [TimeTrackingHelpers._format_entry(e) for e in page],
+                    "nextCursor": next_cursor,
+                }
+            ),
+            200,
+        )
 
     def my_monthly_summary(self):
         """Self-scoped monthly pay+hours summary for the current user.
@@ -636,24 +654,32 @@ class TimeTrackingAPI(MethodView):
         start_dt, _ = parse_filter_datetime(data.get("startDate"))
         end_dt, end_was_date_only = parse_filter_datetime(data.get("endDate"))
         if start_dt is None or end_dt is None:
-            return jsonify({
-                "message": "startDate and endDate are required (ISO 8601).",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "startDate and endDate are required (ISO 8601).",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
         if end_was_date_only:
             end_dt = end_dt + timedelta(days=1)
 
         user = g.user
 
-        # Hours: sum of completed time entries in the window
-        total_seconds = db.session.query(
-            func.coalesce(func.sum(TimeEntry.duration_seconds), 0)
-        ).filter(
-            TimeEntry.user_id == user.id,
-            TimeEntry.status == "completed",
-            TimeEntry.clock_in >= start_dt,
-            TimeEntry.clock_in < end_dt,
-        ).scalar() or 0
+        # Hours: sum of completed time entries in the window. AggregateQuery
+        # re-derives the same [start, end) window (incl. the date-only +1d
+        # rule) and completed-only filter from the raw request strings.
+        total_seconds = AggregateQuery(
+            user.org_id,
+            {
+                "userId": user.id,
+                "startDate": data.get("startDate"),
+                "endDate": data.get("endDate"),
+            },
+            viewer=user,
+        ).total_seconds()
         total_hours = round(total_seconds / 3600, 2)
 
         # Tasks mapped/validated by this user in the window. Tasks track
@@ -664,27 +690,35 @@ class TimeTrackingAPI(MethodView):
         mapping_earnings = 0.0
         validation_earnings = 0.0
         if user.osm_username:
-            mapped_row = db.session.query(
-                func.count(Task.id),
-                func.coalesce(func.sum(Task.mapping_rate), 0),
-            ).filter(
-                Task.mapped_by == user.osm_username,
-                Task.mapped == True,  # noqa: E712
-                Task.date_mapped >= start_dt,
-                Task.date_mapped < end_dt,
-            ).first()
+            mapped_row = (
+                db.session.query(
+                    func.count(Task.id),
+                    func.coalesce(func.sum(Task.mapping_rate), 0),
+                )
+                .filter(
+                    Task.mapped_by == user.osm_username,
+                    Task.mapped == True,  # noqa: E712
+                    Task.date_mapped >= start_dt,
+                    Task.date_mapped < end_dt,
+                )
+                .first()
+            )
             tasks_mapped = int(mapped_row[0] or 0)
             mapping_earnings = float(mapped_row[1] or 0)
 
-            validated_row = db.session.query(
-                func.count(Task.id),
-                func.coalesce(func.sum(Task.validation_rate), 0),
-            ).filter(
-                Task.validated_by == user.osm_username,
-                Task.validated == True,  # noqa: E712
-                Task.date_validated >= start_dt,
-                Task.date_validated < end_dt,
-            ).first()
+            validated_row = (
+                db.session.query(
+                    func.count(Task.id),
+                    func.coalesce(func.sum(Task.validation_rate), 0),
+                )
+                .filter(
+                    Task.validated_by == user.osm_username,
+                    Task.validated == True,  # noqa: E712
+                    Task.date_validated >= start_dt,
+                    Task.date_validated < end_dt,
+                )
+                .first()
+            )
             tasks_validated = int(validated_row[0] or 0)
             validation_earnings = float(validated_row[1] or 0)
 
@@ -695,9 +729,7 @@ class TimeTrackingAPI(MethodView):
             user.id, date(start_dt.year, start_dt.month, 1)
         )
         hourly_rate = float(_rate_entry.rate) if _rate_entry else None
-        hourly_earnings = (
-            round(total_hours * hourly_rate, 2) if hourly_rate else None
-        )
+        hourly_earnings = round(total_hours * hourly_rate, 2) if hourly_rate else None
         task_earnings = round(mapping_earnings + validation_earnings, 2)
         if hourly_rate:
             amount_owed = hourly_earnings or 0.0
@@ -709,21 +741,26 @@ class TimeTrackingAPI(MethodView):
             amount_owed = 0.0
             pay_mode = "none"
 
-        return jsonify({
-            "status": 200,
-            "start_date": start_dt.isoformat() + "Z",
-            "end_date": end_dt.isoformat() + "Z",
-            "total_seconds": int(total_seconds),
-            "total_hours": total_hours,
-            "hourly_rate": hourly_rate,
-            "hourly_earnings": hourly_earnings,
-            "tasks_mapped": tasks_mapped,
-            "tasks_validated": tasks_validated,
-            "mapping_earnings": round(mapping_earnings, 2),
-            "validation_earnings": round(validation_earnings, 2),
-            "amount_owed": amount_owed,
-            "pay_mode": pay_mode,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "start_date": start_dt.isoformat() + "Z",
+                    "end_date": end_dt.isoformat() + "Z",
+                    "total_seconds": int(total_seconds),
+                    "total_hours": total_hours,
+                    "hourly_rate": hourly_rate,
+                    "hourly_earnings": hourly_earnings,
+                    "tasks_mapped": tasks_mapped,
+                    "tasks_validated": tasks_validated,
+                    "mapping_earnings": round(mapping_earnings, 2),
+                    "validation_earnings": round(validation_earnings, 2),
+                    "amount_owed": amount_owed,
+                    "pay_mode": pay_mode,
+                }
+            ),
+            200,
+        )
 
     @requires_team_admin_or_above
     def admin_pending_adjustments(self):
@@ -746,8 +783,7 @@ class TimeTrackingAPI(MethodView):
 
         if team_id:
             member_ids = [
-                tu.user_id
-                for tu in TeamUser.query.filter_by(team_id=team_id).all()
+                tu.user_id for tu in TeamUser.query.filter_by(team_id=team_id).all()
             ]
             if member_ids:
                 query = query.filter(TimeEntry.user_id.in_(member_ids))
@@ -759,10 +795,15 @@ class TimeTrackingAPI(MethodView):
 
         entries = query.order_by(TimeEntry.clock_in.desc()).limit(100).all()
 
-        return jsonify({
-            "status": 200,
-            "entries": [TimeTrackingHelpers._format_entry(e) for e in entries],
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "entries": [TimeTrackingHelpers._format_entry(e) for e in entries],
+                }
+            ),
+            200,
+        )
 
     def request_adjustment(self):
         """Request an adjustment to a time entry."""
@@ -774,32 +815,50 @@ class TimeTrackingAPI(MethodView):
         reason = data.get("reason", "").strip()
 
         if not entry_id:
-            return jsonify({
-                "message": "entry_id is required",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "entry_id is required",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         if not reason:
-            return jsonify({
-                "message": "reason is required",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "reason is required",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
-        entry = TimeEntry.query.filter_by(
-            id=entry_id, user_id=g.user.id
-        ).first()
+        entry = TimeEntry.query.filter_by(id=entry_id, user_id=g.user.id).first()
 
         if not entry:
-            return jsonify({
-                "message": "Entry not found",
-                "status": 404,
-            }), 404
+            return (
+                jsonify(
+                    {
+                        "message": "Entry not found",
+                        "status": 404,
+                    }
+                ),
+                404,
+            )
 
         if entry.status == "voided":
-            return jsonify({
-                "message": "Cannot request adjustment for a voided entry",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Cannot request adjustment for a voided entry",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         entry.notes = f"[ADJUSTMENT REQUESTED] {reason}"
         entry.save()
@@ -824,10 +883,15 @@ class TimeTrackingAPI(MethodView):
         except Exception:
             pass
 
-        return jsonify({
-            "message": "Adjustment request submitted",
-            "status": 200,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Adjustment request submitted",
+                    "status": 200,
+                }
+            ),
+            200,
+        )
 
     def discard_active(self):
         """Hard-delete the user's active session if it's still inside the
@@ -840,49 +904,60 @@ class TimeTrackingAPI(MethodView):
         data = request.get_json() or {}
         session_id = data.get("session_id")
 
-        if session_id:
-            entry = TimeEntry.query.filter_by(
-                id=session_id, user_id=g.user.id, status="active"
-            ).first()
-        else:
-            entry = TimeEntry.query.filter_by(
-                user_id=g.user.id, status="active"
-            ).first()
-
-        if not entry:
-            return jsonify({
-                "message": "No active session to discard",
-                "status": 404,
-            }), 404
-
-        elapsed = int((datetime.utcnow() - entry.clock_in).total_seconds())
-        if elapsed > self.DISCARD_WINDOW_SECONDS:
-            return jsonify({
-                "message": (
-                    f"Cannot discard — this session is "
-                    f"{elapsed // 60}m {elapsed % 60}s old. Discard is "
-                    f"only allowed within the first "
-                    f"{self.DISCARD_WINDOW_SECONDS // 60} minutes. "
-                    f"Clock out and use Request Adjustment instead."
+        if not session_id:
+            return (
+                jsonify(
+                    {
+                        "message": "session_id is required",
+                        "status": 400,
+                    }
                 ),
-                "status": 400,
-                "elapsed_seconds": elapsed,
-                "max_seconds": self.DISCARD_WINDOW_SECONDS,
-            }), 400
+                400,
+            )
+
+        try:
+            elapsed = TimeEntryService().discard(
+                session_id, g.user.id, self.DISCARD_WINDOW_SECONDS
+            )
+        except DiscardWindowError as e:
+            return (
+                jsonify(
+                    {
+                        "message": str(e),
+                        "status": 400,
+                        "elapsed_seconds": e.elapsed_seconds,
+                        "max_seconds": e.max_seconds,
+                    }
+                ),
+                400,
+            )
+
+        if elapsed is None:
+            return (
+                jsonify(
+                    {
+                        "message": "No active session to discard",
+                        "status": 404,
+                    }
+                ),
+                404,
+            )
 
         logger.info(
             f"[CLOCK] discard_active by user={g.user.id} "
             f"({g.user.osm_username or g.user.email}) "
-            f"session_id={entry.id} elapsed={elapsed}s"
+            f"session_id={session_id} elapsed={elapsed}s"
         )
 
-        db.session.delete(entry)
-        db.session.commit()
-
-        return jsonify({
-            "message": "Active session discarded",
-            "status": 200,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Active session discarded",
+                    "status": 200,
+                }
+            ),
+            200,
+        )
 
     def update_my_notes(self):
         """Set or clear the current user's user_notes on one of their entries.
@@ -898,33 +973,48 @@ class TimeTrackingAPI(MethodView):
         entry_id = data.get("entry_id")
 
         if not entry_id:
-            return jsonify({
-                "message": "entry_id is required",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "entry_id is required",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         try:
-            user_notes = TimeTrackingHelpers._normalize_user_notes(data.get("userNotes"))
+            user_notes = TimeTrackingHelpers._normalize_user_notes(
+                data.get("userNotes")
+            )
         except ValueError as e:
             return jsonify({"message": str(e), "status": 400}), 400
 
-        entry = TimeEntry.query.filter_by(
-            id=entry_id, user_id=g.user.id
-        ).first()
+        entry = TimeEntry.query.filter_by(id=entry_id, user_id=g.user.id).first()
 
         if not entry:
-            return jsonify({
-                "message": "Entry not found",
-                "status": 404,
-            }), 404
+            return (
+                jsonify(
+                    {
+                        "message": "Entry not found",
+                        "status": 404,
+                    }
+                ),
+                404,
+            )
 
         entry.user_notes = user_notes
         entry.save()
 
-        return jsonify({
-            "status": 200,
-            "session": TimeTrackingHelpers._format_entry(entry),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "session": TimeTrackingHelpers._format_entry(entry),
+                }
+            ),
+            200,
+        )
 
     def fetch_custom_topics(self):
         """Fetch all custom topics for the user's org."""
@@ -932,23 +1022,27 @@ class TimeTrackingAPI(MethodView):
             return jsonify({"message": "Unauthorized", "status": 401}), 401
 
         topics = (
-            CustomTopic.query
-            .filter_by(org_id=g.user.org_id)
+            CustomTopic.query.filter_by(org_id=g.user.org_id)
             .order_by(CustomTopic.name)
             .all()
         )
 
-        return jsonify({
-            "status": 200,
-            "topics": [
+        return (
+            jsonify(
                 {
-                    "id": t.id,
-                    "name": t.name,
-                    "createdBy": t.created_by,
+                    "status": 200,
+                    "topics": [
+                        {
+                            "id": t.id,
+                            "name": t.name,
+                            "createdBy": t.created_by,
+                        }
+                        for t in topics
+                    ],
                 }
-                for t in topics
-            ],
-        }), 200
+            ),
+            200,
+        )
 
     # ─── Admin Endpoints ──────────────────────────────────────
 
@@ -963,14 +1057,11 @@ class TimeTrackingAPI(MethodView):
         data = request.get_json(silent=True) or {}
         team_id = data.get("teamId")
 
-        query = TimeEntry.query.filter_by(
-            org_id=g.user.org_id, status="active"
-        )
+        query = TimeEntry.query.filter_by(org_id=g.user.org_id, status="active")
 
         if team_id:
             member_ids = [
-                tu.user_id
-                for tu in TeamUser.query.filter_by(team_id=team_id).all()
+                tu.user_id for tu in TeamUser.query.filter_by(team_id=team_id).all()
             ]
             if member_ids:
                 query = query.filter(TimeEntry.user_id.in_(member_ids))
@@ -983,10 +1074,15 @@ class TimeTrackingAPI(MethodView):
 
         entries = query.order_by(TimeEntry.clock_in.asc()).all()
 
-        return jsonify({
-            "status": 200,
-            "sessions": [TimeTrackingHelpers._format_entry(e) for e in entries],
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "sessions": [TimeTrackingHelpers._format_entry(e) for e in entries],
+                }
+            ),
+            200,
+        )
 
     @requires_team_admin_or_above
     def admin_long_sessions(self):
@@ -1025,8 +1121,7 @@ class TimeTrackingAPI(MethodView):
 
         if team_id:
             member_ids = [
-                tu.user_id
-                for tu in TeamUser.query.filter_by(team_id=team_id).all()
+                tu.user_id for tu in TeamUser.query.filter_by(team_id=team_id).all()
             ]
             if member_ids:
                 query = query.filter(TimeEntry.user_id.in_(member_ids))
@@ -1069,12 +1164,17 @@ class TimeTrackingAPI(MethodView):
 
         if not is_org_admin_or_above(g.user):
             managed = managed_team_ids_for(g.user)
-            member_ids = [
-                tu.user_id
-                for tu in TeamUser.query.filter(TeamUser.team_id.in_(managed)).all()
-            ] if managed else []
+            member_ids = (
+                [
+                    tu.user_id
+                    for tu in TeamUser.query.filter(TeamUser.team_id.in_(managed)).all()
+                ]
+                if managed
+                else []
+            )
             scope.append(
-                TimeEntry.user_id.in_(member_ids) if member_ids
+                TimeEntry.user_id.in_(member_ids)
+                if member_ids
                 else (TimeEntry.user_id == None)  # noqa: E711
             )
         elif team_id:
@@ -1082,17 +1182,24 @@ class TimeTrackingAPI(MethodView):
                 tu.user_id for tu in TeamUser.query.filter_by(team_id=team_id).all()
             ]
             scope.append(
-                TimeEntry.user_id.in_(member_ids) if member_ids
+                TimeEntry.user_id.in_(member_ids)
+                if member_ids
                 else (TimeEntry.user_id == None)  # noqa: E711
             )
 
         def sum_hours(start_dt, end_dt=None):
-            conds = scope + [TimeEntry.status == "completed", TimeEntry.clock_in >= start_dt]
+            conds = scope + [
+                TimeEntry.status == "completed",
+                TimeEntry.clock_in >= start_dt,
+            ]
             if end_dt:
                 conds.append(TimeEntry.clock_in < end_dt)
-            seconds = db.session.query(
-                func.coalesce(func.sum(TimeEntry.duration_seconds), 0)
-            ).filter(*conds).scalar() or 0
+            seconds = (
+                db.session.query(func.coalesce(func.sum(TimeEntry.duration_seconds), 0))
+                .filter(*conds)
+                .scalar()
+                or 0
+            )
             return round((seconds / 3600) * 10) / 10
 
         def count_adjustments(start_dt, end_dt=None):
@@ -1103,7 +1210,9 @@ class TimeTrackingAPI(MethodView):
             ]
             if end_dt:
                 conds.append(TimeEntry.clock_in < end_dt)
-            return db.session.query(func.count(TimeEntry.id)).filter(*conds).scalar() or 0
+            return (
+                db.session.query(func.count(TimeEntry.id)).filter(*conds).scalar() or 0
+            )
 
         # Short-session clusters: user-day pairs with 3+ sessions < 5 min
         # (covers both this week and last week)
@@ -1112,23 +1221,38 @@ class TimeTrackingAPI(MethodView):
             TimeEntry.duration_seconds < 300,
             TimeEntry.clock_in >= last_week_start,
         ]
-        cluster_subq = db.session.query(
-            TimeEntry.user_id,
-            func.date(TimeEntry.clock_in).label("day"),
-        ).filter(*cluster_conds).group_by(
-            TimeEntry.user_id,
-            func.date(TimeEntry.clock_in),
-        ).having(func.count(TimeEntry.id) >= 3).subquery()
-        short_clusters = db.session.query(func.count()).select_from(cluster_subq).scalar() or 0
+        cluster_subq = (
+            db.session.query(
+                TimeEntry.user_id,
+                func.date(TimeEntry.clock_in).label("day"),
+            )
+            .filter(*cluster_conds)
+            .group_by(
+                TimeEntry.user_id,
+                func.date(TimeEntry.clock_in),
+            )
+            .having(func.count(TimeEntry.id) >= 3)
+            .subquery()
+        )
+        short_clusters = (
+            db.session.query(func.count()).select_from(cluster_subq).scalar() or 0
+        )
 
-        return jsonify({
-            "status": 200,
-            "weekHours": sum_hours(week_start),
-            "lastWeekHours": sum_hours(last_week_start, week_start),
-            "pendingAdjustments": count_adjustments(week_start),
-            "lastWeekPendingAdjustments": count_adjustments(last_week_start, week_start),
-            "shortSessionClusters": short_clusters,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "weekHours": sum_hours(week_start),
+                    "lastWeekHours": sum_hours(last_week_start, week_start),
+                    "pendingAdjustments": count_adjustments(week_start),
+                    "lastWeekPendingAdjustments": count_adjustments(
+                        last_week_start, week_start
+                    ),
+                    "shortSessionClusters": short_clusters,
+                }
+            ),
+            200,
+        )
 
     @requires_team_admin_or_above
     def admin_aggregate_stats(self):
@@ -1156,11 +1280,16 @@ class TimeTrackingAPI(MethodView):
         query = TimeEntryQuery(g.user.org_id, data, viewer=g.user)
         page, next_cursor = query.fetch_page()
 
-        return jsonify({
-            "status": 200,
-            "entries": [TimeTrackingHelpers._format_entry(e) for e in page],
-            "nextCursor": next_cursor,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": 200,
+                    "entries": [TimeTrackingHelpers._format_entry(e) for e in page],
+                    "nextCursor": next_cursor,
+                }
+            ),
+            200,
+        )
 
     @requires_team_admin_or_above
     def admin_force_clock_out(self):
@@ -1169,28 +1298,43 @@ class TimeTrackingAPI(MethodView):
         session_id = data.get("session_id")
 
         if not session_id:
-            return jsonify({
-                "message": "session_id is required",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "session_id is required",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         entry = TimeEntry.query.filter_by(
             id=session_id, org_id=g.user.org_id, status="active"
         ).first()
 
         if not entry:
-            return jsonify({
-                "message": "Active session not found",
-                "status": 404,
-            }), 404
+            return (
+                jsonify(
+                    {
+                        "message": "Active session not found",
+                        "status": 404,
+                    }
+                ),
+                404,
+            )
 
         # team_admin: target user must be on a managed team
         if not is_org_admin_or_above(g.user):
             if not team_admin_can_access_user(g.user, entry.user_id):
-                return jsonify({
-                    "message": "Not in your managed teams",
-                    "status": 403,
-                }), 403
+                return (
+                    jsonify(
+                        {
+                            "message": "Not in your managed teams",
+                            "status": 403,
+                        }
+                    ),
+                    403,
+                )
 
         logger.warning(
             f"[CLOCK] FORCE clock_out — admin={g.user.id} ({g.user.osm_username or g.user.email}) "
@@ -1198,22 +1342,10 @@ class TimeTrackingAPI(MethodView):
             f"clock_in={entry.clock_in}"
         )
 
-        now = datetime.utcnow()
-        entry.clock_out = now
-        entry.duration_seconds = int((now - entry.clock_in).total_seconds())
-        entry.status = "completed"
-        entry.force_clocked_out_by = g.user.id
-
-        # Fetch OSM changesets (best-effort)
-        user = User.query.get(entry.user_id)
-        if user and user.osm_username:
-            changeset_count, changes_count = TimeTrackingHelpers._fetch_osm_changesets(
-                user.osm_username, entry.clock_in
-            )
-            entry.changeset_count = changeset_count
-            entry.changes_count = changes_count
-
-        entry.save()
+        target_user_id = entry.user_id
+        entry = TimeEntryService().clock_out(
+            session_id, target_user_id, force_clocked_out_by=g.user.id
+        )
 
         # Notify the editor whose session got force-closed.
         try:
@@ -1233,11 +1365,16 @@ class TimeTrackingAPI(MethodView):
         except Exception:
             pass
 
-        return jsonify({
-            "message": "Force clock out successful",
-            "status": 200,
-            "session": TimeTrackingHelpers._format_entry(entry),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Force clock out successful",
+                    "status": 200,
+                    "session": TimeTrackingHelpers._format_entry(entry),
+                }
+            ),
+            200,
+        )
 
     @requires_team_admin_or_above
     def admin_void_entry(self):
@@ -1246,43 +1383,58 @@ class TimeTrackingAPI(MethodView):
         entry_id = data.get("entry_id")
 
         if not entry_id:
-            return jsonify({
-                "message": "entry_id is required",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "entry_id is required",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
-        entry = TimeEntry.query.filter_by(
-            id=entry_id, org_id=g.user.org_id
-        ).first()
+        entry = TimeEntry.query.filter_by(id=entry_id, org_id=g.user.org_id).first()
 
         if not entry:
-            return jsonify({
-                "message": "Entry not found",
-                "status": 404,
-            }), 404
+            return (
+                jsonify(
+                    {
+                        "message": "Entry not found",
+                        "status": 404,
+                    }
+                ),
+                404,
+            )
 
         # team_admin: target user must be on a managed team
         if not is_org_admin_or_above(g.user):
             if not team_admin_can_access_user(g.user, entry.user_id):
-                return jsonify({
-                    "message": "Not in your managed teams",
-                    "status": 403,
-                }), 403
+                return (
+                    jsonify(
+                        {
+                            "message": "Not in your managed teams",
+                            "status": 403,
+                        }
+                    ),
+                    403,
+                )
 
         if entry.status == "voided":
-            return jsonify({
-                "message": "Entry is already voided",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Entry is already voided",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         logger.warning(
             f"[CLOCK] VOID entry — admin={g.user.id} voiding entry_id={entry.id} "
             f"owned by user={entry.user_id} status_was={entry.status}"
         )
-        entry.status = "voided"
-        entry.voided_by = g.user.id
-        entry.voided_at = datetime.utcnow()
-        entry.save()
+        entry = TimeEntryService().void(entry_id, g.user.org_id, g.user.id)
 
         # Notify the owner that one of their entries was voided.
         try:
@@ -1299,11 +1451,16 @@ class TimeTrackingAPI(MethodView):
         except Exception:
             pass
 
-        return jsonify({
-            "message": "Entry voided",
-            "status": 200,
-            "entry": TimeTrackingHelpers._format_entry(entry),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Entry voided",
+                    "status": 200,
+                    "entry": TimeTrackingHelpers._format_entry(entry),
+                }
+            ),
+            200,
+        )
 
     @requires_team_admin_or_above
     def admin_edit_entry(self):
@@ -1312,28 +1469,41 @@ class TimeTrackingAPI(MethodView):
         entry_id = data.get("entry_id")
 
         if not entry_id:
-            return jsonify({
-                "message": "entry_id is required",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "entry_id is required",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
-        entry = TimeEntry.query.filter_by(
-            id=entry_id, org_id=g.user.org_id
-        ).first()
+        entry = TimeEntry.query.filter_by(id=entry_id, org_id=g.user.org_id).first()
 
         if not entry:
-            return jsonify({
-                "message": "Entry not found",
-                "status": 404,
-            }), 404
+            return (
+                jsonify(
+                    {
+                        "message": "Entry not found",
+                        "status": 404,
+                    }
+                ),
+                404,
+            )
 
         # team_admin: target user must be on a managed team
         if not is_org_admin_or_above(g.user):
             if not team_admin_can_access_user(g.user, entry.user_id):
-                return jsonify({
-                    "message": "Not in your managed teams",
-                    "status": 403,
-                }), 403
+                return (
+                    jsonify(
+                        {
+                            "message": "Not in your managed teams",
+                            "status": 403,
+                        }
+                    ),
+                    403,
+                )
 
         # Parse optional fields
         if "clockIn" in data:
@@ -1342,10 +1512,15 @@ class TimeTrackingAPI(MethodView):
                     data["clockIn"].replace("Z", "+00:00")
                 ).replace(tzinfo=None)
             except (ValueError, AttributeError):
-                return jsonify({
-                    "message": "Invalid clockIn format. Use ISO 8601.",
-                    "status": 400,
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "message": "Invalid clockIn format. Use ISO 8601.",
+                            "status": 400,
+                        }
+                    ),
+                    400,
+                )
 
         if "clockOut" in data:
             try:
@@ -1353,18 +1528,28 @@ class TimeTrackingAPI(MethodView):
                     data["clockOut"].replace("Z", "+00:00")
                 ).replace(tzinfo=None)
             except (ValueError, AttributeError):
-                return jsonify({
-                    "message": "Invalid clockOut format. Use ISO 8601.",
-                    "status": 400,
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "message": "Invalid clockOut format. Use ISO 8601.",
+                            "status": 400,
+                        }
+                    ),
+                    400,
+                )
 
         if "category" in data:
             cat = data["category"].lower()
             if cat not in ACTIVITY_SLUGS:
-                return jsonify({
-                    "message": f"Invalid category. Must be one of: {', '.join(ACTIVITY_SLUGS)}",
-                    "status": 400,
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "message": f"Invalid category. Must be one of: {', '.join(ACTIVITY_SLUGS)}",
+                            "status": 400,
+                        }
+                    ),
+                    400,
+                )
             entry.activity = cat
 
         if "taskName" in data:
@@ -1385,7 +1570,11 @@ class TimeTrackingAPI(MethodView):
                     # a member should be able to pick subs that member sees.
                     User.query.get(entry.user_id) or g.user,
                     entry.activity,
-                    data.get("subcategoryId") if "subcategoryId" in data else entry.subcategory_id,
+                    (
+                        data.get("subcategoryId")
+                        if "subcategoryId" in data
+                        else entry.subcategory_id
+                    ),
                     None,
                     None,
                 )
@@ -1404,19 +1593,22 @@ class TimeTrackingAPI(MethodView):
 
         # Mark adjustment requests as fulfilled
         if entry.notes and entry.notes.startswith("[ADJUSTMENT REQUESTED]"):
-            entry.notes = entry.notes.replace(
-                "[ADJUSTMENT REQUESTED]", "[ADJUSTED]", 1
-            )
+            entry.notes = entry.notes.replace("[ADJUSTMENT REQUESTED]", "[ADJUSTED]", 1)
 
         entry.edited_by = g.user.id
         entry.edited_at = datetime.utcnow()
         entry.save()
 
-        return jsonify({
-            "message": "Entry updated",
-            "status": 200,
-            "entry": TimeTrackingHelpers._format_entry(entry),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Entry updated",
+                    "status": 200,
+                    "entry": TimeTrackingHelpers._format_entry(entry),
+                }
+            ),
+            200,
+        )
 
     @requires_team_admin_or_above
     def admin_add_entry(self):
@@ -1430,24 +1622,39 @@ class TimeTrackingAPI(MethodView):
         notes = data.get("notes", "")
 
         if not user_id or not clock_in_str or not clock_out_str or not category:
-            return jsonify({
-                "message": "userId, clockIn, clockOut, and category are required",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "userId, clockIn, clockOut, and category are required",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         if category not in ACTIVITY_SLUGS:
-            return jsonify({
-                "message": f"Invalid category. Must be one of: {', '.join(ACTIVITY_SLUGS)}",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": f"Invalid category. Must be one of: {', '.join(ACTIVITY_SLUGS)}",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         # Validate user exists in same org
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
-            return jsonify({
-                "message": "User not found in your organization",
-                "status": 404,
-            }), 404
+            return (
+                jsonify(
+                    {
+                        "message": "User not found in your organization",
+                        "status": 404,
+                    }
+                ),
+                404,
+            )
 
         # Subcategory + event fields (validated against the TARGET user's
         # visibility scope, not the admin's).
@@ -1465,10 +1672,15 @@ class TimeTrackingAPI(MethodView):
         # team_admin: target user must be on a managed team
         if not is_org_admin_or_above(g.user):
             if not team_admin_can_access_user(g.user, user_id):
-                return jsonify({
-                    "message": "Not in your managed teams",
-                    "status": 403,
-                }), 403
+                return (
+                    jsonify(
+                        {
+                            "message": "Not in your managed teams",
+                            "status": 403,
+                        }
+                    ),
+                    403,
+                )
 
         # Parse times
         try:
@@ -1476,121 +1688,81 @@ class TimeTrackingAPI(MethodView):
                 clock_in_str.replace("Z", "+00:00")
             ).replace(tzinfo=None)
         except (ValueError, AttributeError):
-            return jsonify({
-                "message": "Invalid clockIn format. Use ISO 8601.",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Invalid clockIn format. Use ISO 8601.",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         try:
             clock_out = datetime.fromisoformat(
                 clock_out_str.replace("Z", "+00:00")
             ).replace(tzinfo=None)
         except (ValueError, AttributeError):
-            return jsonify({
-                "message": "Invalid clockOut format. Use ISO 8601.",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Invalid clockOut format. Use ISO 8601.",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         if clock_out <= clock_in:
-            return jsonify({
-                "message": "Clock out must be after clock in",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Clock out must be after clock in",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         # Validate project if provided
         if project_id:
             project = Project.query.get(project_id)
             if not project:
-                return jsonify({
-                    "message": "Project not found",
-                    "status": 404,
-                }), 404
+                return (
+                    jsonify(
+                        {
+                            "message": "Project not found",
+                            "status": 404,
+                        }
+                    ),
+                    404,
+                )
 
-        entry = TimeEntry()
-        entry.user_id = user_id
-        entry.org_id = g.user.org_id
-        entry.project_id = project_id
-        entry.activity = category
-        entry.subcategory_id = sub_fields["subcategory_id"]
-        entry.subcategory_name = sub_fields["subcategory_name"]
-        entry.retained_participants = sub_fields["retained_participants"]
-        entry.new_participants = sub_fields["new_participants"]
-        entry.task_name = data.get("taskName")
-        entry.task_ref_type = data.get("taskRefType")
-        entry.task_ref_id = data.get("taskRefId")
-        entry.clock_in = clock_in
-        entry.clock_out = clock_out
-        entry.duration_seconds = int((clock_out - clock_in).total_seconds())
-        entry.status = "completed"
-        entry.notes = f"[ADMIN CREATED] {notes}".strip()
-        entry.edited_by = g.user.id
-        entry.edited_at = datetime.utcnow()
-        entry.save()
+        entry = TimeEntryService().create_completed(
+            user_id=user_id,
+            org_id=g.user.org_id,
+            created_by=g.user.id,
+            activity=category,
+            sub_fields=sub_fields,
+            clock_in=clock_in,
+            clock_out=clock_out,
+            project_id=project_id,
+            task_name=data.get("taskName"),
+            task_ref_type=data.get("taskRefType"),
+            task_ref_id=data.get("taskRefId"),
+            notes=notes,
+        )
 
-        # Legacy custom_topics upsert — same gating as clock_in: only
-        # when no real subcategory was selected.
-        if category == "other" and entry.task_name and sub_fields["subcategory_id"] is None:
-            existing = CustomTopic.query.filter_by(
-                name=entry.task_name, org_id=g.user.org_id
-            ).first()
-            if not existing:
-                topic = CustomTopic()
-                topic.name = entry.task_name
-                topic.org_id = g.user.org_id
-                topic.created_by = g.user.id
-                topic.save()
-
-        return jsonify({
-            "message": "Entry created",
-            "status": 200,
-            "entry": TimeTrackingHelpers._format_entry(entry),
-        }), 200
-
-    @requires_admin
-    def admin_add_test_entry(self):
-        """Create an 8-hour test entry for a user (dev tool)."""
-        data = request.get_json() or {}
-        user_id = data.get("userId")
-        project_id = data.get("projectId")
-        category = (data.get("category") or "mapping").lower()
-
-        if not user_id:
-            return jsonify({
-                "message": "userId is required",
-                "status": 400,
-            }), 400
-
-        if category not in ACTIVITY_SLUGS:
-            category = "mapping"
-
-        # Validate user exists in same org
-        user = User.query.get(user_id)
-        if not user or user.org_id != g.user.org_id:
-            return jsonify({
-                "message": "User not found in your organization",
-                "status": 404,
-            }), 404
-
-        now = datetime.utcnow()
-        entry = TimeEntry()
-        entry.user_id = user_id
-        entry.org_id = g.user.org_id
-        entry.project_id = project_id
-        entry.activity = category
-        entry.clock_in = now - timedelta(hours=8)
-        entry.clock_out = now
-        entry.duration_seconds = 28800
-        entry.status = "completed"
-        entry.notes = "[DEV TEST ENTRY]"
-        entry.edited_by = g.user.id
-        entry.edited_at = now
-        entry.save()
-
-        return jsonify({
-            "message": "Test entry created",
-            "status": 200,
-            "entry": TimeTrackingHelpers._format_entry(entry),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Entry created",
+                    "status": 200,
+                    "entry": TimeTrackingHelpers._format_entry(entry),
+                }
+            ),
+            200,
+        )
 
     @requires_team_admin_or_above
     def admin_export(self):
@@ -1599,10 +1771,15 @@ class TimeTrackingAPI(MethodView):
         export_format = (data.get("format") or "csv").lower()
 
         if export_format not in ("csv", "json", "pdf"):
-            return jsonify({
-                "message": "Invalid format. Must be csv, json, or pdf.",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Invalid format. Must be csv, json, or pdf.",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         omit_columns = data.get("omit_columns") or []
         if not isinstance(omit_columns, list):
@@ -1626,20 +1803,44 @@ class TimeTrackingAPI(MethodView):
         Both CSV and PDF iterate this list; `omit_columns` filters by `key`.
         """
         return [
-            ("user_name",     "User",             lambda u, p, e: u.full_name if u else "Unknown"),
-            ("osm_username",  "OSM Username",     lambda u, p, e: (u.osm_username if u else "") or ""),
-            ("project",       "Project",          lambda u, p, e: (p.name if p else "") or ""),
-            ("category",      "Category",         lambda u, p, e: ACTIVITY_DISPLAY_MAP.get(e.activity, e.activity.capitalize() if e.activity else "")),
-            ("subcategory",   "Subcategory",      lambda u, p, e: e.subcategory_name or ""),
-            ("task",          "Task",             lambda u, p, e: e.task_name or ""),
-            ("clock_in",      "Clock In",         lambda u, p, e: e.clock_in.isoformat() + "Z" if e.clock_in else ""),
-            ("clock_out",     "Clock Out",        lambda u, p, e: e.clock_out.isoformat() + "Z" if e.clock_out else ""),
-            ("duration_hours","Duration (hours)", lambda u, p, e: TimeTrackingHelpers._format_duration_hours(e.duration_seconds)),
-            ("status",        "Status",           lambda u, p, e: e.status or ""),
-            ("changesets",    "Changesets",       lambda u, p, e: e.changeset_count or 0),
-            ("changes",       "Changes",          lambda u, p, e: e.changes_count or 0),
-            ("notes",         "Notes",            lambda u, p, e: e.notes or ""),
-            ("user_notes",    "User Notes",       lambda u, p, e: e.user_notes or ""),
+            ("user_name", "User", lambda u, p, e: u.full_name if u else "Unknown"),
+            (
+                "osm_username",
+                "OSM Username",
+                lambda u, p, e: (u.osm_username if u else "") or "",
+            ),
+            ("project", "Project", lambda u, p, e: (p.name if p else "") or ""),
+            (
+                "category",
+                "Category",
+                lambda u, p, e: ACTIVITY_DISPLAY_MAP.get(
+                    e.activity, e.activity.capitalize() if e.activity else ""
+                ),
+            ),
+            ("subcategory", "Subcategory", lambda u, p, e: e.subcategory_name or ""),
+            ("task", "Task", lambda u, p, e: e.task_name or ""),
+            (
+                "clock_in",
+                "Clock In",
+                lambda u, p, e: e.clock_in.isoformat() + "Z" if e.clock_in else "",
+            ),
+            (
+                "clock_out",
+                "Clock Out",
+                lambda u, p, e: e.clock_out.isoformat() + "Z" if e.clock_out else "",
+            ),
+            (
+                "duration_hours",
+                "Duration (hours)",
+                lambda u, p, e: TimeTrackingHelpers._format_duration_hours(
+                    e.duration_seconds
+                ),
+            ),
+            ("status", "Status", lambda u, p, e: e.status or ""),
+            ("changesets", "Changesets", lambda u, p, e: e.changeset_count or 0),
+            ("changes", "Changes", lambda u, p, e: e.changes_count or 0),
+            ("notes", "Notes", lambda u, p, e: e.notes or ""),
+            ("user_notes", "User Notes", lambda u, p, e: e.user_notes or ""),
         ]
 
     def _export_csv(self, entries, today_str, omit_columns=None):
@@ -1696,13 +1897,19 @@ class TimeTrackingAPI(MethodView):
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
-            buffer, pagesize=landscape(letter),
-            leftMargin=0.5 * inch, rightMargin=0.5 * inch,
-            topMargin=0.5 * inch, bottomMargin=0.5 * inch,
+            buffer,
+            pagesize=landscape(letter),
+            leftMargin=0.5 * inch,
+            rightMargin=0.5 * inch,
+            topMargin=0.5 * inch,
+            bottomMargin=0.5 * inch,
         )
         styles = getSampleStyleSheet()
         cell_style = ParagraphStyle(
-            "Cell", parent=styles["Normal"], fontSize=7, leading=8,
+            "Cell",
+            parent=styles["Normal"],
+            fontSize=7,
+            leading=8,
             wordWrap="CJK",  # break anywhere — works for non-spaced scripts too
         )
         elements = []
@@ -1723,9 +1930,7 @@ class TimeTrackingAPI(MethodView):
         if data.get("userId"):
             summary_parts.append(f"User ID: {data['userId']}")
         if summary_parts:
-            elements.append(Paragraph(
-                " | ".join(summary_parts), styles["Normal"]
-            ))
+            elements.append(Paragraph(" | ".join(summary_parts), styles["Normal"]))
         elements.append(Spacer(1, 12))
 
         # Column subset for PDF: registry minus notes/user_notes (too long)
@@ -1734,17 +1939,17 @@ class TimeTrackingAPI(MethodView):
         active = [c for c in self._export_columns() if c[0] not in pdf_skip]
 
         PDF_WIDTHS = {
-            "user_name":      1.2 * inch,
-            "osm_username":   1.3 * inch,
-            "project":        1.4 * inch,
-            "category":       0.85 * inch,
-            "task":           1.4 * inch,
-            "clock_in":       1.05 * inch,
-            "clock_out":      1.05 * inch,
+            "user_name": 1.2 * inch,
+            "osm_username": 1.3 * inch,
+            "project": 1.4 * inch,
+            "category": 0.85 * inch,
+            "task": 1.4 * inch,
+            "clock_in": 1.05 * inch,
+            "clock_out": 1.05 * inch,
             "duration_hours": 0.7 * inch,
-            "status":         0.75 * inch,
-            "changesets":     0.65 * inch,
-            "changes":        0.65 * inch,
+            "status": 0.75 * inch,
+            "changesets": 0.65 * inch,
+            "changes": 0.65 * inch,
         }
         # Cells that may contain long / multi-byte text — wrap in Paragraph.
         PDF_WRAPPED_COLS = {"user_name", "osm_username", "project", "task"}
@@ -1754,9 +1959,15 @@ class TimeTrackingAPI(MethodView):
         # returns by default (the registry is shared with CSV).
         def pdf_value(key, fn, user, project, entry):
             if key == "clock_in":
-                return entry.clock_in.strftime("%Y-%m-%d %H:%M") if entry.clock_in else ""
+                return (
+                    entry.clock_in.strftime("%Y-%m-%d %H:%M") if entry.clock_in else ""
+                )
             if key == "clock_out":
-                return entry.clock_out.strftime("%Y-%m-%d %H:%M") if entry.clock_out else ""
+                return (
+                    entry.clock_out.strftime("%Y-%m-%d %H:%M")
+                    if entry.clock_out
+                    else ""
+                )
             return fn(user, project, entry)
 
         headers = [label for _, label, _ in active]
@@ -1793,38 +2004,49 @@ class TimeTrackingAPI(MethodView):
         # Totals row keyed by column so it stays aligned no matter what
         # was omitted.
         totals_by_key = {
-            "user_name":      "TOTALS",
+            "user_name": "TOTALS",
             "duration_hours": TimeTrackingHelpers._format_duration_hours(total_seconds),
-            "status":         f"{len(entries)} entries",
-            "changesets":     str(total_changesets),
-            "changes":        str(total_changes),
+            "status": f"{len(entries)} entries",
+            "changesets": str(total_changesets),
+            "changes": str(total_changes),
         }
         table_data.append([totals_by_key.get(key, "") for key, _, _ in active])
 
         col_widths = [PDF_WIDTHS.get(key, 1.0 * inch) for key, _, _ in active]
         table = Table(table_data, colWidths=col_widths, repeatRows=1)
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 7),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f0f4ff")]),
-            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
-            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 7),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 1),
+                        (-1, -2),
+                        [colors.white, colors.HexColor("#f0f4ff")],
+                    ),
+                    ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
+                    ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ]
+            )
+        )
         elements.append(table)
 
         # Footer
         elements.append(Spacer(1, 12))
-        elements.append(Paragraph(
-            f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
-            styles["Normal"],
-        ))
+        elements.append(
+            Paragraph(
+                f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+                styles["Normal"],
+            )
+        )
 
         doc.build(elements)
         pdf_data = buffer.getvalue()
@@ -1851,10 +2073,13 @@ class TimeTrackingAPI(MethodView):
 
         # Get all hourly contractors: users with an active rate today
         active_rate_user_ids = {
-            r.user_id for r in UserHourlyRate.query.filter(
+            r.user_id
+            for r in UserHourlyRate.query.filter(
                 UserHourlyRate.org_id == org_id,
                 UserHourlyRate.start_date <= today,
-                or_(UserHourlyRate.end_date.is_(None), UserHourlyRate.end_date >= today),
+                or_(
+                    UserHourlyRate.end_date.is_(None), UserHourlyRate.end_date >= today
+                ),
             ).all()
         }
         if not active_rate_user_ids:
@@ -1961,19 +2186,21 @@ class TimeTrackingAPI(MethodView):
 
             year_hours = round(year_total_seconds / 3600, 2)
 
-            result.append({
-                "userId": c.id,
-                "name": c.full_name,
-                "osmUsername": c.osm_username or "",
-                "country": c.country or "",
-                "hourlyRate": today_rate_map.get(c.id),
-                "months": months,
-                "yearTotal": {
-                    "totalSeconds": year_total_seconds,
-                    "hours": year_hours,
-                    "earnings": round(year_total_earnings, 2),
-                },
-            })
+            result.append(
+                {
+                    "userId": c.id,
+                    "name": c.full_name,
+                    "osmUsername": c.osm_username or "",
+                    "country": c.country or "",
+                    "hourlyRate": today_rate_map.get(c.id),
+                    "months": months,
+                    "yearTotal": {
+                        "totalSeconds": year_total_seconds,
+                        "hours": year_hours,
+                        "earnings": round(year_total_earnings, 2),
+                    },
+                }
+            )
 
         return jsonify({"status": 200, "year": year, "contractors": result})
 
@@ -1988,7 +2215,12 @@ class TimeTrackingAPI(MethodView):
         notes = data.get("notes")
 
         if not all([user_id, year, month]):
-            return jsonify({"message": "userId, year, and month are required", "status": 400}), 400
+            return (
+                jsonify(
+                    {"message": "userId, year, and month are required", "status": 400}
+                ),
+                400,
+            )
 
         user = User.query.get(user_id)
         if not user or user.org_id != g.user.org_id:
@@ -1997,7 +2229,10 @@ class TimeTrackingAPI(MethodView):
         # team_admin: target user must be on a managed team
         if not is_org_admin_or_above(g.user):
             if not team_admin_can_access_user(g.user, user_id):
-                return jsonify({"message": "Not in your managed teams", "status": 403}), 403
+                return (
+                    jsonify({"message": "Not in your managed teams", "status": 403}),
+                    403,
+                )
 
         org_id = g.user.org_id
 
@@ -2011,17 +2246,22 @@ class TimeTrackingAPI(MethodView):
             # payroll summary view so snapshots and live totals agree.
             month_start, month_end = org_month_bounds_utc(year, month)
 
-            total_seconds = db.session.query(
-                func.coalesce(func.sum(TimeEntry.duration_seconds), 0)
-            ).filter(
-                TimeEntry.user_id == user_id,
-                TimeEntry.org_id == org_id,
-                TimeEntry.status == "completed",
-                TimeEntry.clock_in >= month_start,
-                TimeEntry.clock_in < month_end,
-            ).scalar() or 0
+            total_seconds = (
+                db.session.query(func.coalesce(func.sum(TimeEntry.duration_seconds), 0))
+                .filter(
+                    TimeEntry.user_id == user_id,
+                    TimeEntry.org_id == org_id,
+                    TimeEntry.status == "completed",
+                    TimeEntry.clock_in >= month_start,
+                    TimeEntry.clock_in < month_end,
+                )
+                .scalar()
+                or 0
+            )
 
-            _rate_entry = HourlyRateHistoryService().get_active_rate(user_id, date(year, month, 1))
+            _rate_entry = HourlyRateHistoryService().get_active_rate(
+                user_id, date(year, month, 1)
+            )
             rate = float(_rate_entry.rate) if _rate_entry else 0
             hours = total_seconds / 3600
             amount = round(hours * rate, 2)
@@ -2080,10 +2320,12 @@ class TimeTrackingAPI(MethodView):
             except Exception:
                 pass
 
-        return jsonify({
-            "status": 200,
-            "message": f"{'Marked' if paid else 'Unmarked'} {user.full_name} {year}-{month:02d} as paid",
-        })
+        return jsonify(
+            {
+                "status": 200,
+                "message": f"{'Marked' if paid else 'Unmarked'} {user.full_name} {year}-{month:02d} as paid",
+            }
+        )
 
     # ─── Subcategory management endpoints ────────────────────────
     #
@@ -2101,15 +2343,24 @@ class TimeTrackingAPI(MethodView):
         data = request.get_json() or {}
         activity = data.get("activity")
         if activity and activity not in ACTIVITY_SLUGS:
-            return jsonify({
-                "message": "Invalid activity",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Invalid activity",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
         subs = _visible_subcategories_query(g.user, activity=activity).all()
-        return jsonify({
-            "status": 200,
-            "subcategories": [TimeTrackingHelpers._format_subcategory(s) for s in subs],
-        })
+        return jsonify(
+            {
+                "status": 200,
+                "subcategories": [
+                    TimeTrackingHelpers._format_subcategory(s) for s in subs
+                ],
+            }
+        )
 
     @requires_team_admin_or_above
     def subcategories_admin_list(self):
@@ -2158,10 +2409,14 @@ class TimeTrackingAPI(MethodView):
             ActivitySubcategory.sort_order.asc(),
             ActivitySubcategory.name.asc(),
         ).all()
-        return jsonify({
-            "status": 200,
-            "subcategories": [TimeTrackingHelpers._format_subcategory(s) for s in subs],
-        })
+        return jsonify(
+            {
+                "status": 200,
+                "subcategories": [
+                    TimeTrackingHelpers._format_subcategory(s) for s in subs
+                ],
+            }
+        )
 
     @requires_team_admin_or_above
     def subcategories_create(self):
@@ -2186,15 +2441,25 @@ class TimeTrackingAPI(MethodView):
         if not name:
             return jsonify({"message": "Name is required", "status": 400}), 400
         if len(name) > 100:
-            return jsonify({
-                "message": "Name must be 100 characters or fewer",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Name must be 100 characters or fewer",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
         if scope not in ("global", "org", "team"):
-            return jsonify({
-                "message": "scope must be one of: global, org, team",
-                "status": 400,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "message": "scope must be one of: global, org, team",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         # Resolve target org_id / team_id from scope, then permission-check
         # through the SSOT helper.
@@ -2208,37 +2473,64 @@ class TimeTrackingAPI(MethodView):
             try:
                 team_id_target = int(data.get("teamId"))
             except (TypeError, ValueError):
-                return jsonify({
-                    "message": "teamId is required for team-scoped subcategories",
-                    "status": 400,
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "message": "teamId is required for team-scoped subcategories",
+                            "status": 400,
+                        }
+                    ),
+                    400,
+                )
             team = Team.query.get(team_id_target)
             if team is None or team.org_id != g.user.org_id:
                 return jsonify({"message": "Team not found", "status": 404}), 404
             org_id_target = g.user.org_id
 
         if not _can_manage_subcategory(
-            g.user, org_id=org_id_target, team_id=team_id_target,
+            g.user,
+            org_id=org_id_target,
+            team_id=team_id_target,
         ):
-            return jsonify({
-                "message": "You don't have permission to create subcategories in that scope",
-                "status": 403,
-            }), 403
+            return (
+                jsonify(
+                    {
+                        "message": "You don't have permission to create subcategories in that scope",
+                        "status": 403,
+                    }
+                ),
+                403,
+            )
 
         slug = TimeTrackingHelpers._slugify(name)
         if not slug:
-            return jsonify({"message": "Name must contain at least one alphanumeric character", "status": 400}), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Name must contain at least one alphanumeric character",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         # Reject duplicate within the (activity, slug, scope) uniqueness.
         dup = ActivitySubcategory.query.filter_by(
-            activity=activity, slug=slug,
-            org_id=org_id_target, team_id=team_id_target,
+            activity=activity,
+            slug=slug,
+            org_id=org_id_target,
+            team_id=team_id_target,
         ).first()
         if dup is not None:
-            return jsonify({
-                "message": "A subcategory with that name already exists in this scope",
-                "status": 409,
-            }), 409
+            return (
+                jsonify(
+                    {
+                        "message": "A subcategory with that name already exists in this scope",
+                        "status": 409,
+                    }
+                ),
+                409,
+            )
 
         sub = ActivitySubcategory()
         sub.activity = activity
@@ -2253,11 +2545,13 @@ class TimeTrackingAPI(MethodView):
         sub.created_by = g.user.id
         sub.save()
 
-        return jsonify({
-            "status": 200,
-            "message": "Subcategory created",
-            "subcategory": TimeTrackingHelpers._format_subcategory(sub),
-        })
+        return jsonify(
+            {
+                "status": 200,
+                "message": "Subcategory created",
+                "subcategory": TimeTrackingHelpers._format_subcategory(sub),
+            }
+        )
 
     @requires_team_admin_or_above
     def subcategories_update(self):
@@ -2284,10 +2578,15 @@ class TimeTrackingAPI(MethodView):
             if not new_name:
                 return jsonify({"message": "Name cannot be empty", "status": 400}), 400
             if len(new_name) > 100:
-                return jsonify({
-                    "message": "Name must be 100 characters or fewer",
-                    "status": 400,
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "message": "Name must be 100 characters or fewer",
+                            "status": 400,
+                        }
+                    ),
+                    400,
+                )
             sub.name = new_name
             # slug stays — renames don't break historical snapshots and
             # changing the slug would be confusing in URLs/filters.
@@ -2298,18 +2597,23 @@ class TimeTrackingAPI(MethodView):
             try:
                 sub.sort_order = int(data.get("sortOrder"))
             except (TypeError, ValueError):
-                return jsonify({"message": "sortOrder must be an integer", "status": 400}), 400
+                return (
+                    jsonify({"message": "sortOrder must be an integer", "status": 400}),
+                    400,
+                )
         if "requiresProject" in data:
             sub.requires_project = bool(data.get("requiresProject"))
         if "allowEventFields" in data:
             sub.allow_event_fields = bool(data.get("allowEventFields"))
 
         sub.save()
-        return jsonify({
-            "status": 200,
-            "message": "Subcategory updated",
-            "subcategory": TimeTrackingHelpers._format_subcategory(sub),
-        })
+        return jsonify(
+            {
+                "status": 200,
+                "message": "Subcategory updated",
+                "subcategory": TimeTrackingHelpers._format_subcategory(sub),
+            }
+        )
 
     @requires_team_admin_or_above
     def subcategories_delete(self):
@@ -2333,8 +2637,10 @@ class TimeTrackingAPI(MethodView):
 
         sub.is_active = False
         sub.save()
-        return jsonify({
-            "status": 200,
-            "message": "Subcategory disabled",
-            "subcategory": TimeTrackingHelpers._format_subcategory(sub),
-        })
+        return jsonify(
+            {
+                "status": 200,
+                "message": "Subcategory disabled",
+                "subcategory": TimeTrackingHelpers._format_subcategory(sub),
+            }
+        )

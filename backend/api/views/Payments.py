@@ -29,7 +29,6 @@ from ..database import (
     Project,
     ProjectTeam,
     ReimbursementRequest,
-    TimeEntry,
     User,
     db,
 )
@@ -45,6 +44,7 @@ from ..services.payment_cycle import (
     VALID_STATUSES,
 )
 from ..utils import requires_admin, requires_team_admin_or_above
+from ..time_tracking import PayrollHoursQuery
 
 
 
@@ -410,18 +410,12 @@ class PaymentsAPI(MethodView):
         seconds = hours_map.get(user.id, 0)
         header = PaymentService.build_row(user, seconds, status_map.get(user.id))
 
-        # Session breakdown (raw completed time_entries inside the cycle)
-        sessions = (
-            TimeEntry.query.filter(
-                TimeEntry.user_id == user.id,
-                TimeEntry.status == "completed",
-                TimeEntry.clock_out.isnot(None),
-                cast(TimeEntry.clock_out, SqlDate) >= cycle_start,
-                cast(TimeEntry.clock_out, SqlDate) <= cycle_end,
-            )
-            .order_by(TimeEntry.clock_in.asc())
-            .all()
-        )
+        # Session breakdown (raw completed time_entries inside the cycle) —
+        # same payroll clock_out/inclusive-date window as the hours total,
+        # via PayrollHoursQuery (the SSOT for that window).
+        sessions = PayrollHoursQuery(
+            g.user.org_id, {}, viewer=None
+        ).sessions_in_cycle(user.id, cycle_start, cycle_end)
         sessions_data = [
             {
                 "id": s.id,

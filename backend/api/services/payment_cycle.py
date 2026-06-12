@@ -20,14 +20,12 @@ Usage::
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import cast, func, Date as SqlDate
-
 from ..database import (
     PaymentCycleStatus,
     PayrollConfig,
-    TimeEntry,
     db,
 )
+from ..time_tracking import PayrollHoursQuery
 
 
 # ─── Constants ────────────────────────────────────────────────────────
@@ -193,26 +191,14 @@ class PaymentCycleService:
         """Aggregate completed-session seconds per user inside the cycle window.
 
         ``user_ids`` is either an iterable of ids or ``None`` (no per-user filter).
+
+        Delegates to PayrollHoursQuery, the SSOT for the payroll
+        clock_out / inclusive-date-range window (distinct from the clock_in
+        window every other read uses).
         """
-        q = (
-            db.session.query(
-                TimeEntry.user_id,
-                func.coalesce(func.sum(TimeEntry.duration_seconds), 0).label("seconds"),
-            )
-            .filter(TimeEntry.status == "completed")
-            .filter(TimeEntry.clock_out.isnot(None))
-            .filter(cast(TimeEntry.clock_out, SqlDate) >= cycle_start)
-            .filter(cast(TimeEntry.clock_out, SqlDate) <= cycle_end)
+        return PayrollHoursQuery(self.org_id, {}, viewer=None).hours_by_user(
+            user_ids, cycle_start, cycle_end
         )
-        if user_ids is not None:
-            ids = list(user_ids)
-            if not ids:
-                return {}
-            q = q.filter(TimeEntry.user_id.in_(ids))
-        return {
-            row.user_id: int(row.seconds or 0)
-            for row in q.group_by(TimeEntry.user_id).all()
-        }
 
     def status_by_user(
         self, user_ids, cycle_start: date, cycle_end: date

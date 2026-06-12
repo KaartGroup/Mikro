@@ -21,8 +21,8 @@ from ..auth import (
 from ..filters import resolve_filtered_user_ids
 from ..stats import count_tasks_split_aware, get_project_stats_from_tasks, get_batch_project_stats_fast
 from ..services.project_service import ProjectService
+from ..time_tracking import AggregateQuery, ACTIVITY_DISPLAY_MAP
 from .MapRoulette import MapRouletteSync
-from .TimeTracking import ACTIVITY_DISPLAY_MAP
 from ..database import (
     db,
     Project,
@@ -718,18 +718,15 @@ class ProjectAPI(MethodView):
                 user_task_stats.setdefault(osm_un, {"mapped": 0, "validated": 0})
                 user_task_stats[osm_un]["validated"] = cnt
 
-        # Per-user time entries
+        # Per-user time entries — completed-only seconds for this project,
+        # via the shared AggregateQuery scope (org + status) with the
+        # project filter layered on the bare queryset.
         user_time = {}
         time_rows = (
-            db.session.query(
-                TimeEntry.user_id,
-                func.sum(TimeEntry.duration_seconds),
-            )
-            .filter(
-                TimeEntry.project_id == project.id,
-                TimeEntry.status == "completed",
-                TimeEntry.duration_seconds != None,
-            )
+            AggregateQuery(project.org_id, {}, viewer=None)
+            .queryset()
+            .with_entities(TimeEntry.user_id, func.sum(TimeEntry.duration_seconds))
+            .filter(TimeEntry.project_id == project.id)
             .group_by(TimeEntry.user_id)
             .all()
         )
@@ -787,17 +784,13 @@ class ProjectAPI(MethodView):
             for t_id, t_name, cnt in team_rows
         ]
 
-        # --- Time tracking summary ---
+        # --- Time tracking summary --- completed-only seconds per activity
+        # for this project, via the shared AggregateQuery scope.
         time_cat_rows = (
-            db.session.query(
-                TimeEntry.activity,
-                func.sum(TimeEntry.duration_seconds),
-            )
-            .filter(
-                TimeEntry.project_id == project.id,
-                TimeEntry.status == "completed",
-                TimeEntry.duration_seconds != None,
-            )
+            AggregateQuery(project.org_id, {}, viewer=None)
+            .queryset()
+            .with_entities(TimeEntry.activity, func.sum(TimeEntry.duration_seconds))
+            .filter(TimeEntry.project_id == project.id)
             .group_by(TimeEntry.activity)
             .all()
         )
@@ -817,12 +810,13 @@ class ProjectAPI(MethodView):
                 time_by_category[display] = time_by_category.get(display, 0) + secs
                 total_time_seconds += secs
 
-        # Recent time entries (last 20)
+        # Recent time entries (last 20). Completed-only scope comes from the
+        # shared AggregateQuery; this list orders by clock_out (not the
+        # clock_in default), so the ordering/limit is layered on the queryset.
         recent_entries = (
-            TimeEntry.query.filter(
-                TimeEntry.project_id == project.id,
-                TimeEntry.status == "completed",
-            )
+            AggregateQuery(project.org_id, {}, viewer=None)
+            .queryset()
+            .filter(TimeEntry.project_id == project.id)
             .order_by(TimeEntry.clock_out.desc())
             .limit(20)
             .all()

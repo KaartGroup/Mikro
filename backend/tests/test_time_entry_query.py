@@ -16,8 +16,11 @@ Always scopes to status IN ("completed", "voided"). viewer.role drives user scop
 import pytest
 from datetime import datetime
 
-from api.database import TimeEntry, Team, TeamUser, User
-from api.utils.time_entry_query import TimeEntryQuery
+from sqlalchemy import func
+
+from api.database import TimeEntry, Team, TeamUser, TeamLead, User, Project
+from api.time_tracking import TimeEntryQuery, AggregateQuery, TimeEntryScope
+from api.views.reports.helpers import resolve_member_id_filter
 from tests.conftest import USER_ID, OTHER_USER_ID, ORG
 
 BASE_CLOCK_IN = datetime(2026, 4, 24, 18, 43, 31)
@@ -618,3 +621,203 @@ def test_cursor_ordering_is_stable_across_pages(db_session, monkeypatch):
     combined_ids = [e.id for e in page1] + [e.id for e in page2]
     all_ids = [e.id for e in _query().fetch_all()]
     assert combined_ids == all_ids
+
+
+# ---------------------------------------------------------------------------
+# Group 11 — AggregateQuery (completed-only sums; the Phase 4 report/payroll seam)
+# ---------------------------------------------------------------------------
+
+def _agg(data=None, member_ids=None):
+    return AggregateQuery(ORG, data or {}, viewer=None, member_ids=member_ids)
+
+
+def test_aggregate_total_seconds_excludes_voided_and_active(db_session):
+    """AggregateQuery is completed-only — voided and active never count."""
+    db_session.add_all([
+        _entry(status="completed", duration_seconds=3600),
+        _entry(status="completed", duration_seconds=1800),
+        _entry(status="voided", duration_seconds=9999),
+        _entry(status="active", clock_out=None, duration_seconds=None),
+    ])
+    db_session.flush()
+
+    assert _agg().total_seconds() == 5400
+
+
+def test_aggregate_sum_seconds_by_user(db_session):
+    db_session.add_all([
+        _entry(user_id=USER_ID, duration_seconds=3600),
+        _entry(user_id=USER_ID, duration_seconds=1800),
+        _entry(user_id=OTHER_USER_ID, duration_seconds=600),
+    ])
+    db_session.flush()
+
+    result = {uid: secs for uid, secs in _agg().sum_seconds_by(TimeEntry.user_id)}
+
+    assert result == {USER_ID: 5400, OTHER_USER_ID: 600}
+
+
+def test_aggregate_queryset_with_layered_project_filter(db_session):
+    """The Projects.py pattern: bare completed-scope queryset + a project
+    filter + group_by layered on top via with_entities."""
+    db_session.add_all([
+        Project(id=10, url="u10", org_id=ORG, status=True, source="tm4"),
+        Project(id=20, url="u20", org_id=ORG, status=True, source="tm4"),
+    ])
+    db_session.flush()
+    db_session.add_all([
+        _entry(project_id=10, user_id=USER_ID, duration_seconds=3600),
+        _entry(project_id=10, user_id=OTHER_USER_ID, duration_seconds=1800),
+        _entry(project_id=10, user_id=USER_ID, status="voided", duration_seconds=9999),
+        _entry(project_id=20, user_id=USER_ID, duration_seconds=600),
+    ])
+    db_session.flush()
+
+    rows = (
+        _agg().queryset()
+        .with_entities(TimeEntry.user_id, func.sum(TimeEntry.duration_seconds))
+        .filter(TimeEntry.project_id == 10)
+        .group_by(TimeEntry.user_id)
+        .all()
+    )
+    result = {uid: secs for uid, secs in rows}
+
+    # Project 20 excluded by the filter; the voided project-10 row excluded by scope.
+    assert result == {USER_ID: 3600, OTHER_USER_ID: 1800}
+
+
+def test_aggregate_member_ids_injection_restricts(db_session):
+    db_session.add_all([
+        _entry(user_id=USER_ID, duration_seconds=3600),
+        _entry(user_id=OTHER_USER_ID, duration_seconds=1800),
+    ])
+    db_session.flush()
+
+    assert _agg(member_ids=[USER_ID]).total_seconds() == 3600
+
+
+def test_aggregate_member_ids_empty_matches_nothing(db_session):
+    db_session.add(_entry(user_id=USER_ID, duration_seconds=3600))
+    db_session.flush()
+
+    assert _agg(member_ids=[]).total_seconds() == 0
+
+
+def test_aggregate_member_ids_none_includes_all(db_session):
+    db_session.add_all([
+        _entry(user_id=USER_ID, duration_seconds=3600),
+        _entry(user_id=OTHER_USER_ID, duration_seconds=1800),
+    ])
+    db_session.flush()
+
+    assert _agg(member_ids=None).total_seconds() == 5400
+
+
+# ---------------------------------------------------------------------------
+# Group 12 — fetch_recent (bounded "recent activity" lists)
+# ---------------------------------------------------------------------------
+
+def test_fetch_recent_limits_and_orders_clock_in_desc(db_session):
+    for day in (19, 24, 3, 1):
+        db_session.add(_entry(clock_in=datetime(2026, 5, day, 12, 0)))
+    db_session.flush()
+
+    rows = _query().fetch_recent(2)
+
+    assert len(rows) == 2
+    assert [r.clock_in.day for r in rows] == [24, 19]  # two newest, desc
+
+
+def test_fetch_recent_respects_status_set_and_user_scope(db_session):
+    db_session.add_all([
+        _entry(user_id=USER_ID, status="completed"),
+        _entry(user_id=USER_ID, status="voided"),
+        _entry(user_id=USER_ID, status="active", clock_out=None, duration_seconds=None),
+        _entry(user_id=OTHER_USER_ID, status="completed"),
+    ])
+    db_session.flush()
+
+    rows = _query(data={"userId": USER_ID}).fetch_recent(50)
+
+    # active dropped (base status set is completed+voided), other user excluded.
+    assert len(rows) == 2
+    assert all(r.user_id == USER_ID for r in rows)
+    assert {r.status for r in rows} == {"completed", "voided"}
+
+
+# ---------------------------------------------------------------------------
+# Group 13 — TimeEntryScope.resolve_member_ids (SSOT) + helper delegation
+# ---------------------------------------------------------------------------
+
+class _ScopeViewer:
+    def __init__(self, role="org_admin", user_id=USER_ID, org_id=ORG):
+        self.id = user_id
+        self.role = role
+        self.org_id = org_id
+
+
+def _scope(viewer=None):
+    return TimeEntryScope(viewer or _ScopeViewer(), ORG)
+
+
+def test_resolve_member_ids_none_without_request_filters(db_session):
+    assert _scope().resolve_member_ids() is None
+
+
+def test_resolve_member_ids_user_id(db_session):
+    assert _scope().resolve_member_ids(user_id=USER_ID) == [USER_ID]
+
+
+def test_resolve_member_ids_team_members(db_session):
+    team = Team(name="Z", org_id=ORG)
+    db_session.add(team)
+    db_session.flush()
+    db_session.add(TeamUser(team_id=team.id, user_id=USER_ID))
+    db_session.flush()
+
+    assert _scope().resolve_member_ids(team_id=team.id) == [USER_ID]
+
+
+def test_resolve_member_ids_empty_team_returns_empty_list(db_session):
+    team = Team(name="Empty", org_id=ORG)
+    db_session.add(team)
+    db_session.flush()
+
+    assert _scope().resolve_member_ids(team_id=team.id) == []
+
+
+def test_resolve_member_ids_filters_user_dimension(db_session):
+    assert _scope().resolve_member_ids(filters={"user": [USER_ID]}) == [USER_ID]
+
+
+def test_resolve_member_ids_team_admin_intersects_managed(db_session):
+    """A team_admin with no request filter resolves to their managed members."""
+    team = Team(name="Managed", org_id=ORG)
+    db_session.add(team)
+    db_session.flush()
+    db_session.add_all([
+        TeamLead(team_id=team.id, user_id=USER_ID),
+        TeamUser(team_id=team.id, user_id=OTHER_USER_ID),
+    ])
+    db_session.flush()
+
+    viewer = _ScopeViewer(role="team_admin", user_id=USER_ID)
+    assert _scope(viewer).resolve_member_ids() == [OTHER_USER_ID]
+
+
+def test_resolve_member_ids_zero_team_team_admin_returns_empty(db_session):
+    viewer = _ScopeViewer(role="team_admin", user_id=USER_ID)
+    assert _scope(viewer).resolve_member_ids() == []
+
+
+def test_resolve_member_id_filter_delegates_to_scope(db_session):
+    team = Team(name="Deleg", org_id=ORG)
+    db_session.add(team)
+    db_session.flush()
+    db_session.add(TeamUser(team_id=team.id, user_id=USER_ID))
+    db_session.flush()
+
+    viewer = _ScopeViewer(role="org_admin")
+    assert resolve_member_id_filter(ORG, viewer, None, USER_ID, None) == [USER_ID]
+    assert resolve_member_id_filter(ORG, viewer, None, None, team.id) == [USER_ID]
+    assert resolve_member_id_filter(ORG, viewer, None, None, None) is None

@@ -1,70 +1,22 @@
 #!/usr/bin/env python3
+"""
+TimeEntry presentation + small pure helpers for the TimeTracking views.
+
+``TimeTrackingHelpers`` is the serialization/normalization half of the
+time-tracking domain: ``_format_entry`` (the wire shape every time view
+returns), notes normalization, duration formatting, subcategory
+serialization, and the team-admin scope back-compat wrapper. The activity
+taxonomy it renders against lives in :mod:`.constants`.
+"""
+
 import logging
 from datetime import datetime
 
-import requests as http_requests
-
-from ..database import TimeEntry, User, Project, TeamUser
-from ..auth import managed_team_ids_for, team_member_ids_for
+from ..database import User, Project
+from .constants import ACTIVITY_DISPLAY_MAP
+from .scope import TimeEntryScope
 
 logger = logging.getLogger(__name__)
-
-# Long-session threshold (SSOT). A session running longer than this —
-# whether still active or already closed — is flagged as a probable
-# forgotten clock-out. Referenced by TimeTracking.admin_long_sessions and
-# the effectiveDurationSeconds field below; never hardcode the value
-# elsewhere.
-LONG_SESSION_THRESHOLD_SECONDS = 10 * 3600
-
-# Tier-1 activity slugs (the renamed `category` enum). Stored in
-# `time_entries.activity`. Mirrors the SSOT on the frontend at
-# `lib/timeTracking.ts` — keep these two lists in sync; any new
-# activity needs to be added in BOTH places (and seeded with a
-# default set of subcategories via the Time Categories admin page
-# or a follow-up migration).
-# 2026-05-21 Logan taxonomy pass: removed `validating`, `checklist`, and
-# `community` from the accepted activity set per his request (Validating
-# folded into QC/Validation; Checklist deprecated; Community's subs
-# relocated under Other). The slugs are NOT in ACTIVITY_DISPLAY_MAP-less
-# territory — historical entries with those values still render via the
-# display map below — but new clock-ins with those slugs now 400. Legacy
-# alias `validation` is also dropped from accepted slugs for the same
-# reason. `mapping` (-> Editing) and `review` (-> QC/Validation) stay
-# accepted for back-compat from older clients.
-ACTIVITY_SLUGS = {
-    "editing", "training",
-    "qc_review", "meeting", "documentation", "imagery_capture",
-    "project_creation", "other", "community_event",
-    # Legacy values still accepted for backward compat (clock-in payloads
-    # from older clients). Normalized to canonical slugs on display.
-    "mapping", "review",
-}
-
-# Map stored activity slug -> display label. User-facing UI strings.
-# Retired activities (`validating`, `checklist`, `community`) keep their
-# display entries so historical time_entries continue to render their
-# original label correctly even though new clock-ins can no longer pick
-# them. `qc_review` was renamed from "QC / Review" -> "QC / Validation"
-# in the same pass (Logan merged Validating into it).
-ACTIVITY_DISPLAY_MAP = {
-    "editing": "Editing",
-    "training": "Training",
-    "qc_review": "QC / Validation",
-    "meeting": "Meeting",
-    "documentation": "Documentation",
-    "imagery_capture": "Imagery Capture",
-    "project_creation": "Project Creation",
-    "other": "Other",
-    "community_event": "Community Event",
-    # Retired activities — kept for display continuity on historical rows.
-    "validating": "Validating",
-    "checklist": "Checklist",
-    "community": "Community",
-    # Legacy mappings -> canonical labels (post-rename for review/validation).
-    "mapping": "Editing",
-    "validation": "Validating",
-    "review": "QC / Validation",
-}
 
 
 class TimeTrackingHelpers:
@@ -131,7 +83,9 @@ class TimeTrackingHelpers:
             # compat; it reads from entry.activity now (DB column was
             # renamed in migration c4f8a9b0d1e2). Display label still
             # comes from ACTIVITY_DISPLAY_MAP.
-            "category": ACTIVITY_DISPLAY_MAP.get(entry.activity, entry.activity.capitalize() if entry.activity else ""),
+            "category": ACTIVITY_DISPLAY_MAP.get(
+                entry.activity, entry.activity.capitalize() if entry.activity else ""
+            ),
             "activity": entry.activity,  # raw slug (new — preferred for filters)
             "subcategoryId": entry.subcategory_id,
             "subcategoryName": entry.subcategory_name,
@@ -158,85 +112,16 @@ class TimeTrackingHelpers:
         }
 
     @staticmethod
-    def _fetch_osm_changesets(osm_username, clock_in_time):
-        """
-        Fetch OSM changesets for a user since clock_in_time.
-
-        Returns (changeset_count, changes_count) tuple.
-        Best-effort: returns (0, 0) on any failure.
-
-        # TODO Fetch changset diff here will need to update cron job to make this work properly
-
-        """
-        if not osm_username:
-            return 0, 0
-
-        time_str = clock_in_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-        url = (
-            f"https://api.openstreetmap.org/api/0.6/changesets.json"
-            f"?display_name={osm_username}&time={time_str}"
-        )
-
-        for attempt in range(3):
-            try:
-                resp = http_requests.get(url, timeout=30)
-                if resp.status_code == 429:
-                    import time
-                    time.sleep(2 ** attempt)
-                    continue
-                resp.raise_for_status()
-                data = resp.json()
-                changesets = data.get("changesets", [])
-                changeset_count = len(changesets)
-                changes_count = sum(
-                    cs.get("changes_count", 0) for cs in changesets
-                )
-                return changeset_count, changes_count
-            except Exception as e:
-                logger.warning(
-                    f"OSM changeset fetch attempt {attempt + 1} failed for "
-                    f"{osm_username}: {e}"
-                )
-                if attempt < 2:
-                    import time
-                    time.sleep(2 ** attempt)
-
-        logger.error(f"OSM changeset fetch failed after 3 attempts for {osm_username}")
-        return 0, 0
-
-    @staticmethod
     def _apply_team_admin_scope(query, viewer, team_id_in_request=None):
         """Force a TimeEntry query to managed-team members for team_admin.
 
-        Returns the (possibly empty-result) query. Org Admin / super_admin
-        get the query untouched. If a team_admin sends a `teamId` outside
-        their managed set, we silently drop it back to the union of their
-        managed teams — same effect as if they never sent the param.
+        Thin back-compat wrapper — the policy now lives in
+        ``TimeEntryScope.apply_team_admin_scope`` (single source of truth).
+        Existing call sites that pass ``(query, viewer, team_id)`` keep
+        working unchanged.
         """
-        if viewer is None or getattr(viewer, "role", None) != "team_admin":
-            return query
-
-        managed = managed_team_ids_for(viewer)
-        if not managed:
-            # Zero-team team_admin → empty result
-            return query.filter(TimeEntry.user_id == None)  # noqa: E711
-
-        if team_id_in_request and team_id_in_request not in managed:
-            # Requested team is outside their managed set — refuse the team
-            # narrow and fall back to the union of managed teams.
-            team_id_in_request = None
-
-        if team_id_in_request:
-            member_ids = [
-                tu.user_id
-                for tu in TeamUser.query.filter_by(team_id=team_id_in_request).all()
-            ]
-        else:
-            member_ids = list(team_member_ids_for(managed))
-
-        if not member_ids:
-            return query.filter(TimeEntry.user_id == None)  # noqa: E711
-        return query.filter(TimeEntry.user_id.in_(member_ids))
+        scope = TimeEntryScope(viewer, getattr(viewer, "org_id", None))
+        return scope.apply_team_admin_scope(query, team_id_in_request)
 
     @staticmethod
     def _format_duration_hours(duration_seconds):
@@ -283,4 +168,5 @@ class TimeTrackingHelpers:
         if not name:
             return ""
         import re
+
         return re.sub(r"[^a-zA-Z0-9]+", "_", name.strip()).strip("_").lower()
