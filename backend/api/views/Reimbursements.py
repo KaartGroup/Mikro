@@ -149,6 +149,8 @@ class ReimbursementsAPI(MethodView):
             return self.reject()
         elif path == "attachment-url":
             return self.attachment_url()
+        elif path == "direct-add":
+            return self.direct_add()
         return {"message": f"Unknown reimbursements path: {path}", "status": 404}, 404
 
     # ── Serialisers ──────────────────────────────────────────────────
@@ -452,6 +454,58 @@ class ReimbursementsAPI(MethodView):
         return {
             "request": self._format_reimbursement(row),
             "message": "Reimbursement rejected",
+            "status": 200,
+        }
+
+    @requires_team_admin_or_above
+    def direct_add(self):
+        """Admin directly creates an approved reimbursement for a user.
+
+        Bypasses the normal submit → approve workflow. No EventProposal
+        required. Useful for ad-hoc corrections or offline reimbursements.
+        """
+        body = request.json or {}
+
+        target_user_id = (body.get("user_id") or "").strip()
+        if not target_user_id:
+            return {"message": "user_id is required", "status": 400}
+
+        target_user = User.query.get(target_user_id)
+        if target_user is None:
+            return {"message": "User not found", "status": 404}
+        if target_user.org_id != g.user.org_id:
+            return {"message": "Cross-org request denied", "status": 403}
+        if not can_view_pay_for(g.user, target_user):
+            return {"message": "Not authorized to manage pay for this user", "status": 403}
+
+        try:
+            amount = Decimal(str(body.get("amount")))
+        except Exception:
+            return {"message": "amount must be a number", "status": 400}
+        if amount <= 0:
+            return {"message": "amount must be > 0", "status": 400}
+
+        description = (body.get("description") or "").strip()
+        if not description:
+            return {"message": "description is required", "status": 400}
+        if len(description) > 2000:
+            return {"message": "description exceeds 2000 characters", "status": 400}
+
+        reviewer_note = (body.get("note") or "").strip() or None
+        if reviewer_note and len(reviewer_note) > 2000:
+            return {"message": "note exceeds 2000 characters", "status": 400}
+
+        svc = ReimbursementService(g.user.org_id)
+        row = svc.direct_add_reimbursement(
+            user_id=target_user_id,
+            amount=amount,
+            description=description,
+            reviewer_id=g.user.id,
+            reviewer_note=reviewer_note,
+        )
+        return {
+            "request": self._format_reimbursement(row),
+            "message": "Reimbursement added",
             "status": 200,
         }
 

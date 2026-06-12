@@ -1405,6 +1405,12 @@ export function useReimbursementAttachmentUrl() {
   );
 }
 
+export function useDirectAddReimbursement() {
+  return useApiMutation<ReimbursementMutationResponse>(
+    "/reimbursements/direct-add",
+  );
+}
+
 /**
  * Download the cycle CSV. Not a useApiMutation — the response is a
  * text/csv blob, not JSON. Calling ``download(cycleStart, cycleEnd)``

@@ -106,6 +106,33 @@ class ReimbursementService:
         row.save()
         return row
 
+    def direct_add_reimbursement(
+        self,
+        user_id: str,
+        amount: Decimal,
+        description: str,
+        reviewer_id: str,
+        reviewer_note: str = None,
+    ) -> ReimbursementRequest:
+        """Create a reimbursement in approved state, bypassing the normal workflow.
+
+        Admin-only shortcut: no EventProposal required.
+        """
+        now = datetime.now(timezone.utc)
+        return ReimbursementRequest.create(
+            user_id=user_id,
+            org_id=self.org_id,
+            amount=amount,
+            description=description,
+            event_proposal_id=None,
+            attachment_url=None,
+            status="approved",
+            submitted_at=now,
+            reviewed_by=reviewer_id,
+            reviewed_at=now,
+            reviewer_note=reviewer_note or None,
+        )
+
     def reject_reimbursement(
         self, request_id, reviewer_id: str, reviewer_note: str
     ) -> ReimbursementRequest | None:

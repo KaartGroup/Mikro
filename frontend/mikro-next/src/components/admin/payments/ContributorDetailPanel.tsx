@@ -7,6 +7,7 @@ import { formatDurationHuman } from "@/lib/timeTracking";
 import {
   useFetchPaymentContributor,
 } from "@/hooks/useApi";
+import { DirectAddReimbursementModal } from "@/components/modals/reimbursement/DirectAddReimbursementModal";
 import type {
   PaymentContributorDetailResponse,
   PaymentContributorReimbursement,
@@ -88,28 +89,27 @@ export function ContributorDetailPanel({
   const [detail, setDetail] = useState<PaymentContributorDetailResponse | null>(
     null,
   );
+  const [addReimbursementOpen, setAddReimbursementOpen] = useState(false);
 
-  useEffect(() => {
-    if (!row) {
-      setDetail(null);
-      return;
-    }
+  const loadDetail = (userId: string) => {
     fetchContributor({
-      user_id: row.user_id,
+      user_id: userId,
       cycle_start: cycleStart,
       cycle_end: cycleEnd,
       ...(filters ? { filters } : {}),
     })
       .then((res) => setDetail(res))
       .catch(() => console.error("Failed to load contributor detail"));
+  };
+
+  useEffect(() => {
+    if (!row) {
+      setDetail(null);
+      return;
+    }
+    loadDetail(row.user_id);
     // `fetchContributor` is non-stable so excluded from deps.
   }, [row?.user_id, cycleStart, cycleEnd, filters]); // eslint-disable-line react-hooks/exhaustive-deps
-
-
-
-
-  type DetailTab = "payroll";
-  const [activeTab, setActiveTab] = useState<DetailTab>("payroll");
 
   // Empty state — no row selected
   if (!row) {
@@ -133,9 +133,7 @@ export function ContributorDetailPanel({
   const basePay =
     c.hourly_rate !== null ? c.hours * c.hourly_rate : (c.calculated_wage ?? 0);
 
-  const tabs: { id: DetailTab; label: string }[] = [
-    { id: "payroll", label: "Payroll Summary" },
-  ];
+  
 
   return (
     <div className="rounded-md border border-border bg-muted/10 overflow-hidden">
@@ -237,39 +235,24 @@ export function ContributorDetailPanel({
           )}
         </div>
       </div>
-
-      {/* Tabs + content */}
-      <div>
-        <div className="border-b border-border bg-muted/20 px-3">
-          <nav className="flex -mb-px overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`whitespace-nowrap px-3 py-2.5 text-sm border-b-2 transition-colors flex items-center gap-1.5 ${
-                  activeTab === tab.id
-                    ? "border-primary text-foreground font-semibold"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        </div>
-
         <div className="p-4">
-          {activeTab === "payroll" && (
             <PayrollSummaryTab
               contributor={c}
               basePay={basePay}
               detail={detail}
               reimbursements={detail.reimbursements ?? []}
+              onAddReimbursement={() => setAddReimbursementOpen(true)}
             />
-          )}
         </div>
-      </div>
+      {addReimbursementOpen && (
+        <DirectAddReimbursementModal
+          userId={c.user_id}
+          userName={c.name || c.user_id}
+          isOpen={addReimbursementOpen}
+          onClose={() => setAddReimbursementOpen(false)}
+          onAdded={() => loadDetail(c.user_id)}
+        />
+      )}
     </div>
   );
 }
@@ -283,6 +266,7 @@ interface PayrollSummaryTabProps {
   basePay: number;
   detail: PaymentContributorDetailResponse;
   reimbursements: PaymentContributorReimbursement[];
+  onAddReimbursement: () => void;
 }
 
 function PayrollSummaryTab({
@@ -290,6 +274,7 @@ function PayrollSummaryTab({
   basePay,
   detail,
   reimbursements,
+  onAddReimbursement,
 }: PayrollSummaryTabProps) {
   return (
     <div className="space-y-5">
@@ -378,9 +363,14 @@ function PayrollSummaryTab({
 
       {/* Approved Reimbursements */}
       <div>
-        <h3 className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
-          Approved Reimbursements ({reimbursements.length})
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+            Approved Reimbursements ({reimbursements.length})
+          </h3>
+          <Button size="sm" variant="outline" onClick={onAddReimbursement}>
+            Add
+          </Button>
+        </div>
         {reimbursements.length === 0 ? (
           <div className="text-xs text-muted-foreground">
             No approved reimbursements for this contributor.

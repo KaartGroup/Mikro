@@ -1,28 +1,5 @@
 "use client";
 
-/**
- * Admin-side reimbursement queue UI.
- *
- * Two exports used by /admin/payments:
- *
- *   - <ReimbursementsAdminPanel />: the full Reimbursements tab —
- *     filter by status, table with approve/reject actions, modal
- *     for each action so the admin picks the cycle (approve) or
- *     types a reason (reject).
- *
- *   - <ReimbursementsAdminSummary />: a small "Pending: N" widget
- *     that replaces the old "Reimbursement Inbox" stub on the
- *     Payments tab. Clicking it switches the parent to the
- *     Reimbursements tab.
- *
- * Pay-visibility is enforced server-side (the /pending endpoint
- * filters via can_view_pay_for); this component renders whatever the
- * backend returns.
- *
- * The receipt fetch uses a presigned GET URL — backend signs on
- * demand, frontend opens in a new tab. Bucket stays private.
- */
-
 import { useEffect, useState, useCallback } from "react";
 import {
   Button,
