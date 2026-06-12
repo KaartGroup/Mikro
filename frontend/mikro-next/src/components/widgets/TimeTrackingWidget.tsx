@@ -63,14 +63,8 @@ export function TimeTrackingWidget() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
-  // Tier-2 subcategory state. `subOptions` is the visible list for the
-  // current activity; `selectedSub` is the picked row. Event-attendance
-  // inputs (`retainedInput`, `newInput`) only render when the picked
-  // sub has allow_event_fields=true (e.g. Community -> Events).
   const [selectedSub, setSelectedSub] = useState<Subcategory | null>(null);
   const [subOptions, setSubOptions] = useState<Subcategory[]>([]);
-  const [retainedInput, setRetainedInput] = useState<string>("");
-  const [newInput, setNewInput] = useState<string>("");
   const { mutate: fetchSubcategories } = useFetchSubcategories();
   const [taskName, setTaskName] = useState<string>("");
   const [taskRefType, setTaskRefType] = useState<string | null>(null);
@@ -189,8 +183,6 @@ export function TimeTrackingWidget() {
     setCustomTopicInput("");
     setIsAddingCustomTopic(false);
     setSelectedSub(null);
-    setRetainedInput("");
-    setNewInput("");
     if (!selectedTopic) {
       setSubOptions([]);
       setSelectedProject("");
@@ -205,10 +197,7 @@ export function TimeTrackingWidget() {
     fetchSubcategories({ activity: selectedTopic })
       .then((res) => {
         if (cancelled) return;
-        const list = res?.subcategories ?? [];
-        setSubOptions(list);
-        // 2026-05-21: do NOT auto-pick a single subcategory option. Matches
-        // SidebarClock — clock-in defaults to no sub regardless of count.
+        setSubOptions(res?.subcategories ?? []);
       })
       .catch(() => {
         if (!cancelled) setSubOptions([]);
@@ -216,18 +205,9 @@ export function TimeTrackingWidget() {
     return () => {
       cancelled = true;
     };
-    // `fetchSubcategories` is non-stable (mutation hook returns a new
-    // function each render); intentionally excluded from deps.
+    // mutation hooks are non-stable; intentionally excluded from deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTopic]);
-
-  // Clear event-field inputs when the picked sub doesn't accept them.
-  useEffect(() => {
-    if (!selectedSub?.allowEventFields) {
-      setRetainedInput("");
-      setNewInput("");
-    }
-  }, [selectedSub]);
 
   // Fetch daily/weekly totals when clocked in. Windows are aligned to
   // the user's browser-local calendar (via ISO UTC instants), so "today"
@@ -280,14 +260,6 @@ export function TimeTrackingWidget() {
         task_ref_type: taskRefType || null,
         task_ref_id: taskRefId || null,
         subcategoryId: selectedSub?.id ?? null,
-        retainedParticipants:
-          selectedSub?.allowEventFields && retainedInput !== ""
-            ? parseInt(retainedInput, 10)
-            : null,
-        newParticipants:
-          selectedSub?.allowEventFields && newInput !== ""
-            ? parseInt(newInput, 10)
-            : null,
         userNotes: pendingUserNotes,
       });
 
@@ -316,8 +288,6 @@ export function TimeTrackingWidget() {
     selectedProject,
     selectedTopic,
     selectedSub,
-    retainedInput,
-    newInput,
     taskName,
     taskRefType,
     taskRefId,
@@ -828,7 +798,7 @@ export function TimeTrackingWidget() {
             onChange={setSelectedTopic}
             placeholder="Select task"
           />
-          {subOptions.length > 0 && (
+          {subOptions.length > 0 ? (
             <Select
               label="Subcategory"
               options={subOptions.map((s) => ({
@@ -846,39 +816,7 @@ export function TimeTrackingWidget() {
               }}
               placeholder="Select subcategory"
             />
-          )}
-          {selectedSub?.allowEventFields && (
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex flex-col text-xs gap-1">
-                <span className="text-muted-foreground">
-                  # Retained Participants
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  value={retainedInput}
-                  onChange={(e) => setRetainedInput(e.target.value)}
-                  className="rounded border border-border bg-background px-2 py-1 text-sm"
-                  placeholder="0"
-                />
-              </label>
-              <label className="flex flex-col text-xs gap-1">
-                <span className="text-muted-foreground">
-                  # New Participants
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  value={newInput}
-                  onChange={(e) => setNewInput(e.target.value)}
-                  className="rounded border border-border bg-background px-2 py-1 text-sm"
-                  placeholder="0"
-                />
-              </label>
-            </div>
-          )}
+          ) : null}
           {selectedTopic && requiresProjectFor(selectedTopic, selectedSub) && (
             <Select
               label="Project"
@@ -907,7 +845,6 @@ export function TimeTrackingWidget() {
             onClick={handleClockIn}
             disabled={
               !selectedTopic ||
-              // 2026-05-21: subcategory never required for clock-in.
               (requiresProjectFor(selectedTopic, selectedSub) &&
                 !selectedProject) ||
               clockingIn

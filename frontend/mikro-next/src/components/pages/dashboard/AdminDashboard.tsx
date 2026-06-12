@@ -16,6 +16,7 @@ import {
   useManagedTeams,
 } from "@/hooks";
 import { DashboardStatCard } from "@/components/admin/DashboardStatCard";
+import { EventProposalsPanel } from "@/components/admin/EventProposalsPanel";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import { DashboardFilterToolbar } from "@/components/admin/DashboardFilterToolbar";
 import { formatNumber } from "@/lib/utils";
@@ -219,6 +220,8 @@ export function AdminDashboard() {
 
   return (
     <div className="flex flex-col gap-4">
+      <EventProposalsPanel />
+
       <DashboardFilterToolbar
         teamId={teamId}
         onTeamIdChange={onTeamIdChange}
@@ -229,7 +232,7 @@ export function AdminDashboard() {
         syncProgress={syncProgress}
         onSyncAllTasks={handleSyncAllTasks}
       />
-
+      
       <div className="grid grid-cols-4 gap-3">
         <DashboardStatCard
           label="Active Projects"

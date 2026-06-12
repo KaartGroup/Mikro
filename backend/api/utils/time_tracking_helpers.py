@@ -34,7 +34,7 @@ LONG_SESSION_THRESHOLD_SECONDS = 10 * 3600
 ACTIVITY_SLUGS = {
     "editing", "training",
     "qc_review", "meeting", "documentation", "imagery_capture",
-    "project_creation", "other",
+    "project_creation", "other", "community_event",
     # Legacy values still accepted for backward compat (clock-in payloads
     # from older clients). Normalized to canonical slugs on display.
     "mapping", "review",
@@ -55,6 +55,7 @@ ACTIVITY_DISPLAY_MAP = {
     "imagery_capture": "Imagery Capture",
     "project_creation": "Project Creation",
     "other": "Other",
+    "community_event": "Community Event",
     # Retired activities — kept for display continuity on historical rows.
     "validating": "Validating",
     "checklist": "Checklist",

@@ -135,6 +135,7 @@ def _register_views(app):
         OrganizationAPI,
         HourlyRatesAPI,
         CommsAPI,
+        EventsAPI,
     )
 
     # Authentication
@@ -237,6 +238,13 @@ def _register_views(app):
     app.add_url_rule(
         "/api/comms/<path>",
         view_func=CommsAPI.as_view("comms"),
+        methods=["POST"],
+    )
+
+    # Event proposals
+    app.add_url_rule(
+        "/api/event/<path>",
+        view_func=EventsAPI.as_view("event"),
         methods=["POST"],
     )
 

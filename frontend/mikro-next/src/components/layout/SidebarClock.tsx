@@ -292,24 +292,10 @@ export function SidebarClock() {
     }
     let cancelled = false;
     fetchSubcategories({ activity: selectedTopic })
-      .then((res) => {
-        if (cancelled) return;
-        const list = res?.subcategories ?? [];
-        setSubOptions(list);
-        // 2026-05-21: do NOT auto-pick a single subcategory option.
-        // Logan's ask — clock-in defaults to no subcategory chosen
-        // regardless of how many options are configured; users opt
-        // in when the activity really has a tier-2 to record.
-      })
-      .catch(() => {
-        if (!cancelled) setSubOptions([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // fetchSubcategories is non-stable (mutation hook returns a new
-    // function each render); intentionally excluded to avoid refire
-    // on every render.
+      .then((res) => { if (!cancelled) setSubOptions(res?.subcategories ?? []); })
+      .catch(() => { if (!cancelled) setSubOptions([]); });
+    return () => { cancelled = true; };
+    // mutation hooks are non-stable; intentionally excluded from deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTopic]);
 

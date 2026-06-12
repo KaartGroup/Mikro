@@ -283,6 +283,9 @@ def _categorize_activity(activity=None, subcategory_name=None) -> str:
             return "community_outreach"
         return "other"
 
+    if activity == "community_event":
+        return "community_event"
+
     raise ValueError(f"Unexpected activity: {activity}")
 
 

@@ -12,7 +12,7 @@ export const PAYMENTS_TABLE_COLUMNS: { key: string; label: string }[] = [
   { key: "hours", label: "Hours" },
   { key: "rate", label: "Rate" },
   { key: "wage", label: "Wage" },
-  { key: "adjustments", label: "Adjustments" },
+  { key: "reimbursements", label: "Reimbursements" },
   { key: "total", label: "Total" },
   { key: "status", label: "Status" },
   { key: "actions", label: "Actions" },
@@ -98,7 +98,7 @@ export function PaymentsTable({
   if (rows.length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground text-sm">
-        No contributors with hours or adjustments in this cycle.
+        No contributors with hours in this cycle.
       </div>
     );
   }
@@ -112,8 +112,8 @@ export function PaymentsTable({
             {show("hours") && <th className="px-3 py-2 text-right">Hours</th>}
             {show("rate") && <th className="px-3 py-2 text-right">Rate</th>}
             {show("wage") && <th className="px-3 py-2 text-right">Wage</th>}
-            {show("adjustments") && (
-              <th className="px-3 py-2 text-right">Adjustments</th>
+            {show("reimbursements") && (
+              <th className="px-3 py-2 text-right">Reimbursements</th>
             )}
             {show("total") && <th className="px-3 py-2 text-right">Total</th>}
             {show("status") && <th className="px-3 py-2">Status</th>}
@@ -174,13 +174,17 @@ export function PaymentsTable({
                   )}
                 </td>
               )}
-              {show("adjustments") && (
+              {show("reimbursements") && (
                 <td className="px-3 py-2 text-right tabular-nums">
-                  <Val>{formatCurrency(row.adjustments_total)}</Val>
-                  {row.adjustments_count > 0 && (
-                    <span className="ml-1 text-xs text-muted-foreground">
-                      ({row.adjustments_count})
-                    </span>
+                  {row.reimbursements_count > 0 ? (
+                    <>
+                      <Val>{formatCurrency(row.reimbursements_total)}</Val>
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({row.reimbursements_count})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
                   )}
                 </td>
               )}

@@ -24,6 +24,7 @@ from .ChannelMonitor import ChannelMonitorAPI
 from .Organizations import OrganizationAPI
 from .HourlyRates import HourlyRatesAPI
 from .Comms import CommsAPI
+from .Events import EventsAPI
 
 __all__ = {
     "UserAPI",
@@ -50,4 +51,5 @@ __all__ = {
     "OrganizationAPI",
     "HourlyRatesAPI",
     "CommsAPI",
+    "EventsAPI",
 }

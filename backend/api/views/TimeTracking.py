@@ -392,8 +392,8 @@ class TimeTrackingAPI(MethodView):
                 g.user,
                 activity,
                 data.get("subcategoryId"),
-                data.get("retainedParticipants"),
-                data.get("newParticipants"),
+                None,
+                None,
             )
         except ValueError as e:
             return jsonify({"message": str(e), "status": 400}), 400
@@ -1377,11 +1377,7 @@ class TimeTrackingAPI(MethodView):
         # Subcategory + event fields (only re-validate when any of the
         # three are explicitly in the payload — admins editing only
         # times shouldn't have to send the sub again).
-        if (
-            "subcategoryId" in data
-            or "retainedParticipants" in data
-            or "newParticipants" in data
-        ):
+        if "subcategoryId" in data:
             try:
                 sub_fields = _resolve_subcategory_for_write(
                     # Subcategory visibility check uses the entry's owner, not
@@ -1390,8 +1386,8 @@ class TimeTrackingAPI(MethodView):
                     User.query.get(entry.user_id) or g.user,
                     entry.activity,
                     data.get("subcategoryId") if "subcategoryId" in data else entry.subcategory_id,
-                    data.get("retainedParticipants") if "retainedParticipants" in data else entry.retained_participants,
-                    data.get("newParticipants") if "newParticipants" in data else entry.new_participants,
+                    None,
+                    None,
                 )
             except ValueError as e:
                 return jsonify({"message": str(e), "status": 400}), 400

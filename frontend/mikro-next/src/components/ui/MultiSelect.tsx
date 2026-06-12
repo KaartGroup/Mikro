@@ -99,15 +99,23 @@ export function MultiSelect({
         </label>
       )}
 
-      {/* Trigger button */}
-      <button
-        type="button"
+      {/* Trigger — div to avoid nested <button> inside <button> (chip remove buttons) */}
+      <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && !disabled) {
+            e.preventDefault();
+            setIsOpen((o) => !o);
+          }
+        }}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
         className={cn(
-          "flex min-h-10 w-full items-center justify-between gap-1 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+          "flex min-h-10 w-full cursor-pointer items-center justify-between gap-1 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background",
           "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-          "disabled:cursor-not-allowed disabled:opacity-50",
+          disabled && "cursor-not-allowed opacity-50",
         )}
       >
         <div className="flex flex-1 flex-wrap items-center gap-1">
@@ -161,7 +169,7 @@ export function MultiSelect({
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
-      </button>
+      </div>
 
       {/* Dropdown */}
       {isOpen && (

@@ -630,67 +630,15 @@ class PendingInvite(CRUDMixin, SurrogatePK, db.Model):
     created_at = db.Column(db.DateTime, default=func.now(), nullable=False)
 
 
-class PaymentAdjustment(CRUDMixin, SurrogatePK, db.Model):
-    """Per-user × per-cycle payment adjustment (reimbursement / correction).
-
-    Admin-entered or auto-created when a reimbursement request is approved
-    (the editor → admin queue flow lives on Trello card PkljPEJx).
-    Multiple rows per (user, cycle) are summed when displayed on the
-    Payments v1 page. Soft-delete preserves audit trail.
-    """
-
-    __tablename__ = "payment_adjustments"
-
-    user_id = db.Column(
-        db.String(255),
-        db.ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    cycle_start = db.Column(db.Date, nullable=False, index=True)
-    cycle_end = db.Column(db.Date, nullable=False, index=True)
-    amount = db.Column(db.Numeric(10, 2), nullable=False)
-    # "reimbursement" | "correction" | "other"
-    type = db.Column(
-        db.String(50), nullable=False, server_default="reimbursement"
-    )
-    note = db.Column(db.Text, nullable=True)
-    # "admin_entry" | "approved_request"
-    source = db.Column(
-        db.String(50), nullable=False, server_default="admin_entry"
-    )
-    request_id = db.Column(db.Integer, nullable=True)
-    added_by = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, default=func.now(), nullable=False)
-    is_deleted = db.Column(
-        db.Boolean, nullable=False, default=False, server_default=db.false()
-    )
-    deleted_at = db.Column(db.DateTime, nullable=True)
-    deleted_by = db.Column(db.String(255), nullable=True)
-
-
 class ReimbursementRequest(CRUDMixin, SurrogatePK, db.Model):
-    """Editor-submitted reimbursement workflow record.
+    """Editor-submitted reimbursement request against an approved event proposal.
 
-    Sibling of :class:`PaymentAdjustment`. Splits the workflow (this
-    table) from the financial record (PaymentAdjustment). Editors
-    submit -> rows land here as ``pending``. Admin approves -> we
-    create a paired ``PaymentAdjustment`` row with
-    ``source='approved_request'`` and ``request_id=this.id``, and
-    link back via :attr:`adjustment_id`. Reject -> the request stays
-    here as a record with :attr:`reviewer_note`; no adjustment is
-    created. Withdraw is editor-only and only valid while ``pending``.
+    Editors submit -> rows land here as ``pending``. Admins approve or
+    reject. Withdraw is editor-only and only valid while ``pending``.
+    Approved / rejected / withdrawn are terminal states.
 
-    Approved / rejected / withdrawn are terminal. To "undo" an approval
-    admin soft-deletes the resulting :class:`PaymentAdjustment` row
-    via the existing delete flow; the request stays in approved state
-    for audit (the FK on :attr:`adjustment_id` is ON DELETE SET NULL
-    so the link nulls cleanly).
-
-    No cycle columns here by design: the editor's submission doesn't
-    carry a cycle. The admin picks the cycle at approval time and the
-    chosen cycle lives on the paired :class:`PaymentAdjustment` row
-    where it belongs.
+    Each request must reference an approved :class:`EventProposal` and
+    the amount must not exceed the event's total proposed budget.
     """
 
     __tablename__ = "reimbursement_requests"
@@ -702,12 +650,20 @@ class ReimbursementRequest(CRUDMixin, SurrogatePK, db.Model):
         index=True,
     )
     org_id = db.Column(db.String(255), nullable=True)
+    # FK to the approved EventProposal this reimbursement is against.
+    # Nullable to preserve existing rows created before this constraint.
+    event_proposal_id = db.Column(
+        db.Integer,
+        db.ForeignKey("event_proposals.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     amount = db.Column(db.Numeric(10, 2), nullable=False)
     description = db.Column(db.Text, nullable=False)
     # DO Spaces object key (e.g. "reimbursements/<user_id>/<uuid>/<file>").
     # NOT a signed URL — backend signs on demand at fetch time.
     attachment_url = db.Column(db.String(500), nullable=True)
-    # pending | approved | rejected | withdrawn — see docstring.
+    # pending | approved | rejected | withdrawn
     status = db.Column(
         db.String(20), nullable=False, default="pending", server_default="pending"
     )
@@ -717,21 +673,12 @@ class ReimbursementRequest(CRUDMixin, SurrogatePK, db.Model):
     reviewed_by = db.Column(db.String(255), nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
     reviewer_note = db.Column(db.Text, nullable=True)
-    # FK to the PaymentAdjustment row created on approval. ON DELETE
-    # SET NULL via the migration so a soft-delete of the adjustment
-    # doesn't orphan the request.
-    adjustment_id = db.Column(
-        db.Integer,
-        db.ForeignKey("payment_adjustments.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
 
     user = db.relationship(
         "User",
         backref=db.backref("reimbursement_requests", passive_deletes=True),
     )
-    adjustment = db.relationship("PaymentAdjustment")
+    event_proposal = db.relationship("EventProposal")
 
     __table_args__ = (
         db.CheckConstraint(
@@ -1385,3 +1332,92 @@ class Organization(CRUDMixin, db.Model):
 
     def __repr__(self):
         return f"<Organization {self.id}: {self.name} ({self.status})>"
+
+
+class EventProposal(CRUDMixin, SurrogatePK, db.Model):
+    """
+    Event proposal submitted by a mapper for funding/approval.
+
+    Workflow: submitted (pending) → approved | rejected.
+    Admins review and update status; submitter can withdraw while pending.
+    Supporting file object keys are stored as a JSON array in
+    ``attachment_keys`` and are populated via a separate upload-URL flow.
+    """
+
+    __tablename__ = "event_proposals"
+
+    user_id = db.Column(
+        db.String(255),
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    org_id = db.Column(db.String(255), nullable=True, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    co_organizers = db.Column(db.String(500), nullable=True)
+    event_type = db.Column(db.String(50), nullable=False)
+    event_format = db.Column(db.String(50), nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    country_id = db.Column(
+        db.Integer, db.ForeignKey("countries.id"), nullable=True, index=True
+    )
+    city_region = db.Column(db.String(255), nullable=False)
+    venue_name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    attendees = db.Column(db.Integer, nullable=False)
+    external_orgs = db.Column(db.String(500), nullable=True)
+    expected_outcomes = db.Column(db.Text, nullable=False)
+    needs_travel = db.Column(db.Boolean, nullable=False, default=False)
+    num_travelers = db.Column(db.Integer, nullable=True)
+    transport_method = db.Column(db.String(50), nullable=True)
+    origin_city = db.Column(db.String(255), nullable=True)
+    origin_country_id = db.Column(
+        db.Integer, db.ForeignKey("countries.id"), nullable=True
+    )
+    destination_city = db.Column(db.String(255), nullable=True)
+    destination_country_id = db.Column(
+        db.Integer, db.ForeignKey("countries.id"), nullable=True
+    )
+    estimated_transport_cost = db.Column(db.Numeric(10, 2), nullable=True)
+    # JSON array of additional expense type strings (e.g. ["parking", "tolls"])
+    additional_travel_expenses = db.Column(db.Text, nullable=True)
+    currency = db.Column(db.String(255), nullable=False)
+    # JSON array of selected budget category keys
+    budget_categories = db.Column(db.Text, nullable=True)
+    # JSON object mapping category key → amount string
+    budget_amounts = db.Column(db.Text, nullable=True)
+    other_expense_amount = db.Column(db.Numeric(10, 2), nullable=True)
+    other_expense_explanation = db.Column(db.Text, nullable=True)
+    cost_justification = db.Column(db.Text, nullable=False)
+    agrees_to_report = db.Column(db.Boolean, nullable=False, default=False)
+    attachment_keys = db.Column(db.Text, nullable=True)
+    additional_notes = db.Column(db.Text, nullable=True)
+
+    # ── Workflow ─────────────────────────────────────────────────────
+    # pending | approved | rejected | withdrawn
+    status = db.Column(
+        db.String(20), nullable=False, default="pending", server_default="pending"
+    )
+    submitted_at = db.Column(
+        db.DateTime, nullable=False, default=func.now(), server_default=func.now()
+    )
+    reviewed_by = db.Column(db.String(255), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewer_note = db.Column(db.Text, nullable=True)
+
+    user = db.relationship(
+        "User",
+        backref=db.backref("event_proposals", passive_deletes=True),
+    )
+
+    __table_args__ = (
+        db.Index("ix_event_proposals_org_status", "org_id", "status"),
+        db.Index("ix_event_proposals_user_submitted", "user_id", "submitted_at"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<EventProposal {self.id} user={self.user_id} "
+            f"title={self.title!r} status={self.status}>"
+        )

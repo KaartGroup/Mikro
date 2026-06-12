@@ -38,6 +38,7 @@ import {
 } from "@/lib/timeTracking";
 import { formatNumber, formatDate, formatTime } from "@/lib/utils";
 import { TimeTrackingWidget } from "@/components/widgets/TimeTrackingWidget";
+import { CreateEventProposalModal } from "@/components/modals/event/CreateEventProposalModal";
 
 type DatePreset =
   | "this_week"
@@ -195,6 +196,10 @@ export function UserDashboard() {
     setAdjustmentEntryId(null);
   };
 
+  const [showCreateEventProposalModal, setShowCreateEventProposalModal] = useState(false);
+
+
+
   if (history.loading && history.entries.length === 0) {
     return (
       <div className="flex flex-col gap-8">
@@ -253,10 +258,20 @@ export function UserDashboard() {
             <Button
               variant="outline"
               size="sm"
-              className="mt-2 w-full"
+              className="w-full"
               onClick={() => setShowReimbursementModal(true)}
             >
               Request Reimbursement
+            </Button>
+          </div>
+            <div className="px-4 pb-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setShowCreateEventProposalModal(true)}
+            >
+              Propose Event
             </Button>
           </div>
         </Card>
@@ -483,6 +498,14 @@ export function UserDashboard() {
         onSubmitted={() => {
           setShowReimbursementModal(false);
           refreshReimbursements();
+        }}
+      />
+
+      <CreateEventProposalModal
+        isOpen={showCreateEventProposalModal}
+        onClose={() => setShowCreateEventProposalModal(false)}
+        onSubmitted={() => {
+          setShowCreateEventProposalModal(false);
         }}
       />
     </div>

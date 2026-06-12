@@ -1500,8 +1500,8 @@ export interface PaymentCycleRow {
   hourly_rate: number | null;
   compensation_model: CompensationModel;
   calculated_wage: number | null;
-  adjustments_total: number;
-  adjustments_count: number;
+  reimbursements_total: number;
+  reimbursements_count: number;
   total_payable: number;
   status: PaymentCycleStatus;
   status_note: string | null;
@@ -1510,45 +1510,6 @@ export interface PaymentCycleRow {
 }
 
 export type CompensationModel = "per_task" | "hourly" | "project_based";
-
-export interface PayrollForecastCycle {
-  label: string;
-  start: string;
-  end: string;
-  is_current: boolean;
-  is_projected: boolean;
-  confirmed: number;
-  variable: number;
-  total: number;
-}
-
-export interface PayrollForecastResponse {
-  cadence: string;
-  cycles: PayrollForecastCycle[];
-  stats: {
-    projected_growth: number;
-    projected_growth_pct: number;
-    avg_monthly_growth: number;
-    avg_monthly_growth_pct: number;
-    variable_basis: number;
-  };
-  status: number;
-}
-
-export interface ProjectDispensationRow {
-  id: number;
-  name: string;
-  budget: number;
-  distributed: number;
-  remaining: number;
-}
-
-export interface ProjectDispensationResponse {
-  projects: ProjectDispensationRow[];
-  project_count: number;
-  totals: { budget: number; distributed: number; remaining: number };
-  status: number;
-}
 
 export interface PayrollCadenceConfig {
   cadence: "monthly" | "semi_monthly" | "bi_weekly";
@@ -1577,7 +1538,6 @@ export interface PaymentCycleKpis {
   total_payable: number;
   total_paid_lifetime: number;
   approved_total: number;
-  adjustments_total: number;
   pending_count: number;
   approved_count: number;
   held_count: number;
@@ -1596,25 +1556,8 @@ export interface PaymentCycleKpisResponse {
   status: number;
 }
 
-export interface PaymentAdjustment {
-  id: number;
-  user_id: string;
-  cycle_start: string;
-  cycle_end: string;
-  amount: number;
-  type: "reimbursement" | "correction" | "other";
-  note: string | null;
-  source: "admin_entry" | "approved_request";
-  request_id: number | null;
-  added_by: string;
-  added_by_name: string | null;
-  created_at: string | null;
-}
-
-// Reimbursement workflow (editor -> admin queue). Sibling of
-// PaymentAdjustment: a ReimbursementRequest is the *workflow* record;
-// when an admin approves one, a paired PaymentAdjustment row is
-// created and linked via `adjustment_id` here / `request_id` there.
+// Reimbursement workflow (editor -> admin queue).
+// Each request is tied to an approved EventProposal.
 export type ReimbursementStatus =
   | "pending"
   | "approved"
@@ -1625,6 +1568,8 @@ export interface ReimbursementRequest {
   id: number;
   user_id: string;
   org_id: string | null;
+  /** FK to the approved EventProposal this reimbursement is against. */
+  event_proposal_id: number | null;
   amount: number;
   description: string;
   /** DO Spaces object key. NOT a fetchable URL — call
@@ -1637,7 +1582,6 @@ export interface ReimbursementRequest {
   reviewed_by: string | null;
   reviewed_at: string | null;
   reviewer_note: string | null;
-  adjustment_id: number | null;
   // Present on the admin queue (pending_reimbursements) — omitted on
   // the editor's own-history rows.
   user_name?: string;
@@ -1655,7 +1599,6 @@ export interface ReimbursementListResponse {
 export interface ReimbursementMutationResponse {
   status: number;
   request?: ReimbursementRequest;
-  adjustment_id?: number;
   message?: string;
 }
 
@@ -1686,10 +1629,18 @@ export interface PaymentContributorSession {
   user_notes: string | null;
 }
 
+export interface PaymentContributorReimbursement {
+  id: number;
+  amount: number;
+  description: string;
+  submitted_at: string | null;
+  event_proposal_id: number | null;
+}
+
 export interface PaymentContributorDetailResponse {
   contributor: PaymentCycleRow;
   sessions: PaymentContributorSession[];
-  adjustments: PaymentAdjustment[];
+  reimbursements: PaymentContributorReimbursement[];
   cycle_start: string;
   cycle_end: string;
   status: number;

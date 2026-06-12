@@ -584,6 +584,8 @@ class RegionAPI(MethodView):
             result.append({
                 "id": c.id,
                 "name": c.name,
+                "iso_code": c.iso_code,
+                "region_id": c.region_id,
                 "region_name": region.name if region else None,
                 "default_timezone": c.default_timezone,
             })

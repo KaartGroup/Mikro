@@ -21,7 +21,6 @@ from .core import (
     ProjectTeam,
     TeamTraining,
     PendingInvite,
-    PaymentAdjustment,
     PaymentCycleStatus,
     ReimbursementRequest,
     Region,
@@ -47,6 +46,7 @@ from .core import (
     MonitoredChannel,
     ChannelPost,
     Organization,
+    EventProposal,
 )
 
 __all__ = [
@@ -71,7 +71,6 @@ __all__ = [
     "ProjectTeam",
     "TeamTraining",
     "PendingInvite",
-    "PaymentAdjustment",
     "PaymentCycleStatus",
     "ReimbursementRequest",
     "Region",
@@ -97,4 +96,5 @@ __all__ = [
     "MonitoredChannel",
     "ChannelPost",
     "Organization",
+    "EventProposal",
 ]

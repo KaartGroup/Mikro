@@ -20,8 +20,6 @@ import { formatCurrency, formatNumber, type FormattedValue } from "@/lib/utils";
 import {
   useFetchPaymentCycle,
   useFetchPaymentCycleKpis,
-  useFetchPaymentForecast,
-  useFetchProjectDispensation,
   useSetPaymentCycleStatus,
   useExportPaymentCycle,
   useCurrentUserRole,
@@ -45,12 +43,7 @@ import { CycleConfigModal } from "@/components/modals/CycleConfigModal";
 import { HoldPaymentModal } from "@/components/modals/payment/HoldPaymentModal";
 import {
   ReimbursementsAdminPanel,
-  ReimbursementsAdminSummary,
 } from "@/components/admin/payments/ReimbursementsAdmin";
-import type {
-  PayrollForecastResponse,
-  ProjectDispensationResponse,
-} from "@/types";
 import { CyclePicker } from "@/components/admin/payments/CyclePicker";
 
 const ROLE_RANK: Record<string, number> = {
@@ -97,21 +90,12 @@ export  default function PaymentsPage() {
   // Cycle state
   const [cycleStart, setCycleStart] = useState(firstOfMonthIso());
   const [cycleEnd, setCycleEnd] = useState(lastOfMonthIso());
-  const [includeZeroHours, setIncludeZeroHours] = useState(false);
 
   // Data
   const [rows, setRows] = useState<PaymentCycleRow[]>([]);
   const [kpis, setKpis] = useState<PaymentCycleKpis | null>(null);
-  const [forecast, setForecast] = useState<PayrollForecastResponse | null>(
-    null,
-  );
-  const [dispensation, setDispensation] =
-    useState<ProjectDispensationResponse | null>(null);
-  const { mutate: fetchDispensation } = useFetchProjectDispensation();
   const { mutate: fetchCycle, loading: cycleLoading } = useFetchPaymentCycle();
   const { mutate: fetchKpis } = useFetchPaymentCycleKpis();
-  const { mutate: fetchForecast, loading: forecastLoading } =
-    useFetchPaymentForecast();
   const { mutate: setStatus } = useSetPaymentCycleStatus();
   const { download: exportCsv, loading: exporting } = useExportPaymentCycle();
 
@@ -167,7 +151,6 @@ export  default function PaymentsPage() {
         fetchCycle({
           cycle_start: cycleStart,
           cycle_end: cycleEnd,
-          include_zero_hours: includeZeroHours,
           ...(filtersBody ? { filters: filtersBody } : {}),
         }),
         fetchKpis({
@@ -185,33 +168,10 @@ export  default function PaymentsPage() {
     }
   };
 
-  const reloadForecast = async () => {
-    try {
-      const res = await fetchForecast(
-        filtersBody ? { filters: filtersBody } : {},
-      );
-      setForecast(res);
-    } catch {
-      /* non-fatal — card shows its empty/loading state */
-    }
-  };
-
-  useEffect(() => {
-    reloadForecast();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersBody]);
-
-  useEffect(() => {
-    fetchDispensation({})
-      .then(setDispensation)
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   useEffect(() => {
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cycleStart, cycleEnd, includeZeroHours, filtersBody]);
+  }, [cycleStart, cycleEnd, filtersBody]);
 
   useEffect(() => {
     setPage(1);
@@ -670,7 +630,6 @@ export  default function PaymentsPage() {
             onClose={() => setShowCycleConfig(false)}
             onSaved={() => {
               reload();
-              reloadForecast();
             }}
           />
         </>

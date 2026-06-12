@@ -5,9 +5,9 @@
  *
  * Two exports used by /user/payments:
  *
- *   - <ReimbursementSubmitModal />: the new-request form, rendered at
- *     page level so the "Submit Reimbursement" header button can open
- *     it regardless of which tab is active.
+ *   - <ReimbursementSubmitModal />: the new-request form. Users must pick
+ *     one of their approved event proposals; the amount is capped at the
+ *     event's total proposed budget.
  *
  *   - <ReimbursementsHistoryPanel />: the editor's own-history table,
  *     mounted as the Reimbursements tab content. Re-fetches on a
@@ -18,12 +18,6 @@
  * calls /reimbursements/upload-url, PUTs the file straight to
  * Spaces, then calls /reimbursements/submit with the returned
  * object key. The receipt never proxies through Flask.
- *
- * Permission/visibility is enforced by the backend — this component
- * doesn't need to know who's logged in beyond what session brings.
- *
- * No cycle picker by design (locked 2026-05-21): admin assigns the
- * cycle at approval time.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -47,6 +41,10 @@ import {
   useReimbursementAttachmentUrl,
 } from "@/hooks";
 import type { ReimbursementRequest, ReimbursementStatus } from "@/types";
+import {
+  EventProposal,
+  totalBudget,
+} from "@/components/modals/event/ReviewEventProposalModal";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const ALLOWED_RECEIPT_TYPES = new Set([
@@ -92,15 +90,41 @@ export function ReimbursementSubmitModal({
   const [receipt, setReceipt] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Reset when the modal opens (don't carry over stale form state).
+  const [approvedEvents, setApprovedEvents] = useState<EventProposal[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+
+  const selectedEvent = approvedEvents.find((e) => e.id === selectedEventId) ?? null;
+  const budgetCap = selectedEvent ? totalBudget(selectedEvent) : null;
+
+  // Reset + fetch events when the modal opens.
   useEffect(() => {
-    if (isOpen) {
-      setAmount("");
-      setDescription("");
-      setReceipt(null);
-      setUploading(false);
-    }
-  }, [isOpen]);
+    if (!isOpen) return;
+    setAmount("");
+    setDescription("");
+    setReceipt(null);
+    setUploading(false);
+    setSelectedEventId(null);
+
+    setLoadingEvents(true);
+    fetch("/backend/event/my", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const approved: EventProposal[] = (data.proposals ?? []).filter(
+          (p: EventProposal) => p.status === "approved",
+        );
+        setApprovedEvents(approved);
+      })
+      .catch(() => {
+        toast.error("Could not load your approved events");
+        setApprovedEvents([]);
+      })
+      .finally(() => setLoadingEvents(false));
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -118,9 +142,19 @@ export function ReimbursementSubmitModal({
   };
 
   const handleSubmit = async () => {
+    if (!selectedEventId) {
+      toast.error("Please select an approved event");
+      return;
+    }
     const amt = parseFloat(amount);
     if (!isFinite(amt) || amt <= 0) {
       toast.error("Amount must be greater than 0");
+      return;
+    }
+    if (budgetCap !== null && budgetCap > 0 && amt > budgetCap) {
+      toast.error(
+        `Amount exceeds the event's proposed budget (${budgetCap.toFixed(2)})`,
+      );
       return;
     }
     if (!description.trim()) {
@@ -130,8 +164,6 @@ export function ReimbursementSubmitModal({
 
     let attachmentKey: string | undefined;
     if (receipt) {
-      // Two-step: get presigned PUT URL, then PUT the file directly to
-      // Spaces. The Flask backend never sees the file bytes.
       setUploading(true);
       try {
         const presigned = await getUploadUrl({
@@ -160,6 +192,7 @@ export function ReimbursementSubmitModal({
 
     try {
       await submit({
+        event_proposal_id: selectedEventId,
         amount: amt,
         description: description.trim(),
         attachment_url: attachmentKey ?? null,
@@ -177,14 +210,51 @@ export function ReimbursementSubmitModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Submit Reimbursement Request"
-      description="Your request enters the admin queue for review. On approval the amount is added to your next payout."
+      description="Select an approved event and enter the amount you are claiming. The amount cannot exceed the event's proposed budget."
     >
       <div className="space-y-3">
+        {/* Event selector */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium">Approved Event</label>
+          {loadingEvents ? (
+            <Skeleton className="h-9 w-full" />
+          ) : approvedEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              You have no approved event proposals. Submit an event proposal and
+              wait for it to be approved before requesting reimbursement.
+            </p>
+          ) : (
+            <select
+              className="w-full rounded border border-border bg-background px-2 py-2 text-sm"
+              value={selectedEventId ?? ""}
+              onChange={(e) =>
+                setSelectedEventId(e.target.value ? Number(e.target.value) : null)
+              }
+            >
+              <option value="">— Select an event —</option>
+              {approvedEvents.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.title} ({ev.currency} {totalBudget(ev).toFixed(2)} budget)
+                </option>
+              ))}
+            </select>
+          )}
+          {selectedEvent && (
+            <p className="text-xs text-muted-foreground">
+              Budget cap:{" "}
+              <strong>
+                {selectedEvent.currency} {budgetCap?.toFixed(2)}
+              </strong>
+            </p>
+          )}
+        </div>
+
         <Input
-          label="Amount (USD)"
+          label={`Amount${selectedEvent ? ` (${selectedEvent.currency}, max ${budgetCap?.toFixed(2)})` : ""}`}
           type="number"
           step="0.01"
           min="0"
+          max={budgetCap ?? undefined}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="0.00"
@@ -229,7 +299,10 @@ export function ReimbursementSubmitModal({
           >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting || uploading}>
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || uploading || approvedEvents.length === 0}
+          >
             {uploading ? "Uploading…" : submitting ? "Submitting…" : "Submit"}
           </Button>
         </div>
@@ -270,12 +343,6 @@ export function ReimbursementsHistoryPanel({
 
   useEffect(() => {
     reload();
-    // `reload` is intentionally excluded from the deps. It captures
-    // `fetchMy` (a useApiMutation handle that returns a fresh
-    // function each render) — including `reload` here would refire
-    // the effect on every render and produce an infinite refetch
-    // loop. `refreshKey` is the only legitimate trigger: parent
-    // bumps it on a successful submit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 

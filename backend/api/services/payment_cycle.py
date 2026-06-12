@@ -14,8 +14,7 @@ Usage::
 
     svc = PaymentCycleService(g.user.org_id)
     hours = svc.hours_by_user(user_ids, cycle_start, cycle_end)
-    adjs  = svc.adjustments_by_user(user_ids, cycle_start, cycle_end)
-    row   = PaymentCycleService.build_row(user, hours, adjs, status)
+    row   = PaymentCycleService.build_row(user, hours, status)
 """
 
 from datetime import date, datetime, timezone
@@ -24,7 +23,6 @@ from decimal import Decimal
 from sqlalchemy import cast, func, Date as SqlDate
 
 from ..database import (
-    PaymentAdjustment,
     PaymentCycleStatus,
     PayrollConfig,
     TimeEntry,
@@ -144,16 +142,12 @@ class PaymentCycleService:
         return f"{start.strftime('%b %d')}–{end.strftime('%d')}"
 
     @staticmethod
-    def build_row(user, seconds, adj, status_row) -> dict:
+    def build_row(user, seconds, status_row) -> dict:
         """Compose a single PaymentCycleRow dict for the table."""
         hours = round(seconds / 3600.0, 2) if seconds else 0.0
         _r = PaymentCycleService._resolve_hourly_rate(user)
         rate = float(_r) if _r is not None else None
-        adj_total = float(adj["total"]) if adj else 0.0
-        adj_count = adj["count"] if adj else 0
-        model, base, total = PaymentCycleService.compute_payable(
-            user, seconds, adj_total
-        )
+        model, base, total = PaymentCycleService.compute_payable(user, seconds, 0.0)
         wage = base
         return {
             "user_id": user.id,
@@ -168,8 +162,8 @@ class PaymentCycleService:
             "hourly_rate": rate,
             "compensation_model": model,
             "calculated_wage": wage,
-            "adjustments_total": round(adj_total, 2),
-            "adjustments_count": adj_count,
+            "reimbursements_total": 0.0,
+            "reimbursements_count": 0,
             "total_payable": round(total, 2),
             "status": status_row.status if status_row else STATUS_PENDING,
             "status_note": status_row.note if status_row else None,
@@ -220,36 +214,6 @@ class PaymentCycleService:
             for row in q.group_by(TimeEntry.user_id).all()
         }
 
-    def adjustments_by_user(
-        self, user_ids, cycle_start: date, cycle_end: date
-    ) -> dict:
-        """Sum non-deleted adjustments per user for the cycle.
-
-        Returns ``{user_id: {"total": Decimal, "count": int}}``.
-        """
-        q = (
-            db.session.query(
-                PaymentAdjustment.user_id,
-                func.coalesce(func.sum(PaymentAdjustment.amount), 0).label("total"),
-                func.count(PaymentAdjustment.id).label("count"),
-            )
-            .filter(PaymentAdjustment.is_deleted.is_(False))
-            .filter(PaymentAdjustment.cycle_start == cycle_start)
-            .filter(PaymentAdjustment.cycle_end == cycle_end)
-        )
-        if user_ids is not None:
-            ids = list(user_ids)
-            if not ids:
-                return {}
-            q = q.filter(PaymentAdjustment.user_id.in_(ids))
-        out = {}
-        for row in q.group_by(PaymentAdjustment.user_id).all():
-            out[row.user_id] = {
-                "total": Decimal(row.total or 0),
-                "count": int(row.count or 0),
-            }
-        return out
-
     def status_by_user(
         self, user_ids, cycle_start: date, cycle_end: date
     ) -> dict:
@@ -273,52 +237,6 @@ class PaymentCycleService:
         return PayrollConfig.query.filter_by(org_id=self.org_id).first()
 
     # ─── DB mutations ─────────────────────────────────────────────────
-
-    def create_adjustment(
-        self,
-        user_id: str,
-        cycle_start: date,
-        cycle_end: date,
-        amount: Decimal,
-        adj_type: str,
-        note: str,
-        added_by: str,
-        source: str = "admin_entry",
-        request_id=None,
-    ) -> PaymentAdjustment:
-        """Insert and return a new PaymentAdjustment row.
-
-        Callers must verify ``user_id`` belongs to ``self.org_id`` before calling.
-        """
-        return PaymentAdjustment.create(
-            user_id=user_id,
-            cycle_start=cycle_start,
-            cycle_end=cycle_end,
-            amount=amount,
-            type=adj_type,
-            note=note,
-            source=source,
-            request_id=request_id,
-            added_by=added_by,
-        )
-
-    def soft_delete_adjustment(
-        self, adjustment_id, deleted_by: str
-    ) -> PaymentAdjustment | None:
-        """Soft-delete an adjustment (sets is_deleted + audit fields).
-
-        Returns the updated row, or None if not found / already deleted.
-        Callers must verify cross-org safety before calling.
-        """
-        row = PaymentAdjustment.query.get(adjustment_id)
-        if not row or row.is_deleted:
-            return None
-        row.update(
-            is_deleted=True,
-            deleted_at=datetime.now(timezone.utc),
-            deleted_by=deleted_by,
-        )
-        return row
 
     def upsert_cycle_status(
         self,

@@ -85,6 +85,7 @@ export const TIMEKEEPING_CATEGORY_COLORS: Record<string, string> = {
   community_meeting: "#a855f7",
   community_outreach: "#10b981",
   community_training: "#7c3aed",
+  community_event: "#0ea5e9",
   training: "#f59e0b",
   documentation: "#f472b6",
   other: "#6b7280",
@@ -110,4 +111,5 @@ export const COMMUNITY_OUTREACH_COLORS: Record<string, string> = {
   community_meeting: "#f59e0b",
   community_training: "#f59e0b",
   community_outreach: "#fdba74",
+  community_event: "#0ea5e9",
 };

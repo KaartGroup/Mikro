@@ -3,16 +3,15 @@
 ReimbursementService — database operations for the reimbursement-request
 workflow.
 
-The Flask view delegates to this
-class; the view retains HTTP request parsing, auth decorators, permission
-checks, and response building.
+Each reimbursement request must be tied to an approved EventProposal.
+The Flask view delegates to this class; the view retains HTTP request
+parsing, auth decorators, permission checks, and response building.
 """
 
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from ..database import (
-    PaymentAdjustment,
     ReimbursementRequest,
 )
 
@@ -55,6 +54,7 @@ class ReimbursementService:
         user_id: str,
         amount: Decimal,
         description: str,
+        event_proposal_id: int,
         attachment_url: str = None,
     ) -> ReimbursementRequest:
         """Create and return a new pending ReimbursementRequest."""
@@ -63,6 +63,7 @@ class ReimbursementService:
             org_id=self.org_id,
             amount=amount,
             description=description,
+            event_proposal_id=event_proposal_id,
             attachment_url=attachment_url,
             status="pending",
         )
@@ -87,35 +88,23 @@ class ReimbursementService:
         self,
         request_id,
         reviewer_id: str,
-        cycle_start: date,
-        cycle_end: date,
         reviewer_note: str = None,
-    ) -> tuple[ReimbursementRequest, PaymentAdjustment]:
-        """Approve a pending request and create the paired PaymentAdjustment.
+    ) -> ReimbursementRequest:
+        """Approve a pending request.
 
-        Returns ``(ReimbursementRequest, PaymentAdjustment)``. The caller
-        is responsible for verifying the request is ``pending`` and that
+        Returns the updated ReimbursementRequest. The caller is
+        responsible for verifying the request is ``pending`` and that
         the reviewer has ``can_view_pay_for`` access to the owner.
         """
         row = ReimbursementRequest.query.get(request_id)
-        adj = PaymentAdjustment.create(
-            user_id=row.user_id,
-            cycle_start=cycle_start,
-            cycle_end=cycle_end,
-            amount=row.amount,
-            type="reimbursement",
-            note=row.description,
-            source="approved_request",
-            request_id=row.id,
-            added_by=reviewer_id,
-        )
+        if not row:
+            return None
         row.status = "approved"
         row.reviewed_by = reviewer_id
         row.reviewed_at = datetime.now(timezone.utc)
         row.reviewer_note = reviewer_note
-        row.adjustment_id = adj.id
         row.save()
-        return row, adj
+        return row
 
     def reject_reimbursement(
         self, request_id, reviewer_id: str, reviewer_note: str

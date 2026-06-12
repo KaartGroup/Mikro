@@ -138,7 +138,7 @@ class _FakeReimbursement:
         reviewed_by=None,
         reviewed_at=None,
         reviewer_note=None,
-        adjustment_id=None,
+        event_proposal_id=None,
     ):
         self.id = id
         self.user_id = user_id
@@ -151,7 +151,7 @@ class _FakeReimbursement:
         self.reviewed_by = reviewed_by
         self.reviewed_at = reviewed_at
         self.reviewer_note = reviewer_note
-        self.adjustment_id = adjustment_id
+        self.event_proposal_id = event_proposal_id
 
 
 class _FakeUser:
@@ -170,10 +170,10 @@ def test_format_reimbursement_returns_expected_shape():
     out = ReimbursementsAPI._format_reimbursement(row)
     # Required keys present.
     for key in (
-        "id", "user_id", "org_id", "amount", "description",
+        "id", "user_id", "org_id", "event_proposal_id", "amount", "description",
         "attachment_url", "has_attachment", "status",
         "submitted_at", "reviewed_by", "reviewed_at",
-        "reviewer_note", "adjustment_id",
+        "reviewer_note",
     ):
         assert key in out, f"missing key: {key}"
 

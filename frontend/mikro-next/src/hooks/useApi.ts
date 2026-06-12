@@ -57,7 +57,6 @@ import type {
   PaymentCycleKpisResponse,
   PaymentContributorDetailResponse,
   PaymentStatusRow,
-  PaymentAdjustment,
   ReimbursementListResponse,
   ReimbursementMutationResponse,
   ReimbursementUploadUrlResponse,
@@ -833,6 +832,7 @@ export function useFetchSubcategories() {
   );
 }
 
+
 /**
  * Admin management view — returns the subcategories the caller can
  * MANAGE (subset varies by role: super_admin sees all, admin sees
@@ -1337,18 +1337,6 @@ export function useFetchPaymentContributor() {
   );
 }
 
-export function useFetchProjectDispensation() {
-  return useApiMutation<import("@/types").ProjectDispensationResponse>(
-    "/payments/project-dispensation",
-  );
-}
-
-export function useFetchPaymentForecast() {
-  return useApiMutation<import("@/types").PayrollForecastResponse>(
-    "/payments/forecast",
-  );
-}
-
 export function useFetchPayrollConfig() {
   return useApiMutation<import("@/types").PayrollConfigResponse>(
     "/payments/config/fetch",
@@ -1359,20 +1347,6 @@ export function useSavePayrollConfig() {
   return useApiMutation<import("@/types").PayrollConfigResponse>(
     "/payments/config",
   );
-}
-
-export function useCreatePaymentAdjustment() {
-  return useApiMutation<{ adjustment: PaymentAdjustment; status: number }>(
-    "/payments/adjustment/create",
-  );
-}
-
-export function useDeletePaymentAdjustment() {
-  return useApiMutation<{
-    message: string;
-    adjustment_id: number;
-    status: number;
-  }>("/payments/adjustment/delete");
 }
 
 export function useSetPaymentCycleStatus() {

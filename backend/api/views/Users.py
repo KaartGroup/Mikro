@@ -493,6 +493,7 @@ class UserAPI(MethodView):
         response["payment_email"] = user.payment_email
         response["city"] = user.city
         response["country"] = user.country
+        response["country_id"] = user.country_id
         response["timezone"] = user.timezone
 
         # OSM account linking fields

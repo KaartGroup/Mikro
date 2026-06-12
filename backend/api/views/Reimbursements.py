@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
 Reimbursements API — editor + admin endpoints for the reimbursement-request
-workflow (Trello PkljPEJx).
+workflow.
 
 Routes mounted under ``/api/reimbursements/`` in ``app.py``.
 
 Workflow rules:
-  - Editor submits a request -> row in pending state. user_id + org_id
-    always derived from g.user (never trusted from body).
+  - Editor submits a request against one of their approved EventProposals.
+    Amount must not exceed the event's total proposed budget.
+    user_id + org_id always derived from g.user (never trusted from body).
   - Editor can withdraw their own pending requests; not after review.
-  - Admin can approve (creates paired PaymentAdjustment) or reject (with
-    reviewer_note). Admin picks the cycle at approval time.
+  - Admin can approve (with optional reviewer note) or reject (with required
+    reviewer_note).
   - Pay-visibility model: editors see their own rows only; admins see rows
     for users they can ``can_view_pay_for``.
 
@@ -18,27 +19,24 @@ Notifications are stubbed (comms platform not yet built); the three trigger
 points are marked TODO comms-platform inline.
 """
 
+import json
 import re
 import uuid
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 import boto3
 from flask import current_app, g, request
 from flask.views import MethodView
+from sqlalchemy import func
 
 from ..auth import can_view_pay_for
-from ..database import ReimbursementRequest, User
+from ..database import EventProposal, ReimbursementRequest, User, db
 from ..services.reimbursements import ReimbursementService
 from ..utils import requires_team_admin_or_above
 
 
 # ─── DO Spaces helpers (receipt uploads / fetches) ──────────────────
-#
-# Issues short-lived signed URLs for editor receipt uploads and admin
-# receipt views. The bucket stays private at the DO Spaces ACL level —
-# every read is mediated by a backend permission check followed by a
-# fresh GET URL signed for that one viewer.
 
 _RECEIPT_ALLOWED_CONTENT_TYPES = {
     "image/jpeg",
@@ -107,16 +105,28 @@ def _presigned_get_url(key):
     )
 
 
-def _parse_iso_date(raw):
-    """Parse an ISO date (YYYY-MM-DD) from a request payload."""
-    if not raw:
-        return None
+def _event_total_budget(proposal) -> Decimal:
+    """Sum the total proposed budget for an EventProposal.
+
+    Only sums amounts for categories listed in budget_categories to avoid
+    counting stale entries left in budget_amounts after a category is deselected.
+    """
+    total = Decimal("0")
     try:
-        if isinstance(raw, date) and not isinstance(raw, datetime):
-            return raw
-        return datetime.strptime(str(raw)[:10], "%Y-%m-%d").date()
+        amounts = json.loads(proposal.budget_amounts or "{}")
+        cats = set(json.loads(proposal.budget_categories or "[]"))
+        for k, v in amounts.items():
+            if k not in cats:
+                continue
+            try:
+                total += Decimal(str(v))
+            except InvalidOperation:
+                pass
     except (TypeError, ValueError):
-        return None
+        pass
+    if proposal.other_expense_amount:
+        total += Decimal(str(proposal.other_expense_amount))
+    return total
 
 
 class ReimbursementsAPI(MethodView):
@@ -149,6 +159,7 @@ class ReimbursementsAPI(MethodView):
             "id": req.id,
             "user_id": req.user_id,
             "org_id": req.org_id,
+            "event_proposal_id": req.event_proposal_id,
             "amount": float(req.amount) if req.amount is not None else None,
             "description": req.description,
             "attachment_url": req.attachment_url,
@@ -158,7 +169,6 @@ class ReimbursementsAPI(MethodView):
             "reviewed_by": req.reviewed_by,
             "reviewed_at": req.reviewed_at.isoformat() + "Z" if req.reviewed_at else None,
             "reviewer_note": req.reviewer_note,
-            "adjustment_id": req.adjustment_id,
         }
 
     @staticmethod
@@ -173,17 +183,61 @@ class ReimbursementsAPI(MethodView):
     # ── Editor endpoints ─────────────────────────────────────────────
 
     def submit(self):
-        """Editor submits a new reimbursement request."""
+        """Editor submits a new reimbursement request against an approved event."""
         if not g.user:
-            return {"message": "Missing user info", "status": 304}
+            return {"message": "Missing user info", "status": 401}, 401
 
         body = request.json or {}
+
+        # Validate event_proposal_id
+        event_proposal_id = body.get("event_proposal_id")
+        if not event_proposal_id:
+            return {"message": "event_proposal_id is required", "status": 400}
+
+        proposal = EventProposal.query.get(event_proposal_id)
+        if not proposal:
+            return {"message": "Event proposal not found", "status": 404}
+        if proposal.status != "approved":
+            return {"message": "Reimbursements can only be submitted against approved events", "status": 400}
+        if proposal.org_id != g.user.org_id:
+            return {"message": "Cross-org request denied", "status": 403}
+
+        # Validate amount
         try:
             amount = Decimal(str(body.get("amount")))
         except Exception:
             return {"message": "amount must be a number", "status": 400}
         if amount <= 0:
             return {"message": "amount must be > 0", "status": 400}
+
+        budget_cap = _event_total_budget(proposal)
+        if budget_cap > 0:
+            if amount > budget_cap:
+                return {
+                    "message": (
+                        f"Amount exceeds the event's proposed budget "
+                        f"({float(budget_cap):.2f})"
+                    ),
+                    "status": 400,
+                }
+            existing_result = (
+                db.session.query(func.sum(ReimbursementRequest.amount))
+                .filter(
+                    ReimbursementRequest.event_proposal_id == event_proposal_id,
+                    ReimbursementRequest.status.in_(["pending", "approved"]),
+                )
+                .scalar()
+            )
+            existing_total = Decimal(str(existing_result)) if existing_result is not None else Decimal("0")
+            if existing_total + amount > budget_cap:
+                return {
+                    "message": (
+                        f"This request would exceed the event's total budget cap "
+                        f"({float(budget_cap):.2f}). "
+                        f"Already committed: {float(existing_total):.2f}."
+                    ),
+                    "status": 400,
+                }
 
         description = (body.get("description") or "").strip()
         if not description:
@@ -203,6 +257,7 @@ class ReimbursementsAPI(MethodView):
             user_id=g.user.id,
             amount=amount,
             description=description,
+            event_proposal_id=event_proposal_id,
             attachment_url=attachment_url,
         )
         # TODO comms-platform: notify org admins of new pending request.
@@ -215,7 +270,7 @@ class ReimbursementsAPI(MethodView):
     def my(self):
         """List the current user's own reimbursement requests."""
         if not g.user:
-            return {"message": "Missing user info", "status": 304}
+            return {"message": "Missing user info", "status": 401}, 401
 
         body = request.json or {}
         status_filter = (body.get("status") or "").strip().lower() or None
@@ -234,7 +289,7 @@ class ReimbursementsAPI(MethodView):
     def withdraw(self):
         """Editor withdraws their own pending request."""
         if not g.user:
-            return {"message": "Missing user info", "status": 304}
+            return {"message": "Missing user info", "status": 401}, 401
 
         body = request.json or {}
         req_id = body.get("request_id")
@@ -263,7 +318,7 @@ class ReimbursementsAPI(MethodView):
     def upload_url(self):
         """Issue a short-lived presigned PUT URL for a receipt upload."""
         if not g.user:
-            return {"message": "Missing user info", "status": 304}
+            return {"message": "Missing user info", "status": 401}, 401
 
         body = request.json or {}
         filename = (body.get("filename") or "").strip()
@@ -321,17 +376,13 @@ class ReimbursementsAPI(MethodView):
 
     @requires_team_admin_or_above
     def approve(self):
-        """Approve a pending request → creates the paired PaymentAdjustment."""
+        """Approve a pending request."""
         body = request.json or {}
         req_id = body.get("request_id")
-        cycle_start = _parse_iso_date(body.get("cycle_start"))
-        cycle_end = _parse_iso_date(body.get("cycle_end"))
         reviewer_note = (body.get("reviewer_note") or "").strip() or None
 
         if not req_id:
             return {"message": "request_id required", "status": 400}
-        if not cycle_start or not cycle_end or cycle_end < cycle_start:
-            return {"message": "cycle_start + cycle_end required", "status": 400}
         if reviewer_note and len(reviewer_note) > 2000:
             return {"message": "reviewer_note exceeds 2000 characters", "status": 400}
 
@@ -351,17 +402,14 @@ class ReimbursementsAPI(MethodView):
             return {"message": "Not authorized for this request", "status": 403}
 
         svc = ReimbursementService(g.user.org_id)
-        row, adj = svc.approve_reimbursement(
+        row = svc.approve_reimbursement(
             request_id=req_id,
             reviewer_id=g.user.id,
-            cycle_start=cycle_start,
-            cycle_end=cycle_end,
             reviewer_note=reviewer_note,
         )
         # TODO comms-platform: notify editor that their request was approved.
         return {
             "request": self._format_reimbursement(row),
-            "adjustment_id": adj.id,
             "message": "Reimbursement approved",
             "status": 200,
         }
@@ -419,13 +467,9 @@ class ReimbursementsAPI(MethodView):
           - An admin with ``can_view_pay_for`` access to the owner
             also needs access (to review attached receipts during
             approval triage).
-
-        Auth gating is the ``if not g.user`` check + the explicit
-        ownership-OR-pay-visibility branch below. Cross-org is hard-
-        denied first via the org_id match.
         """
         if not g.user:
-            return {"message": "Missing user info", "status": 304}
+            return {"message": "Missing user info", "status": 401}, 401
 
         body = request.json or {}
         req_id = body.get("request_id")
