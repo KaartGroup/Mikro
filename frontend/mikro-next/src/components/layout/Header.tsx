@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRole } from "@/contexts/RoleContext";
+import { useErrorReporter } from "@/contexts/ErrorReporterContext";
 import { RolePreviewSwitcher } from "./RolePreviewSwitcher";
 import { MessengerIcon } from "@/components/comms/MessengerIcon";
 import { NotificationBell } from "@/components/comms/NotificationBell";
@@ -14,6 +15,7 @@ interface HeaderProps {
 
 export function Header({ displayName }: HeaderProps) {
   const { displayName: contextName, email } = useRole();
+  const { openReport } = useErrorReporter();
   const name = displayName || contextName || email;
 
   return (
@@ -74,6 +76,22 @@ export function Header({ displayName }: HeaderProps) {
             <MessengerIcon />
             <NotificationBell />
             <RolePreviewSwitcher />
+            <button
+              type="button"
+              onClick={() => openReport()}
+              style={{
+                fontSize: 14,
+                fontWeight: 500,
+                color: "var(--foreground)",
+                cursor: "pointer",
+                padding: "8px 12px",
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                backgroundColor: "transparent",
+              }}
+            >
+              Report a problem
+            </button>
             <Link
               href={ROUTES.account}
               style={{

@@ -40,6 +40,7 @@ export {
   useToast,
   useToastActions,
   type Toast,
+  type ToastAction,
   type ToastVariant,
 } from "./Toast";
 export { Tooltip, type TooltipProps } from "./Tooltip";

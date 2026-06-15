@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useErrorReporter } from "@/contexts/ErrorReporterContext";
 import type {
   AdminDashboardStats,
   UserDashboardStats,
@@ -92,6 +93,7 @@ export function useApiCall<T>(
   },
 ) {
   const base = options?.base ?? "/backend";
+  const { captureError } = useErrorReporter();
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(options?.immediate !== false);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +102,11 @@ export function useApiCall<T>(
     async (overrideBody?: Record<string, unknown>) => {
       setLoading(true);
       setError(null);
+
+      // Tracks whether the failure was already silently captured at the
+      // non-2xx branch, so the catch below doesn't double-report it.
+      let captured = false;
+      const body = overrideBody || options?.body || {};
 
       try {
         const response = await fetch(`${base}${endpoint}`, {
@@ -149,17 +156,36 @@ export function useApiCall<T>(
         } else {
           const errorMsg = result.message || "An error occurred";
           setError(errorMsg);
+          // Silent capture only — record KEYS, never values (no PII).
+          captureError({
+            endpoint,
+            method: "POST",
+            httpStatus: response.status,
+            serverMessage: result?.message,
+            requestKeys: Object.keys(body),
+            at: new Date().toISOString(),
+          });
+          captured = true;
           throw new Error(errorMsg);
         }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
         setError(errorMsg);
+        if (!captured) {
+          // Network / parse failure before we got a response.
+          captureError({
+            endpoint,
+            method: "POST",
+            requestKeys: Object.keys(body),
+            at: new Date().toISOString(),
+          });
+        }
         throw err;
       } finally {
         setLoading(false);
       }
     },
-    [endpoint, options?.body, base],
+    [endpoint, options?.body, base, captureError],
   );
 
   useEffect(() => {
@@ -169,6 +195,14 @@ export function useApiCall<T>(
   }, [fetchData, options?.immediate]);
 
   return { data, loading, error, refetch: fetchData };
+}
+
+// User: submit a problem report / feedback. Body: { description, category?,
+// context? } → { message, status }. Routes through Mikro's own /backend proxy.
+export function useSubmitFeedback() {
+  return useApiMutation<{ message: string; status: number }>(
+    "/feedback/submit",
+  );
 }
 
 // Admin Dashboard Stats
@@ -268,6 +302,7 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
   // hooks pass "/comms" to route through the separate comms-service proxy.
   base: string = "/backend",
 ) {
+  const { captureError } = useErrorReporter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -275,6 +310,10 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
     async (body: Record<string, unknown>): Promise<TResponse> => {
       setLoading(true);
       setError(null);
+
+      // Tracks whether the failure was already silently captured at a
+      // non-2xx branch, so the catch below doesn't double-report it.
+      let captured = false;
 
       try {
         const response = await fetch(`${base}${endpoint}`, {
@@ -312,6 +351,16 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
         if (isJsonError) {
           const errorMsg = result.message || "An error occurred";
           setError(errorMsg);
+          // Silent capture only — record KEYS, never values (no PII).
+          captureError({
+            endpoint,
+            method: "POST",
+            httpStatus: response.status,
+            serverMessage: result?.message,
+            requestKeys: Object.keys(body),
+            at: new Date().toISOString(),
+          });
+          captured = true;
           throw new Error(errorMsg);
         }
         if (response.ok || jsonStatus === 200) {
@@ -319,17 +368,35 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
         } else {
           const errorMsg = result.message || "An error occurred";
           setError(errorMsg);
+          captureError({
+            endpoint,
+            method: "POST",
+            httpStatus: response.status,
+            serverMessage: result?.message,
+            requestKeys: Object.keys(body),
+            at: new Date().toISOString(),
+          });
+          captured = true;
           throw new Error(errorMsg);
         }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
         setError(errorMsg);
+        if (!captured) {
+          // Network / parse failure before we got a response.
+          captureError({
+            endpoint,
+            method: "POST",
+            requestKeys: Object.keys(body),
+            at: new Date().toISOString(),
+          });
+        }
         throw err;
       } finally {
         setLoading(false);
       }
     },
-    [endpoint, base],
+    [endpoint, base, captureError],
   );
 
   return { mutate, loading, error };
@@ -829,7 +896,6 @@ export function useFetchSubcategories() {
     "/timetracking/subcategories_list",
   );
 }
-
 
 /**
  * Admin management view — returns the subcategories the caller can

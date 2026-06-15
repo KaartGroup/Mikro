@@ -895,15 +895,20 @@ class TimeTrackingAPI(MethodView):
         session_id = data.get("session_id")
 
         if not session_id:
-            return (
-                jsonify(
-                    {
-                        "message": "session_id is required",
-                        "status": 400,
-                    }
-                ),
-                400,
-            )
+            active = TimeEntry.query.filter_by(
+                user_id=g.user.id, status="active"
+            ).first()
+            if not active:
+                return (
+                    jsonify(
+                        {
+                            "message": "No active session to discard",
+                            "status": 404,
+                        }
+                    ),
+                    404,
+                )
+            session_id = active.id
 
         try:
             elapsed = TimeEntryService().discard(
