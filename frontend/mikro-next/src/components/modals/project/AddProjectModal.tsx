@@ -11,6 +11,7 @@ import {
   Skeleton,
   Tabs,
   TabsContent,
+  Tooltip,
   Table,
   TableHeader,
   TableBody,
@@ -325,7 +326,7 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
       onClose={handleClose}
       title="Add New Project"
       description="Add a TM4 or MapRoulette project to Mikro for payment tracking"
-      size="lg"
+      size="3xl"
       footer={
         <>
           <Button variant="outline" onClick={handleClose}>
@@ -836,7 +837,21 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
               teamCount: preSelectedTeamIds.size,
               countryCount: preSelectedCountryIds.size,
             });
-            const rows: { label: string; value: string }[] = [
+            // Resolve selected ids to names for the on-hover tooltips.
+            const locationNames = (countriesData?.countries ?? [])
+              .filter((c) => preSelectedCountryIds.has(c.id))
+              .map((c) => c.name);
+            const teamNames = ((allTeamsData as TeamsResponse)?.teams ?? [])
+              .filter((t) => preSelectedTeamIds.has(t.id))
+              .map((t) => t.name);
+            const peopleNames = (allUsersData?.users ?? [])
+              .filter((u) => preSelectedUserIds.has(u.id))
+              .map((u) => u.name || u.email || u.osm_username || u.id);
+            const rows: {
+              label: string;
+              value: string;
+              names?: string[];
+            }[] = [
               { label: "Project URL", value: formData.url || "—" },
               {
                 label: "Short name",
@@ -878,9 +893,21 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
               );
             }
             rows.push(
-              { label: "Locations", value: `${preSelectedCountryIds.size}` },
-              { label: "Teams", value: `${preSelectedTeamIds.size}` },
-              { label: "People", value: `${preSelectedUserIds.size}` },
+              {
+                label: "Locations",
+                value: `${preSelectedCountryIds.size}`,
+                names: locationNames,
+              },
+              {
+                label: "Teams",
+                value: `${preSelectedTeamIds.size}`,
+                names: teamNames,
+              },
+              {
+                label: "People",
+                value: `${preSelectedUserIds.size}`,
+                names: peopleNames,
+              },
             );
             return (
               <div className="space-y-4">
@@ -896,7 +923,24 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
                     >
                       <dt className="text-muted-foreground">{row.label}</dt>
                       <dd className="text-right font-medium break-all">
-                        {row.value}
+                        {row.names && row.names.length > 0 ? (
+                          <Tooltip
+                            position="left"
+                            content={
+                              <div className="space-y-0.5 text-left">
+                                {row.names.map((n) => (
+                                  <div key={n}>{n}</div>
+                                ))}
+                              </div>
+                            }
+                          >
+                            <span className="cursor-help underline decoration-dotted underline-offset-2">
+                              {row.value}
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          row.value
+                        )}
                       </dd>
                     </div>
                   ))}
