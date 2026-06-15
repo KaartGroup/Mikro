@@ -161,35 +161,6 @@ services:
       timeout_seconds: 5
       success_threshold: 1
       failure_threshold: 3
-    jobs:
-      - name: comms-migrate
-        kind: PRE_DEPLOY
-        github:
-          repo: KaartGroup/Mikro
-          branch: comms-release
-          deploy_on_push: true
-        source_dir: comms
-        environment_slug: python
-        instance_count: 1
-        instance_size_slug: professional-xs
-        # cwd is comms/ (source_dir), so alembic.ini path is relative to that.
-        run_command: python -m alembic -c migrations/alembic.ini upgrade head
-        envs:
-          # Force UTF-8 so configparser reads alembic.ini under the container's
-          # ASCII locale (belt-and-suspenders; the ini is ASCII-only).
-          - key: PYTHONUTF8
-            value: "1"
-          - key: COMMS_DATABASE_URL
-            scope: RUN_TIME
-            value: ${comms-db.DATABASE_URL}
-          - key: AUTH0_DOMAIN
-            type: SECRET
-            value: ${AUTH0_DOMAIN}
-          - key: API_AUDIENCES
-            value: ${COMMS_API_AUDIENCES}
-          - key: COMMS_WEBHOOK_SECRET
-            type: SECRET
-            value: ${COMMS_WEBHOOK_SECRET}
     envs:
       - key: COMMS_DATABASE_URL
         scope: RUN_TIME
@@ -224,6 +195,67 @@ services:
         value: mikro/roles,tm/roles,viewer/roles,roles
       - key: NOTIFICATION_RETENTION_DAYS
         value: "90"
+
+jobs:
+  # Run Alembic/Flask-Migrate migrations before each backend deploy goes live.
+  # App Platform does NOT execute the Procfile `release:` phase (that's a
+  # Heroku-ism), so migrations must run as a PRE_DEPLOY job. Builds from master
+  # alongside mikro-backend; the new containers only go live if this succeeds.
+  - name: mikro-migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: KaartGroup/Mikro
+      branch: master
+      deploy_on_push: true
+    source_dir: backend
+    environment_slug: python
+    instance_count: 1
+    instance_size_slug: professional-xs
+    run_command: flask db upgrade
+    envs:
+      # flask db upgrade builds the app via FLASK_APP -> create_app(); under
+      # FLASK_ENV=production the config raises if SECRET_KEY is unset, and the
+      # DB URI is read from DATABASE_URL.
+      - key: FLASK_APP
+        value: app.py
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        type: SECRET
+        value: ${SECRET_KEY}
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+
+  # Comms migrations. Deploys from comms-release (its own branch), matching the
+  # comms service. cwd is comms/ (source_dir), so alembic.ini path is relative.
+  - name: comms-migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: KaartGroup/Mikro
+      branch: comms-release
+      deploy_on_push: true
+    source_dir: comms
+    environment_slug: python
+    instance_count: 1
+    instance_size_slug: professional-xs
+    run_command: python -m alembic -c migrations/alembic.ini upgrade head
+    envs:
+      # Force UTF-8 so configparser reads alembic.ini under the container's
+      # ASCII locale (belt-and-suspenders; the ini is ASCII-only).
+      - key: PYTHONUTF8
+        value: "1"
+      - key: COMMS_DATABASE_URL
+        scope: RUN_TIME
+        value: ${comms-db.DATABASE_URL}
+      - key: AUTH0_DOMAIN
+        type: SECRET
+        value: ${AUTH0_DOMAIN}
+      - key: API_AUDIENCES
+        value: ${COMMS_API_AUDIENCES}
+      - key: COMMS_WEBHOOK_SECRET
+        type: SECRET
+        value: ${COMMS_WEBHOOK_SECRET}
 
 workers:
   # Background worker - nightly task sync, element analysis, MR backfill,
