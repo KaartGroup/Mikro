@@ -17,6 +17,9 @@ python-jose[cryptography]>=3.3.0
 # HTTP requests
 requests>=2.31.0
 
+# MapRoulette API wrapper
+maproulette>=1.8.1
+
 # Environment
 python-dotenv>=1.0.0
 

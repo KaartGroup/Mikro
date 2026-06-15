@@ -3,47 +3,70 @@
 MapRoulette sync module for Mikro.
 
 Supplemental integration that syncs MapRoulette challenge tasks alongside
-the primary TM4 (Tasking Manager 4) integration. Uses the MapRoulette API v2
-to fetch challenge tasks, their completion history, and review status.
+the primary TM4 (Tasking Manager 4) integration. Uses the official
+`maproulette` API wrapper (https://pypi.org/project/maproulette/).
 
-Key differences from TM4:
-- MR uses OSM usernames (no separate MR username needed)
-- No split task logic (parent_task_id stays null)
-- Tasks are fetched by paginating challenge tasks, not contributions
-- Review status comes from task history, not a separate endpoint
+Sync data source
+-----------------
+A single CSV "extract" per challenge gives every task's status plus the OSM
+usernames of its mapper and reviewer in one request:
+
+    GET /challenge/{id}/tasks/extract   (Challenge.extract_task_summaries)
+
+This replaces the previous approach of paginating /challenge/{id}/tasks and
+then making a /task/{id}/history request per task to recover the mapper and
+reviewer -- the extract already contains both, so no per-task fan-out.
+Total task count comes from the summary stats endpoint:
+
+    GET /data/challenge/{id}            (Challenge.get_challenge_statistics_by_id)
+
+GOTCHAS (see maproulette_api_gotchas memory):
+- extract's default (empty) status filter is NOT "all"; it omits completed
+  statuses. We always pass an explicit status filter.
+- /tasks/extract and /data/challenge are user-scoped: MR_API_KEY must be a
+  real account key in "userId|token" form, not a bare token, or they 401.
+- extract reports status/review as LABEL STRINGS (e.g. "Not_An_Issue",
+  "Approved With Fixes"), not integer codes; we map them back below.
 
 MR Task Status codes:
     0 = Created
     1 = Fixed
-    2 = FalsePositive
+    2 = FalsePositive   (extract label "Not_An_Issue")
     3 = Skipped
-    5 = AlreadyFixed
-    6 = CantComplete
+    4 = Deleted
+    5 = AlreadyFixed    (extract label "Already_Fixed")
+    6 = CantComplete    (extract label "Too_Hard")
 
 MR Review Status codes:
     0 = Requested
     1 = Approved
     2 = Rejected
-    3 = Assisted
+    3 = Assisted        (extract label "Approved With Fixes")
     4 = Disputed
+    5 = Unnecessary
+    6 = ApprovedWithRevisions
+    7 = ApprovedWithFixesAfterRevisions
 """
 
-import time
-import requests
+import csv
+import io
 from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import urlparse
 
 from flask import current_app
 from sqlalchemy import func
 
-from ..database import Project, Task, User, UserTasks, db
+import maproulette
+from maproulette.api.errors import MapRouletteBaseException
 
+from ..database import Task, User, UserTasks, db
 
 # MR task status constants
 MR_STATUS_CREATED = 0
 MR_STATUS_FIXED = 1
 MR_STATUS_FALSE_POSITIVE = 2
 MR_STATUS_SKIPPED = 3
+MR_STATUS_DELETED = 4
 MR_STATUS_ALREADY_FIXED = 5
 MR_STATUS_CANT_COMPLETE = 6
 
@@ -53,19 +76,61 @@ MR_REVIEW_APPROVED = 1
 MR_REVIEW_REJECTED = 2
 MR_REVIEW_ASSISTED = 3
 MR_REVIEW_DISPUTED = 4
+MR_REVIEW_UNNECESSARY = 5
+MR_REVIEW_APPROVED_WITH_REVISIONS = 6
+MR_REVIEW_APPROVED_WITH_FIXES_AFTER_REVISIONS = 7
 
-# MR history action type constants
-MR_ACTION_STATUS_CHANGE = 1
-MR_ACTION_REVIEW = 2
-
-# All MR statuses that represent real user work (excludes Created=0)
+# All MR statuses that represent real user work (excludes Created=0, Deleted=4)
 MR_TRACKABLE_STATUSES = {
-    MR_STATUS_FIXED,           # 1
+    MR_STATUS_FIXED,  # 1
     MR_STATUS_FALSE_POSITIVE,  # 2
-    MR_STATUS_SKIPPED,         # 3
-    MR_STATUS_ALREADY_FIXED,   # 5
-    MR_STATUS_CANT_COMPLETE,   # 6
+    MR_STATUS_SKIPPED,  # 3
+    MR_STATUS_ALREADY_FIXED,  # 5
+    MR_STATUS_CANT_COMPLETE,  # 6
 }
+
+# Comma-separated status filter passed to the extract endpoint so it returns
+# exactly the trackable tasks (the empty default would drop completed ones).
+MR_TRACKABLE_STATUS_FILTER = ",".join(str(s) for s in sorted(MR_TRACKABLE_STATUSES))
+
+# Upper bound on rows requested from a single extract call.
+MR_EXTRACT_LIMIT = 1_000_000
+
+# Review statuses that mark a task validated (mapper paid). This preserves the
+# prior behavior (Approved + Assisted). Codes 6/7 are additional approval
+# variants currently treated as no-op -- see maproulette_review_codes_gap.
+MR_REVIEW_VALIDATES = {MR_REVIEW_APPROVED, MR_REVIEW_ASSISTED}
+MR_REVIEW_INVALIDATES = {MR_REVIEW_REJECTED}
+
+# extract CSV "TaskStatus" label -> integer code. Labels are the authoritative
+# STATUS_*_NAME values from the MapRoulette backend (Task.scala).
+MR_STATUS_LABEL_TO_CODE = {
+    "Created": MR_STATUS_CREATED,
+    "Fixed": MR_STATUS_FIXED,
+    "Not_An_Issue": MR_STATUS_FALSE_POSITIVE,
+    "Skipped": MR_STATUS_SKIPPED,
+    "Deleted": MR_STATUS_DELETED,
+    "Already_Fixed": MR_STATUS_ALREADY_FIXED,
+    "Too_Hard": MR_STATUS_CANT_COMPLETE,
+}
+
+# extract CSV "ReviewStatus" label -> integer code (or None for no review).
+MR_REVIEW_LABEL_TO_CODE = {
+    "": None,
+    "Requested": MR_REVIEW_REQUESTED,
+    "Approved": MR_REVIEW_APPROVED,
+    "Rejected": MR_REVIEW_REJECTED,
+    "Approved With Fixes": MR_REVIEW_ASSISTED,
+    "Disputed": MR_REVIEW_DISPUTED,
+    "Unnecessary": MR_REVIEW_UNNECESSARY,
+    "Approved With Revisions": MR_REVIEW_APPROVED_WITH_REVISIONS,
+    "Approved With Fixes After Revisions": (
+        MR_REVIEW_APPROVED_WITH_FIXES_AFTER_REVISIONS
+    ),
+}
+
+# Sentinel for an unrecognized review label (distinct from "no review" = None).
+_UNKNOWN_REVIEW = object()
 
 
 class MapRouletteSync:
@@ -85,243 +150,210 @@ class MapRouletteSync:
         return {"apiKey": api_key}
 
     def _get_mr_base_url(self):
-        return current_app.config.get(
-            "MR_API_URL", "https://maproulette.org/api/v2"
+        return current_app.config.get("MR_API_URL", "https://maproulette.org/api/v2")
+
+    def _challenge_client(self):
+        """Build a maproulette.Challenge client from app config."""
+        api_url = self._get_mr_base_url()
+        parsed = urlparse(api_url)
+        config = maproulette.Configuration(
+            api_key=current_app.config.get("MR_API_KEY"),
+            hostname=parsed.hostname or "maproulette.org",
+            protocol=parsed.scheme or "https",
+            api_version=parsed.path.rstrip("/") or "/api/v2",
         )
+        return maproulette.Challenge(config)
 
-    def _parse_date(self, date_str):
-        if not date_str:
-            return None
-        try:
-            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        except (ValueError, TypeError, AttributeError):
-            try:
-                return datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%f%z")
-            except (ValueError, TypeError):
-                current_app.logger.warning(f"Could not parse date string: {date_str}")
-                return None
+    def _preload_caches(self, project, parsed_rows):
+        """
+        Load everything the per-task loop needs up front so the loop hits
+        in-memory dicts instead of issuing a query (and commit) per task.
 
-    def _resolve_user(self, osm_username):
-        if not osm_username:
-            return None
-        return User.query.filter_by(osm_username=osm_username).first()
+        Returns (existing_tasks, users_by_osm, existing_links):
+          existing_tasks : {mr task_id: Task}
+          users_by_osm   : {osm_username: User} for usernames seen in rows
+          existing_links : set of (user_id, task.id) links that already exist
+        """
+        existing_tasks = {
+            t.task_id: t for t in Task.query.filter_by(project_id=project.id).all()
+        }
 
-    def _ensure_user_tasks_link(self, user, task_record):
-        """Create a UserTasks link if one doesn't already exist."""
-        # TODO: Pre-load all existing UserTasks for the project into a set
-        #       upfront to replace these per-task existence-check queries.
-        existing = UserTasks.query.filter_by(
-            user_id=user.id, task_id=task_record.id
-        ).first()
-        if not existing:
-            UserTasks.create(user_id=user.id, task_id=task_record.id)
-            return True
-        return False
+        # Only resolve usernames that can produce a UserTasks link: every
+        # mapper, and reviewers on validating reviews.
+        usernames = set()
+        for p in parsed_rows:
+            if p["mapper"]:
+                usernames.add(p["mapper"])
+            if p["reviewer"] and p["review_status"] in MR_REVIEW_VALIDATES:
+                usernames.add(p["reviewer"])
+
+        users_by_osm = {}
+        if usernames:
+            users = User.query.filter(User.osm_username.in_(usernames)).all()
+            users_by_osm = {u.osm_username: u for u in users}
+
+        existing_links = set()
+        if existing_tasks:
+            links = (
+                UserTasks.query.join(Task, UserTasks.task_id == Task.id)
+                .filter(Task.project_id == project.id)
+                .all()
+            )
+            existing_links = {(ut.user_id, ut.task_id) for ut in links}
+
+        return existing_tasks, users_by_osm, existing_links
+
+    def _create_links(self, pending_links, existing_links, preexisting_obj_ids, stats):
+        """
+        Bulk-create the UserTasks links collected during the loop, skipping
+        any that already exist. New tasks must be flushed first so .id is set.
+        """
+        for user, task in pending_links:
+            key = (user.id, task.id)
+            if key in existing_links:
+                continue
+            existing_links.add(key)
+            db.session.add(UserTasks(user_id=user.id, task_id=task.id))
+            if id(task) in preexisting_obj_ids:
+                stats.setdefault("links_repaired", 0)
+                stats["links_repaired"] += 1
+                current_app.logger.info(
+                    f"[LINK] REPAIR: created missing UserTasks link "
+                    f"user={user.id} -> task={task.id} (task_id={task.task_id})"
+                )
+            else:
+                current_app.logger.info(
+                    f"[LINK] Created UserTasks link: user={user.id} "
+                    f"({user.osm_username}) -> task={task.id}"
+                )
 
     # ------------------------------------------------------------------
     # API fetch helpers
     # ------------------------------------------------------------------
 
-    def _fetch_actionable_tasks(self, challenge_id, base_url, headers):
+    def _fetch_task_summaries(self, challenge_client, challenge_id):
         """
-        Paginate the challenge tasks endpoint and return only trackable tasks.
+        Fetch the extract CSV for a challenge and return a list of row dicts.
 
-        TODO: The page size here (50) and in _refresh_total_tasks (200) both
-              scan the same endpoint. Switching to 200 here would cut the
-              request count ~4x and let _refresh_total_tasks reuse the data
-              instead of making a second full pass.
+        Requests only the trackable statuses. Raises MapRouletteBaseException
+        on API/auth failure so the caller can avoid masking it as "no tasks".
         """
-        actionable = []
-        page = 0
-        limit = 50
-
-        while True:
-            url = f"{base_url}/challenge/{challenge_id}/tasks?limit={limit}&page={page}"
-            try:
-                response = requests.get(url, headers=headers, timeout=60)
-                if not response.ok:
-                    current_app.logger.error(
-                        f"MR task list fetch failed for challenge {challenge_id} "
-                        f"page {page}: HTTP {response.status_code}"
-                    )
-                    break
-
-                tasks_page = response.json()
-                if not isinstance(tasks_page, list) or not tasks_page:
-                    break
-
-                for t in tasks_page:
-                    try:
-                        if t.get("status") in MR_TRACKABLE_STATUSES:
-                            actionable.append(t)
-                    except (TypeError, AttributeError):
-                        continue
-
-                if len(tasks_page) < limit:
-                    break
-                page += 1
-
-            except requests.RequestException as e:
-                current_app.logger.error(
-                    f"MR API error listing tasks for challenge {challenge_id} page {page}: {e}"
-                )
-                break
-            except (ValueError, KeyError) as e:
-                current_app.logger.error(
-                    f"MR JSON parse error for challenge {challenge_id} page {page}: {e}"
-                )
-                break
-
-        return actionable
-
-    def _fetch_task_history(self, task_id, base_url=None, headers=None, app=None):
-        """
-        Fetch the action history for a single MapRoulette task.
-
-        When called from a thread, pass base_url, headers, and app
-        to avoid Flask application context issues.
-        """
-        if app:
-            ctx = app.app_context()
-            ctx.push()
-        try:
-            _base_url = base_url or self._get_mr_base_url()
-            _headers = headers or self._get_mr_headers()
-            url = f"{_base_url}/task/{task_id}/history"
-
-            response = requests.get(url, headers=_headers, timeout=30)
-            if response.ok:
-                data = response.json()
-                if isinstance(data, list):
-                    return data
-                if app:
-                    app.logger.warning(
-                        f"MR task history for {task_id} returned non-list: {type(data)}"
-                    )
-                return []
-            else:
-                if app:
-                    app.logger.warning(
-                        f"MR task history fetch failed for task {task_id}: "
-                        f"HTTP {response.status_code}"
-                    )
-                return []
-        except requests.RequestException as e:
-            if app:
-                app.logger.error(f"MR API error fetching history for task {task_id}: {e}")
+        resp = challenge_client.extract_task_summaries(
+            challenge_id,
+            limit=MR_EXTRACT_LIMIT,
+            status=MR_TRACKABLE_STATUS_FILTER,
+        )
+        data = resp.get("data")
+        if not isinstance(data, str):
+            current_app.logger.error(
+                f"MR extract for challenge {challenge_id} returned "
+                f"non-CSV payload: {type(data).__name__}"
+            )
             return []
-        except (ValueError, KeyError) as e:
-            if app:
-                app.logger.error(f"MR JSON parse error for task {task_id} history: {e}")
-            return []
-        finally:
-            if app:
-                ctx.pop()
 
-    def _fetch_all_histories(self, task_ids, base_url, headers):
+        rows = list(csv.DictReader(io.StringIO(data)))
+        if len(rows) >= MR_EXTRACT_LIMIT:
+            current_app.logger.warning(
+                f"MR extract for challenge {challenge_id} hit the row limit "
+                f"({MR_EXTRACT_LIMIT}); results may be truncated."
+            )
+        return rows
+
+    def _refresh_total_tasks(self, project, challenge_client):
         """
-        Fetch history for all tasks in parallel, returning {task_id: history}.
-
-        TODO: batch_size=3 with 50ms sleeps is very conservative. MR's API
-              rate limits are not published; 10-20 workers with a shorter
-              sleep would likely be safe and cut history-fetch time significantly.
-        """
-        task_histories = {}
-        app = current_app._get_current_object()
-        batch_size = 3
-
-        for batch_start in range(0, len(task_ids), batch_size):
-            batch = task_ids[batch_start: batch_start + batch_size]
-
-            with ThreadPoolExecutor(max_workers=batch_size) as executor:
-                future_to_task = {
-                    executor.submit(
-                        self._fetch_task_history, tid,
-                        base_url=base_url, headers=headers, app=app,
-                    ): tid
-                    for tid in batch
-                }
-                for future in as_completed(future_to_task):
-                    tid = future_to_task[future]
-                    try:
-                        task_histories[tid] = future.result()
-                    except Exception as e:
-                        current_app.logger.error(
-                            f"MR history fetch exception for task {tid}: {e}"
-                        )
-                        task_histories[tid] = []
-
-            time.sleep(0.05)
-
-        return task_histories
-
-    def _refresh_total_tasks(self, project, base_url, headers):
-        """
-        Paginate the challenge to count all tasks (including non-trackable)
-        and update project.total_tasks.
-
-        TODO: If _fetch_actionable_tasks is changed to page at size 200 and
-              return the total page count, this second scan can be eliminated.
+        Update project.total_tasks from the challenge summary stats endpoint.
         """
         challenge_id = project.id
         try:
-            total = 0
-            page = 0
-            limit = 200
-            while True:
-                url = f"{base_url}/challenge/{challenge_id}/tasks?limit={limit}&page={page}"
-                resp = requests.get(url, headers=headers, timeout=30)
-                if not resp.ok:
-                    break
-                page_tasks = resp.json()
-                if not isinstance(page_tasks, list) or not page_tasks:
-                    break
-                total += len(page_tasks)
-                if len(page_tasks) < limit:
-                    break
-                page += 1
-
+            resp = challenge_client.get_challenge_statistics_by_id(challenge_id)
+            data = resp.get("data")
+            if isinstance(data, list):
+                data = data[0] if data else {}
+            total = (data or {}).get("actions", {}).get("total", 0)
             if total > 0:
                 project.total_tasks = total
                 current_app.logger.info(
                     f"MR challenge {challenge_id}: updated total_tasks to {total}"
                 )
-        except Exception as e:
+        except (MapRouletteBaseException, KeyError, TypeError) as e:
             current_app.logger.warning(
                 f"Could not refresh total_tasks for MR challenge {challenge_id}: {e}"
             )
 
     # ------------------------------------------------------------------
+    # Row parsing
+    # ------------------------------------------------------------------
+
+    def _parse_row(self, row):
+        """
+        Convert an extract CSV row into normalized fields, or None if the row
+        is unusable (missing/unknown task id or status).
+
+        Returns dict: task_id, status, mapper, reviewer, review_status.
+        """
+        raw_id = (row.get("TaskID") or "").strip()
+        if not raw_id:
+            return None
+        try:
+            task_id = int(raw_id)
+        except (TypeError, ValueError):
+            return None
+
+        status_label = (row.get("TaskStatus") or "").strip()
+        status = MR_STATUS_LABEL_TO_CODE.get(status_label)
+        if status is None:
+            current_app.logger.warning(
+                f"[EXTRACT] Unknown task status label '{status_label}' "
+                f"for MR task {task_id}; skipping."
+            )
+            return None
+
+        review_label = (row.get("ReviewStatus") or "").strip()
+        review_status = MR_REVIEW_LABEL_TO_CODE.get(review_label, _UNKNOWN_REVIEW)
+        if review_status is _UNKNOWN_REVIEW:
+            current_app.logger.warning(
+                f"[EXTRACT] Unknown review status label '{review_label}' "
+                f"for MR task {task_id}; treating as no review."
+            )
+            review_status = None
+
+        return {
+            "task_id": task_id,
+            "status": status,
+            "mapper": (row.get("Mapper") or "").strip() or None,
+            "reviewer": (row.get("Reviewer") or "").strip() or None,
+            "review_status": review_status,
+        }
+
+    # ------------------------------------------------------------------
     # Task upsert
     # ------------------------------------------------------------------
 
-    def _upsert_task(self, mr_task, project, mapper_username, stats):
+    def _upsert_task(
+        self, parsed, project, existing_tasks, users_by_osm, pending_links, stats
+    ):
         """
-        Create or update a single Task record and its UserTasks link.
+        Create or update a single Task record from a parsed extract row using
+        the preloaded caches. Does not commit; new tasks are added to the
+        session and desired UserTasks links are appended to ``pending_links``
+        for bulk creation after a single flush.
 
         Returns the Task record (new or existing).
-
-        TODO: Pre-load all existing Task records for the project into a
-              {task_id: Task} dict before the loop to replace these
-              per-task queries with O(1) dict lookups.
-        TODO: Cache _resolve_user results across the sync call to avoid
-              a DB round-trip for every task that shares a mapper username.
         """
-        mr_task_id = mr_task.get("id")
-        task_status = mr_task.get("status", MR_STATUS_FIXED)
+        task_id = parsed["task_id"]
+        status = parsed["status"]
+        mapper_username = parsed["mapper"]
 
-        task_record = Task.query.filter_by(
-            task_id=mr_task_id, project_id=project.id
-        ).first()
+        task_record = existing_tasks.get(task_id)
 
         if task_record is None:
-            is_skipped = task_status == MR_STATUS_SKIPPED
-            task_record = Task.create(
-                task_id=mr_task_id,
+            is_skipped = status == MR_STATUS_SKIPPED
+            task_record = Task(
+                task_id=task_id,
                 project_id=project.id,
                 org_id=project.org_id,
                 source="mr",
-                mr_status=task_status,
+                mr_status=status,
                 mapping_rate=0 if is_skipped else project.mapping_rate_per_task,
                 validation_rate=0 if is_skipped else project.validation_rate_per_task,
                 paid_out=False,
@@ -331,54 +363,43 @@ class MapRouletteSync:
                 validated=False,
                 date_mapped=func.now(),
             )
+            db.session.add(task_record)
+            existing_tasks[task_id] = task_record
             stats["tasks_created"] += 1
 
-            mapper = self._resolve_user(mapper_username)
+            mapper = users_by_osm.get(mapper_username) if mapper_username else None
             if mapper:
-                created = self._ensure_user_tasks_link(mapper, task_record)
-                if created:
-                    current_app.logger.info(
-                        f"[LINK] Created UserTasks link: user={mapper.id} "
-                        f"({mapper.osm_username}) -> task={task_record.id}"
-                    )
-            else:
+                pending_links.append((mapper, task_record))
+            elif mapper_username:
                 current_app.logger.warning(
-                    f"[LINK] NO UserTasks link for task {mr_task_id} — "
+                    f"[LINK] NO UserTasks link for task {task_id} — "
                     f"mapper '{mapper_username}' not found in Mikro"
                 )
 
             current_app.logger.info(
-                f"Created MR task {mr_task_id} (status={task_status}) "
+                f"Created MR task {task_id} (status={status}) "
                 f"for challenge {project.id}, mapper={mapper_username}"
             )
 
         else:
             if mapper_username and task_record.mapped_by in (None, "", "unknown"):
                 task_record.mapped_by = mapper_username
-                task_record.update()
-                mapper = self._resolve_user(mapper_username)
+                mapper = users_by_osm.get(mapper_username)
                 if mapper:
-                    self._ensure_user_tasks_link(mapper, task_record)
+                    pending_links.append((mapper, task_record))
                 else:
                     current_app.logger.warning(
                         f"[LINK] Update path: mapper '{mapper_username}' NOT FOUND — "
-                        f"no UserTasks link for task {mr_task_id}"
+                        f"no UserTasks link for task {task_id}"
                     )
                 current_app.logger.info(
-                    f"Updated MR task {mr_task_id} mapper: unknown -> {mapper_username}"
+                    f"Updated MR task {task_id} mapper: unknown -> {mapper_username}"
                 )
 
             elif mapper_username and task_record.mapped_by == mapper_username:
-                mapper = self._resolve_user(mapper_username)
+                mapper = users_by_osm.get(mapper_username)
                 if mapper:
-                    created = self._ensure_user_tasks_link(mapper, task_record)
-                    if created:
-                        current_app.logger.info(
-                            f"[LINK] REPAIR: task {mr_task_id} had mapped_by='{mapper_username}' "
-                            f"but no UserTasks link — created one for user={mapper.id}"
-                        )
-                        stats.setdefault("links_repaired", 0)
-                        stats["links_repaired"] += 1
+                    pending_links.append((mapper, task_record))
 
         return task_record
 
@@ -390,13 +411,11 @@ class MapRouletteSync:
         """
         Sync all actionable tasks from a MapRoulette challenge into Mikro.
 
-        Fetches tasks, retrieves their history in parallel, then creates or
-        updates Task records and UserTasks links. Review history drives
-        validation/invalidation logic identical to TM4.
+        Fetches one extract CSV (status + mapper + reviewer per task), then
+        creates or updates Task records and UserTasks links. Review status
+        drives validation/invalidation logic identical to TM4.
         """
         challenge_id = project.id
-        base_url = self._get_mr_base_url()
-        headers = self._get_mr_headers()
 
         stats = {
             "tasks_processed": 0,
@@ -410,58 +429,74 @@ class MapRouletteSync:
             f"Starting MR sync for challenge {challenge_id} (project: {project.name})"
         )
 
-        actionable_tasks = self._fetch_actionable_tasks(challenge_id, base_url, headers)
+        try:
+            challenge_client = self._challenge_client()
+            rows = self._fetch_task_summaries(challenge_client, challenge_id)
+        except MapRouletteBaseException as e:
+            current_app.logger.error(
+                f"MR extract fetch failed for challenge {challenge_id}: {e}"
+            )
+            stats["errors"] += 1
+            return {"message": f"MR extract failed: {e}", **stats}
+
         current_app.logger.info(
-            f"MR challenge {challenge_id}: found {len(actionable_tasks)} actionable tasks"
+            f"MR challenge {challenge_id}: found {len(rows)} actionable task summaries"
         )
 
-        if not actionable_tasks:
+        if not rows:
             project.update(last_sync_cursor=datetime.now(timezone.utc))
             return {"message": "No actionable tasks found", **stats}
 
-        task_ids = [t["id"] for t in actionable_tasks if t.get("id")]
-        histories = self._fetch_all_histories(task_ids, base_url, headers)
+        parsed_rows = [p for p in (self._parse_row(r) for r in rows) if p]
 
-        for mr_task in actionable_tasks:
-            mr_task_id = mr_task.get("id")
-            if not mr_task_id:
-                continue
+        # Preload existing tasks, the relevant users, and existing links so the
+        # loop below issues zero per-task queries.
+        existing_tasks, users_by_osm, existing_links = self._preload_caches(
+            project, parsed_rows
+        )
+        preexisting_obj_ids = {id(t) for t in existing_tasks.values()}
+        pending_links = []
+
+        for parsed in parsed_rows:
             try:
-                history = histories.get(mr_task_id, [])
                 stats["tasks_processed"] += 1
-
-                task_status = mr_task.get("status", MR_STATUS_FIXED)
-                mapper_username = self._extract_mapper_from_history(
-                    history, mr_task_id, target_status=task_status
+                task_record = self._upsert_task(
+                    parsed,
+                    project,
+                    existing_tasks,
+                    users_by_osm,
+                    pending_links,
+                    stats,
                 )
-                reviewer_username, review_status = self._extract_review_from_history(history)
-
-                task_record = self._upsert_task(mr_task, project, mapper_username, stats)
-
-                if review_status is not None:
+                if parsed["review_status"] is not None:
                     self._process_review(
-                        task_record=task_record,
-                        mapper_username=mapper_username,
-                        reviewer_username=reviewer_username,
-                        review_status=review_status,
-                        stats=stats,
+                        task_record, parsed, users_by_osm, pending_links, stats
                     )
-
             except Exception as e:
                 current_app.logger.error(
-                    f"Error processing MR task {mr_task_id} in challenge {challenge_id}: {e}"
+                    f"Error processing MR task {parsed['task_id']} "
+                    f"in challenge {challenge_id}: {e}"
                 )
-                db.session.rollback()
                 stats["errors"] += 1
 
-        self._refresh_total_tasks(project, base_url, headers)
-
+        # Persist the whole batch in one transaction: flush to assign ids to
+        # new tasks, create the collected links, then a single commit.
         try:
-            project.update(last_sync_cursor=datetime.now(timezone.utc))
-        except Exception as e:
-            current_app.logger.error(
-                f"Failed to update last_sync_cursor for project {project.id}: {e}"
+            db.session.flush()
+            self._create_links(
+                pending_links, existing_links, preexisting_obj_ids, stats
             )
+            self._refresh_total_tasks(project, challenge_client)
+            project.last_sync_cursor = datetime.now(timezone.utc)
+            db.session.add(project)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(
+                f"MR sync commit failed for challenge {challenge_id}: {e}"
+            )
+            stats["errors"] += 1
+            return {"message": f"MR sync commit failed: {e}", **stats}
 
         current_app.logger.info(
             f"MR sync complete for challenge {challenge_id}: "
@@ -474,135 +509,43 @@ class MapRouletteSync:
         return {"message": "sync complete", **stats}
 
     # ------------------------------------------------------------------
-    # History parsing
-    # ------------------------------------------------------------------
-
-    def _extract_mapper_from_history(self, history, mr_task_id, target_status=MR_STATUS_FIXED):
-        """
-        Return the OSM username of whoever set the task to target_status.
-
-        Looks for actionType=1 (status change) entries where status matches.
-        """
-        if not history:
-            return None
-
-        for action in history:
-            try:
-                if (action.get("actionType") == MR_ACTION_STATUS_CHANGE
-                        and action.get("status") == target_status):
-                    user_obj = action.get("user", {})
-                    if isinstance(user_obj, dict):
-                        osm_profile = user_obj.get("osmProfile", {})
-                        if isinstance(osm_profile, dict):
-                            display_name = osm_profile.get("displayName")
-                            if display_name:
-                                return display_name
-                        username = user_obj.get("username")
-                        if username:
-                            return username
-                    username = action.get("username")
-                    if username:
-                        return username
-            except (TypeError, AttributeError, KeyError):
-                continue
-
-        action_summary = [
-            f"type={a.get('actionType')},status={a.get('status')}"
-            for a in history[:5]
-        ]
-        current_app.logger.warning(
-            f"[EXTRACT] Could not determine mapper for MR task {mr_task_id} "
-            f"(target_status={target_status}). Actions: [{'; '.join(action_summary)}]"
-        )
-        return None
-
-    def _extract_review_from_history(self, history):
-        """
-        Return (reviewer_username, review_status) from the most recent review action.
-
-        Returns (None, None) if no review action exists.
-        """
-        if not history:
-            return None, None
-
-        latest_review = None
-        latest_review_time = None
-
-        for action in history:
-            try:
-                if action.get("actionType") != MR_ACTION_REVIEW:
-                    continue
-                action_time = self._parse_date(action.get("created"))
-                if latest_review is None or (
-                    action_time and latest_review_time and action_time > latest_review_time
-                ):
-                    latest_review = action
-                    latest_review_time = action_time
-            except (TypeError, AttributeError, KeyError):
-                continue
-
-        if latest_review is None:
-            return None, None
-
-        reviewer_username = None
-        try:
-            user_obj = latest_review.get("user", {})
-            if isinstance(user_obj, dict):
-                osm_profile = user_obj.get("osmProfile", {})
-                if isinstance(osm_profile, dict):
-                    reviewer_username = osm_profile.get("displayName")
-                if not reviewer_username:
-                    reviewer_username = user_obj.get("username")
-            if not reviewer_username:
-                reviewer_username = latest_review.get("username")
-            if not reviewer_username:
-                rrb = latest_review.get("reviewRequestedBy", {})
-                if isinstance(rrb, dict):
-                    reviewer_username = rrb.get("username")
-        except (TypeError, AttributeError, KeyError):
-            pass
-
-        review_status = latest_review.get("reviewStatus")
-        if review_status is None:
-            review_status = latest_review.get("status")
-
-        return reviewer_username, review_status
-
-    # ------------------------------------------------------------------
     # Review processing
     # ------------------------------------------------------------------
 
-    def _process_review(
-        self, task_record, mapper_username, reviewer_username,
-        review_status, stats
-    ):
+    def _process_review(self, task_record, parsed, users_by_osm, pending_links, stats):
         """
         Apply validation or invalidation to a task based on MR review status.
+        Mutates the (session-tracked) task in place; does not commit.
 
         Approved/Assisted => validated; Rejected => invalidated.
         Self-validated tasks are marked but not paid.
         """
-        if review_status in (MR_REVIEW_APPROVED, MR_REVIEW_ASSISTED):
+        review_status = parsed["review_status"]
+        mapper_username = parsed["mapper"]
+        reviewer_username = parsed["reviewer"]
+
+        if review_status in MR_REVIEW_VALIDATES:
             if task_record.validated:
                 return
 
             is_self_validated = bool(
-                mapper_username and reviewer_username
+                mapper_username
+                and reviewer_username
                 and mapper_username == reviewer_username
             )
 
-            task_record.update(
-                validated_by=reviewer_username or "",
-                unknown_validator=False,
-                validated=True,
-                invalidated=False,
-                self_validated=is_self_validated,
-                date_validated=func.now(),
-            )
+            task_record.validated_by = reviewer_username or ""
+            task_record.unknown_validator = False
+            task_record.validated = True
+            task_record.invalidated = False
+            task_record.self_validated = is_self_validated
+            task_record.date_validated = func.now()
 
-            validator = self._resolve_user(reviewer_username)
+            validator = (
+                users_by_osm.get(reviewer_username) if reviewer_username else None
+            )
             if validator:
-                self._ensure_user_tasks_link(validator, task_record)
+                pending_links.append((validator, task_record))
 
             if is_self_validated:
                 current_app.logger.warning(
@@ -616,16 +559,14 @@ class MapRouletteSync:
                 f"{reviewer_username} (mapper: {mapper_username})"
             )
 
-        elif review_status == MR_REVIEW_REJECTED:
+        elif review_status in MR_REVIEW_INVALIDATES:
             if task_record.invalidated:
                 return
 
-            task_record.update(
-                validated_by=reviewer_username or "",
-                invalidated=True,
-                validated=False,
-                date_validated=func.now(),
-            )
+            task_record.validated_by = reviewer_username or ""
+            task_record.invalidated = True
+            task_record.validated = False
+            task_record.date_validated = func.now()
 
             stats["tasks_invalidated"] += 1
             current_app.logger.info(
@@ -644,55 +585,38 @@ class MapRouletteSync:
         Used when adding a new MR project to Mikro so that metadata can
         be backfilled without blocking the request.
         """
-        base_url = self._get_mr_base_url()
-        headers = self._get_mr_headers()
-        url = f"{base_url}/challenge/{challenge_id}"
-
         try:
-            response = requests.get(url, headers=headers, timeout=30)
-            if not response.ok:
-                current_app.logger.error(
-                    f"MR challenge metadata fetch failed for {challenge_id}: "
-                    f"HTTP {response.status_code}"
-                )
-                return None
-
-            data = response.json()
-            if not isinstance(data, dict):
+            challenge_client = self._challenge_client()
+            meta_resp = challenge_client.get_challenge_by_id(challenge_id)
+            meta = meta_resp.get("data")
+            if not isinstance(meta, dict):
                 current_app.logger.error(
                     f"MR challenge {challenge_id} returned non-dict: "
-                    f"{type(data).__name__} = {data}"
+                    f"{type(meta).__name__} = {meta}"
                 )
                 return None
 
-            name = data.get("name", f"MR Challenge {challenge_id}")
-            description = data.get("description", "")
+            name = meta.get("name", f"MR Challenge {challenge_id}")
+            description = meta.get("description", "")
 
-            # MR API does not return a reliable totalTasks field — count by paging.
             task_count = 0
-            page = 0
-            while True:
-                count_url = f"{base_url}/challenge/{challenge_id}/tasks?limit=200&page={page}"
-                count_resp = requests.get(count_url, headers=headers, timeout=30)
-                if not count_resp.ok:
-                    break
-                page_tasks = count_resp.json()
-                if not isinstance(page_tasks, list) or not page_tasks:
-                    break
-                task_count += len(page_tasks)
-                if len(page_tasks) < 200:
-                    break
-                page += 1
+            try:
+                stats_resp = challenge_client.get_challenge_statistics_by_id(
+                    challenge_id
+                )
+                data = stats_resp.get("data")
+                if isinstance(data, list):
+                    data = data[0] if data else {}
+                task_count = (data or {}).get("actions", {}).get("total", 0)
+            except (MapRouletteBaseException, KeyError, TypeError) as e:
+                current_app.logger.warning(
+                    f"Could not fetch task count for MR challenge {challenge_id}: {e}"
+                )
 
             return {"name": name, "task_count": task_count, "description": description}
 
-        except requests.RequestException as e:
+        except MapRouletteBaseException as e:
             current_app.logger.error(
                 f"MR API error fetching challenge {challenge_id}: {e}"
-            )
-            return None
-        except (ValueError, KeyError, AttributeError) as e:
-            current_app.logger.error(
-                f"MR JSON parse error for challenge {challenge_id}: {e}"
             )
             return None
