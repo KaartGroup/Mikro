@@ -18,6 +18,8 @@ import {
 import { NotesButton } from "./NotesButton";
 import { sortProjectsRecentPinned } from "@/lib/sortProjects";
 import { ConfirmDialog } from "@/components/ui/Modal";
+import { useToastActions } from "@/components/ui";
+import { useErrorReporter } from "@/contexts/ErrorReporterContext";
 
 const DISCARD_WINDOW_SECONDS = 300;
 
@@ -43,7 +45,6 @@ type UserProject = {
   short_name?: string;
   last_worked_on?: string | null;
 };
-
 
 // Duration helpers consolidated into @/lib/timeTracking:
 export function TimeTrackingWidget() {
@@ -99,6 +100,8 @@ export function TimeTrackingWidget() {
     useDiscardActiveSession();
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [discardError, setDiscardError] = useState<string | null>(null);
+  const toast = useToastActions();
+  const { openReport } = useErrorReporter();
 
   // Lazy-loaded data for training topics
   const { data: trainingData, refetch: fetchTrainings } = useApiCall<{
@@ -309,8 +312,12 @@ export function TimeTrackingWidget() {
 
   const handleDiscardConfirmed = useCallback(async () => {
     setDiscardError(null);
+    if (activeSessionId == null) {
+      setDiscardError("No active session to discard");
+      return;
+    }
     try {
-      await discardActive({});
+      await discardActive({ session_id: activeSessionId });
       setShowDiscardConfirm(false);
       setIsClockedIn(false);
       setTimerStartedAt(null);
@@ -325,8 +332,11 @@ export function TimeTrackingWidget() {
       refetchSession().catch(() => {});
     } catch (err) {
       setDiscardError(err instanceof Error ? err.message : "Failed to discard");
+      toast.error("Couldn't discard the session.", {
+        action: { label: "Report", onClick: () => openReport() },
+      });
     }
-  }, [discardActive, refetchSession]);
+  }, [discardActive, refetchSession, activeSessionId, toast, openReport]);
 
   const handleClockOut = useCallback(async () => {
     setApiError(null);
@@ -638,9 +648,7 @@ export function TimeTrackingWidget() {
                 Today: {formatDuration(todaySeconds + elapsedSeconds)}
               </span>
               <span>·</span>
-              <span>
-                Week: {formatDuration(weekSeconds + elapsedSeconds)}
-              </span>
+              <span>Week: {formatDuration(weekSeconds + elapsedSeconds)}</span>
             </div>
             <div className="flex justify-center mb-3">
               <NotesButton

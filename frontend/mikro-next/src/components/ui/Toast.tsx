@@ -11,12 +11,18 @@ import { cn } from "@/lib/utils";
 
 export type ToastVariant = "default" | "success" | "warning" | "error";
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface Toast {
   id: string;
   title?: string;
   message: string;
   variant?: ToastVariant;
   duration?: number;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
@@ -40,15 +46,16 @@ export function useToast() {
 export function useToastActions() {
   const { addToast } = useToast();
 
+  type Opts = { title?: string; action?: ToastAction };
   return {
-    success: (message: string, title?: string) =>
-      addToast({ message, title, variant: "success" }),
-    error: (message: string, title?: string) =>
-      addToast({ message, title, variant: "error" }),
-    warning: (message: string, title?: string) =>
-      addToast({ message, title, variant: "warning" }),
-    info: (message: string, title?: string) =>
-      addToast({ message, title, variant: "default" }),
+    success: (message: string, opts?: Opts) =>
+      addToast({ message, ...opts, variant: "success" }),
+    error: (message: string, opts?: Opts) =>
+      addToast({ message, ...opts, variant: "error" }),
+    warning: (message: string, opts?: Opts) =>
+      addToast({ message, ...opts, variant: "warning" }),
+    info: (message: string, opts?: Opts) =>
+      addToast({ message, ...opts, variant: "default" }),
   };
 }
 
@@ -211,6 +218,17 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
         )}
         <p className="text-sm text-muted-foreground">{toast.message}</p>
       </div>
+      {toast.action && (
+        <button
+          onClick={() => {
+            toast.action?.onClick();
+            onDismiss(toast.id);
+          }}
+          className="flex-shrink-0 self-center rounded border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-accent"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         onClick={() => onDismiss(toast.id)}
         className="flex-shrink-0 text-muted-foreground hover:text-foreground"
