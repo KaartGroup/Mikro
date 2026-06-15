@@ -10,8 +10,6 @@ import {
   Badge,
   Skeleton,
   Tabs,
-  TabsList,
-  TabsTrigger,
   TabsContent,
   Table,
   TableHeader,
@@ -21,6 +19,7 @@ import {
   TableCell,
 } from "@/components/ui";
 import { useToastActions } from "@/components/ui";
+import { cn } from "@/lib/utils";
 import {
   useCreateProject,
   useApiMutation,
@@ -33,6 +32,22 @@ import {
   useLookupProjectByUrl,
 } from "@/hooks";
 import type { TeamsResponse } from "@/types";
+import { reviewProjectDraft } from "./projectDraft";
+
+/**
+ * Guided stepper order. The user walks each screen in sequence (rather than
+ * skippable tabs) so nothing gets missed, ending on a Review step that flags
+ * anything empty but still lets them finish.
+ */
+const STEPS = [
+  { key: "details", label: "Project" },
+  { key: "locations", label: "Location" },
+  { key: "teams", label: "Team" },
+  { key: "users", label: "People" },
+  { key: "review", label: "Review" },
+] as const;
+
+type StepKey = (typeof STEPS)[number]["key"];
 
 interface ProjectFormData {
   url: string;
@@ -97,9 +112,7 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
   const toast = useToastActions();
 
   const [formData, setFormData] = useState<ProjectFormData>(defaultFormData);
-  const [addTab, setAddTab] = useState<
-    "details" | "locations" | "teams" | "users"
-  >("details");
+  const [addTab, setAddTab] = useState<StepKey>("details");
   const [budgetCalculation, setBudgetCalculation] = useState("");
   const [addLocationSearch, setAddLocationSearch] = useState("");
   const [addUserSearch, setAddUserSearch] = useState("");
@@ -121,6 +134,35 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
     value: string | boolean,
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const currentStepIndex = STEPS.findIndex((s) => s.key === addTab);
+  const isFirstStep = currentStepIndex === 0;
+  const isReviewStep = addTab === "review";
+
+  const goBack = () => {
+    if (currentStepIndex > 0) {
+      setAddTab(STEPS[currentStepIndex - 1].key);
+    }
+  };
+
+  const goNext = () => {
+    // Gate only step 1 → Next: require a URL and block known same-org dupes.
+    if (addTab === "details") {
+      if (!formData.url.trim()) {
+        toast.error("Please enter a project URL");
+        return;
+      }
+      if (addPreflight.state === "dupe-here") {
+        toast.error(
+          "This project is already in Mikro — change the URL to continue.",
+        );
+        return;
+      }
+    }
+    if (currentStepIndex < STEPS.length - 1) {
+      setAddTab(STEPS[currentStepIndex + 1].key);
+    }
   };
 
   const reset = () => {
@@ -289,40 +331,76 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button
-            onClick={handleCreate}
-            isLoading={creating}
-            disabled={creating || addPreflight.state === "dupe-here"}
-          >
-            Create Project
-          </Button>
+          {!isFirstStep && (
+            <Button variant="outline" onClick={goBack} disabled={creating}>
+              Back
+            </Button>
+          )}
+          {!isReviewStep ? (
+            <Button onClick={goNext}>Next</Button>
+          ) : (
+            <Button
+              onClick={handleCreate}
+              isLoading={creating}
+              disabled={creating || addPreflight.state === "dupe-here"}
+            >
+              Create Project
+            </Button>
+          )}
         </>
       }
     >
-      <Tabs
-        defaultValue="details"
-        value={addTab}
-        onValueChange={(v) =>
-          setAddTab(v as "details" | "locations" | "teams" | "users")
-        }
-      >
-        <TabsList className="mb-4">
-          <TabsTrigger value="details">Project Details</TabsTrigger>
-          <TabsTrigger value="locations">
-            Locations
-            {preSelectedCountryIds.size > 0
-              ? ` (${preSelectedCountryIds.size})`
-              : ""}
-          </TabsTrigger>
-          <TabsTrigger value="teams">
-            Teams
-            {preSelectedTeamIds.size > 0 ? ` (${preSelectedTeamIds.size})` : ""}
-          </TabsTrigger>
-          <TabsTrigger value="users">
-            Users
-            {preSelectedUserIds.size > 0 ? ` (${preSelectedUserIds.size})` : ""}
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="details" value={addTab}>
+        {/* Non-clickable progress indicator. Completed steps may be clicked
+            to jump *back* only; future steps are not reachable by click —
+            the guided Back/Next chrome in the footer drives navigation. */}
+        <div className="mb-4 flex items-center">
+          {STEPS.map((step, i) => {
+            const isActive = i === currentStepIndex;
+            const isComplete = i < currentStepIndex;
+            const canJumpBack = isComplete;
+            return (
+              <div key={step.key} className="flex flex-1 items-center">
+                <button
+                  type="button"
+                  disabled={!canJumpBack}
+                  onClick={() => canJumpBack && setAddTab(step.key)}
+                  className={cn(
+                    "flex items-center gap-2 whitespace-nowrap text-sm font-medium transition-colors",
+                    canJumpBack ? "cursor-pointer" : "cursor-default",
+                    isActive
+                      ? "text-kaart-orange"
+                      : isComplete
+                        ? "text-foreground hover:text-kaart-orange"
+                        : "text-muted-foreground",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-full border text-xs",
+                      isActive
+                        ? "border-kaart-orange bg-kaart-orange text-white"
+                        : isComplete
+                          ? "border-kaart-orange text-kaart-orange"
+                          : "border-input text-muted-foreground",
+                    )}
+                  >
+                    {i + 1}
+                  </span>
+                  <span>{step.label}</span>
+                </button>
+                {i < STEPS.length - 1 && (
+                  <div
+                    className={cn(
+                      "mx-2 h-px flex-1",
+                      i < currentStepIndex ? "bg-kaart-orange" : "bg-border",
+                    )}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
 
         <TabsContent value="details">
           <div className="space-y-4">
@@ -750,6 +828,94 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
               })()
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="review">
+          {(() => {
+            const draftReview = reviewProjectDraft({
+              teamCount: preSelectedTeamIds.size,
+              countryCount: preSelectedCountryIds.size,
+            });
+            const rows: { label: string; value: string }[] = [
+              { label: "Project URL", value: formData.url || "—" },
+              {
+                label: "Short name",
+                value:
+                  formData.short_name.trim() ||
+                  "(auto-derived from project name)",
+              },
+              {
+                label: "Source",
+                value: formData.source === "mr" ? "MapRoulette" : "TM4",
+              },
+              { label: "Difficulty", value: formData.difficulty },
+              { label: "Priority", value: formData.priority },
+              {
+                label: "Visibility",
+                value: formData.visibility
+                  ? "Publicly visible"
+                  : "Restricted to assigned",
+              },
+              {
+                label: "Community project",
+                value: formData.community ? "Yes" : "No",
+              },
+              {
+                label: "Payments",
+                value: formData.payments_enabled ? "Enabled" : "Stats-only",
+              },
+            ];
+            if (formData.payments_enabled) {
+              rows.push(
+                {
+                  label: "Mapping rate",
+                  value: `$${formData.mapping_rate}`,
+                },
+                {
+                  label: "Validation rate",
+                  value: `$${formData.validation_rate}`,
+                },
+              );
+            }
+            rows.push(
+              { label: "Locations", value: `${preSelectedCountryIds.size}` },
+              { label: "Teams", value: `${preSelectedTeamIds.size}` },
+              { label: "People", value: `${preSelectedUserIds.size}` },
+            );
+            return (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Review the project before creating it. You can go back to
+                  change anything.
+                </p>
+                <dl className="divide-y divide-border rounded-md border">
+                  {rows.map((row) => (
+                    <div
+                      key={row.label}
+                      className="flex items-start justify-between gap-4 px-3 py-2 text-sm"
+                    >
+                      <dt className="text-muted-foreground">{row.label}</dt>
+                      <dd className="text-right font-medium break-all">
+                        {row.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                {draftReview.missing.length > 0 && (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+                    <p className="font-medium text-amber-700 dark:text-amber-300">
+                      Heads up — this project has no{" "}
+                      {draftReview.missing.join(" and no ")}.
+                    </p>
+                    <p className="mt-1 text-amber-600 dark:text-amber-400">
+                      You can still create it, or go back to add{" "}
+                      {draftReview.missing.length > 1 ? "them" : "it"}.
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </TabsContent>
       </Tabs>
     </Modal>
