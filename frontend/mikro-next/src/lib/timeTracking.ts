@@ -108,9 +108,11 @@ export const CATEGORY_LABELS: Record<string, string> = {
   other: "Other",
   community_event: "Community Event",
   // Retired activities — display-only, for historical row labels.
-  validating: "Validating",
-  checklist: "Checklist",
-  community: "Community",
+  // validating: "Validating",
+  // checklist: "Checklist",
+  // community: "Community",
+
+  
 };
 
 /**
