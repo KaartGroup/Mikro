@@ -12,7 +12,8 @@ taxonomy it renders against lives in :mod:`.constants`.
 import logging
 from datetime import datetime
 
-from ..database import User, Project
+from ..database import Project
+from .. import users_repo
 from .constants import ACTIVITY_DISPLAY_MAP
 from .scope import TimeEntryScope
 
@@ -48,7 +49,7 @@ class TimeTrackingHelpers:
     @staticmethod
     def _format_entry(entry):
         """Format a TimeEntry for JSON response."""
-        user = User.query.get(entry.user_id)
+        user = users_repo.by_id(entry.user_id)
         project = Project.query.get(entry.project_id) if entry.project_id else None
 
         duration = None

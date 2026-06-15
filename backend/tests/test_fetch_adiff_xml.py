@@ -35,7 +35,7 @@ def _analyzer(resp):
 
 class TestFetchAdiffXml:
     def test_returns_xml_string(self):
-        resp = _make_resp(["<osm>", "</osm>"])
+        resp = _make_resp(["<osm>", '  <action type="modify"/>', "</osm>"])
         result = _analyzer(resp).fetch_adiff_xml(123)
         assert isinstance(result, str)
         assert "<osm>" in result
@@ -53,7 +53,7 @@ class TestFetchAdiffXml:
         assert result is None
 
     def test_streams_with_stream_true(self):
-        resp = _make_resp(["<osm/>"])
+        resp = _make_resp(["<osm>", '  <action type="modify"/>', "</osm>"])
         analyzer = _analyzer(resp)
         analyzer.fetch_adiff_xml(123)
         session = analyzer.session
@@ -67,12 +67,14 @@ class TestFetchAdiffXml:
         assert result is not None
 
     def test_decodes_bytes_lines_latin1(self):
-        resp = _make_resp(["<osm>", "</osm>"], encoding="latin-1")
+        resp = _make_resp(
+            ["<osm>", '  <action type="modify"/>', "</osm>"], encoding="latin-1"
+        )
         result = _analyzer(resp).fetch_adiff_xml(123)
         assert result is not None
 
     def test_fallback_encoding_when_none(self):
-        resp = _make_resp(["<osm/>"])
+        resp = _make_resp(["<osm>", '  <action type="modify"/>', "</osm>"])
         resp.encoding = None
         result = _analyzer(resp).fetch_adiff_xml(123)
         assert result is not None
@@ -86,7 +88,9 @@ class TestStripping:
     def test_nd_lines_removed(self):
         lines = [
             "<osm>",
-            '  <nd ref="123" version="1" lon="1.0" lat="2.0"/>',
+            '  <action type="modify">',
+            '    <nd ref="123" version="1" lon="1.0" lat="2.0"/>',
+            "  </action>",
             "</osm>",
         ]
         result = _analyzer(_make_resp(lines)).fetch_adiff_xml(1)
@@ -96,7 +100,9 @@ class TestStripping:
     def test_bounds_lines_removed(self):
         lines = [
             "<osm>",
-            '  <bounds minlat="-33.0" minlon="-71.0" maxlat="-32.0" maxlon="-70.0"/>',
+            '  <action type="modify">',
+            '    <bounds minlat="-33.0" minlon="-71.0" maxlat="-32.0" maxlon="-70.0"/>',
+            "  </action>",
             "</osm>",
         ]
         result = _analyzer(_make_resp(lines)).fetch_adiff_xml(1)
@@ -105,7 +111,9 @@ class TestStripping:
     def test_tag_lines_kept(self):
         lines = [
             "<osm>",
-            '  <tag k="highway" v="residential"/>',
+            '  <action type="modify">',
+            '    <tag k="highway" v="residential"/>',
+            "  </action>",
             "</osm>",
         ]
         result = _analyzer(_make_resp(lines)).fetch_adiff_xml(1)
@@ -114,9 +122,11 @@ class TestStripping:
     def test_nd_and_bounds_stripped_together(self):
         lines = [
             "<osm>",
-            '  <bounds minlat="-1" minlon="-1" maxlat="1" maxlon="1"/>',
-            '  <nd ref="1" version="1" lon="0.0" lat="0.0"/>',
-            '  <tag k="name" v="Main St"/>',
+            '  <action type="modify">',
+            '    <bounds minlat="-1" minlon="-1" maxlat="1" maxlon="1"/>',
+            '    <nd ref="1" version="1" lon="0.0" lat="0.0"/>',
+            '    <tag k="name" v="Main St"/>',
+            "  </action>",
             "</osm>",
         ]
         result = _analyzer(_make_resp(lines)).fetch_adiff_xml(1)
@@ -127,9 +137,11 @@ class TestStripping:
     def test_member_opening_and_closing_lines_removed(self):
         lines = [
             "<osm>",
-            '  <member type="way" ref="323686737" role="outer">',
-            "  </member>",
-            '  <tag k="type" v="multipolygon"/>',
+            '  <action type="modify">',
+            '    <member type="way" ref="323686737" role="outer">',
+            "    </member>",
+            '    <tag k="type" v="multipolygon"/>',
+            "  </action>",
             "</osm>",
         ]
         result = _analyzer(_make_resp(lines)).fetch_adiff_xml(1)
@@ -138,7 +150,13 @@ class TestStripping:
         assert "<tag" in result
 
     def test_self_closing_member_removed(self):
-        lines = ["<osm>", '  <member type="node" ref="1" role=""/>', "</osm>"]
+        lines = [
+            "<osm>",
+            '  <action type="modify">',
+            '    <member type="node" ref="1" role=""/>',
+            "  </action>",
+            "</osm>",
+        ]
         result = _analyzer(_make_resp(lines)).fetch_adiff_xml(1)
         assert "<member" not in result
 

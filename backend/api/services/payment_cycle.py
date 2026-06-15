@@ -200,6 +200,19 @@ class PaymentCycleService:
             user_ids, cycle_start, cycle_end
         )
 
+    def hours_by_user_and_week(
+        self, user_ids, cycle_start: date, cycle_end: date, num_weeks: int = 4
+    ) -> dict:
+        """Per-user weekly hour buckets for the cycle.
+
+        Returns ``{user_id: [seconds_w1, …, seconds_wN]}`` over Sun–Sat
+        calendar weeks. Delegates to PayrollHoursQuery (same clock_out /
+        inclusive-date-range window as ``hours_by_user``).
+        """
+        return PayrollHoursQuery(self.org_id, {}, viewer=None).hours_by_user_and_week(
+            user_ids, cycle_start, cycle_end, num_weeks
+        )
+
     def status_by_user(
         self, user_ids, cycle_start: date, cycle_end: date
     ) -> dict:

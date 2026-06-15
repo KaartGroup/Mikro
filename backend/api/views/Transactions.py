@@ -9,12 +9,8 @@ from flask.views import MethodView
 from flask import g, request
 
 from ..utils import requires_admin, requires_team_admin_or_above
-from ..auth import (
-    is_org_admin_or_above,
-    managed_team_ids_for,
-    team_admin_can_access_user,
-    team_member_ids_for,
-)
+from ..auth import UserScope
+from .. import users_repo
 from ..database import db, User, PayRequests, Payments, UserTasks, Task, Project
 from ..services.payment_balance import PaymentBalanceService
 from .. import comms_client
@@ -55,33 +51,26 @@ class TransactionAPI(MethodView):
         if not g.user:
             return {"message": "User not found", "status": 304}
 
-        # team_admin: narrow to pay rows for users on managed teams only.
-        # Empty managed → empty result.
-        managed_user_ids = None
-        if g.user.role == "team_admin":
-            managed = managed_team_ids_for(g.user)
-            if not managed:
-                return {
-                    "message": "Payments and requests found",
-                    "requests": [],
-                    "payments": [],
-                    "status": 200,
-                }
-            managed_user_ids = team_member_ids_for(managed)
-            if not managed_user_ids:
-                return {
-                    "message": "Payments and requests found",
-                    "requests": [],
-                    "payments": [],
-                    "status": 200,
-                }
+        # Narrow to the viewer's scope: org-admin+ see all org pay rows;
+        # team_admin sees only managed-team members. visible_user_ids() is
+        # None (unrestricted) or a member-id set — an empty set means a
+        # zero-team team_admin, who gets no rows.
+        visible_ids = UserScope(g.user).visible_user_ids()
+        if visible_ids is not None and not visible_ids:
+            return {
+                "message": "Payments and requests found",
+                "requests": [],
+                "payments": [],
+                "status": 200,
+            }
 
         # Get all payment requests and payments for the user's organization
         req_query = PayRequests.query.filter_by(org_id=g.user.org_id)
         pay_query = Payments.query.filter_by(org_id=g.user.org_id)
-        if managed_user_ids is not None:
-            req_query = req_query.filter(PayRequests.user_id.in_(managed_user_ids))
-            pay_query = pay_query.filter(Payments.user_id.in_(managed_user_ids))
+        if visible_ids is not None:
+            ids = list(visible_ids)
+            req_query = req_query.filter(PayRequests.user_id.in_(ids))
+            pay_query = pay_query.filter(Payments.user_id.in_(ids))
         org_payment_requests = req_query.all()
         org_payments_made = pay_query.all()
         # Create a list of dictionaries containing payment request information
@@ -184,16 +173,13 @@ class TransactionAPI(MethodView):
         # Validate required fields
         if not all([user_id, task_ids, amount, transaction_type]):
             return {"message": "All fields are required", "status": 400}
-        target_user = User.query.filter_by(
-            org_id=g.user.org_id, id=user_id
-        ).first()
+        target_user = User.query.filter_by(org_id=g.user.org_id, id=user_id).first()
         if not target_user:
             return {"message": "User %s not found" % (user_id), "status": 400}
 
         # team_admin: target user must be on a managed team
-        if not is_org_admin_or_above(g.user):
-            if not team_admin_can_access_user(g.user, user_id):
-                return {"message": "Not in your managed teams", "status": 403}
+        if not UserScope(g.user).can_access(target_user):
+            return {"message": "Not in your managed teams", "status": 403}
         # Create username from first_name and last_name
         user_name = "%s %s" % (
             target_user.first_name.title(),
@@ -230,9 +216,7 @@ class TransactionAPI(MethodView):
             return {"message": "transaction_type required", "status": 400}
         # Delete transaction based on type and ID
         if transaction_type == "request":
-            target_request = PayRequests.query.filter_by(
-                id=transaction_id
-            ).first()
+            target_request = PayRequests.query.filter_by(id=transaction_id).first()
             if not target_request:
                 return {
                     "message": f"Request {transaction_id} not found",
@@ -244,9 +228,7 @@ class TransactionAPI(MethodView):
                 "status": 200,
             }
         else:
-            target_payment = Payments.query.filter_by(
-                id=transaction_id
-            ).first()
+            target_payment = Payments.query.filter_by(id=transaction_id).first()
             if not target_payment:
                 return {
                     "message": f"Payment {transaction_id} not found",
@@ -271,24 +253,29 @@ class TransactionAPI(MethodView):
         notes = request.json.get("notes")
         # Validate required fields (task_ids can be empty, payoneer_id optional)
         if request_id is None or user_id is None or request_amount is None:
-            return {"message": "request_id, user_id, and request_amount are required", "status": 400}
+            return {
+                "message": "request_id, user_id, and request_amount are required",
+                "status": 400,
+            }
         # Ensure request_amount is a float and greater than 0
         try:
             request_amount = float(request_amount)
         except (TypeError, ValueError):
-            return {"message": f"Invalid request_amount: {request_amount}", "status": 400}
+            return {
+                "message": f"Invalid request_amount: {request_amount}",
+                "status": 400,
+            }
         if request_amount <= 0:
-            return {"message": f"request_amount must be greater than 0, got: {request_amount}", "status": 400}
+            return {
+                "message": f"request_amount must be greater than 0, got: {request_amount}",
+                "status": 400,
+            }
 
-        # team_admin: target user must be on a managed team
-        if not is_org_admin_or_above(g.user):
-            if not team_admin_can_access_user(g.user, user_id):
-                return {"message": "Not in your managed teams", "status": 403}
-
-        # task_ids = str(task_ids).split()
-        target_user = User.query.filter_by(
-            org_id=g.user.org_id, id=user_id
-        ).first()
+        # Org + team-admin access gate in one lookup (also guards the None
+        # case the original code didn't check before dereferencing).
+        target_user = UserScope(g.user).get(user_id)
+        if not target_user:
+            return {"message": "Not in your managed teams", "status": 403}
         user_name = "%s %s" % (
             target_user.first_name.title(),
             target_user.last_name.title(),
@@ -449,9 +436,8 @@ class TransactionAPI(MethodView):
             return {"message": f"Payment request {request_id} not found", "status": 404}
 
         # team_admin: requesting user must be on a managed team
-        if not is_org_admin_or_above(g.user):
-            if not team_admin_can_access_user(g.user, pay_request.user_id):
-                return {"message": "Not in your managed teams", "status": 403}
+        if not UserScope(g.user).can_access(pay_request.user_id):
+            return {"message": "Not in your managed teams", "status": 403}
 
         task_ids = pay_request.task_ids or []
         if not task_ids:
@@ -471,8 +457,8 @@ class TransactionAPI(MethodView):
         # Fetch all tasks for this request
         tasks = Task.query.filter(Task.id.in_(task_ids)).all()
 
-        # Get the user who made the request
-        request_user = User.query.filter_by(id=pay_request.user_id).first()
+        # Get the user who made the request (already gated above)
+        request_user = users_repo.by_id(pay_request.user_id)
         request_osm_username = request_user.osm_username if request_user else None
 
         # Group tasks by project
@@ -486,7 +472,9 @@ class TransactionAPI(MethodView):
                 project = Project.query.filter_by(id=project_id).first()
                 projects_map[project_id] = {
                     "project_id": project_id,
-                    "project_name": project.name if project else f"Project {project_id}",
+                    "project_name": (
+                        project.name if project else f"Project {project_id}"
+                    ),
                     "project_short_name": (project.short_name or "") if project else "",
                     "project_url": project.url if project else None,
                     "tasks": [],
@@ -523,14 +511,13 @@ class TransactionAPI(MethodView):
 
             if is_validator:
                 projects_map[project_id]["validation_count"] += 1
-                projects_map[project_id]["validation_earnings"] += task.validation_rate or 0
+                projects_map[project_id]["validation_earnings"] += (
+                    task.validation_rate or 0
+                )
                 total_validation += task.validation_rate or 0
 
         # Convert to list and sort by project name
-        projects_list = sorted(
-            projects_map.values(),
-            key=lambda x: x["project_name"]
-        )
+        projects_list = sorted(projects_map.values(), key=lambda x: x["project_name"])
 
         return {
             "message": "Payment request details fetched",
@@ -538,7 +525,11 @@ class TransactionAPI(MethodView):
             "user_name": pay_request.user_name,
             "osm_username": pay_request.osm_username,
             "amount_requested": pay_request.amount_requested,
-            "date_requested": pay_request.date_requested.isoformat() if pay_request.date_requested else None,
+            "date_requested": (
+                pay_request.date_requested.isoformat()
+                if pay_request.date_requested
+                else None
+            ),
             "payment_email": pay_request.payment_email,
             "notes": pay_request.notes,
             "projects": projects_list,
@@ -572,7 +563,10 @@ class TransactionAPI(MethodView):
             target = Payments.query.filter_by(id=transaction_id).first()
 
         if not target:
-            return {"message": f"{transaction_type} {transaction_id} not found", "status": 400}
+            return {
+                "message": f"{transaction_type} {transaction_id} not found",
+                "status": 400,
+            }
 
         # Soft delete (sets deleted_date)
         target.delete(soft=True)
@@ -590,11 +584,17 @@ class TransactionAPI(MethodView):
 
         # Use with_deleted() to include soft-deleted records, then filter
         archived_requests = [
-            req for req in PayRequests.query.with_deleted().filter_by(org_id=g.user.org_id).all()
+            req
+            for req in PayRequests.query.with_deleted()
+            .filter_by(org_id=g.user.org_id)
+            .all()
             if req.deleted_date is not None
         ]
         archived_payments = [
-            pay for pay in Payments.query.with_deleted().filter_by(org_id=g.user.org_id).all()
+            pay
+            for pay in Payments.query.with_deleted()
+            .filter_by(org_id=g.user.org_id)
+            .all()
             if pay.deleted_date is not None
         ]
 
@@ -609,7 +609,9 @@ class TransactionAPI(MethodView):
                 "task_ids": req.task_ids,
                 "date_requested": req.date_requested,
                 "notes": req.notes,
-                "archived_date": req.deleted_date.isoformat() if req.deleted_date else None,
+                "archived_date": (
+                    req.deleted_date.isoformat() if req.deleted_date else None
+                ),
             }
             for req in archived_requests
         ]
@@ -626,7 +628,9 @@ class TransactionAPI(MethodView):
                 "task_ids": pay.task_ids,
                 "date_paid": pay.date_paid,
                 "notes": pay.notes,
-                "archived_date": pay.deleted_date.isoformat() if pay.deleted_date else None,
+                "archived_date": (
+                    pay.deleted_date.isoformat() if pay.deleted_date else None
+                ),
             }
             for pay in archived_payments
         ]
@@ -637,4 +641,3 @@ class TransactionAPI(MethodView):
             "archived_payments": payments_list,
             "status": 200,
         }
-

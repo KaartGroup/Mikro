@@ -10,6 +10,7 @@ from flask.views import MethodView
 from flask import g, request
 
 from ..utils import requires_team_admin_or_above, requires_admin
+from ..auth import UserScope
 from ..database import (
     db,
     Region,
@@ -89,9 +90,7 @@ class RegionAPI(MethodView):
 
         # Pre-fetch user counts per country in one query
         user_count_rows = (
-            db.session.query(
-                UserCountry.country_id, db.func.count(UserCountry.id)
-            )
+            db.session.query(UserCountry.country_id, db.func.count(UserCountry.id))
             .group_by(UserCountry.country_id)
             .all()
         )
@@ -100,21 +99,23 @@ class RegionAPI(MethodView):
         result = []
         for r in regions:
             countries = countries_by_region.get(r.id, [])
-            result.append({
-                "id": r.id,
-                "name": r.name,
-                "org_id": r.org_id,
-                "countries": [
-                    {
-                        "id": c.id,
-                        "name": c.name,
-                        "iso_code": c.iso_code,
-                        "default_timezone": c.default_timezone,
-                        "user_count": user_count_map.get(c.id, 0),
-                    }
-                    for c in countries
-                ],
-            })
+            result.append(
+                {
+                    "id": r.id,
+                    "name": r.name,
+                    "org_id": r.org_id,
+                    "countries": [
+                        {
+                            "id": c.id,
+                            "name": c.name,
+                            "iso_code": c.iso_code,
+                            "default_timezone": c.default_timezone,
+                            "user_count": user_count_map.get(c.id, 0),
+                        }
+                        for c in countries
+                    ],
+                }
+            )
         return {"status": 200, "regions": result}
 
     @requires_admin
@@ -162,9 +163,7 @@ class RegionAPI(MethodView):
             return {"message": "Region not found", "status": 404}
 
         # Unlink countries from this region
-        Country.query.filter_by(region_id=region_id).update(
-            {"region_id": None}
-        )
+        Country.query.filter_by(region_id=region_id).update({"region_id": None})
         region.delete(soft=False)
         return {"status": 200, "message": "Region deleted"}
 
@@ -181,9 +180,7 @@ class RegionAPI(MethodView):
 
         # Pre-fetch user counts per country in one query
         user_count_rows = (
-            db.session.query(
-                UserCountry.country_id, db.func.count(UserCountry.id)
-            )
+            db.session.query(UserCountry.country_id, db.func.count(UserCountry.id))
             .group_by(UserCountry.country_id)
             .all()
         )
@@ -192,15 +189,17 @@ class RegionAPI(MethodView):
         result = []
         for c in countries:
             region = region_map.get(c.region_id) if c.region_id else None
-            result.append({
-                "id": c.id,
-                "name": c.name,
-                "iso_code": c.iso_code,
-                "region_id": c.region_id,
-                "region_name": region.name if region else None,
-                "default_timezone": c.default_timezone,
-                "user_count": user_count_map.get(c.id, 0),
-            })
+            result.append(
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "iso_code": c.iso_code,
+                    "region_id": c.region_id,
+                    "region_name": region.name if region else None,
+                    "default_timezone": c.default_timezone,
+                    "user_count": user_count_map.get(c.id, 0),
+                }
+            )
         return {"status": 200, "countries": result}
 
     @requires_admin
@@ -250,7 +249,9 @@ class RegionAPI(MethodView):
         if "name" in request.json:
             updates["name"] = request.json["name"].strip()
         if "isoCode" in request.json:
-            updates["iso_code"] = (request.json["isoCode"] or "").strip().upper() or None
+            updates["iso_code"] = (
+                request.json["isoCode"] or ""
+            ).strip().upper() or None
         if "regionId" in request.json:
             updates["region_id"] = request.json["regionId"]
         if "defaultTimezone" in request.json:
@@ -305,7 +306,7 @@ class RegionAPI(MethodView):
 
         # Also set the user's country_id if this is primary
         if is_primary:
-            user = User.query.get(user_id)
+            user = UserScope(g.user).get(user_id)
             if user:
                 country = Country.query.get(country_id)
                 updates = {"country_id": country_id}
@@ -334,7 +335,7 @@ class RegionAPI(MethodView):
         record.delete(soft=False)
 
         # If this was the user's primary country, clear it
-        user = User.query.get(user_id)
+        user = UserScope(g.user).get(user_id)
         if user and user.country_id == country_id:
             user.update(country_id=None)
 
@@ -359,8 +360,7 @@ class RegionAPI(MethodView):
             .subquery()
         )
         countries = (
-            Country.query
-            .filter(Country.id.in_(project_country_ids))
+            Country.query.filter(Country.id.in_(project_country_ids))
             .order_by(Country.name)
             .all()
         )
@@ -376,8 +376,7 @@ class RegionAPI(MethodView):
         # Regions — only those that contain at least one of the above countries
         represented_region_ids = {c.region_id for c in countries if c.region_id}
         regions = (
-            Region.query
-            .filter(Region.id.in_(represented_region_ids))
+            Region.query.filter(Region.id.in_(represented_region_ids))
             .order_by(Region.name)
             .all()
         )
@@ -490,13 +489,17 @@ class RegionAPI(MethodView):
         for cid in assigned_country_ids:
             country = country_map.get(cid)
             if country:
-                region = region_map.get(country.region_id) if country.region_id else None
-                assigned_countries.append({
-                    "id": country.id,
-                    "name": country.name,
-                    "iso_code": country.iso_code,
-                    "region_name": region.name if region else None,
-                })
+                region = (
+                    region_map.get(country.region_id) if country.region_id else None
+                )
+                assigned_countries.append(
+                    {
+                        "id": country.id,
+                        "name": country.name,
+                        "iso_code": country.iso_code,
+                        "region_name": region.name if region else None,
+                    }
+                )
 
         assigned_countries.sort(key=lambda c: c["name"])
 
@@ -510,10 +513,7 @@ class RegionAPI(MethodView):
             }
             for c in all_countries_list
         ]
-        all_regions = [
-            {"id": r.id, "name": r.name}
-            for r in all_regions_list
-        ]
+        all_regions = [{"id": r.id, "name": r.name} for r in all_regions_list]
 
         return {
             "status": 200,
@@ -581,14 +581,16 @@ class RegionAPI(MethodView):
         result = []
         for c in countries:
             region = region_map.get(c.region_id) if c.region_id else None
-            result.append({
-                "id": c.id,
-                "name": c.name,
-                "iso_code": c.iso_code,
-                "region_id": c.region_id,
-                "region_name": region.name if region else None,
-                "default_timezone": c.default_timezone,
-            })
+            result.append(
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "iso_code": c.iso_code,
+                    "region_id": c.region_id,
+                    "region_name": region.name if region else None,
+                    "default_timezone": c.default_timezone,
+                }
+            )
         return {"status": 200, "countries": result}
 
     # ─── Seed Defaults ────────────────────────────────────
@@ -835,9 +837,7 @@ class RegionAPI(MethodView):
         for region_name, country_list in defaults.items():
             region = Region.query.filter_by(name=region_name).first()
             if not region:
-                region = Region(
-                    name=region_name, org_id=g.user.org_id
-                )
+                region = Region(name=region_name, org_id=g.user.org_id)
                 db.session.add(region)
                 db.session.flush()  # get region.id without committing
                 created_regions += 1
@@ -889,4 +889,3 @@ class RegionAPI(MethodView):
             "created_regions": created_regions,
             "created_countries": created_countries,
         }
-

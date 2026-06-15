@@ -1,11 +1,14 @@
 import logging
 from datetime import datetime, timezone, timedelta
 from ...database import db, User, ProjectUser, ProjectTeam, TeamUser, Task
+from ... import users_repo
 from ...views.Tasks import TaskAPI
 from ...views.MapRoulette import MapRouletteSync
+
 logger = logging.getLogger(__name__)
 
 _MAX_SYNC_JOB_DURATION = timedelta(hours=2)
+
 
 def sync_project(project, org_id, target_user_id=None):
     """
@@ -25,7 +28,7 @@ def sync_project(project, org_id, target_user_id=None):
 
     # TM4: resolve users for this project
     if target_user_id:
-        user = User.query.get(target_user_id)
+        user = users_repo.by_id(target_user_id)
         users = [user] if user else []
     else:
         direct_ids = set(
@@ -45,37 +48,42 @@ def sync_project(project, org_id, target_user_id=None):
             )
 
         contributor_osm_names = set()
-        for row in db.session.query(Task.mapped_by).filter(
-            Task.project_id == project.id, Task.mapped_by != None
-        ).distinct().all():
+        for row in (
+            db.session.query(Task.mapped_by)
+            .filter(Task.project_id == project.id, Task.mapped_by != None)
+            .distinct()
+            .all()
+        ):
             if row[0]:
                 contributor_osm_names.add(row[0])
-        for row in db.session.query(Task.validated_by).filter(
-            Task.project_id == project.id, Task.validated_by != None
-        ).distinct().all():
+        for row in (
+            db.session.query(Task.validated_by)
+            .filter(Task.project_id == project.id, Task.validated_by != None)
+            .distinct()
+            .all()
+        ):
             if row[0]:
                 contributor_osm_names.add(row[0])
 
         contributor_user_ids = set()
         if contributor_osm_names:
             contributor_user_ids = set(
-                u.id for u in User.query.filter(
+                u.id
+                for u in User.query.filter(
                     User.osm_username.in_(contributor_osm_names),
                     User.org_id == org_id,
                 ).all()
             )
 
         all_user_ids = direct_ids | team_user_ids | contributor_user_ids
-        users = User.query.filter(User.id.in_(all_user_ids)).all() if all_user_ids else []
+        users = users_repo.by_ids(all_user_ids)
 
     task_api = TaskAPI()
     for user in users:
         try:
             task_api.TM4_payment_call(project.id, user)
         except Exception as e:
-            logger.error(
-                f"TM4 sync error — project {project.id}, user {user.id}: {e}"
-            )
+            logger.error(f"TM4 sync error — project {project.id}, user {user.id}: {e}")
             db.session.rollback()
 
     project.last_sync_cursor = datetime.now(timezone.utc)
@@ -99,7 +107,11 @@ def run_sync_job(job):
         # Must read job.progress before overwriting it below.
         # User.id is the Auth0 sub string (e.g. "auth0|abc123"), not an int.
         target_user_id = None
-        if job.job_type == "project_sync" and job.progress and job.progress.startswith("user:"):
+        if (
+            job.job_type == "project_sync"
+            and job.progress
+            and job.progress.startswith("user:")
+        ):
             target_user_id = job.progress.split(":", 1)[1]
 
         job.status = "running"

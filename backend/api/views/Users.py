@@ -23,11 +23,11 @@ from ..time_tracking import TimeEntryQuery, AggregateQuery
 from ..utils.auth0_org import add_or_invite_user_to_org
 from ..auth import (
     is_org_admin_or_above,
-    managed_team_ids_for,
     team_admin_can_access_user,
-    team_member_ids_for,
     redact_pay_fields,
+    UserScope,
 )
+from .. import users_repo
 from ..database import (
     User,
     Project,
@@ -52,12 +52,15 @@ from ..database import (
     MonitoredChannel,
     db,
 )
-from ..filters import resolve_filtered_user_ids
 from .. import comms_client
 from ..comms_client import NotificationType
 from ..targeting import org_admin_users
 
-from ..stats import get_user_task_stats, get_batch_user_task_stats, get_batch_user_task_stats_fast
+from ..stats import (
+    get_user_task_stats,
+    get_batch_user_task_stats,
+    get_batch_user_task_stats_fast,
+)
 from ..services.payment_balance import PaymentBalanceService
 
 
@@ -531,36 +534,15 @@ class UserAPI(MethodView):
             return_obj["status"] = 304
             return return_obj
 
-        # Support universal filter system. The standalone filter
-        # dropdowns on /admin/users write single-element values into
-        # this body (filters.country = [id] etc.); resolve_filtered_user_ids
-        # handles every dimension via the existing pipeline.
+        # Support the universal filter system. The standalone filter
+        # dropdowns on /admin/users write single-element values into this
+        # body (filters.country = [id] etc.). UserScope intersects the
+        # viewer's role/team ceiling with the filters body and yields [] for
+        # the zero-team team_admin empty state — the org filter, the
+        # filter-dimension resolution, and the team-admin narrowing all live
+        # in one place now.
         filters = request.json.get("filters") if request.json else None
-        filtered_ids = (
-            resolve_filtered_user_ids(filters, g.user.org_id) if filters else None
-        )
-
-        # Get all the users from the database that belong to the same organization
-        users_query = User.query.filter_by(org_id=g.user.org_id)
-        if filtered_ids is not None:
-            users_query = users_query.filter(User.id.in_(filtered_ids))
-
-        # team_admin: narrow to managed-team members only.
-        # Empty managed → return empty list (zero-team team_admin empty state).
-        if g.user.role == "team_admin":
-            managed = managed_team_ids_for(g.user)
-            if not managed:
-                return_obj["users"] = []
-                return_obj["status"] = 200
-                return return_obj
-            member_ids = team_member_ids_for(managed)
-            if not member_ids:
-                return_obj["users"] = []
-                return_obj["status"] = 200
-                return return_obj
-            users_query = users_query.filter(User.id.in_(member_ids))
-
-        users_in_org = users_query.all()
+        users_in_org = UserScope(g.user).users(filters=filters)
 
         # Build country/region lookup caches
         country_cache = {}
@@ -568,7 +550,9 @@ class UserAPI(MethodView):
 
         # Batch-compute live task stats using SQL aggregation (fast path for list view)
         batch_stats = get_batch_user_task_stats_fast(users_in_org, g.user.org_id)
-        batch_pay = PaymentBalanceService(g.user.org_id).batch_balances_fast(users_in_org)
+        batch_pay = PaymentBalanceService(g.user.org_id).batch_balances_fast(
+            users_in_org
+        )
         # Batch project-assignment counts from ProjectUser (the authoritative table)
         _user_ids = [u.id for u in users_in_org]
         _proj_counts_q = (
@@ -659,7 +643,9 @@ class UserAPI(MethodView):
             return_obj["status"] = 400
             return return_obj
         # Get all the users from the database that belong to the same organization as the current user  # noqa: E501
-        users_in_org = User.query.filter_by(org_id=g.user.org_id).all()
+        # Intentionally org-wide (see method docstring): the project-assignment
+        # panel lists every org user so a team_admin can find candidates.
+        users_in_org = users_repo.by_org(g.user.org_id)
         all_assigned_user_relations = ProjectUser.query.filter_by(
             project_id=project_id
         ).all()
@@ -669,8 +655,11 @@ class UserAPI(MethodView):
         # Batch-compute live task stats for all users (avoids N+1 queries)
         batch_stats = get_batch_user_task_stats(users_in_org, g.user.org_id)
         _proj_cnts = {
-            uid: cnt for uid, cnt in (
-                db.session.query(ProjectUser.user_id, func.count(ProjectUser.project_id))
+            uid: cnt
+            for uid, cnt in (
+                db.session.query(
+                    ProjectUser.user_id, func.count(ProjectUser.project_id)
+                )
                 .filter(ProjectUser.user_id.in_([u.id for u in users_in_org]))
                 .group_by(ProjectUser.user_id)
                 .all()
@@ -728,7 +717,9 @@ class UserAPI(MethodView):
         if not g.user:
             return {"message": "User not found", "status": 304}
 
-        users = User.query.filter_by(org_id=g.user.org_id).all()
+        # Intentionally org-wide (see docstring): every org user is a
+        # candidate for the "add member to my team" picker.
+        users = users_repo.by_org(g.user.org_id)
         out = []
         for u in users:
             name = _format_user_name(u)
@@ -891,8 +882,7 @@ class UserAPI(MethodView):
             if not team:
                 return {"message": f"Team {tid} not found", "status": 404}
             if not (
-                is_org_admin_or_above(g.user)
-                or team_admin_can_access_team(g.user, tid)
+                is_org_admin_or_above(g.user) or team_admin_can_access_team(g.user, tid)
             ):
                 return {"message": f"Team {tid} is not one you lead", "status": 403}
 
@@ -969,9 +959,7 @@ class UserAPI(MethodView):
                 # PendingInvite per target team (multi-team). Skip when the
                 # invitation reported the user was already a member (matches
                 # prior behavior — no re-trigger).
-                if not (
-                    result["mode"] == "invitation" and result["already_member"]
-                ):
+                if not (result["mode"] == "invitation" and result["already_member"]):
                     for tid in target_team_ids:
                         try:
                             PendingInvite.create(
@@ -1029,7 +1017,11 @@ class UserAPI(MethodView):
             if not default_org_id:
                 return {"message": "AUTH0_ORG_ID env var not configured", "status": 500}
 
-            # Get all Mikro users
+            # Intentionally org-unscoped: this is the single-tenant bootstrap
+            # tool that *assigns* the default org to every user (including
+            # those with a NULL/stale org_id below), so it must see all users.
+            # Not a cross-org read in the UserScope sense — it's the migration
+            # that establishes org membership in the first place.
             all_users = User.query.all()
             updated = 0
             auth0_updated = 0
@@ -1131,12 +1123,9 @@ class UserAPI(MethodView):
         if not user_id:
             return {"message": "user_id required", "status": 400}, 400
 
-        target = User.query.filter_by(id=user_id).first()
+        target = UserScope(g.user).get(user_id)
         if not target:
             return {"message": "User not found", "status": 404}, 404
-
-        if target.org_id != g.user.org_id:
-            return {"message": "Cross-org operation rejected", "status": 403}, 403
 
         target.is_active = False
         target.save()
@@ -1155,12 +1144,9 @@ class UserAPI(MethodView):
         if not user_id:
             return {"message": "user_id required", "status": 400}, 400
 
-        target = User.query.filter_by(id=user_id).first()
+        target = UserScope(g.user).get(user_id)
         if not target:
             return {"message": "User not found", "status": 404}, 404
-
-        if target.org_id != g.user.org_id:
-            return {"message": "Cross-org operation rejected", "status": 403}, 403
 
         target.is_active = True
         target.save()
@@ -1178,8 +1164,9 @@ class UserAPI(MethodView):
         user_id = request.json.get("user_id")
         if not user_id:
             return {"message": "User_id required", "status": 400}
-        # Query the user and remove the org_id
-        remove_user = User.query.filter_by(id=user_id).first()
+        # scope.get enforces org + access: this hard delete previously ran with
+        # no org check at all (a cross-org delete gap).
+        remove_user = UserScope(g.user).get(user_id)
         if remove_user:
             remove_user.delete(soft=False)
             return {"message": "User Removed", "status": 200}
@@ -1223,12 +1210,17 @@ class UserAPI(MethodView):
 
         _TEAM_ADMIN_ALLOWED_FIELDS = {
             "user_id",
-            "first_name", "last_name",
-            "email", "osm_username", "mapillary_username",
-            "timezone", "country_id",
+            "first_name",
+            "last_name",
+            "email",
+            "osm_username",
+            "mapillary_username",
+            "timezone",
+            "country_id",
             "micropayments_visible",
             "role",
-            "hourly_rate", "hourly_rate_start_date",
+            "hourly_rate",
+            "hourly_rate_start_date",
             "compensation_model",
         }
         if is_team_admin:
@@ -1277,11 +1269,17 @@ class UserAPI(MethodView):
             new_rate = float(val) if val is not None else None
             raw_start = request.json.get("hourly_rate_start_date")
             if not raw_start:
-                return {"message": "hourly_rate_start_date is required when setting hourly_rate", "status": 400}
+                return {
+                    "message": "hourly_rate_start_date is required when setting hourly_rate",
+                    "status": 400,
+                }
             try:
                 rate_start = date.fromisoformat(str(raw_start))
             except ValueError:
-                return {"message": "hourly_rate_start_date must be YYYY-MM-DD", "status": 400}
+                return {
+                    "message": "hourly_rate_start_date must be YYYY-MM-DD",
+                    "status": 400,
+                }
             try:
                 HourlyRateHistoryService().set_current_rate(
                     user_id=user.id,
@@ -1382,7 +1380,7 @@ class UserAPI(MethodView):
             response["message"] = f"User {user_id} assigned to Project {project_id}"
             # Notify the user they were assigned to the project.
             try:
-                target_user = User.query.get(user_id)
+                target_user = users_repo.by_id(user_id)
                 project = Project.query.get(project_id)
                 project_name = getattr(project, "name", None) or f"Project {project_id}"
                 recipient_org = getattr(target_user, "org_id", None) or g.user.org_id
@@ -1548,9 +1546,8 @@ class UserAPI(MethodView):
             return {"message": "User not found in your organization", "status": 404}
 
         # team_admin: must be on a managed team (or self)
-        if not is_org_admin_or_above(g.user):
-            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
-                return {"message": "Not in your managed teams", "status": 403}
+        if not UserScope(g.user).can_access(user):
+            return {"message": "Not in your managed teams", "status": 403}
 
         # Build per-project breakdown using SQL aggregation (not N+1 loops)
         projects_data = []
@@ -1732,7 +1729,9 @@ class UserAPI(MethodView):
                 "is_tracked_only": user.is_tracked_only or False,
                 "micropayments_visible": user.micropayments_visible or False,
                 "hourly_rate": active_rate and float(active_rate.rate),
-                "hourly_rate_start_date": active_rate.start_date.isoformat() if active_rate else None,
+                "hourly_rate_start_date": (
+                    active_rate.start_date.isoformat() if active_rate else None
+                ),
                 "compensation_model": user.compensation_model,
                 "is_active": bool(getattr(user, "is_active", True)),
                 "joined": user.create_time.isoformat() if user.create_time else None,
@@ -1839,9 +1838,8 @@ class UserAPI(MethodView):
             return {"message": "User not found in your organization", "status": 404}
 
         # team_admin: must be on a managed team (or self)
-        if not is_org_admin_or_above(g.user):
-            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
-                return {"message": "Not in your managed teams", "status": 403}
+        if not UserScope(g.user).can_access(user):
+            return {"message": "Not in your managed teams", "status": 403}
 
         # Accept ISO UTC instants (preferred — frontend aligns them to the
         # viewer-admin's local midnights) or legacy date-only strings.
@@ -1996,7 +1994,6 @@ class UserAPI(MethodView):
     def fetch_user_payment_summary(self):
         """Read-only payment summary for the admin user-profile Payment tab."""
 
-
         data = request.get_json() or {}
         user_id = data.get("userId") or data.get("user_id")
         if not user_id:
@@ -2006,9 +2003,8 @@ class UserAPI(MethodView):
         if not user or user.org_id != g.user.org_id:
             return {"message": "User not found in your organization", "status": 404}
 
-        if not is_org_admin_or_above(g.user):
-            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
-                return {"message": "Not in your managed teams", "status": 403}
+        if not UserScope(g.user).can_access(user):
+            return {"message": "Not in your managed teams", "status": 403}
 
         summary = PaymentTxnService(g.user.org_id).user_payment_summary(user)
         return {"status": 200, "summary": summary}
@@ -2032,9 +2028,8 @@ class UserAPI(MethodView):
             return {"message": "User not found in your organization", "status": 404}
 
         # team_admin: must be on a managed team (or self)
-        if not is_org_admin_or_above(g.user):
-            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
-                return {"message": "Not in your managed teams", "status": 403}
+        if not UserScope(g.user).can_access(user):
+            return {"message": "Not in your managed teams", "status": 403}
 
         osm_username = user.osm_username
         if not osm_username:
@@ -2060,7 +2055,9 @@ class UserAPI(MethodView):
             end_date = end_date + timedelta(days=1)
 
         try:
-            raw_changesets = ChangesetFetcher().fetch([osm_username], since=start_date, until=end_date)
+            raw_changesets = ChangesetFetcher().fetch(
+                [osm_username], since=start_date, until=end_date
+            )
         except Exception as e:
             current_app.logger.error(f"ChangesetFetcher failed for {osm_username}: {e}")
             return {"message": "Could not reach OSM API", "status": 502}
@@ -2241,9 +2238,8 @@ class UserAPI(MethodView):
             return {"message": "User not found", "status": 404}
 
         # team_admin: must be on a managed team (or self)
-        if not is_org_admin_or_above(g.user):
-            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
-                return {"message": "Not in your managed teams", "status": 403}
+        if not UserScope(g.user).can_access(user):
+            return {"message": "Not in your managed teams", "status": 403}
 
         # Parse dates
         try:
@@ -2343,9 +2339,8 @@ class UserAPI(MethodView):
             return {"message": "User not found", "status": 404}
 
         # team_admin: must be on a managed team (or self)
-        if not is_org_admin_or_above(g.user):
-            if g.user.id != user.id and not team_admin_can_access_user(g.user, user_id):
-                return {"message": "Not in your managed teams", "status": 403}
+        if not UserScope(g.user).can_access(user):
+            return {"message": "Not in your managed teams", "status": 403}
 
         # Parse dates
         try:

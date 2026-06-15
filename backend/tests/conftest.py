@@ -39,6 +39,7 @@ class _PostgresTestConfig(TestingConfig):
     defined on BaseConfig — so the value is locked in before db.init_app()
     runs inside create_app() and cannot be shadowed by the property later.
     """
+
     SQLALCHEMY_DATABASE_URI = _test_db_url()
 
 
@@ -63,15 +64,44 @@ def app():
 @pytest.fixture
 def db_session(app):
     """
-    Opens a fresh app context per test.  Two fixture users are flushed so
-    TimeEntry FK constraints are satisfied.  Everything is rolled back on exit.
+    Opens a fresh app context per test and binds the scoped session to a single
+    connection inside an outer transaction. With
+    ``join_transaction_mode="create_savepoint"`` even a ``commit()`` from the
+    code under test (e.g. ``CRUDMixin.save()``) only releases a SAVEPOINT, so
+    the outer ``rollback()`` on teardown still wipes every row — no data leaks
+    between tests, including for service methods that commit.
+
+    Two fixture users are seeded so TimeEntry FK constraints are satisfied.
     """
     with app.app_context():
-        for uid, email in [
-            (USER_ID, "test@mikro.test"),
-            (OTHER_USER_ID, "other@mikro.test"),
-        ]:
-            _db.session.add(User(id=uid, email=email))
-        _db.session.flush()
-        yield _db.session
-        _db.session.rollback()
+        # Flask-SQLAlchemy's Session.get_bind ignores a session-level bind and
+        # resolves to engines[None], so the only way to pin every operation to
+        # one connection is to swap engines[None] for a live connection wrapped
+        # in an outer transaction. With join_transaction_mode="create_savepoint"
+        # a commit() in the code under test only releases a SAVEPOINT, so the
+        # outer rollback() still discards everything.
+        engines = _db.engines
+        original_engine = engines[None]
+        connection = original_engine.connect()
+        transaction = connection.begin()
+        engines[None] = connection
+
+        original_session = _db.session
+        _db.session = _db._make_scoped_session(
+            {"join_transaction_mode": "create_savepoint"}
+        )
+
+        try:
+            for uid, email in [
+                (USER_ID, "test@mikro.test"),
+                (OTHER_USER_ID, "other@mikro.test"),
+            ]:
+                _db.session.add(User(id=uid, email=email))
+            _db.session.flush()
+            yield _db.session
+        finally:
+            _db.session.remove()
+            _db.session = original_session
+            transaction.rollback()
+            connection.close()
+            engines[None] = original_engine

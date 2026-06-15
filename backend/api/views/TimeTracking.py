@@ -52,9 +52,8 @@ from ..database import (
 from ..auth import (
     is_org_admin_or_above,
     managed_team_ids_for,
-    team_admin_can_access_team,
     team_admin_can_access_user,
-    team_member_ids_for,
+    UserScope,
 )
 
 from ..time_tracking import (
@@ -2080,13 +2079,12 @@ class TimeTrackingAPI(MethodView):
             User.id.in_(active_rate_user_ids),
         ).all()
 
-        # team_admin: narrow to managed-team contractors only
-        if g.user.role == "team_admin":
-            managed = managed_team_ids_for(g.user)
-            if not managed:
-                return jsonify({"status": 200, "year": year, "contractors": []})
-            member_ids = team_member_ids_for(managed)
-            contractors = [c for c in contractors if c.id in member_ids]
+        # Narrow to the viewer's scope (team_admin → managed-team contractors;
+        # org-admin+ → unrestricted). visible_user_ids() is None for the
+        # unrestricted case and a member-id set (possibly empty) otherwise.
+        visible = UserScope(g.user).visible_user_ids()
+        if visible is not None:
+            contractors = [c for c in contractors if c.id in visible]
 
         if not contractors:
             return jsonify({"status": 200, "year": year, "contractors": []})

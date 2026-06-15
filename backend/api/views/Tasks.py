@@ -14,7 +14,8 @@ from flask.views import MethodView
 from flask import g, request, current_app
 
 from ..utils import requires_admin, requires_team_admin_or_above
-from ..auth import managed_team_ids_for
+from ..auth import managed_team_ids_for, UserScope
+from .. import users_repo
 from .MapRoulette import MapRouletteSync
 from ..database import (
     Project,
@@ -23,7 +24,6 @@ from ..database import (
     ProjectTeam,
     TeamUser,
     UserTasks,
-    User,
     ValidatorTaskAction,
     SyncJob,
     db,
@@ -94,14 +94,16 @@ class TaskAPI(MethodView):
 
         Updates task status and user payment totals for validated tasks.
         """
-        users = User.query.all()
-        usernames = [x.osm_username for x in users]
         contributions = data.get("userContributions", [])
         target_project = Project.query.filter_by(id=project_id).first()
 
         if not target_project:
             current_app.logger.error(f"Project {project_id} not found")
             return {"response": "project not found"}
+
+        # (Removed a dead ``User.query.all()`` here — the result was never
+        # used; this method matches contributors via per-username lookups
+        # below, which are org-scoped.)
 
         # Build reverse lookup: task_id -> mapper username from contributions
         task_to_mapper = {}
@@ -110,9 +112,9 @@ class TaskAPI(MethodView):
                 task_to_mapper[t] = contrib["username"]
 
         for c in contributions:
-            validator_exists = User.query.filter_by(
-                osm_username=c["username"]
-            ).first()
+            validator_exists = users_repo.by_osm_username(
+                c["username"], target_project.org_id
+            )
 
             if validator_exists is not None:
                 validated_tasks = c.get("validatedTasks", [])
@@ -125,72 +127,69 @@ class TaskAPI(MethodView):
                 tasks_skipped = 0
 
                 for task in validated_tasks:
-                  try:
-                    task_exists = Task.query.filter_by(
-                        task_id=task, project_id=project_id
-                    ).first()
-
-                    # Task doesn't exist yet — create it ONLY because a Mikro
-                    # validator validated it. Mapper stats are NOT updated.
-                    if task_exists is None:
-                        original_mapper = task_to_mapper.get(task, "unknown")
-                        task_exists = Task.create(
-                            task_id=task,
-                            org_id=target_project.org_id,
-                            project_id=project_id,
-                            mapping_rate=target_project.mapping_rate_per_task,
-                            validation_rate=target_project.validation_rate_per_task,
-                            paid_out=False,
-                            mapped=True,
-                            mapped_by=original_mapper,
-                            validated_by="",
-                            validated=False,
-                            date_mapped=func.now(),
-                        )
-                        tasks_created += 1
-
-                    if not task_exists.validated:
-                        # Look up mapper — may be None if mapper is not in Mikro
-                        mapper = User.query.filter_by(
-                            osm_username=task_exists.mapped_by
+                    try:
+                        task_exists = Task.query.filter_by(
+                            task_id=task, project_id=project_id
                         ).first()
 
-                        # Detect self-validation (mapper validated their own work)
-                        is_self_validated = task_exists.mapped_by == c["username"]
-
-                        # Update task status
-                        task_exists.update(
-                            validated_by=c["username"],
-                            unknown_validator=False,
-                            validated=True,
-                            invalidated=False,
-                            self_validated=is_self_validated,
-                            date_validated=func.now(),
-                        )
-
-                        # Create UserTasks entry for validator (for validator dashboard)
-                        validator_task_link = UserTasks.query.filter_by(
-                            user_id=validator_exists.id, task_id=task_exists.id
-                        ).first()
-                        if not validator_task_link:
-                            UserTasks.create(user_id=validator_exists.id, task_id=task_exists.id)
-
-                        # Skip self-validated tasks (just log it)
-                        if is_self_validated:
-                            current_app.logger.warning(
-                                f"Self-validation detected: {c['username']} validated their own task {task}"
+                        # Task doesn't exist yet — create it ONLY because a Mikro
+                        # validator validated it. Mapper stats are NOT updated.
+                        if task_exists is None:
+                            original_mapper = task_to_mapper.get(task, "unknown")
+                            task_exists = Task.create(
+                                task_id=task,
+                                org_id=target_project.org_id,
+                                project_id=project_id,
+                                mapping_rate=target_project.mapping_rate_per_task,
+                                validation_rate=target_project.validation_rate_per_task,
+                                paid_out=False,
+                                mapped=True,
+                                mapped_by=original_mapper,
+                                validated_by="",
+                                validated=False,
+                                date_mapped=func.now(),
                             )
-                            continue
+                            tasks_created += 1
 
-                        tasks_validated += 1
-                    else:
-                        tasks_skipped += 1
-                  except Exception as e:
-                    current_app.logger.error(
-                        f"Error processing validation of task {task} by "
-                        f"{c['username']} on project {project_id}: {e}"
-                    )
-                    db.session.rollback()
+                        if not task_exists.validated:
+                            # Detect self-validation (mapper validated their own work)
+                            is_self_validated = task_exists.mapped_by == c["username"]
+
+                            # Update task status
+                            task_exists.update(
+                                validated_by=c["username"],
+                                unknown_validator=False,
+                                validated=True,
+                                invalidated=False,
+                                self_validated=is_self_validated,
+                                date_validated=func.now(),
+                            )
+
+                            # Create UserTasks entry for validator (for validator dashboard)
+                            validator_task_link = UserTasks.query.filter_by(
+                                user_id=validator_exists.id, task_id=task_exists.id
+                            ).first()
+                            if not validator_task_link:
+                                UserTasks.create(
+                                    user_id=validator_exists.id, task_id=task_exists.id
+                                )
+
+                            # Skip self-validated tasks (just log it)
+                            if is_self_validated:
+                                current_app.logger.warning(
+                                    f"Self-validation detected: {c['username']} validated their own task {task}"
+                                )
+                                continue
+
+                            tasks_validated += 1
+                        else:
+                            tasks_skipped += 1
+                    except Exception as e:
+                        current_app.logger.error(
+                            f"Error processing validation of task {task} by "
+                            f"{c['username']} on project {project_id}: {e}"
+                        )
+                        db.session.rollback()
 
                 current_app.logger.info(
                     f"Validator {c['username']} on project {project_id}: "
@@ -205,10 +204,7 @@ class TaskAPI(MethodView):
                     ).first()
 
                     if task_exists is not None:
-                        if (
-                            not task_exists.validated
-                            and not task_exists.validated_by
-                        ):
+                        if not task_exists.validated and not task_exists.validated_by:
                             task_exists.update(
                                 validated_by=c["username"],
                                 validated=False,
@@ -233,8 +229,7 @@ class TaskAPI(MethodView):
             return {"response": "project not found"}
 
         tasks_to_check = (
-            Task.query
-            .join(UserTasks, UserTasks.task_id == Task.id)
+            Task.query.join(UserTasks, UserTasks.task_id == Task.id)
             .filter(
                 UserTasks.user_id == user.id,
                 Task.project_id == project_id,
@@ -267,14 +262,18 @@ class TaskAPI(MethodView):
                     parent_task_id = task_data.get("parentTaskId")
                     if parent_task_id and target_task.parent_task_id != parent_task_id:
                         # TM4 always splits into exactly 4 children
-                        target_task.update(parent_task_id=parent_task_id, sibling_count=4)
+                        target_task.update(
+                            parent_task_id=parent_task_id, sibling_count=4
+                        )
 
                     # Find invalidation actions in history for validator info.
                     # Sorted descending by actionDate so [0] is the most recent.
                     invalidation_actions = sorted(
                         [
-                            h for h in task_history
-                            if h.get("action") == "STATE_CHANGE" and h.get("actionText") == "INVALIDATED"
+                            h
+                            for h in task_history
+                            if h.get("action") == "STATE_CHANGE"
+                            and h.get("actionText") == "INVALIDATED"
                         ],
                         key=lambda h: h.get("actionDate", ""),
                         reverse=True,
@@ -333,13 +332,16 @@ class TaskAPI(MethodView):
 
         Creates new task records for tasks not yet in the system.
         """
-        users = User.query.all()
-        usernames = [x.osm_username for x in users]
         target_project = Project.query.filter_by(id=project_id).first()
 
         if not target_project:
             current_app.logger.error(f"Project {project_id} not found")
             return {"message": "project not found"}
+
+        # Scope contributor matching to the project's org (was User.query.all()
+        # across every org — a cross-org leak).
+        users = users_repo.by_org(target_project.org_id)
+        usernames = [x.osm_username for x in users]
 
         contributions = data.get("userContributions", [])
         current_app.logger.info(
@@ -355,9 +357,9 @@ class TaskAPI(MethodView):
             mapped_tasks = contributor.get("mappedTasks", [])
 
             if contrib_username in usernames:
-                mapper = User.query.filter_by(
-                    osm_username=contrib_username
-                ).first()
+                mapper = users_repo.by_osm_username(
+                    contrib_username, target_project.org_id
+                )
 
                 if not mapper:
                     current_app.logger.warning(
@@ -404,7 +406,9 @@ class TaskAPI(MethodView):
                                 tm4_base_url = self._get_tm4_base_url()
                                 headers = self._get_tm4_headers()
                                 task_detail_url = f"{tm4_base_url}/projects/{project_id}/tasks/{task}/"
-                                task_detail_call = requests.get(task_detail_url, headers=headers, timeout=10)
+                                task_detail_call = requests.get(
+                                    task_detail_url, headers=headers, timeout=10
+                                )
                                 if task_detail_call.ok:
                                     task_data = task_detail_call.json()
                                     parent_task_id = task_data.get("parentTaskId")
@@ -412,7 +416,7 @@ class TaskAPI(MethodView):
                                         # TM4 always splits into exactly 4 children
                                         target_task.update(
                                             parent_task_id=parent_task_id,
-                                            sibling_count=4
+                                            sibling_count=4,
                                         )
                                         current_app.logger.info(
                                             f"Task {task} is a split child of parent task {parent_task_id} (sibling_count=4)"
@@ -423,7 +427,9 @@ class TaskAPI(MethodView):
                                         f"status={task_detail_call.status_code}"
                                     )
                             except requests.RequestException as e:
-                                current_app.logger.warning(f"Could not fetch task details for {task}: {e}")
+                                current_app.logger.warning(
+                                    f"Could not fetch task details for {task}: {e}"
+                                )
                     else:
                         tasks_skipped += 1
                         # Update mapped_by if task was reassigned in TM4
@@ -448,12 +454,17 @@ class TaskAPI(MethodView):
                                 tm4_base_url = self._get_tm4_base_url()
                                 headers = self._get_tm4_headers()
                                 task_detail_url = f"{tm4_base_url}/projects/{project_id}/tasks/{task}/"
-                                task_detail_call = requests.get(task_detail_url, headers=headers, timeout=10)
+                                task_detail_call = requests.get(
+                                    task_detail_url, headers=headers, timeout=10
+                                )
                                 if task_detail_call.ok:
                                     task_data = task_detail_call.json()
                                     parent_task_id = task_data.get("parentTaskId")
                                     if parent_task_id:
-                                        task_exists.update(parent_task_id=parent_task_id, sibling_count=4)
+                                        task_exists.update(
+                                            parent_task_id=parent_task_id,
+                                            sibling_count=4,
+                                        )
                                         current_app.logger.info(
                                             f"Backfilled parent_task_id={parent_task_id} for existing task {task}"
                                         )
@@ -463,7 +474,9 @@ class TaskAPI(MethodView):
                                         f"status={task_detail_call.status_code}"
                                     )
                             except requests.RequestException as e:
-                                current_app.logger.warning(f"Could not fetch task details for {task}: {e}")
+                                current_app.logger.warning(
+                                    f"Could not fetch task details for {task}: {e}"
+                                )
 
         current_app.logger.info(
             f"get_mapped_TM4_tasks complete: project={project_id}, "
@@ -478,21 +491,24 @@ class TaskAPI(MethodView):
         TM4 now includes invalidatedTasks in the contributions response.
         This creates task records for invalidated tasks and updates stats.
         """
-        users = User.query.all()
-        usernames = [x.osm_username for x in users]
         target_project = Project.query.filter_by(id=project_id).first()
 
         if not target_project:
             current_app.logger.error(f"Project {project_id} not found")
             return {"message": "project not found"}
 
+        # Scope contributor matching to the project's org (was User.query.all()
+        # across every org — a cross-org leak).
+        users = users_repo.by_org(target_project.org_id)
+        usernames = [x.osm_username for x in users]
+
         for contributor in data.get("userContributions", []):
             if contributor["username"] not in usernames:
                 continue
 
-            mapper = User.query.filter_by(
-                osm_username=contributor["username"]
-            ).first()
+            mapper = users_repo.by_osm_username(
+                contributor["username"], target_project.org_id
+            )
 
             if not mapper:
                 continue
@@ -567,7 +583,9 @@ class TaskAPI(MethodView):
 
         # TM4 requires the user's OSM username for this endpoint
         # The endpoint returns tasks where user was the original mapper that got invalidated
-        invalidated_url = f"{base_url}/projects/{project_id}/tasks/queries/own/invalidated/"
+        invalidated_url = (
+            f"{base_url}/projects/{project_id}/tasks/queries/own/invalidated/"
+        )
 
         current_app.logger.info(
             f"fetch_invalidated_tasks_from_tm4: user={user.osm_username}, project={project_id}, url={invalidated_url}"
@@ -689,7 +707,10 @@ class TaskAPI(MethodView):
                     f"project={project_id} user={user.id} osm={user.osm_username} "
                     f"url={tm4_url}"
                 )
-                return {"message": "TM4 API call failed", "status": response.status_code}
+                return {
+                    "message": "TM4 API call failed",
+                    "status": response.status_code,
+                }
         except requests.RequestException as e:
             current_app.logger.error(f"TM4 API error: {e}")
             return {"message": f"TM4 API error: {str(e)}"}
@@ -711,13 +732,18 @@ class TaskAPI(MethodView):
         ]
 
         # Get all active projects in org (assigned + public/visible)
-        user_projects = Project.query.filter(
-            Project.org_id == g.user.org_id,
-            Project.status == True,
-        ).filter(
-            # Include if assigned OR if visible to users
-            (Project.id.in_(assigned_project_ids)) | (Project.visibility == True)
-        ).all()
+        user_projects = (
+            Project.query.filter(
+                Project.org_id == g.user.org_id,
+                Project.status == True,
+            )
+            .filter(
+                # Include if assigned OR if visible to users
+                (Project.id.in_(assigned_project_ids))
+                | (Project.visibility == True)
+            )
+            .all()
+        )
 
         # Queue background sync jobs instead of running inline
         # (MR syncs can take minutes and kill the gunicorn worker)
@@ -726,7 +752,9 @@ class TaskAPI(MethodView):
 
         queued = 0
         for project in user_projects:
-            _, created = SyncJobQueue.enqueue_project_sync(org_id, project.id, user_id=user_id)
+            _, created = SyncJobQueue.enqueue_project_sync(
+                org_id, project.id, user_id=user_id
+            )
             if created:
                 queued += 1
 
@@ -767,9 +795,7 @@ class TaskAPI(MethodView):
         if not project_id:
             return {"message": "project_id required", "status": 400}
 
-        project = Project.query.filter_by(
-            id=project_id, org_id=g.user.org_id
-        ).first()
+        project = Project.query.filter_by(id=project_id, org_id=g.user.org_id).first()
         if not project:
             return {"message": "Project not found", "status": 404}
 
@@ -792,20 +818,18 @@ class TaskAPI(MethodView):
         if not user_id:
             return {"message": "user_id required", "status": 400}
 
-        user = User.query.get(user_id)
-        if not user or user.org_id != g.user.org_id:
+        user = UserScope(g.user).get(user_id)
+        if not user:
             return {"message": "User not found", "status": 404}
 
         # Direct project assignments
         direct_ids = {
-            pu.project_id
-            for pu in ProjectUser.query.filter_by(user_id=user_id).all()
+            pu.project_id for pu in ProjectUser.query.filter_by(user_id=user_id).all()
         }
 
         # Team-based project assignments
         team_ids = {
-            tu.team_id
-            for tu in TeamUser.query.filter_by(user_id=user_id).all()
+            tu.team_id for tu in TeamUser.query.filter_by(user_id=user_id).all()
         }
         team_project_ids = set()
         if team_ids:
@@ -829,7 +853,9 @@ class TaskAPI(MethodView):
             if not project or project.org_id != org_id:
                 continue
             job, _ = SyncJobQueue.enqueue_project_sync(org_id, pid, user_id=user_id)
-            queued.append({"project_id": pid, "project_name": project.name, "job_id": job.id})
+            queued.append(
+                {"project_id": pid, "project_name": project.name, "job_id": job.id}
+            )
 
         return {
             "message": f"Queued sync for {len(queued)} project(s)",
@@ -913,7 +939,9 @@ class TaskAPI(MethodView):
                 "task_id": task.task_id,
                 "project_id": task.project_id,
                 "project_name": task_project.name if task_project else None,
-                "project_short_name": (task_project.short_name or "") if task_project else "",
+                "project_short_name": (
+                    (task_project.short_name or "") if task_project else ""
+                ),
                 "project_url": task_project.url if task_project else None,
                 "validation_rate": task.validation_rate,
                 "mapping_rate": task.mapping_rate,
@@ -955,7 +983,10 @@ class TaskAPI(MethodView):
             return {"message": "Task not found", "status": 404}
 
         target_project = Project.query.filter_by(id=target_task.project_id).first()
-        target_mapper = User.query.filter_by(osm_username=target_task.mapped_by).first()
+        target_mapper = users_repo.by_osm_username(
+            target_task.mapped_by,
+            target_project.org_id if target_project else None,
+        )
 
         if not target_mapper:
             return {"message": "Mapper not found", "status": 404}
@@ -982,5 +1013,3 @@ class TaskAPI(MethodView):
             return {"message": f"Invalid task_action: {task_action}", "status": 400}
 
         return {"message": "Task updated", "status": 200}
-
-

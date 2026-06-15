@@ -325,6 +325,47 @@ class PayrollHoursQuery(AggregateQuery):
             for row in q.group_by(TimeEntry.user_id).all()
         }
 
+    def hours_by_user_and_week(
+        self, user_ids, cycle_start, cycle_end, num_weeks=4
+    ) -> dict:
+        """``{user_id: [seconds_w1, …, seconds_wN]}`` of completed-session
+        seconds bucketed into Sun–Sat calendar weeks.
+
+        Week 1 is anchored to the Sunday on/before ``cycle_start``; each
+        session is placed by its ``clock_out`` date. Sessions past the last
+        bucket (e.g. a 5th calendar week in a long month) fold into the final
+        week. ``user_ids`` is an iterable of ids, or ``None`` for no per-user
+        filter; an empty iterable short-circuits to ``{}``.
+        """
+        if user_ids is not None:
+            ids = list(user_ids)
+            if not ids:
+                return {}
+        # Sunday on/before cycle_start (Python weekday(): Mon=0 … Sun=6).
+        week1_start = cycle_start - timedelta(days=(cycle_start.weekday() + 1) % 7)
+        # date − date → integer days in Postgres; // 7 → week index, clamped
+        # so any overflow week folds into the final bucket.
+        week_idx = func.least(
+            (cast(TimeEntry.clock_out, SqlDate) - week1_start) / 7,
+            num_weeks - 1,
+        )
+        q = self._cycle_window(
+            self.queryset().with_entities(
+                TimeEntry.user_id,
+                week_idx.label("week_idx"),
+                func.coalesce(func.sum(TimeEntry.duration_seconds), 0).label("seconds"),
+            ),
+            cycle_start,
+            cycle_end,
+        )
+        if user_ids is not None:
+            q = q.filter(TimeEntry.user_id.in_(ids))
+        out: dict = {}
+        for row in q.group_by(TimeEntry.user_id, week_idx).all():
+            buckets = out.setdefault(row.user_id, [0] * num_weeks)
+            buckets[int(row.week_idx)] += int(row.seconds or 0)
+        return out
+
     def sessions_in_cycle(self, user_id, cycle_start, cycle_end) -> list:
         """Completed sessions for one user inside the cycle, ``clock_in`` asc
         — the Payments contributor-detail session breakdown."""

@@ -20,7 +20,6 @@ export const PAYMENTS_TABLE_COLUMNS: { key: string; label: string }[] = [
 
 interface PaymentsTableProps {
   rows: PaymentCycleRow[];
-  canEditStatus: boolean;
   onRowClick?: (row: PaymentCycleRow) => void;
   onApprove?: (row: PaymentCycleRow) => void;
   onHold?: (row: PaymentCycleRow) => void;
@@ -78,7 +77,6 @@ const STATUS_CLASSES: Record<PaymentCycleStatus, string> = {
 
 export function PaymentsTable({
   rows,
-  canEditStatus,
   onRowClick,
   onApprove,
   onHold,
@@ -209,7 +207,6 @@ export function PaymentsTable({
                   className="px-3 py-2 text-right"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {canEditStatus && (
                     <div className="flex justify-end gap-1">
                       {row.status === "pending" && (
                         <>
@@ -262,7 +259,7 @@ export function PaymentsTable({
                         </span>
                       )}
                     </div>
-                  )}
+ 
                 </td>
               )}
             </tr>

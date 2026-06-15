@@ -31,10 +31,10 @@ from flask.views import MethodView
 from sqlalchemy import func
 
 from ..auth import can_view_pay_for
-from ..database import EventProposal, ReimbursementRequest, User, db
+from ..database import EventProposal, ReimbursementRequest, db
+from .. import users_repo
 from ..services.reimbursements import ReimbursementService
 from ..utils import requires_team_admin_or_above
-
 
 # ─── DO Spaces helpers (receipt uploads / fetches) ──────────────────
 
@@ -167,15 +167,20 @@ class ReimbursementsAPI(MethodView):
             "attachment_url": req.attachment_url,
             "has_attachment": bool(req.attachment_url),
             "status": req.status,
-            "submitted_at": req.submitted_at.isoformat() + "Z" if req.submitted_at else None,
+            "submitted_at": (
+                req.submitted_at.isoformat() + "Z" if req.submitted_at else None
+            ),
             "reviewed_by": req.reviewed_by,
-            "reviewed_at": req.reviewed_at.isoformat() + "Z" if req.reviewed_at else None,
+            "reviewed_at": (
+                req.reviewed_at.isoformat() + "Z" if req.reviewed_at else None
+            ),
             "reviewer_note": req.reviewer_note,
         }
 
     @staticmethod
     def _format_reimbursement_with_user(req, user):
         from ..services.payment_cycle import PaymentCycleService
+
         out = ReimbursementsAPI._format_reimbursement(req)
         if user is not None:
             out["user_name"] = PaymentCycleService.display_name(user)
@@ -200,7 +205,10 @@ class ReimbursementsAPI(MethodView):
         if not proposal:
             return {"message": "Event proposal not found", "status": 404}
         if proposal.status != "approved":
-            return {"message": "Reimbursements can only be submitted against approved events", "status": 400}
+            return {
+                "message": "Reimbursements can only be submitted against approved events",
+                "status": 400,
+            }
         if proposal.org_id != g.user.org_id:
             return {"message": "Cross-org request denied", "status": 403}
 
@@ -230,7 +238,11 @@ class ReimbursementsAPI(MethodView):
                 )
                 .scalar()
             )
-            existing_total = Decimal(str(existing_result)) if existing_result is not None else Decimal("0")
+            existing_total = (
+                Decimal(str(existing_result))
+                if existing_result is not None
+                else Decimal("0")
+            )
             if existing_total + amount > budget_cap:
                 return {
                     "message": (
@@ -277,7 +289,10 @@ class ReimbursementsAPI(MethodView):
         body = request.json or {}
         status_filter = (body.get("status") or "").strip().lower() or None
         if status_filter and status_filter not in {
-            "pending", "approved", "rejected", "withdrawn",
+            "pending",
+            "approved",
+            "rejected",
+            "withdrawn",
         }:
             return {"message": "invalid status filter", "status": 400}
 
@@ -364,7 +379,7 @@ class ReimbursementsAPI(MethodView):
 
         out = []
         for r in rows:
-            owner = User.query.get(r.user_id)
+            owner = users_repo.by_id(r.user_id)
             if owner is None:
                 continue
             if not can_view_pay_for(g.user, owner):
@@ -399,7 +414,7 @@ class ReimbursementsAPI(MethodView):
                 "status": 409,
             }
 
-        owner = User.query.get(row.user_id)
+        owner = users_repo.by_id(row.user_id)
         if owner is None or not can_view_pay_for(g.user, owner):
             return {"message": "Not authorized for this request", "status": 403}
 
@@ -425,7 +440,10 @@ class ReimbursementsAPI(MethodView):
         if not req_id:
             return {"message": "request_id required", "status": 400}
         if not reviewer_note:
-            return {"message": "reviewer_note is required when rejecting", "status": 400}
+            return {
+                "message": "reviewer_note is required when rejecting",
+                "status": 400,
+            }
         if len(reviewer_note) > 2000:
             return {"message": "reviewer_note exceeds 2000 characters", "status": 400}
 
@@ -440,7 +458,7 @@ class ReimbursementsAPI(MethodView):
                 "status": 409,
             }
 
-        owner = User.query.get(row.user_id)
+        owner = users_repo.by_id(row.user_id)
         if owner is None or not can_view_pay_for(g.user, owner):
             return {"message": "Not authorized for this request", "status": 403}
 
@@ -470,13 +488,16 @@ class ReimbursementsAPI(MethodView):
         if not target_user_id:
             return {"message": "user_id is required", "status": 400}
 
-        target_user = User.query.get(target_user_id)
+        target_user = users_repo.by_id(target_user_id)
         if target_user is None:
             return {"message": "User not found", "status": 404}
         if target_user.org_id != g.user.org_id:
             return {"message": "Cross-org request denied", "status": 403}
         if not can_view_pay_for(g.user, target_user):
-            return {"message": "Not authorized to manage pay for this user", "status": 403}
+            return {
+                "message": "Not authorized to manage pay for this user",
+                "status": 403,
+            }
 
         try:
             amount = Decimal(str(body.get("amount")))
@@ -540,7 +561,7 @@ class ReimbursementsAPI(MethodView):
         if row.user_id != g.user.id:
             if row.org_id != g.user.org_id:
                 return {"message": "Cross-org access denied", "status": 403}
-            owner = User.query.get(row.user_id)
+            owner = users_repo.by_id(row.user_id)
             if owner is None or not can_view_pay_for(g.user, owner):
                 return {"message": "Not authorized for this request", "status": 403}
 

@@ -43,6 +43,17 @@ def _hours(user_ids=None, start=CYCLE_START, end=CYCLE_END):
     return PaymentCycleService(ORG).hours_by_user(user_ids, start, end)
 
 
+# Full-month cycle for the weekly-bucket tests. week 1 is anchored to the
+# Sunday on/before May 1 (Sun Apr 26), so May Sun–Sat weeks fall as:
+#   wk1 Apr26–May2 · wk2 May3–9 · wk3 May10–16 · wk4 May17–23 · (overflow→wk4)
+MONTH_START = date(2026, 5, 1)
+MONTH_END = date(2026, 5, 31)
+
+
+def _weekly(user_ids=None, start=MONTH_START, end=MONTH_END):
+    return PaymentCycleService(ORG).hours_by_user_and_week(user_ids, start, end)
+
+
 # ── clock_out is the window column ───────────────────────────────────────────
 
 
@@ -233,3 +244,64 @@ def test_sessions_in_cycle_window_and_status(db_session):
 
     assert len(rows) == 1
     assert rows[0].clock_out == datetime(2026, 5, 7, 11, 0)
+
+
+# ── weekly buckets (Sun–Sat calendar weeks, CSV export) ─────────────────────
+
+
+def test_weekly_buckets_by_clock_out_week(db_session):
+    """Sessions land in the Sun–Sat week their clock_out falls in, indexed
+    from the week containing cycle_start (week 1 = Apr 26–May 2)."""
+    db_session.add_all(
+        [
+            _entry(clock_out=datetime(2026, 5, 1, 11, 0), duration_seconds=7200),  # wk1
+            _entry(clock_out=datetime(2026, 5, 4, 11, 0), duration_seconds=3600),  # wk2
+            _entry(clock_out=datetime(2026, 5, 11, 11, 0), duration_seconds=1800),  # wk3
+            _entry(clock_out=datetime(2026, 5, 18, 11, 0), duration_seconds=3600),  # wk4
+        ]
+    )
+    db_session.flush()
+
+    assert _weekly([USER_ID])[USER_ID] == [7200, 3600, 1800, 3600]
+
+
+def test_weekly_buckets_overflow_folds_into_last_week(db_session):
+    """A 5th-calendar-week session (May 25) folds into week 4 rather than
+    spilling past the fixed four buckets."""
+    db_session.add_all(
+        [
+            _entry(clock_out=datetime(2026, 5, 18, 11, 0), duration_seconds=3600),  # wk4
+            _entry(clock_out=datetime(2026, 5, 25, 11, 0), duration_seconds=3600),  # ↳wk4
+            _entry(clock_out=datetime(2026, 5, 31, 11, 0), duration_seconds=1800),  # ↳wk4
+        ]
+    )
+    db_session.flush()
+
+    buckets = _weekly([USER_ID])[USER_ID]
+    assert buckets == [0, 0, 0, 9000]
+    # Weekly total matches the single-number cycle total (no double counting).
+    assert sum(buckets) == _hours([USER_ID], MONTH_START, MONTH_END)[USER_ID]
+
+
+def test_weekly_respects_clock_out_window_and_status(db_session):
+    """Out-of-window and non-completed sessions are excluded, same as the
+    single-total query."""
+    db_session.add_all(
+        [
+            _entry(clock_out=datetime(2026, 5, 4, 11, 0), duration_seconds=3600),  # in
+            _entry(clock_out=datetime(2026, 4, 30, 11, 0), duration_seconds=9999),  # pre
+            _entry(clock_out=datetime(2026, 6, 1, 11, 0), duration_seconds=9999),  # post
+            _entry(
+                status="voided",
+                clock_out=datetime(2026, 5, 4, 11, 0),
+                duration_seconds=9999,
+            ),  # voided
+        ]
+    )
+    db_session.flush()
+
+    assert _weekly([USER_ID])[USER_ID] == [0, 3600, 0, 0]
+
+
+def test_weekly_empty_user_ids_short_circuits(db_session):
+    assert _weekly([]) == {}

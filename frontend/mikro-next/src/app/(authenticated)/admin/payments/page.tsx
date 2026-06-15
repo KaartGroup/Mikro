@@ -85,7 +85,6 @@ export  default function PaymentsPage() {
     router.push(qs ? `${pathname}?${qs}` : pathname);
   };
   const { role: viewerRole } = useCurrentUserRole();
-  const canEdit = isAnyAdmin(viewerRole);
 
   // Cycle state
   const [cycleStart, setCycleStart] = useState(firstOfMonthIso());
@@ -498,23 +497,21 @@ export  default function PaymentsPage() {
                   }
                   onShowAll={() => setHiddenCols(new Set())}
                 />
-                {canEdit && (
+  
                   <Button
                     variant="primary"
                     size="sm"
                     onClick={onExport}
                     isLoading={exporting}
-                    disabled={!kpis || kpis.approved_count === 0}
                   >
                     Export
                   </Button>
-                )}
+                
               </div>
             </CardContent>
             <CardContent className="p-0">
               <PaymentsTable
                 rows={pagedRows}
-                canEditStatus={canEdit}
                 loading={cycleLoading}
                 hiddenColumns={hiddenCols}
                 onRowClick={setDrillRow}
@@ -606,7 +603,6 @@ export  default function PaymentsPage() {
                 cycleStart={cycleStart}
                 cycleEnd={cycleEnd}
                 filters={filtersBody}
-                canEdit={canEdit}
                 onChanged={reload}
                 onApprove={onApprove}
                 onHold={onHold}

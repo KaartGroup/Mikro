@@ -406,14 +406,14 @@ def test_process_payment_request_notifies_payee():
         }
     ):
         g.user = _admin()
-        with patch("api.views.Transactions.User") as U, patch(
+        with patch("api.views.Transactions.UserScope") as US, patch(
             "api.views.Transactions.PayRequests"
         ) as PR, patch("api.views.Transactions.Payments") as P, patch(
-            "api.views.Transactions.is_org_admin_or_above", return_value=True
-        ), patch(
             "api.views.Transactions.comms_client"
         ) as spy:
-            U.query.filter_by.return_value.first.return_value = payee
+            # UserScope(g.user).get(user_id) resolves the payee (org + access
+            # gate now centralized in UserScope).
+            US.return_value.get.return_value = payee
             PR.query.filter_by.return_value.first.return_value = pay_request
             P.create.return_value = new_payment
             result = TransactionAPI().process_payment_request()
@@ -436,13 +436,13 @@ def test_assign_user_notifies_assignee():
     with app.test_request_context(json={"project_id": 17, "user_id": "auth0|assignee"}):
         g.user = _admin()
         with patch("api.views.Users.ProjectUser") as PU, patch(
-            "api.views.Users.User"
-        ) as U, patch("api.views.Users.Project") as P, patch(
+            "api.views.Users.users_repo"
+        ) as UR, patch("api.views.Users.Project") as P, patch(
             "api.views.Users.comms_client"
         ) as spy:
             # No existing relation → assign branch.
             PU.query.filter_by.return_value.first.return_value = None
-            U.query.get.return_value = assignee
+            UR.by_id.return_value = assignee
             P.query.get.return_value = project
             resp = UserAPI().assign_user()
 

@@ -9,6 +9,7 @@ from .team_scoping import (
     is_org_admin_or_above,
     is_super_admin,
 )
+from .user_scope import UserScope
 
 __all__ = [
     "authenticate_request",
@@ -24,4 +25,5 @@ __all__ = [
     "is_admin_tier",
     "is_org_admin_or_above",
     "is_super_admin",
+    "UserScope",
 ]

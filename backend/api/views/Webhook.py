@@ -18,10 +18,10 @@ from ..database import (
     Project,
     Task,
     UserTasks,
-    User,
     ValidatorTaskAction,
     db,
 )
+from .. import users_repo
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ class WebhookAPI(MethodView):
         expected_sig = hmac.new(
             secret.encode("utf-8"), raw_body, hashlib.sha256
         ).hexdigest()
-        provided_sig = signature_header[len("sha256="):]
+        provided_sig = signature_header[len("sha256=") :]
 
         if not hmac.compare_digest(expected_sig, provided_sig):
             return {"error": "Invalid signature"}, 401
@@ -77,9 +77,7 @@ class WebhookAPI(MethodView):
 
         for event in events:
             try:
-                project = Project.query.filter_by(
-                    id=event["project_id"]
-                ).first()
+                project = Project.query.filter_by(id=event["project_id"]).first()
                 if not project:
                     logger.info(
                         "Webhook: project %s not tracked, skipping",
@@ -130,13 +128,11 @@ class WebhookAPI(MethodView):
         username = event.get("username", "")
 
         # Idempotent: skip if task already recorded
-        existing = Task.query.filter_by(
-            task_id=task_id, project_id=project.id
-        ).first()
+        existing = Task.query.filter_by(task_id=task_id, project_id=project.id).first()
         if existing:
             return
 
-        mapper = User.query.filter_by(osm_username=username).first()
+        mapper = users_repo.by_osm_username(username, project.org_id)
 
         # Create the task record
         task = Task(
@@ -172,9 +168,7 @@ class WebhookAPI(MethodView):
         task_id = event["task_id"]
         username = event.get("username", "")
 
-        task = Task.query.filter_by(
-            task_id=task_id, project_id=project.id
-        ).first()
+        task = Task.query.filter_by(task_id=task_id, project_id=project.id).first()
 
         # If the task doesn't exist yet, create it (mapper may be external)
         if not task:
@@ -199,7 +193,7 @@ class WebhookAPI(MethodView):
         if task.validated:
             return
 
-        validator = User.query.filter_by(osm_username=username).first()
+        validator = users_repo.by_osm_username(username, project.org_id)
 
         # Check for self-validation
         is_self_validated = task.mapped_by == username
@@ -225,9 +219,7 @@ class WebhookAPI(MethodView):
         task_id = event["task_id"]
         username = event.get("username", "")
 
-        task = Task.query.filter_by(
-            task_id=task_id, project_id=project.id
-        ).first()
+        task = Task.query.filter_by(task_id=task_id, project_id=project.id).first()
 
         # Skip if task not found or already invalidated (idempotent)
         if not task or task.invalidated:
@@ -239,7 +231,7 @@ class WebhookAPI(MethodView):
         task.date_validated = func.now()
 
         # Record the validator action
-        validator = User.query.filter_by(osm_username=username).first()
+        validator = users_repo.by_osm_username(username, project.org_id)
         if validator:
             action = ValidatorTaskAction(
                 validator_id=validator.id,
@@ -255,11 +247,8 @@ class WebhookAPI(MethodView):
 
         task_id = event["task_id"]
 
-        task = Task.query.filter_by(
-            task_id=task_id, project_id=project.id
-        ).first()
+        task = Task.query.filter_by(task_id=task_id, project_id=project.id).first()
 
         if task:
             task.parent_task_id = event.get("parent_task_id")
             task.sibling_count = 4
-

@@ -15,8 +15,8 @@ from datetime import date
 from flask import g, request
 from flask.views import MethodView
 
-from ..auth import is_org_admin_or_above, team_admin_can_access_user
-from ..database import User
+from ..auth import UserScope
+from .. import users_repo
 from ..services.hourly_rate_history import (
     DeleteGuardError,
     HourlyRateHistoryService,
@@ -41,16 +41,15 @@ def _serialize(entry) -> dict:
 
 def _load_target_user(user_id: str):
     """Return the target User row or None; also checks cross-org access."""
-    user = User.query.get(user_id)
+    user = users_repo.by_id(user_id)
     if not user or user.org_id != g.user.org_id:
         return None
     return user
 
 
 def _can_access(target_user) -> bool:
-    if is_org_admin_or_above(g.user):
-        return True
-    return team_admin_can_access_user(g.user, target_user.id)
+    # Centralized self / org-admin / team-admin gate (api.auth.UserScope).
+    return UserScope(g.user).can_access(target_user)
 
 
 class HourlyRatesAPI(MethodView):
@@ -112,7 +111,10 @@ class HourlyRatesAPI(MethodView):
             except ValueError:
                 return {"message": "end_date must be YYYY-MM-DD", "status": 400}
             if end_date < start_date:
-                return {"message": "end_date must be on or after start_date", "status": 400}
+                return {
+                    "message": "end_date must be on or after start_date",
+                    "status": 400,
+                }
 
         notes = (body.get("notes") or "").strip() or None
 

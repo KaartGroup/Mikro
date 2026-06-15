@@ -17,7 +17,8 @@ so tests can substitute a fake without monkeypatching the network.
 import logging
 from datetime import datetime
 
-from ..database import TimeEntry, User, CustomTopic, db
+from ..database import TimeEntry, CustomTopic, db
+from .. import users_repo
 from ..utils.changeset_fetcher import ChangesetFetcher
 from .presenter import TimeTrackingHelpers
 
@@ -152,7 +153,7 @@ class TimeEntryService:
             entry.user_notes = TimeTrackingHelpers._normalize_user_notes(user_notes)
 
         # Fetch OSM changesets (best-effort).
-        user = User.query.get(entry.user_id)
+        user = users_repo.by_id(entry.user_id)
         if user and user.osm_username:
             entry.changeset_count, entry.changes_count = self._count_changesets(
                 user.osm_username, entry.clock_in, now

@@ -21,7 +21,6 @@ interface ContributorDetailPanelProps {
   cycleEnd: string;
   /** Master page filter — inherited so the drill-in can't conflict with it. */
   filters?: Record<string, string[]>;
-  canEdit: boolean;
   onChanged?: () => void;
   onApprove?: (row: PaymentCycleRow) => void;
   onHold?: (row: PaymentCycleRow) => void;
@@ -77,7 +76,6 @@ export function ContributorDetailPanel({
   cycleStart,
   cycleEnd,
   filters,
-  canEdit,
   onApprove,
   onHold,
   onMarkPaid,
@@ -184,7 +182,6 @@ export function ContributorDetailPanel({
                 : `${formatNumber(c.hours).text} hrs`}
             </div>
           </div>
-          {canEdit && (
             <div className="flex flex-col gap-1.5">
               {c.status === "pending" && (
                 <>
@@ -232,7 +229,6 @@ export function ContributorDetailPanel({
                 </Button>
               )}
             </div>
-          )}
         </div>
       </div>
         <div className="p-4">

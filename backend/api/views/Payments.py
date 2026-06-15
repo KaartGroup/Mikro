@@ -13,26 +13,21 @@ Routes mounted under ``/api/payments/`` in ``app.py``.
 import csv
 import io
 from datetime import date, datetime
-
 from flask import Response, g, request
 from flask.views import MethodView
 from sqlalchemy import cast, func, Date as SqlDate
 
 from ..auth import (
     can_view_pay_for,
-    is_org_admin_or_above,
-    managed_team_ids_for,
-    team_member_ids_for,
+    UserScope,
 )
 from ..database import (
     Payments,
     Project,
     ProjectTeam,
     ReimbursementRequest,
-    User,
     db,
 )
-from ..filters import resolve_filtered_user_ids
 from ..payroll_periods import generate_cycles
 from ..services.payment_cycle import (
     PaymentCycleService as PaymentService,
@@ -45,7 +40,6 @@ from ..services.payment_cycle import (
 )
 from ..utils import requires_admin, requires_team_admin_or_above
 from ..time_tracking import PayrollHoursQuery
-
 
 
 def _decimal(v):
@@ -65,46 +59,6 @@ def _parse_iso_date(raw):
         return datetime.strptime(str(raw)[:10], "%Y-%m-%d").date()
     except (TypeError, ValueError):
         return None
-
-
-def _scoped_user_ids(viewer):
-    """Resolve the user-id set the viewer is allowed to see on the Payments page.
-
-    - super_admin / admin: all users in their org → return ``None`` (no filter).
-    - team_admin: union of members across managed teams (set of ids).
-    - anyone else: empty set (route gate blocks them anyway).
-    """
-    if is_org_admin_or_above(viewer):
-        return None
-    if getattr(viewer, "role", None) == "team_admin":
-        return team_member_ids_for(managed_team_ids_for(viewer))
-    return set()
-
-
-def _candidate_user_ids(viewer, filters):
-    """Viewer's team/role scope INTERSECTED with the universal ``filters`` body.
-
-    Mirrors the Users/Projects standard-filter system: ``filters`` is the
-    same dict shape ({region, country, team, role, timezone, ...}) resolved
-    by ``resolve_filtered_user_ids``.
-
-    Returns:
-    - ``None``  → no constraint (org-admin+ AND no filters): all org users.
-    - ``set()`` → nothing matches: caller short-circuits to no rows.
-    - ``set``   → the allowed user-id set.
-
-    The team-scope ceiling is never *widened* by the master filter — a
-    filter can only narrow within what the viewer may already see, so the
-    page-level filter and the team scope can never conflict.
-    """
-    scoped = _scoped_user_ids(viewer)  # None | set | set()
-    resolved = resolve_filtered_user_ids(filters, viewer.org_id)  # None | list
-    if resolved is None:
-        return scoped
-    resolved = set(resolved)
-    if scoped is None:
-        return resolved
-    return scoped & resolved
 
 
 def _comp_filter_from_body(body):
@@ -162,26 +116,15 @@ class PaymentsAPI(MethodView):
                 "status": 400,
             }
 
-        scoped_ids = _candidate_user_ids(g.user, body.get("filters"))
-        # Build the candidate user query — every active org user with an
-        # hourly_rate set (the v1 cohort). Filter to scoped_ids when team_admin.
-        users_q = User.query.filter_by(org_id=g.user.org_id, is_active=True)
-        if scoped_ids is not None:
-            if not scoped_ids:
-                return {
-                    "rows": [],
-                    "cycle_start": cycle_start.isoformat(),
-                    "cycle_end": cycle_end.isoformat(),
-                    "include_zero_hours": include_zero,
-                    "status": 200,
-                }
-            users_q = users_q.filter(User.id.in_(list(scoped_ids)))
-        # Pay-visibility SSOT: drops targets the viewer may not see pay for
-        # (a team_admin never sees org/super-admin or peer team_admin pay,
-        # even on a shared team). No-op for org_admin/super_admin.
-        candidate_users = [
-            u for u in users_q.all() if can_view_pay_for(g.user, u)
-        ]
+        # Candidate cohort — active org users the viewer may see, narrowed
+        # by the universal filters body, then dropped to those whose pay the
+        # viewer may view (pay-visibility SSOT: a team_admin never sees
+        # org/super-admin or peer team_admin pay, even on a shared team).
+        # An empty scope yields no users → the loops below produce no rows.
+        scope = UserScope(g.user)
+        candidate_users = scope.pay_visible(
+            scope.users(filters=body.get("filters"), active_only=True)
+        )
         candidate_ids = [u.id for u in candidate_users]
 
         svc = PaymentService(g.user.org_id)
@@ -205,12 +148,8 @@ class PaymentsAPI(MethodView):
                 bucket["total"] += float(r.amount)
                 bucket["count"] += 1
 
-        comp_filter = _comp_filter_from_body(body)
         rows = []
         for u in candidate_users:
-            model = PaymentService.effective_comp_model(u)
-            if not PaymentService.passes_comp_filter(model, comp_filter):
-                continue
             seconds = hours_map.get(u.id, 0)
             row = PaymentService.build_row(u, seconds, status_map.get(u.id))
             reimb_bucket = reimb_map.get(u.id, {"total": 0.0, "count": 0})
@@ -261,30 +200,13 @@ class PaymentsAPI(MethodView):
                 "status": 400,
             }
 
-        scoped_ids = _candidate_user_ids(g.user, body.get("filters"))
-        users_q = User.query.filter_by(org_id=g.user.org_id, is_active=True)
-        if scoped_ids is not None:
-            if not scoped_ids:
-                return {
-                    "kpis": {
-                        "total_payable": 0.0,
-                        "approved_total": 0.0,
-                        "pending_count": 0,
-                        "approved_count": 0,
-                        "held_count": 0,
-                        "paid_count": 0,
-                    },
-                    "cycle_start": cycle_start.isoformat(),
-                    "cycle_end": cycle_end.isoformat(),
-                    "status": 200,
-                }
-            users_q = users_q.filter(User.id.in_(list(scoped_ids)))
-        # Pay-visibility SSOT: drops targets the viewer may not see pay for
-        # (a team_admin never sees org/super-admin or peer team_admin pay,
-        # even on a shared team). No-op for org_admin/super_admin.
-        candidate_users = [
-            u for u in users_q.all() if can_view_pay_for(g.user, u)
-        ]
+        # Same cohort as fetch_cycle (see there): active org users the viewer
+        # may see + pay-visibility. Empty scope → zero KPIs fall out of the
+        # loops below.
+        scope = UserScope(g.user)
+        candidate_users = scope.pay_visible(
+            scope.users(filters=body.get("filters"), active_only=True)
+        )
         candidate_ids = [u.id for u in candidate_users]
         user_by_id = {u.id: u for u in candidate_users}
 
@@ -335,9 +257,7 @@ class PaymentsAPI(MethodView):
         # pay-visibility cohort (team_admin only sums users they may see).
         if candidate_ids:
             total_paid_lifetime = float(
-                db.session.query(
-                    func.coalesce(func.sum(Payments.amount_paid), 0.0)
-                )
+                db.session.query(func.coalesce(func.sum(Payments.amount_paid), 0.0))
                 .filter(
                     Payments.org_id == g.user.org_id,
                     Payments.user_id.in_(candidate_ids),
@@ -390,12 +310,9 @@ class PaymentsAPI(MethodView):
                 "status": 400,
             }
 
-        # Scope check
-        scoped_ids = _candidate_user_ids(g.user, body.get("filters"))
-        if scoped_ids is not None and target_id not in scoped_ids:
-            return {"message": "User not in your scope", "status": 403}
-
-        user = User.query.filter_by(id=target_id, org_id=g.user.org_id).first()
+        # Scope check — org + team-admin access gate in one lookup.
+        scope = UserScope(g.user)
+        user = scope.get(target_id)
         if not user:
             return {"message": "User not found", "status": 404}
         # Pay-visibility SSOT (defence-in-depth alongside the scope check).
@@ -406,16 +323,18 @@ class PaymentsAPI(MethodView):
         svc = PaymentService(g.user.org_id)
         hours_map = svc.hours_by_user([user.id], cycle_start, cycle_end)
         status_map = svc.status_by_user([user.id], cycle_start, cycle_end)
-        user._active_hourly_rate = svc.rates_by_user([user.id], cycle_start).get(user.id)
+        user._active_hourly_rate = svc.rates_by_user([user.id], cycle_start).get(
+            user.id
+        )
         seconds = hours_map.get(user.id, 0)
         header = PaymentService.build_row(user, seconds, status_map.get(user.id))
 
         # Session breakdown (raw completed time_entries inside the cycle) —
         # same payroll clock_out/inclusive-date window as the hours total,
         # via PayrollHoursQuery (the SSOT for that window).
-        sessions = PayrollHoursQuery(
-            g.user.org_id, {}, viewer=None
-        ).sessions_in_cycle(user.id, cycle_start, cycle_end)
+        sessions = PayrollHoursQuery(g.user.org_id, {}, viewer=None).sessions_in_cycle(
+            user.id, cycle_start, cycle_end
+        )
         sessions_data = [
             {
                 "id": s.id,
@@ -490,9 +409,12 @@ class PaymentsAPI(MethodView):
         if new_status == STATUS_HELD and not note:
             return {"message": "Held requires a note", "status": 400}
 
-        # Cross-org safety
-        user = User.query.filter_by(id=target_id, org_id=g.user.org_id).first()
-        if not user:
+        # Org + team-admin access gate (a team_admin may only set status for
+        # their managed-team members); pay-visibility blocks acting on a
+        # peer/superior's pay even on a shared team.
+        scope = UserScope(g.user)
+        user = scope.get(target_id)
+        if not user or not can_view_pay_for(g.user, user):
             return {"message": "User not found", "status": 404}
 
         svc = PaymentService(g.user.org_id)
@@ -520,7 +442,7 @@ class PaymentsAPI(MethodView):
 
     # ───────────────────────── csv export ────────────────────────────
 
-    @requires_admin
+    @requires_team_admin_or_above
     def export_cycle(self):
         """Return a CSV of approved rows for the cycle (Aaron's worksheet)."""
         body = request.json or {}
@@ -532,24 +454,17 @@ class PaymentsAPI(MethodView):
                 "status": 400,
             }
 
-        scoped_ids = _candidate_user_ids(g.user, body.get("filters"))
-        users_q = User.query.filter_by(org_id=g.user.org_id, is_active=True)
-        if scoped_ids is not None:
-            if not scoped_ids:
-                return self._empty_csv(cycle_start, cycle_end)
-            users_q = users_q.filter(User.id.in_(list(scoped_ids)))
-        # Pay-visibility SSOT: drops targets the viewer may not see pay for
-        # (a team_admin never sees org/super-admin or peer team_admin pay,
-        # even on a shared team). No-op for org_admin/super_admin.
-        candidate_users = [
-            u for u in users_q.all() if can_view_pay_for(g.user, u)
-        ]
+        # Same cohort as fetch_cycle (see there): active org users the viewer
+        # may see + pay-visibility. Empty scope → an empty CSV.
+        scope = UserScope(g.user)
+        candidate_users = scope.pay_visible(
+            scope.users(filters=body.get("filters"), active_only=True)
+        )
         candidate_ids = [u.id for u in candidate_users]
-        user_by_id = {u.id: u for u in candidate_users}
 
         svc = PaymentService(g.user.org_id)
         hours_map = svc.hours_by_user(candidate_ids, cycle_start, cycle_end)
-        status_map = svc.status_by_user(candidate_ids, cycle_start, cycle_end)
+        weekly_map = svc.hours_by_user_and_week(candidate_ids, cycle_start, cycle_end)
         rate_map = svc.rates_by_user(candidate_ids, cycle_start)
         for u in candidate_users:
             u._active_hourly_rate = rate_map.get(u.id)
@@ -569,49 +484,50 @@ class PaymentsAPI(MethodView):
 
         buffer = io.StringIO()
         writer = csv.writer(buffer)
-        writer.writerow([
-            "Name",
-            "OSM Username",
-            "Payment Email",
-            "Compensation Model",
-            "Hours",
-            "Hourly Rate",
-            "Base / Wage",
-            "Reimbursements",
-            "Total Payable",
-        ])
+        writer.writerow(
+            [
+                "Name",
+                "OSM Username",
+                "week 1",
+                "week 2",
+                "week 3",
+                "week 4",
+                "total hours",
+                "hourly rate",
+                "reimbursements",
+                "total payment",
+            ]
+        )
 
-        comp_filter = _comp_filter_from_body(body)
-        for uid, status_row in status_map.items():
-            if status_row.status not in (STATUS_APPROVED, STATUS_PAID):
-                continue
-            u = user_by_id.get(uid)
-            if not u:
-                continue
-            model = PaymentService.effective_comp_model(u)
-            if not PaymentService.passes_comp_filter(model, comp_filter):
-                continue
-            seconds = hours_map.get(uid, 0)
+        for u in candidate_users:
+            seconds = hours_map.get(u.id, 0)
             hours = round(seconds / 3600.0, 2) if seconds else 0.0
+            week_seconds = weekly_map.get(u.id, [0, 0, 0, 0])
+            week_hours = [round(s / 3600.0, 2) for s in week_seconds]
             _r = getattr(u, "_active_hourly_rate", None)
             rate = float(_r) if _r is not None else 0.0
-            _m, base, wage_total = PaymentService.compute_payable(u, seconds, 0.0)
-            reimb_total = reimb_map.get(uid, {}).get("total", 0.0)
-            writer.writerow([
-                PaymentService.display_name(u),
-                u.osm_username or "",
-                u.payment_email or "",
-                model,
-                f"{hours:.2f}",
-                f"{rate:.2f}",
-                f"{base:.2f}",
-                f"{reimb_total:.2f}",
-                f"{wage_total + reimb_total:.2f}",
-            ])
+            _m, _base, wage_total = PaymentService.compute_payable(u, seconds, 0.0)
+            reimb_total = reimb_map.get(u.id, {}).get("total", 0.0)
+            writer.writerow(
+                [
+                    PaymentService.display_name(u),
+                    u.osm_username or "",
+                    f"{week_hours[0]:.2f}",
+                    f"{week_hours[1]:.2f}",
+                    f"{week_hours[2]:.2f}",
+                    f"{week_hours[3]:.2f}",
+                    f"{hours:.2f}",
+                    f"{rate:.2f}",
+                    f"{reimb_total:.2f}",
+                    f"{wage_total + reimb_total:.2f}",
+                ]
+            )
 
         csv_text = buffer.getvalue()
         buffer.close()
-        filename = f"mikro-payments-{cycle_start.isoformat()}-{cycle_end.isoformat()}.csv"
+        filename = (
+            f"mikro-payments-{cycle_start.isoformat()}-{cycle_end.isoformat()}.csv"
+        )
         return Response(
             csv_text,
             mimetype="text/csv",
@@ -619,10 +535,12 @@ class PaymentsAPI(MethodView):
         )
 
     def _empty_csv(self, cycle_start, cycle_end):
-        filename = f"mikro-payments-{cycle_start.isoformat()}-{cycle_end.isoformat()}.csv"
+        filename = (
+            f"mikro-payments-{cycle_start.isoformat()}-{cycle_end.isoformat()}.csv"
+        )
         header = (
-            "Name,OSM Username,Payment Email,Compensation Model,Hours,"
-            "Hourly Rate,Base / Wage,Reimbursements,Total Payable\n"
+            "Name,OSM Username,week 1,week 2,week 3,week 4,"
+            "total hours,hourly rate,reimbursements,total payment\n"
         )
         return Response(
             header,
