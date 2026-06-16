@@ -3,7 +3,7 @@ Tests for the feedback / problem-report endpoint (``api/views/Feedback.py``)
 and the discard-active hardening in ``api/views/TimeTracking.py``.
 
 Feedback tests monkeypatch ``api.views.Feedback.translate_to_english`` and
-``api.comms_client.send_campaign`` so NO real Anthropic or HTTP calls happen.
+``api.comms_client.send_email`` so NO real Anthropic or HTTP calls happen.
 
 Discard tests exercise the optional-session_id resolution path against real
 DB rows via the shared ``db_session`` fixture (rolled back per test).
@@ -52,8 +52,8 @@ class _Spy:
 
 @pytest.fixture
 def send_spy(monkeypatch):
-    spy = _Spy(ret={"recipient_count": 1, "campaign": {"id": 1}})
-    monkeypatch.setattr(comms_client, "send_campaign", spy)
+    spy = _Spy(ret={"sent": 1})
+    monkeypatch.setattr(comms_client, "send_email", spy)
     return spy
 
 
@@ -70,21 +70,15 @@ def good_translate(monkeypatch):
 
 @pytest.fixture
 def feedback_world(db_session):
-    """Make the seeded USER_ID the reporter (give it an org) and add an org
-    admin who should receive the report."""
+    """Make the seeded USER_ID the reporter (give it an org + email).
+
+    Delivery goes to the dev address (FEEDBACK_EMAIL), NOT org admins, so no
+    admin user is needed."""
     reporter = User.query.get(USER_ID)
     reporter.org_id = ORG
     reporter.email = "reporter@x.test"
-
-    admin = User(
-        id="auth0|fb-admin",
-        org_id=ORG,
-        role="admin",
-        email="fb-admin@x.test",
-    )
-    db_session.add(admin)
     db_session.flush()
-    return {"reporter": reporter, "admin": admin}
+    return {"reporter": reporter}
 
 
 def _submit(user, body):
@@ -106,15 +100,14 @@ def test_submit_ok_delivers_with_translation(feedback_world, send_spy, good_tran
 
     assert len(send_spy.calls) == 1
     kwargs = send_spy.last
-    # Delivered to the org admin's email.
-    emails = {r["email"] for r in kwargs["recipients"]}
-    assert "fb-admin@x.test" in emails
+    # Delivered ONLY to the configured dev address — never org admins.
+    assert kwargs["to"] == _APP["app"].config["FEEDBACK_EMAIL"]
+    # Subject makes it clear this is a Mikro report.
+    assert kwargs["subject"].startswith("[Mikro] Bug report")
     # Body carries both the original text and the translation.
     body = kwargs["body_html"]
     assert "Algo está roto" in body
     assert "TRANSLATED" in body
-    assert kwargs["sent_by"] == feedback_world["reporter"].id
-    assert kwargs["is_forced"] is True
 
 
 def test_submit_empty_description_400(feedback_world, send_spy, good_translate):
@@ -126,14 +119,12 @@ def test_submit_empty_description_400(feedback_world, send_spy, good_translate):
     assert send_spy.calls == []
 
 
-def test_submit_no_admin_recipients_still_200(db_session, send_spy, good_translate):
-    """Reporter with no org admins -> 200, send_campaign not called."""
-    reporter = User.query.get(USER_ID)
-    reporter.org_id = "lonely-org"
-    reporter.email = "lonely@x.test"
-    db_session.flush()
-
-    resp, code = _submit(reporter, {"description": "help"})
+def test_submit_no_dev_email_configured_still_200(
+    feedback_world, send_spy, good_translate, monkeypatch
+):
+    """If FEEDBACK_EMAIL isn't configured -> still 200, no send attempted."""
+    monkeypatch.setitem(_APP["app"].config, "FEEDBACK_EMAIL", None)
+    resp, code = _submit(feedback_world["reporter"], {"description": "help"})
     assert code == 200
     assert send_spy.calls == []
 
@@ -142,7 +133,7 @@ def test_submit_comms_error_still_200(feedback_world, monkeypatch, good_translat
     def _boom(**kwargs):
         raise comms_client.CommsError("connection refused")
 
-    monkeypatch.setattr(comms_client, "send_campaign", _boom)
+    monkeypatch.setattr(comms_client, "send_email", _boom)
     resp, code = _submit(feedback_world["reporter"], {"description": "still works"})
     assert code == 200
 

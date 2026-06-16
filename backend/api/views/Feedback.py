@@ -3,9 +3,11 @@
 Feedback / problem-report API endpoint for Mikro.
 
 A signed-in user can submit a free-form problem report. The report is always
-logged server-side, and best-effort delivered to the org's admins via the
-comms service (broadcast email). Delivery failures never fail the request —
-the report is considered captured the moment it's logged.
+logged server-side, and best-effort emailed ONLY to the dev team's address
+(FEEDBACK_EMAIL, default dev@kaart.com) via the comms /emit/email path — a
+private direct send that is never shown to org admins or in any Sent history.
+Delivery failures never fail the request — the report is considered captured
+the moment it's logged.
 
 Contract (shared with frontend):
     POST /api/feedback/submit
@@ -21,7 +23,6 @@ from flask.views import MethodView
 from flask import g, jsonify, request, current_app
 
 from ..utils import requires_auth
-from ..targeting import org_admin_users
 from .. import comms_client
 from ..ai import translate_to_english
 
@@ -64,13 +65,13 @@ class FeedbackAPI(MethodView):
             json.dumps(context)[:2000],
         )
 
-        # Best-effort delivery to the org's admins. Wrapped whole so a
-        # delivery failure NEVER fails the request — the report is already
-        # captured in the logs above.
+        # Deliver ONLY to the dev team's address (FEEDBACK_EMAIL) via a direct
+        # one-off email — never to org admins, and never persisted to any org's
+        # "Sent" history. Best-effort: wrapped whole so a delivery failure NEVER
+        # fails the request (the report is already captured in the logs above).
+        dev_email = current_app.config.get("FEEDBACK_EMAIL")
         try:
-            admins = org_admin_users(g.user.org_id)
-            recipients = [{"sub": a.id, "email": a.email} for a in admins if a.email]
-            if recipients:
+            if dev_email:
                 safe_desc = html.escape(description)
                 safe_category = html.escape(str(category)) if category else "—"
                 safe_context = html.escape(json.dumps(context, indent=2)[:4000])
@@ -91,14 +92,10 @@ class FeedbackAPI(MethodView):
                     f"<p><strong>Context:</strong></p>"
                     f"<pre>{safe_context}</pre>"
                 )
-                comms_client.send_campaign(
-                    org_id=g.user.org_id,
-                    subject=f"[Mikro] Problem report from {g.user.email}",
+                comms_client.send_email(
+                    to=dev_email,
+                    subject=f"[Mikro] Bug report from {g.user.email}",
                     body_html=body_html,
-                    audience="custom",
-                    is_forced=True,
-                    sent_by=g.user.id,
-                    recipients=recipients,
                 )
         except comms_client.CommsError as e:
             current_app.logger.warning("[FEEDBACK] delivery failed: %s", e)

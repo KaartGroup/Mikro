@@ -105,6 +105,10 @@ class BaseConfig:
     # Anthropic API (AI summaries)
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
+    # Where in-app "Report a problem" bug reports are emailed. Defaults to the
+    # dev team's group address; override with the FEEDBACK_EMAIL env var.
+    FEEDBACK_EMAIL = os.environ.get("FEEDBACK_EMAIL", "dev@kaart.com")
+
     # Webhook Integration
     MIKRO_WEBHOOK_SECRET = os.environ.get("MIKRO_WEBHOOK_SECRET")
 
@@ -115,7 +119,9 @@ class BaseConfig:
     # Google Sheets Integration (community data)
     GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
     GOOGLE_SHEETS_SPREADSHEET_ID = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID")
-    GOOGLE_SHEETS_TAB_NAME = os.environ.get("GOOGLE_SHEETS_TAB_NAME", "Form Responses 1")
+    GOOGLE_SHEETS_TAB_NAME = os.environ.get(
+        "GOOGLE_SHEETS_TAB_NAME", "Form Responses 1"
+    )
 
     # Frontend URL for OAuth redirect after completion
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
@@ -152,7 +158,9 @@ class ProductionConfig(BaseConfig):
     def SECRET_KEY(self):
         key = os.environ.get("SECRET_KEY")
         if not key:
-            raise ValueError("SECRET_KEY environment variable must be set in production")
+            raise ValueError(
+                "SECRET_KEY environment variable must be set in production"
+            )
         return key
 
 
