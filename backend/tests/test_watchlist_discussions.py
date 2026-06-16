@@ -26,25 +26,45 @@ ORG = "org_watchlist_test"
 
 
 # ---------------------------------------------------------------------------
-# Canned OSM XML
+# Canned OSM data
 # ---------------------------------------------------------------------------
 
-# Changeset list: cs 100 has 2 comments, cs 200 has 0, cs 300 has 3.
-_CHANGESETS_XML = b"""<?xml version="1.0"?>
-<osm>
-  <changeset id="100" uid="42" created_at="2026-06-01T10:00:00Z"
-             closed_at="2026-06-01T11:00:00Z" changes_count="5"
-             comments_count="2"
-             min_lat="1.0" max_lat="2.0" min_lon="3.0" max_lon="4.0">
-    <tag k="created_by" v="JOSM"/>
-    <tag k="comment" v="hello"/>
-  </changeset>
-  <changeset id="200" uid="42" created_at="2026-05-01T10:00:00Z"
-             changes_count="3" comments_count="0"/>
-  <changeset id="300" uid="42" created_at="2026-04-01T10:00:00Z"
-             changes_count="7" comments_count="3"/>
-</osm>
-"""
+# Changeset list (as ChangesetFetcher returns it — changesets.json dicts):
+# cs 100 has 2 comments, cs 200 has 0, cs 300 has 3.
+_CHANGESET_DICTS = [
+    {
+        "id": 100,
+        "uid": 42,
+        "user": "WatchedUser",
+        "created_at": "2026-06-01T10:00:00Z",
+        "closed_at": "2026-06-01T11:00:00Z",
+        "changes_count": 5,
+        "comments_count": 2,
+        "min_lat": 1.0,
+        "max_lat": 2.0,
+        "min_lon": 3.0,
+        "max_lon": 4.0,
+        "tags": {"created_by": "JOSM", "comment": "hello"},
+    },
+    {
+        "id": 200,
+        "uid": 42,
+        "user": "WatchedUser",
+        "created_at": "2026-05-01T10:00:00Z",
+        "changes_count": 3,
+        "comments_count": 0,
+        "tags": {},
+    },
+    {
+        "id": 300,
+        "uid": 42,
+        "user": "WatchedUser",
+        "created_at": "2026-04-01T10:00:00Z",
+        "changes_count": 7,
+        "comments_count": 3,
+        "tags": {},
+    },
+]
 
 _USER_XML = b"""<?xml version="1.0"?>
 <osm>
@@ -118,8 +138,11 @@ def _make_get(routes):
 
 
 def test_fetch_discussions_live_filters_and_merges(app, monkeypatch):
+    # The changeset list comes from the shared ChangesetFetcher; mock at that seam.
+    monkeypatch.setattr(
+        watchlist_osm, "_recent_changesets", lambda username: list(_CHANGESET_DICTS)
+    )
     routes = [
-        ("/changesets?display_name", _FakeResp(_CHANGESETS_XML)),
         ("/changeset/100", _FakeResp(_CS_100_XML)),
         ("/changeset/300", _FakeResp(_CS_300_XML)),
     ]
@@ -158,8 +181,10 @@ def test_fetch_discussions_live_filters_and_merges(app, monkeypatch):
 
 
 def test_refresh_entry_stats_no_discussions(app, db_session, monkeypatch):
+    monkeypatch.setattr(
+        watchlist_osm, "_recent_changesets", lambda username: list(_CHANGESET_DICTS)
+    )
     routes = [
-        ("/changesets?display_name", _FakeResp(_CHANGESETS_XML)),
         ("/user/42", _FakeResp(_USER_XML)),
     ]
     fake_get = _make_get(routes)
@@ -193,8 +218,10 @@ def test_refresh_entry_stats_no_discussions(app, db_session, monkeypatch):
 
 
 def test_fetch_friend_discussions_endpoint(app, db_session, monkeypatch):
+    monkeypatch.setattr(
+        watchlist_osm, "_recent_changesets", lambda username: list(_CHANGESET_DICTS)
+    )
     routes = [
-        ("/changesets?display_name", _FakeResp(_CHANGESETS_XML)),
         ("/changeset/100", _FakeResp(_CS_100_XML)),
         ("/changeset/300", _FakeResp(_CS_300_XML)),
     ]
