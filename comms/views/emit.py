@@ -44,6 +44,7 @@ class EmitAPI(MethodView):
             "notify_batch": self.notify_batch,
             "campaign": self.campaign,
             "campaign_list": self.campaign_list,
+            "email": self.email,
         }.get(path)
         if handler is None:
             return jsonify({"message": "Endpoint not found", "status": 404}), 404
@@ -180,3 +181,35 @@ class EmitAPI(MethodView):
             ),
             200,
         )
+
+    def email(self):
+        """Send a one-off transactional email to explicit address(es).
+
+        Unlike /emit/campaign this does NOT persist an EmailCampaign or surface
+        anywhere in any org's "Sent" history — it's a private direct send (e.g.
+        a bug report routed to the dev team).
+
+        body: { to: str | [str], subject: str, body_html: str }
+        """
+        from ..mail import mailer
+
+        data = request.get_json(silent=True) or {}
+        to = data.get("to")
+        subject = (data.get("subject") or "").strip()
+        body_html = data.get("body_html")
+
+        recipients = [to] if isinstance(to, str) else to
+        recipients = [r for r in (recipients or []) if r]
+        if not recipients or not subject or not body_html:
+            return (
+                jsonify(
+                    {"message": "to, subject and body_html are required", "status": 400}
+                ),
+                400,
+            )
+
+        sent = 0
+        for addr in recipients:
+            if mailer.send_email(addr, subject, body_html):
+                sent += 1
+        return jsonify({"status": 200, "sent": sent}), 200
