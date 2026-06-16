@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Modal, Select, Button, useToastActions } from "@/components/ui";
+import {
+  Modal,
+  Select,
+  Button,
+  Tooltip,
+  useToastActions,
+} from "@/components/ui";
 import { useRole } from "@/contexts/RoleContext";
 import { useSubmitFeedback } from "@/hooks";
 import { APP_VERSION } from "@/lib/appVersion";
@@ -109,8 +115,7 @@ export function ReportProblemModal({
             What happened?
           </label>
           <p className="text-xs text-muted-foreground mb-2">
-            Write in your own language — you don&apos;t need to translate to
-            English. We&apos;ll translate it for the team.
+            Any language is fine — we&apos;ll translate it for the team.
           </p>
           <textarea
             id="report-description"
@@ -133,9 +138,19 @@ export function ReportProblemModal({
 
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-sm font-medium text-foreground">
-              Technical details
-            </label>
+            <div className="flex items-center gap-1.5">
+              <label className="block text-sm font-medium text-foreground">
+                Technical details
+              </label>
+              <Tooltip
+                content="Filled in automatically — your account, the page you're on, and the last error. It's sent with your report; you don't need to edit it."
+                position="top"
+              >
+                <span className="cursor-help inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground">
+                  i
+                </span>
+              </Tooltip>
+            </div>
             <button
               type="button"
               onClick={handleCopy}
