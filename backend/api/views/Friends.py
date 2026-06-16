@@ -9,16 +9,10 @@ detail/heatmap data for analysis.
 
 from flask.views import MethodView
 from flask import g, request, current_app
-from datetime import datetime
 from ..utils import requires_team_admin_or_above
+from ..utils.watchlist_osm import refresh_entry_stats, fetch_discussions_live
 from ..database import db, Friend, FriendChangeset
 import json
-import requests as http_requests
-import xml.etree.ElementTree as ET
-
-OSM_API_BASE = "https://api.openstreetmap.org/api/0.6"
-OSM_HEADERS = {"User-Agent": "Mikro/1.0 (https://mikro.kaart.com)"}
-OSM_TIMEOUT = 30
 
 
 class FriendAPI(MethodView):
@@ -37,6 +31,8 @@ class FriendAPI(MethodView):
             return self.fetch_friend_detail()
         elif path == "refresh_friend_activity":
             return self.refresh_friend_activity()
+        elif path == "fetch_friend_discussions":
+            return self.fetch_friend_discussions()
         elif path == "toggle_discussion_flag":
             return self.toggle_discussion_flag()
         return {"message": "Unknown path", "status": 404}
@@ -55,28 +51,32 @@ class FriendAPI(MethodView):
 
         result = []
         for p in friends:
-            result.append({
-                "id": p.id,
-                "osm_username": p.osm_username,
-                "osm_uid": p.osm_uid,
-                "notes": p.notes,
-                "tags": p.tags or [],
-                "added_by": p.added_by,
-                "added_by_name": p.added_by_name,
-                "created_at": p.created_at.isoformat() if p.created_at else None,
-                "cached_total_changesets": p.cached_total_changesets,
-                "cached_last_active": (
-                    p.cached_last_active.isoformat() if p.cached_last_active else None
-                ),
-                "cached_account_created": (
-                    p.cached_account_created.isoformat()
-                    if p.cached_account_created
-                    else None
-                ),
-                "cache_updated_at": (
-                    p.cache_updated_at.isoformat() if p.cache_updated_at else None
-                ),
-            })
+            result.append(
+                {
+                    "id": p.id,
+                    "osm_username": p.osm_username,
+                    "osm_uid": p.osm_uid,
+                    "notes": p.notes,
+                    "tags": p.tags or [],
+                    "added_by": p.added_by,
+                    "added_by_name": p.added_by_name,
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                    "cached_total_changesets": p.cached_total_changesets,
+                    "cached_last_active": (
+                        p.cached_last_active.isoformat()
+                        if p.cached_last_active
+                        else None
+                    ),
+                    "cached_account_created": (
+                        p.cached_account_created.isoformat()
+                        if p.cached_account_created
+                        else None
+                    ),
+                    "cache_updated_at": (
+                        p.cache_updated_at.isoformat() if p.cache_updated_at else None
+                    ),
+                }
+            )
 
         return {"status": 200, "friends": result}
 
@@ -93,7 +93,10 @@ class FriendAPI(MethodView):
         # Check for duplicate
         existing = Friend.query.filter_by(osm_username=osm_username).first()
         if existing:
-            return {"message": f"'{osm_username}' is already on the watchlist", "status": 400}
+            return {
+                "message": f"'{osm_username}' is already on the watchlist",
+                "status": 400,
+            }
 
         # Build added_by_name from the current user
         first = g.user.first_name or ""
@@ -195,18 +198,20 @@ class FriendAPI(MethodView):
         total_changes = 0
 
         for cs in changesets:
-            changeset_list.append({
-                "changeset_id": cs.changeset_id,
-                "created_at": cs.created_at.isoformat() if cs.created_at else None,
-                "closed_at": cs.closed_at.isoformat() if cs.closed_at else None,
-                "changes_count": cs.changes_count or 0,
-                "comment": cs.comment,
-                "editor": cs.editor,
-                "source": cs.source,
-                "centroid_lat": cs.centroid_lat,
-                "centroid_lon": cs.centroid_lon,
-                "hashtags": cs.hashtags or [],
-            })
+            changeset_list.append(
+                {
+                    "changeset_id": cs.changeset_id,
+                    "created_at": cs.created_at.isoformat() if cs.created_at else None,
+                    "closed_at": cs.closed_at.isoformat() if cs.closed_at else None,
+                    "changes_count": cs.changes_count or 0,
+                    "comment": cs.comment,
+                    "editor": cs.editor,
+                    "source": cs.source,
+                    "centroid_lat": cs.centroid_lat,
+                    "centroid_lon": cs.centroid_lon,
+                    "hashtags": cs.hashtags or [],
+                }
+            )
 
             total_changes += cs.changes_count or 0
 
@@ -216,7 +221,7 @@ class FriendAPI(MethodView):
                 heatmap_points.append([cs.centroid_lat, cs.centroid_lon, weight])
 
             # Hashtag summary
-            for ht in (cs.hashtags or []):
+            for ht in cs.hashtags or []:
                 ht_clean = ht.strip().lower()
                 if ht_clean:
                     hashtag_counts[ht_clean] = hashtag_counts.get(ht_clean, 0) + 1
@@ -238,7 +243,9 @@ class FriendAPI(MethodView):
             "created_at": friend.created_at.isoformat() if friend.created_at else None,
             "cached_total_changesets": friend.cached_total_changesets,
             "cached_last_active": (
-                friend.cached_last_active.isoformat() if friend.cached_last_active else None
+                friend.cached_last_active.isoformat()
+                if friend.cached_last_active
+                else None
             ),
             "cached_account_created": (
                 friend.cached_account_created.isoformat()
@@ -250,28 +257,6 @@ class FriendAPI(MethodView):
             ),
         }
 
-        # Parse cached discussions and merge flag state
-        discussions = []
-        if friend.cached_discussions:
-            try:
-                discussions = json.loads(friend.cached_discussions)
-            except Exception:
-                pass
-
-        flagged_links = set()
-        if friend.flagged_discussions:
-            try:
-                flagged_links = set(json.loads(friend.flagged_discussions))
-            except Exception:
-                pass
-
-        for disc in discussions:
-            disc["flagged"] = disc.get("link", "") in flagged_links
-
-        # Sort: flagged first, then newest first (by ISO date string)
-        discussions.sort(key=lambda d: d.get("pubDate", "") or "", reverse=True)
-        discussions.sort(key=lambda d: not d.get("flagged", False))
-
         return {
             "status": 200,
             "friend": friend_info,
@@ -282,8 +267,31 @@ class FriendAPI(MethodView):
                 "totalChangesets": len(changeset_list),
                 "totalChanges": total_changes,
             },
-            "discussions": discussions,
         }
+
+    # ─── Friend discussions (lazy, live) ──────────────────
+
+    @requires_team_admin_or_above
+    def fetch_friend_discussions(self):
+        """Fetch discussion comments live from the OSM API (no caching)."""
+        data = request.json or {}
+        friend_id = data.get("friend_id")
+        if not friend_id:
+            return {"message": "friend_id is required", "status": 400}
+
+        friend = Friend.query.get(friend_id)
+        if not friend:
+            return {"message": "Friend not found", "status": 404}
+
+        try:
+            discussions = fetch_discussions_live(friend)
+        except Exception as e:
+            current_app.logger.error(
+                f"Failed to fetch discussions for friend '{friend.osm_username}': {e}"
+            )
+            return {"message": f"OSM API error: {str(e)}", "status": 502}
+
+        return {"status": 200, "discussions": discussions}
 
     # ─── Refresh friend activity ───────────────────────────
 
@@ -302,10 +310,15 @@ class FriendAPI(MethodView):
         try:
             self._refresh_friend(friend)
         except Exception as e:
-            current_app.logger.error(f"Failed to refresh friend '{friend.osm_username}': {e}")
+            current_app.logger.error(
+                f"Failed to refresh friend '{friend.osm_username}': {e}"
+            )
             return {"message": f"OSM API error: {str(e)}", "status": 502}
 
-        return {"status": 200, "message": f"Activity refreshed for '{friend.osm_username}'"}
+        return {
+            "status": 200,
+            "message": f"Activity refreshed for '{friend.osm_username}'",
+        }
 
     # ─── Toggle discussion flag ───────────────────────────
 
@@ -344,199 +357,5 @@ class FriendAPI(MethodView):
     # ─── Internal refresh logic ──────────────────────────
 
     def _refresh_friend(self, friend):
-        """Fetch changesets from OSM API and update the friend's cached data."""
-        # 1. Fetch changesets
-        url = f"{OSM_API_BASE}/changesets?display_name={friend.osm_username}&limit=100"
-        resp = http_requests.get(url, headers=OSM_HEADERS, timeout=OSM_TIMEOUT)
-        resp.raise_for_status()
-
-        root = ET.fromstring(resp.content)
-        changesets = root.findall("changeset")
-
-        # 2. Extract uid from first changeset
-        uid = None
-        if changesets:
-            uid_str = changesets[0].get("uid")
-            if uid_str:
-                uid = int(uid_str)
-
-        # 3. Upsert changesets
-        existing_ids = set()
-        existing_rows = FriendChangeset.query.filter_by(friend_id=friend.id).all()
-        for row in existing_rows:
-            existing_ids.add(row.changeset_id)
-
-        latest_closed = None
-        new_count = 0
-
-        for cs_elem in changesets:
-            cs_id = int(cs_elem.get("id"))
-            if cs_id in existing_ids:
-                continue
-
-            created_at_str = cs_elem.get("created_at")
-            closed_at_str = cs_elem.get("closed_at")
-            changes_count_str = cs_elem.get("changes_count", "0")
-
-            created_at = (
-                datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-                if created_at_str
-                else datetime.utcnow()
-            )
-            closed_at = (
-                datetime.fromisoformat(closed_at_str.replace("Z", "+00:00"))
-                if closed_at_str
-                else None
-            )
-            changes_count = int(changes_count_str) if changes_count_str else 0
-
-            # Compute centroid from bbox
-            min_lat = cs_elem.get("min_lat")
-            max_lat = cs_elem.get("max_lat")
-            min_lon = cs_elem.get("min_lon")
-            max_lon = cs_elem.get("max_lon")
-            centroid_lat = None
-            centroid_lon = None
-            if min_lat and max_lat and min_lon and max_lon:
-                centroid_lat = (float(min_lat) + float(max_lat)) / 2
-                centroid_lon = (float(min_lon) + float(max_lon)) / 2
-
-            # Extract tags
-            tags = {}
-            for tag_elem in cs_elem.findall("tag"):
-                tags[tag_elem.get("k")] = tag_elem.get("v")
-
-            comment = tags.get("comment")
-            editor = tags.get("created_by")
-            source_val = tags.get("source")
-            hashtags_raw = tags.get("hashtags", "")
-            hashtags = (
-                [h.strip() for h in hashtags_raw.split(";") if h.strip()]
-                if hashtags_raw
-                else []
-            )
-
-            fc = FriendChangeset(
-                friend_id=friend.id,
-                changeset_id=cs_id,
-                created_at=created_at,
-                closed_at=closed_at,
-                changes_count=changes_count,
-                comment=comment,
-                editor=editor,
-                source=source_val,
-                centroid_lat=centroid_lat,
-                centroid_lon=centroid_lon,
-                hashtags=hashtags if hashtags else None,
-            )
-            db.session.add(fc)
-            new_count += 1
-
-            # Track latest closed_at
-            if closed_at and (latest_closed is None or closed_at > latest_closed):
-                latest_closed = closed_at
-
-        if new_count > 0:
-            db.session.flush()
-
-        # 4. Try to fetch user profile for account_created and total changesets
-        account_created = None
-        total_changesets = None
-        if uid:
-            try:
-                user_url = f"{OSM_API_BASE}/user/{uid}"
-                user_resp = http_requests.get(
-                    user_url, headers=OSM_HEADERS, timeout=OSM_TIMEOUT
-                )
-                if user_resp.status_code == 200:
-                    user_root = ET.fromstring(user_resp.content)
-                    user_elem = user_root.find("user")
-                    if user_elem is not None:
-                        acct_str = user_elem.get("account_created")
-                        if acct_str:
-                            account_created = datetime.fromisoformat(
-                                acct_str.replace("Z", "+00:00")
-                            )
-                        cs_elem = user_elem.find("changesets")
-                        if cs_elem is not None:
-                            count_str = cs_elem.get("count")
-                            if count_str:
-                                total_changesets = int(count_str)
-            except Exception as e:
-                current_app.logger.warning(
-                    f"Failed to fetch OSM user profile for uid {uid}: {e}"
-                )
-
-        # 5. Update friend cached fields
-        friend.osm_uid = uid
-        if total_changesets is not None:
-            friend.cached_total_changesets = total_changesets
-        if account_created is not None:
-            friend.cached_account_created = account_created
-
-        # Determine last active from cached changesets
-        last_active_row = (
-            FriendChangeset.query.filter_by(friend_id=friend.id)
-            .order_by(FriendChangeset.created_at.desc())
-            .first()
-        )
-        if last_active_row:
-            friend.cached_last_active = last_active_row.created_at
-
-        # 6. Fetch discussion comments directly from OSM API
-        discussions = []
-        friend_username = friend.osm_username
-        recent_cs = (
-            FriendChangeset.query.filter_by(friend_id=friend.id)
-            .order_by(FriendChangeset.created_at.desc())
-            .limit(100)
-            .all()
-        )
-        for cs in recent_cs:
-            try:
-                cs_url = (
-                    f"{OSM_API_BASE}/changeset/{cs.changeset_id}"
-                    f"?include_discussion=true"
-                )
-                cs_resp = http_requests.get(
-                    cs_url, headers=OSM_HEADERS, timeout=OSM_TIMEOUT
-                )
-                if cs_resp.status_code != 200:
-                    continue
-                cs_root = ET.fromstring(cs_resp.content)
-                cs_elem = cs_root.find("changeset")
-                if cs_elem is None:
-                    continue
-                disc_elem = cs_elem.find("discussion")
-                if disc_elem is None:
-                    continue
-                for comment in disc_elem.findall("comment"):
-                    comment_user = comment.get("user", "")
-                    if comment_user.lower() == (friend_username or "").lower():
-                        continue
-                    comment_date = comment.get("date", "")
-                    comment_text = comment.findtext("text", "")
-                    comment_id = comment.get("id", "")
-                    discussions.append({
-                        "title": f"Changeset {cs.changeset_id} — comment by {comment_user}",
-                        "link": f"https://www.openstreetmap.org/changeset/{cs.changeset_id}",
-                        "description": comment_text,
-                        "pubDate": comment_date,
-                        "commentId": comment_id,
-                        "author": comment_user,
-                    })
-            except Exception as e:
-                current_app.logger.warning(
-                    f"Failed to fetch discussion for changeset {cs.changeset_id}: {e}"
-                )
-
-        # Sort discussions newest first by comment date
-        discussions.sort(
-            key=lambda d: d.get("pubDate", ""),
-            reverse=True,
-        )
-
-        friend.cached_discussions = json.dumps(discussions) if discussions else None
-
-        friend.cache_updated_at = datetime.utcnow()
-        db.session.commit()
+        """Fetch changesets from OSM API and update the friend's cached stats."""
+        refresh_entry_stats(friend, FriendChangeset)
