@@ -309,6 +309,46 @@ def send_campaign(
         raise CommsError(f"invalid response from comms: {e}")
 
 
+def send_email(*, to, subject: str, body_html: str) -> dict:
+    """Send a one-off direct email synchronously via comms ``/emit/email``.
+
+    ``to`` is an address string or a list of address strings. Unlike
+    :func:`send_campaign` this does NOT create a campaign record / Sent-history
+    entry — use it for private transactional sends (e.g. a bug report to the
+    dev team). Returns the parsed comms JSON on success; raises
+    :class:`CommsError` if comms isn't configured or the request fails.
+    """
+    url, secret = _comms_config()
+    if not url or not secret:
+        raise CommsError("comms not configured")
+
+    body = {"to": to, "subject": subject, "body_html": body_html}
+    raw_body = json.dumps(body).encode("utf-8")
+    signature = _sign(secret, raw_body)
+    target = f"{url.rstrip('/')}/emit/email"
+
+    try:
+        resp = requests.post(
+            target,
+            data=raw_body,
+            headers={
+                "Content-Type": "application/json",
+                "X-Comms-Signature": signature,
+            },
+            timeout=15,
+        )
+    except Exception as e:
+        raise CommsError(str(e))
+
+    if resp.status_code < 200 or resp.status_code >= 300:
+        raise CommsError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+
+    try:
+        return resp.json()
+    except Exception as e:
+        raise CommsError(f"invalid response from comms: {e}")
+
+
 def fetch_campaigns(*, org_id: str, sent_by: Optional[str] = None) -> list:
     """Fetch campaign history synchronously via comms ``/emit/campaign_list``.
 
