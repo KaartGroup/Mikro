@@ -29,8 +29,9 @@ import {
   usePunkDetail,
   useRefreshPunkActivity,
   useToggleDiscussionFlag,
+  usePunkDiscussions,
 } from "@/hooks";
-import type { PunkDetailResponse } from "@/types";
+import type { PunkDetailResponse, DiscussionItem } from "@/types";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { dynamicRoutes } from "@/lib/routes";
 
@@ -78,11 +79,19 @@ export default function PunkDetailPage() {
 
   const { mutate: toggleFlag } = useToggleDiscussionFlag();
 
+  const { mutate: fetchDiscussions } = usePunkDiscussions();
+
   const [data, setData] = useState<PunkDetailResponse | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [expandedDiscussions, setExpandedDiscussions] = useState<Set<number>>(
     new Set(),
   );
+
+  // Discussions are fetched lazily on first activation of the Discussions tab
+  const [activeTab, setActiveTab] = useState("heatmap");
+  const [discussions, setDiscussions] = useState<DiscussionItem[]>([]);
+  const [discussionsLoading, setDiscussionsLoading] = useState(false);
+  const [discussionsLoaded, setDiscussionsLoaded] = useState(false);
 
   // Pagination for changesets
   const ROWS_PER_PAGE = 20;
@@ -105,28 +114,46 @@ export default function PunkDetailPage() {
       toast.success("Activity refreshed");
       const result = await fetchDetail({ punk_id: Number(id) });
       if (result?.punk) setData(result);
+      // Let discussions reflect the refreshed activity on next view.
+      setDiscussionsLoaded(false);
+      if (activeTab === "discussions") loadDiscussions(true);
     } catch {
       toast.error("Failed to refresh activity");
     }
   };
 
+  const loadDiscussions = async (force = false) => {
+    if (!force && (discussionsLoaded || discussionsLoading)) return;
+    setDiscussionsLoading(true);
+    try {
+      const res = await fetchDiscussions({ punk_id: Number(id) });
+      setDiscussions(res?.discussions ?? []);
+      setDiscussionsLoaded(true);
+    } catch {
+      toast.error("Failed to load discussions");
+    } finally {
+      setDiscussionsLoading(false);
+    }
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === "discussions") loadDiscussions();
+  };
+
   const handleToggleFlag = async (link: string) => {
-    // Optimistic update
-    setData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        discussions: prev.discussions.map((d) =>
-          d.link === link ? { ...d, flagged: !d.flagged } : d,
-        ),
-      };
-    });
+    // Optimistic update on local discussions state
+    setDiscussions((prev) =>
+      prev.map((d) => (d.link === link ? { ...d, flagged: !d.flagged } : d)),
+    );
     try {
       await toggleFlag({ punk_id: Number(id), link });
     } catch {
       toast.error("Failed to toggle flag");
-      const result = await fetchDetail({ punk_id: Number(id) });
-      if (result?.punk) setData(result);
+      // Revert on failure
+      setDiscussions((prev) =>
+        prev.map((d) => (d.link === link ? { ...d, flagged: !d.flagged } : d)),
+      );
     }
   };
 
@@ -282,14 +309,20 @@ export default function PunkDetailPage() {
       </div>
 
       {/* Tabbed Content — Heatmap, Changesets, Discussions */}
-      <Tabs defaultValue="heatmap">
+      <Tabs
+        defaultValue="heatmap"
+        value={activeTab}
+        onValueChange={handleTabChange}
+      >
         <TabsList>
           <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
           <TabsTrigger value="changesets">
             Changesets ({formatNumber(changesets.length).text})
           </TabsTrigger>
           <TabsTrigger value="discussions">
-            Discussions ({data.discussions?.length ?? 0})
+            {discussionsLoaded
+              ? `Discussions (${discussions.length})`
+              : "Discussions"}
           </TabsTrigger>
           {sortedHashtags.length > 0 && (
             <TabsTrigger value="hashtags">
@@ -418,7 +451,7 @@ export default function PunkDetailPage() {
             <CardHeader className="pb-2">
               <p className="text-sm text-muted-foreground">
                 Comments on this user&apos;s changesets from other OSM editors
-                {data.discussions && data.discussions.length > 0 && (
+                {discussionsLoaded && discussions.length > 0 && (
                   <span className="ml-2 text-xs">
                     (sorted: flagged first, then newest)
                   </span>
@@ -426,12 +459,16 @@ export default function PunkDetailPage() {
               </p>
             </CardHeader>
             <CardContent>
-              {data.discussions && data.discussions.length > 0 ? (
+              {discussionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-kaart-orange" />
+                </div>
+              ) : discussions.length > 0 ? (
                 <div
                   className="space-y-3"
                   style={{ maxHeight: 600, overflowY: "auto" }}
                 >
-                  {data.discussions.map((disc, i) => {
+                  {discussions.map((disc, i) => {
                     const isExpanded = expandedDiscussions.has(i);
                     return (
                       <div
@@ -508,8 +545,7 @@ export default function PunkDetailPage() {
                 </div>
               ) : (
                 <p className="text-muted-foreground text-center py-8">
-                  No changeset discussions found. Click Refresh Activity to
-                  fetch data.
+                  No changeset discussions found.
                 </p>
               )}
             </CardContent>

@@ -1144,6 +1144,17 @@ export interface PunksResponse {
   status: number;
 }
 
+// Changeset discussion item (fetched live via fetch_*_discussions endpoints)
+export interface DiscussionItem {
+  title: string;
+  link: string;
+  description: string;
+  pubDate: string;
+  flagged: boolean;
+  commentId?: string;
+  author?: string;
+}
+
 export interface PunkDetailResponse {
   punk: Punk;
   changesets: Array<{
@@ -1164,16 +1175,12 @@ export interface PunkDetailResponse {
     totalChanges: number;
   };
   hashtagSummary: Record<string, number>;
-  discussions: Array<{
-    title: string;
-    link: string;
-    description: string;
-    pubDate: string;
-    flagged: boolean;
-    commentId?: string;
-    author?: string;
-  }>;
   status: number;
+}
+
+export interface PunkDiscussionsResponse {
+  status: number;
+  discussions: DiscussionItem[];
 }
 
 // Friends List types
@@ -1217,16 +1224,12 @@ export interface FriendDetailResponse {
     totalChanges: number;
   };
   hashtagSummary: Record<string, number>;
-  discussions: Array<{
-    title: string;
-    link: string;
-    description: string;
-    pubDate: string;
-    flagged: boolean;
-    commentId?: string;
-    author?: string;
-  }>;
   status: number;
+}
+
+export interface FriendDiscussionsResponse {
+  status: number;
+  discussions: DiscussionItem[];
 }
 
 // Community Data types

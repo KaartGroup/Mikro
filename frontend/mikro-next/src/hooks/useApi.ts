@@ -44,8 +44,10 @@ import type {
   ProjectProfileResponse,
   PunksResponse,
   PunkDetailResponse,
+  PunkDiscussionsResponse,
   FriendsResponse,
   FriendDetailResponse,
+  FriendDiscussionsResponse,
   CommunityEntriesResponse,
   CommunitySheetConfigResponse,
   ChannelsResponse,
@@ -1279,6 +1281,11 @@ export function useRefreshPunkActivity() {
 export function useToggleDiscussionFlag() {
   return useApiMutation("/punk/toggle_discussion_flag");
 }
+export function usePunkDiscussions() {
+  return useApiMutation<PunkDiscussionsResponse>(
+    "/punk/fetch_punk_discussions",
+  );
+}
 
 // Friends List
 export function useFriendsList() {
@@ -1301,6 +1308,11 @@ export function useRefreshFriendActivity() {
 }
 export function useToggleFriendDiscussionFlag() {
   return useApiMutation("/friend/toggle_discussion_flag");
+}
+export function useFriendDiscussions() {
+  return useApiMutation<FriendDiscussionsResponse>(
+    "/friend/fetch_friend_discussions",
+  );
 }
 
 // Community Data
