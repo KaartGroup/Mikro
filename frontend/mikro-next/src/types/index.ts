@@ -124,6 +124,10 @@ export interface Project {
   tasks_validated?: number;
   tasks_invalidated?: number;
   user_earnings?: number;
+  // Backend-computed on the clock-in project list: true if the project is in
+  // a country/region the current user is associated with. Used to float a
+  // mapper's local projects to the top of the picker.
+  matches_user_location?: boolean;
 }
 
 export interface ProjectsResponse {

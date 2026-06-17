@@ -47,6 +47,7 @@ type UserProject = {
   name: string;
   short_name?: string;
   last_worked_on?: string | null;
+  matches_user_location?: boolean;
 };
 
 // Duration helpers consolidated into @/lib/timeTracking:
@@ -59,6 +60,7 @@ export function TimeTrackingWidget() {
       name: p.name,
       short_name: p.short_name,
       last_worked_on: p.last_worked_on ?? null,
+      matches_user_location: p.matches_user_location ?? false,
     })) ?? [];
 
   const [isClockedIn, setIsClockedIn] = useState(false);

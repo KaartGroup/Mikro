@@ -18,7 +18,7 @@ from ..auth import (
     is_org_admin_or_above,
     team_admin_can_access_user,
 )
-from ..filters import resolve_filtered_user_ids
+from ..filters import resolve_filtered_user_ids, get_user_country_ids
 from ..stats import count_tasks_split_aware, get_project_stats_from_tasks, get_batch_project_stats_fast
 from ..services.project_service import ProjectService
 from ..time_tracking import AggregateQuery, ACTIVITY_DISPLAY_MAP
@@ -33,6 +33,7 @@ from ..database import (
     Training,
     UserTasks,
     User,
+    Country,
     TimeEntry,
     Team,
     ProjectTeam,
@@ -870,7 +871,6 @@ class ProjectAPI(MethodView):
         country_ids = [r[0] for r in loc_rows]
         locations_data = []
         if country_ids:
-            from ..database import Country
             countries = Country.query.filter(Country.id.in_(country_ids)).all()
             locations_data = [
                 {"id": c.id, "name": c.name, "code": c.iso_code}
@@ -981,6 +981,48 @@ class ProjectAPI(MethodView):
         for t in Task.query.filter(Task.project_id.in_(project_ids)).all():
             tasks_by_project.setdefault(t.project_id, []).append(t)
 
+        # Location match: the frontend floats projects in the user's
+        # country/region to the top of the clock-in picker. A project matches
+        # when it shares a country with the user, or sits in a region the user
+        # is associated with. Projects with no country assignment never match
+        # (they're global, and sort normally). All lookups are batched.
+        user_country_ids = get_user_country_ids(g.user.id)
+        user_region_ids = (
+            {
+                rid
+                for (rid,) in Country.query.filter(Country.id.in_(user_country_ids))
+                .with_entities(Country.region_id)
+                .all()
+                if rid is not None
+            }
+            if user_country_ids
+            else set()
+        )
+
+        project_country_ids: dict = {}
+        if project_ids:
+            for pc in ProjectCountry.query.filter(
+                ProjectCountry.project_id.in_(project_ids)
+            ).all():
+                project_country_ids.setdefault(pc.project_id, set()).add(pc.country_id)
+
+        # Region of every country referenced by these projects (region match).
+        referenced_country_ids = {
+            cid for ids in project_country_ids.values() for cid in ids
+        }
+        country_region = (
+            {
+                cid: rid
+                for (cid, rid) in Country.query.filter(
+                    Country.id.in_(referenced_country_ids)
+                )
+                .with_entities(Country.id, Country.region_id)
+                .all()
+            }
+            if referenced_country_ids
+            else {}
+        )
+
         for project in projects:
             all_project_tasks = tasks_by_project.get(project.id, [])
             _proj_stats = get_project_stats_from_tasks(all_project_tasks)
@@ -998,6 +1040,11 @@ class ProjectAPI(MethodView):
             user_project_unapproved_tasks = count_tasks_split_aware(
                 user_project_tasks,
                 lambda t: t.mapped is True and t.validated is False and t.invalidated is True
+            )
+
+            proj_country_ids = project_country_ids.get(project.id, set())
+            matches_user_location = bool(proj_country_ids & user_country_ids) or any(
+                country_region.get(cid) in user_region_ids for cid in proj_country_ids
             )
 
             user_projects.append(
@@ -1027,6 +1074,7 @@ class ProjectAPI(MethodView):
                     "total_invalidated": _proj_stats["tasks_invalidated"],
                     "user_earnings": 0,
                     "status": project.status,
+                    "matches_user_location": matches_user_location,
                 }
             )
 

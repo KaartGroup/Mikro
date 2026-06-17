@@ -88,14 +88,15 @@ export function SidebarClock() {
   const [weekSeconds, setWeekSeconds] = useState(0);
   const { mutate: fetchHistory } = useFetchMyTimeHistory();
 
-  // Project ordering: most-recently-worked-on project pinned at the
-  // top, the rest alphabetical underneath. Falls back to pure alpha
-  // when no project has a last_worked_on yet. SSOT in @/lib/sortProjects.
+  // Project ordering: projects in the user's country/region float to the
+  // top, then the most-recently-worked-on project pinned, the rest
+  // alphabetical underneath. SSOT in @/lib/sortProjects.
   const projectList: {
     id: number;
     name: string;
     short_name?: string | null;
     last_worked_on: string | null;
+    matches_user_location?: boolean;
   }[] = sortProjectsRecentPinned(
     projects?.user_projects?.map(
       (p: {
@@ -103,11 +104,13 @@ export function SidebarClock() {
         name: string;
         short_name?: string | null;
         last_worked_on?: string | null;
+        matches_user_location?: boolean;
       }) => ({
         id: p.id,
         name: p.name,
         short_name: p.short_name ?? null,
         last_worked_on: p.last_worked_on ?? null,
+        matches_user_location: p.matches_user_location ?? false,
       }),
     ) ?? [],
   );
