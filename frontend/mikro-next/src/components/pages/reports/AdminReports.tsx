@@ -739,12 +739,12 @@ export function AdminReports() {
       {/* ── Project Snapshot ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {editingData && editingData.projects.length > 0 && (
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 h-full">
             <ProjectSnapshotTable projects={editingData.projects} />
           </div>
         )}
 
-        <Card>
+        <Card className="h-full">
           <CardHeader className="px-4 pt-4 pb-0">
             <CardTitle className="text-base">Projects This Period</CardTitle>
           </CardHeader>
