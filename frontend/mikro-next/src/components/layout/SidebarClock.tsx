@@ -21,7 +21,10 @@ import {
 } from "@/lib/timeTracking";
 import type { Subcategory } from "@/types";
 import { NotesButton } from "@/components/widgets/NotesButton";
-import { sortProjectsRecentPinned } from "@/lib/sortProjects";
+import {
+  sortProjectsRecentPinned,
+  projectDisplayName,
+} from "@/lib/sortProjects";
 import { ConfirmDialog } from "@/components/ui/Modal";
 import { useToastActions } from "@/components/ui";
 import { useErrorReporter } from "@/contexts/ErrorReporterContext";
@@ -91,12 +94,19 @@ export function SidebarClock() {
   const projectList: {
     id: number;
     name: string;
+    short_name?: string | null;
     last_worked_on: string | null;
   }[] = sortProjectsRecentPinned(
     projects?.user_projects?.map(
-      (p: { id: number; name: string; last_worked_on?: string | null }) => ({
+      (p: {
+        id: number;
+        name: string;
+        short_name?: string | null;
+        last_worked_on?: string | null;
+      }) => ({
         id: p.id,
         name: p.name,
+        short_name: p.short_name ?? null,
         last_worked_on: p.last_worked_on ?? null,
       }),
     ) ?? [],
@@ -108,6 +118,7 @@ export function SidebarClock() {
   const filteredProjectList = projectSearch.trim()
     ? projectList.filter((p) => {
         const q = projectSearch.toLowerCase();
+        if (projectDisplayName(p).toLowerCase().includes(q)) return true;
         if (p.name.toLowerCase().includes(q)) return true;
         if (selectedProject && p.id.toString() === selectedProject) return true;
         return false;
@@ -590,7 +601,7 @@ export function SidebarClock() {
               </option>
               {filteredProjectList.map((p) => (
                 <option key={p.id} value={p.id.toString()}>
-                  {p.name}
+                  {projectDisplayName(p)}
                 </option>
               ))}
             </select>

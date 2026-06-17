@@ -16,7 +16,10 @@ import {
   useUserProjects,
 } from "@/hooks";
 import { NotesButton } from "./NotesButton";
-import { sortProjectsRecentPinned } from "@/lib/sortProjects";
+import {
+  sortProjectsRecentPinned,
+  projectDisplayName,
+} from "@/lib/sortProjects";
 import { ConfirmDialog } from "@/components/ui/Modal";
 import { useToastActions } from "@/components/ui";
 import { useErrorReporter } from "@/contexts/ErrorReporterContext";
@@ -445,7 +448,7 @@ export function TimeTrackingWidget() {
   const projectOptions: SelectOption[] = sortProjectsRecentPinned(projects).map(
     (p) => ({
       value: p.id.toString(),
-      label: p.short_name || p.name,
+      label: projectDisplayName(p),
     }),
   );
 

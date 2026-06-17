@@ -21,8 +21,15 @@ interface ProjectLike {
   last_worked_on?: string | null;
 }
 
-const displayName = <T extends ProjectLike>(p: T): string =>
+/**
+ * The label a project should be shown under in dropdowns, lists, and any
+ * other UI: its standardized short name when one is set, otherwise the full
+ * project name. Single source of truth so every menu reads the same way.
+ */
+export const projectDisplayName = <T extends ProjectLike>(p: T): string =>
   (p.short_name && p.short_name.length > 0 ? p.short_name : p.name) || "";
+
+const displayName = projectDisplayName;
 
 const alphaCompare = <T extends ProjectLike>(a: T, b: T): number =>
   displayName(a).localeCompare(displayName(b), undefined, {

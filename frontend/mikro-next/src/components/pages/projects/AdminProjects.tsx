@@ -37,6 +37,7 @@ import { EditProjectModal } from "@/components/modals/project/EditProjectModal";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
+import { projectDisplayName } from "@/lib/sortProjects";
 import Link from "next/link";
 import {
   formatNumber,
@@ -375,7 +376,7 @@ export function AdminProjects() {
                         className="font-medium text-kaart-orange hover:underline"
                         title={project.name}
                       >
-                        {project.short_name || project.name}
+                        {projectDisplayName(project)}
                       </Link>
                       {project.source === "mr" ? (
                         <Badge

@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Button, Input, Select } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
+import { projectDisplayName } from "@/lib/sortProjects";
 import type { AssignedProject } from "@/types";
 
 type SortKey =
@@ -83,7 +84,7 @@ export function AssignedProjectsTable({ projects }: Props) {
     const q = search.trim().toLowerCase();
     return projects.filter((p) => {
       if (q) {
-        const label = (p.short_name || p.name || "").toLowerCase();
+        const label = projectDisplayName(p).toLowerCase();
         if (!label.includes(q)) return false;
       }
       if (statusFilter === "active" && p.status === false) return false;
@@ -100,8 +101,8 @@ export function AssignedProjectsTable({ projects }: Props) {
       let cmp = 0;
       switch (sortKey) {
         case "name": {
-          const an = (a.short_name || a.name || "").toLowerCase();
-          const bn = (b.short_name || b.name || "").toLowerCase();
+          const an = projectDisplayName(a).toLowerCase();
+          const bn = projectDisplayName(b).toLowerCase();
           cmp = an.localeCompare(bn);
           break;
         }
@@ -256,7 +257,7 @@ export function AssignedProjectsTable({ projects }: Props) {
                       href={`/admin/projects/${p.id}`}
                       className="inline-flex items-center gap-1.5 hover:text-kaart-orange hover:underline"
                     >
-                      {p.short_name || p.name}
+                      {projectDisplayName(p)}
                       {p.source === "mr" && (
                         <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                           MR

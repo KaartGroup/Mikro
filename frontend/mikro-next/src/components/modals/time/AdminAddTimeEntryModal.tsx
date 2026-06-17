@@ -8,7 +8,10 @@ import {
   fromDatetimeLocal,
 } from "@/lib/timeTracking";
 import { useAdminAddTimeEntry } from "@/hooks/useApi";
-import { sortProjectsAlphabetical } from "@/lib/sortProjects";
+import {
+  sortProjectsAlphabetical,
+  projectDisplayName,
+} from "@/lib/sortProjects";
 import type { User, Project } from "@/types";
 
 const CATEGORY_OPTIONS = Object.keys(CATEGORY_LABELS);
@@ -135,7 +138,7 @@ export function AdminAddTimeEntryModal({
             <option value="">No project</option>
             {sortProjectsAlphabetical(projects).map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}
+                {projectDisplayName(p)}
               </option>
             ))}
           </select>

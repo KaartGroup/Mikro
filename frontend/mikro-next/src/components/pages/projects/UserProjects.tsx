@@ -19,6 +19,7 @@ import {
   formatCurrency,
 } from "@/lib/utils";
 import type { Project, UserProjectsPagedResponse } from "@/types";
+import { projectDisplayName } from "@/lib/sortProjects";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
 
@@ -74,7 +75,7 @@ function ProjectCard({
         </div>
         <div>
           <CardTitle className="text-lg truncate" title={project.name}>
-            {project.name}
+            {projectDisplayName(project)}
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-0.5">
             #{project.id} &mdash;{" "}
