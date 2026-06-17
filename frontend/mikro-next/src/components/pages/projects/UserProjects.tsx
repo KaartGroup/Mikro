@@ -7,10 +7,10 @@ import {
   CardHeader,
   CardTitle,
   Badge,
-  Button,
   Val,
   useToastActions,
 } from "@/components/ui";
+import { TablePaginator } from "@/components/tables/TablePaginator";
 import { useUserProjectsPaged, useFetchFilterOptions } from "@/hooks";
 import { useRole } from "@/contexts/RoleContext";
 import {
@@ -232,9 +232,6 @@ export function UserProjects() {
 
   const projectsPage = listResp?.user_projects ?? [];
   const total = listResp?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
-  const showingStart = total > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
-  const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, total);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
@@ -258,32 +255,13 @@ export function UserProjects() {
             ))}
           </div>
           {total > ROWS_PER_PAGE && (
-            <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
-              <span>
-                Showing {showingStart}-{showingEnd} of {total}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage === 1 || listLoading}
-                  onClick={() => setCurrentPage((p) => p - 1)}
-                >
-                  Previous
-                </Button>
-                <span className="flex items-center px-2">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage >= totalPages || listLoading}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+            <TablePaginator
+              page={currentPage}
+              totalItems={total}
+              pageSize={ROWS_PER_PAGE}
+              onPageChange={setCurrentPage}
+              disabled={listLoading}
+            />
           )}
         </>
       ) : (
