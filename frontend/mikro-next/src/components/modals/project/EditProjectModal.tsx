@@ -375,11 +375,12 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
                     <input
                       type="checkbox"
                       id="edit-visibility"
-                      checked={formData.visibility}
+                      checked={formData.community || formData.visibility}
+                      disabled={formData.community}
                       onChange={(e) =>
                         handleInputChange("visibility", e.target.checked)
                       }
-                      className="rounded border-input"
+                      className="rounded border-input disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                     <label
                       htmlFor="edit-visibility"
@@ -389,8 +390,9 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
                     </label>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 ml-6">
-                    If checked, anyone in the org can see this project. If
-                    unchecked, only assigned users and teams can see it.
+                    {formData.community
+                      ? "Community projects are always publicly visible."
+                      : "If checked, anyone in the org can see this project. If unchecked, only assigned users and teams can see it."}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -412,9 +414,11 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
                     type="checkbox"
                     id="edit-community"
                     checked={formData.community}
-                    onChange={(e) =>
-                      handleInputChange("community", e.target.checked)
-                    }
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      handleInputChange("community", checked);
+                      if (checked) handleInputChange("visibility", true);
+                    }}
                     className="rounded border-input"
                   />
                   <label

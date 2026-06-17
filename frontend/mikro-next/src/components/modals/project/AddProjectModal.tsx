@@ -564,19 +564,21 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
                 <input
                   type="checkbox"
                   id="add-visibility"
-                  checked={formData.visibility}
+                  checked={formData.community || formData.visibility}
+                  disabled={formData.community}
                   onChange={(e) =>
                     handleInputChange("visibility", e.target.checked)
                   }
-                  className="rounded border-input"
+                  className="rounded border-input disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <label htmlFor="add-visibility" className="text-sm font-medium">
                   Publicly visible
                 </label>
               </div>
               <p className="text-xs text-muted-foreground mt-1 ml-6">
-                If checked, anyone in the org can see this project. If
-                unchecked, only assigned users and teams can see it.
+                {formData.community
+                  ? "Community projects are always publicly visible."
+                  : "If checked, anyone in the org can see this project. If unchecked, only assigned users and teams can see it."}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -584,9 +586,11 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
                 type="checkbox"
                 id="add-community"
                 checked={formData.community}
-                onChange={(e) =>
-                  handleInputChange("community", e.target.checked)
-                }
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  handleInputChange("community", checked);
+                  if (checked) handleInputChange("visibility", true);
+                }}
                 className="rounded border-input"
               />
               <label htmlFor="add-community" className="text-sm font-medium">
