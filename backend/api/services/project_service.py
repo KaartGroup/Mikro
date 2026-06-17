@@ -193,6 +193,10 @@ class ProjectService:
         parsed_short, parsed_country = self.auto_parse_project_name(project_name)
         final_short_name = short_name_input or parsed_short or ""
 
+        # Community projects are always publicly visible (enforced server-side).
+        if community:
+            visibility = True
+
         Project.create(
             id=project_id,
             org_id=org_id,
@@ -263,6 +267,10 @@ class ProjectService:
         parsed_short, parsed_country = self.auto_parse_project_name(project_name)
         final_short_name = parsed_short or ""
 
+        # Community projects are always publicly visible (enforced server-side).
+        if community:
+            visibility = True
+
         Project.create(
             id=challenge_id,
             org_id=org_id,
@@ -328,6 +336,15 @@ class ProjectService:
 
         if short_name is None:
             short_name = target_project.short_name
+
+        # Community projects are always publicly visible (enforced server-side).
+        # Use the incoming community value when provided, else the project's
+        # current state, so an edit can never leave a community project private.
+        effective_community = (
+            community if community is not None else target_project.community
+        )
+        if effective_community:
+            visibility = True
 
         target_project.update(
             visibility=visibility,
