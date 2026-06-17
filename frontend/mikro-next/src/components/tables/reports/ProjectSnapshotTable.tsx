@@ -73,7 +73,7 @@ export function ProjectSnapshotTable({ projects }: ProjectSnapshotTableProps) {
 
   if (projects.length === 0) {
     return (
-      <Card>
+      <Card className="h-full">
         <CardHeader className="px-4 pt-4 pb-0">
           <CardTitle className="text-base">Project Snapshot</CardTitle>
         </CardHeader>
@@ -91,7 +91,7 @@ export function ProjectSnapshotTable({ projects }: ProjectSnapshotTableProps) {
   const tdClass = "px-3 py-2 text-sm";
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader className="px-4 pt-4 pb-0">
         <CardTitle className="text-base">Project Snapshot</CardTitle>
       </CardHeader>
