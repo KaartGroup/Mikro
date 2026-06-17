@@ -33,7 +33,11 @@ except ImportError:
     _unidecode = None
 
 from ..utils import requires_team_admin_or_above
-from ..utils.tz import org_month_bounds_utc, parse_filter_datetime
+from ..utils.tz import (
+    org_month_bounds_utc,
+    org_week_compare_bounds_utc,
+    parse_filter_datetime,
+)
 from sqlalchemy import func, or_, and_
 from ..database import (
     TimeEntry,
@@ -1139,19 +1143,24 @@ class TimeTrackingAPI(MethodView):
         """Aggregate time stats for the admin dashboard.
 
         Returns exact this-week/last-week sums computed via DB aggregation —
-        not limited by pagination. Weeks are UTC Sunday-start.
+        not limited by pagination. Weeks are Sunday-start, anchored to the org
+        timezone (Grand Junction / Mountain Time). The last-week figure spans
+        only the same number of fully completed days that have elapsed this
+        week, so a partial week isn't compared against a complete one.
 
         Body: { teamId? }
         """
         data = request.get_json() or {}
 
-        now = datetime.utcnow()
-        # Most recent Sunday (UTC) — Python weekday: Mon=0 … Sun=6
-        days_since_sunday = (now.weekday() + 1) % 7
-        week_start = (now - timedelta(days=days_since_sunday)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        last_week_start = week_start - timedelta(days=7)
+        # Grand-Junction-anchored Sunday-start week. ``today_start`` is local
+        # midnight today (the end of this week's completed days); the previous
+        # week's window covers that same number of completed days.
+        (
+            week_start,
+            today_start,
+            prev_week_start,
+            prev_week_compare_end,
+        ) = org_week_compare_bounds_utc()
 
         # Build user-scope conditions once, reused across all queries.
         scope = [TimeEntry.org_id == g.user.org_id]
@@ -1214,7 +1223,7 @@ class TimeTrackingAPI(MethodView):
         cluster_conds = scope + [
             TimeEntry.status == "completed",
             TimeEntry.duration_seconds < 300,
-            TimeEntry.clock_in >= last_week_start,
+            TimeEntry.clock_in >= prev_week_start,
         ]
         cluster_subq = (
             db.session.query(
@@ -1237,11 +1246,15 @@ class TimeTrackingAPI(MethodView):
             jsonify(
                 {
                     "status": 200,
+                    # weekHours: this week so far (incl. today) — the headline.
                     "weekHours": sum_hours(week_start),
-                    "lastWeekHours": sum_hours(last_week_start, week_start),
+                    # weekHoursToDate / lastWeekHours: equal completed-day spans,
+                    # this week vs last week — the apples-to-apples comparison.
+                    "weekHoursToDate": sum_hours(week_start, today_start),
+                    "lastWeekHours": sum_hours(prev_week_start, prev_week_compare_end),
                     "pendingAdjustments": count_adjustments(week_start),
                     "lastWeekPendingAdjustments": count_adjustments(
-                        last_week_start, week_start
+                        prev_week_start, week_start
                     ),
                     "shortSessionClusters": short_clusters,
                 }

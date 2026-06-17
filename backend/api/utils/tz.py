@@ -25,9 +25,10 @@ ORG_TIMEZONE to a per-org DB column and thread the org_id → tz lookup
 through the helpers below.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+# Kaart HQ is in Grand Junction, Colorado, which observes Mountain Time.
 ORG_TIMEZONE = ZoneInfo("America/Denver")
 
 
@@ -125,4 +126,92 @@ def org_year_bounds_utc(year: int) -> tuple[datetime, datetime]:
     return (
         start_local.astimezone(timezone.utc).replace(tzinfo=None),
         end_local.astimezone(timezone.utc).replace(tzinfo=None),
+    )
+
+
+def _org_midnight_utc(d: date) -> datetime:
+    """Local midnight of date ``d`` in ORG_TIMEZONE, as naive UTC."""
+    return (
+        datetime(d.year, d.month, d.day, tzinfo=ORG_TIMEZONE)
+        .astimezone(timezone.utc)
+        .replace(tzinfo=None)
+    )
+
+
+def org_week_compare_bounds_utc(now_local: datetime = None):
+    """Bounds for an apples-to-apples "this week vs last week" comparison.
+
+    Anchored to ORG_TIMEZONE (Grand Junction / Mountain Time). Weeks start
+    Sunday at local midnight. The previous-week window covers the *same number
+    of fully completed days* that have elapsed in the current week, so a
+    partial current week is never measured against a complete previous one.
+
+    Returns a 4-tuple of naive-UTC datetimes::
+
+        (week_start, today_start, prev_week_start, prev_week_compare_end)
+
+      - [week_start, now)                          → current week so far
+      - [week_start, today_start)                  → current week's completed days
+      - [prev_week_start, prev_week_compare_end)   → same completed-day span,
+                                                     previous week
+
+    ``completed_days`` (the number of whole days elapsed since Sunday) is 0 on
+    Sunday, in which case both completed-day windows are empty.
+    """
+    if now_local is None:
+        now_local = datetime.now(ORG_TIMEZONE)
+    today = now_local.date()
+    # Sunday-start week: Python weekday() is Mon=0 … Sun=6.
+    completed_days = (today.weekday() + 1) % 7
+    week_start = today - timedelta(days=completed_days)
+    prev_week_start = week_start - timedelta(days=7)
+    return (
+        _org_midnight_utc(week_start),
+        _org_midnight_utc(today),
+        _org_midnight_utc(prev_week_start),
+        _org_midnight_utc(prev_week_start + timedelta(days=completed_days)),
+    )
+
+
+def org_month_compare_bounds_utc(now_local: datetime = None):
+    """Bounds for an apples-to-apples "this month vs last month" comparison.
+
+    Anchored to ORG_TIMEZONE (Grand Junction / Mountain Time). The
+    previous-month window covers the *same number of fully completed days* that
+    have elapsed in the current month, so a partial current month is never
+    measured against a complete previous one.
+
+    Returns a 4-tuple of naive-UTC datetimes::
+
+        (month_start, today_start, prev_month_start, prev_month_compare_end)
+
+      - [month_start, now)                          → current month so far
+      - [month_start, today_start)                  → current month's completed days
+      - [prev_month_start, prev_month_compare_end)  → same completed-day span,
+                                                      previous month
+
+    ``completed_days`` is today's day-of-month minus 1 (0 on the 1st). When the
+    previous month is shorter than the current one, the previous-month window is
+    clamped to that month's end rather than bleeding into the current month.
+    """
+    if now_local is None:
+        now_local = datetime.now(ORG_TIMEZONE)
+    today = now_local.date()
+    completed_days = today.day - 1
+    month_start, _ = org_month_bounds_utc(today.year, today.month)
+    if today.month == 1:
+        prev_year, prev_month = today.year - 1, 12
+    else:
+        prev_year, prev_month = today.year, today.month - 1
+    prev_month_start, prev_month_end = org_month_bounds_utc(prev_year, prev_month)
+    prev_compare_end = _org_midnight_utc(
+        date(prev_year, prev_month, 1) + timedelta(days=completed_days)
+    )
+    # Shorter previous month: keep the window inside that month.
+    prev_compare_end = min(prev_compare_end, prev_month_end)
+    return (
+        month_start,
+        _org_midnight_utc(today),
+        prev_month_start,
+        prev_compare_end,
     )
