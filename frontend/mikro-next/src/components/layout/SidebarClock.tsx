@@ -120,6 +120,7 @@ export function SidebarClock() {
         const q = projectSearch.toLowerCase();
         if (projectDisplayName(p).toLowerCase().includes(q)) return true;
         if (p.name.toLowerCase().includes(q)) return true;
+        if (p.short_name && p.short_name.toLowerCase().includes(q)) return true;
         if (selectedProject && p.id.toString() === selectedProject) return true;
         return false;
       })
