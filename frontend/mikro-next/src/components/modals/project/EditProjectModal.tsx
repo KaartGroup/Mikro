@@ -310,7 +310,7 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
                   htmlFor="edit-payments-enabled"
                   className="text-sm font-medium"
                 >
-                  Enable Payments
+                  Enable Micro Payments
                 </label>
                 <span className="text-xs text-muted-foreground">
                   (uncheck for stats-only tracking)
