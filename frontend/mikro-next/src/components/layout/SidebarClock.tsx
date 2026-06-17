@@ -91,12 +91,19 @@ export function SidebarClock() {
   const projectList: {
     id: number;
     name: string;
+    short_name: string | null;
     last_worked_on: string | null;
   }[] = sortProjectsRecentPinned(
     projects?.user_projects?.map(
-      (p: { id: number; name: string; last_worked_on?: string | null }) => ({
+      (p: {
+        id: number;
+        name: string;
+        short_name?: string | null;
+        last_worked_on?: string | null;
+      }) => ({
         id: p.id,
         name: p.name,
+        short_name: p.short_name ?? null,
         last_worked_on: p.last_worked_on ?? null,
       }),
     ) ?? [],
@@ -109,6 +116,7 @@ export function SidebarClock() {
     ? projectList.filter((p) => {
         const q = projectSearch.toLowerCase();
         if (p.name.toLowerCase().includes(q)) return true;
+        if (p.short_name && p.short_name.toLowerCase().includes(q)) return true;
         if (selectedProject && p.id.toString() === selectedProject) return true;
         return false;
       })
@@ -590,7 +598,7 @@ export function SidebarClock() {
               </option>
               {filteredProjectList.map((p) => (
                 <option key={p.id} value={p.id.toString()}>
-                  {p.name}
+                  {p.short_name || p.name}
                 </option>
               ))}
             </select>

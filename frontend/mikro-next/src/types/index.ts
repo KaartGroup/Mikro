@@ -1025,6 +1025,12 @@ export interface TimekeepingStatsResponse {
   weekly_category_hours: Array<Record<string, string | number>>;
   weekly_category_names: string[];
   daily_category_hours: Array<Record<string, string | number>>;
+  projects_clocked_into: Array<{
+    id: number;
+    name: string;
+    short_name: string | null;
+    url: string;
+  }>;
   user_breakdown: Array<{
     user_id: string;
     user_name: string;

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Card, CardContent, Val } from "@/components/ui";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle, Val } from "@/components/ui";
 import { KpiCard } from "@/components/ui/KpiCard";
 import {
   useFetchEditingStats,
@@ -38,6 +39,8 @@ import { TaskHoursByCategoryCard } from "./_components/TaskHoursByCategoryCard";
 import { CommunityOutreachCard } from "./_components/CommunityOutreachCard";
 import { ExportDropdown } from "./_components/ExportDropdown";
 import { ProjectSnapshotTable } from "@/components/tables/reports/ProjectSnapshotTable";
+import { sortProjectsAlphabetical } from "@/lib/sortProjects";
+import { dynamicRoutes } from "@/lib/routes";
 
 function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -390,7 +393,8 @@ export function AdminReports() {
       const variance =
         cmpWeekly.reduce((s, v) => s + (v - mean) ** 2, 0) / cmpWeekly.length;
       const sigma = Math.sqrt(variance);
-      const delta = cmpTotal > 0 ? ((currentVal - cmpTotal) / cmpTotal) * 100 : null;
+      const delta =
+        cmpTotal > 0 ? ((currentVal - cmpTotal) / cmpTotal) * 100 : null;
       const currentAvg = currentVal / Math.max(1, cmpWeekly.length);
       const anomaly = sigma > 0 && Math.abs(currentAvg - mean) > sigma;
       return { delta, anomaly };
@@ -432,6 +436,12 @@ export function AdminReports() {
   const totalChangesets = timekeepingData?.summary.total_changesets ?? 0;
   const totalHours = timekeepingData?.summary.total_hours ?? 0;
   const totalChanges = timekeepingData?.summary.total_changes ?? 0;
+
+  const projectsClockedInto = useMemo(
+    () =>
+      sortProjectsAlphabetical(timekeepingData?.projects_clocked_into ?? []),
+    [timekeepingData],
+  );
 
   useEffect(() => {
     console.log(heatmapPoints);
@@ -597,9 +607,7 @@ export function AdminReports() {
             <KpiCard
               label="Avg Changes / Hour"
               value={
-                totalHours > 0
-                  ? formatNumber(totalChanges / totalHours)
-                  : "—"
+                totalHours > 0 ? formatNumber(totalChanges / totalHours) : "—"
               }
               subtitle=""
               info="Total changes divided by total logged hours for the period."
@@ -738,9 +746,39 @@ export function AdminReports() {
       {/* end reportContentRef */}
 
       {/* ── Project Snapshot ── */}
-      {editingData && editingData.projects.length > 0 && (
-        <ProjectSnapshotTable projects={editingData.projects} />
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {editingData && editingData.projects.length > 0 && (
+          <div className="lg:col-span-2">
+            <ProjectSnapshotTable projects={editingData.projects} />
+          </div>
+        )}
+
+        <Card>
+          <CardHeader className="px-4 pt-4 pb-0">
+            <CardTitle className="text-base">Projects This Period</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            {projectsClockedInto.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No projects clocked into this period.
+              </p>
+            ) : (
+              <ul className="overflow-y-auto max-h-72 divide-y divide-border">
+                {projectsClockedInto.map((p) => (
+                  <li key={p.id} className="py-2">
+                    <Link
+                      href={dynamicRoutes.project(p.id)}
+                      className="text-sm text-foreground hover:text-kaart-orange hover:underline font-medium"
+                    >
+                      {p.short_name || p.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <ChangesetHeatmapCard
         heatmapPoints={heatmapPoints}

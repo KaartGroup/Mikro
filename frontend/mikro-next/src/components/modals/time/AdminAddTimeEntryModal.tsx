@@ -135,7 +135,7 @@ export function AdminAddTimeEntryModal({
             <option value="">No project</option>
             {sortProjectsAlphabetical(projects).map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}
+                {p.short_name || p.name}
               </option>
             ))}
           </select>
