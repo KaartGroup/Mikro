@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from flask import g, request
 from sqlalchemy import func
 
-from ...database import db, TimeEntry, User
+from ...database import db, Project, TimeEntry, User
 from ...utils.tz import parse_filter_datetime
 from ...time_tracking import TimeEntryScope, ACTIVITY_SLUGS
 from .helpers import resolve_member_id_filter
@@ -78,6 +78,9 @@ def get_timekeeping_stats(org_id, start_date, end_date, member_ids=None, cmp_sta
         "weekly_category_names": sorted(all_cats),
         "daily_category_hours": daily_category_hours,
         "user_breakdown": _get_user_breakdown(org_id, start_date, end_date, member_ids),
+        "projects_clocked_into": _get_projects_clocked_into(
+            org_id, start_date, end_date, member_ids
+        ),
         "comparison": (
             _get_comparison(org_id, cmp_start, cmp_end, member_ids)
             if cmp_start and cmp_end else None
@@ -89,7 +92,7 @@ def get_timekeeping_stats(org_id, start_date, end_date, member_ids=None, cmp_sta
 # Filter builder
 # ---------------------------------------------------------------------------
 
-def _build_filter(org_id, start_date, end_date, member_ids):
+def _build_filter(org_id, start_date, end_date, member_ids, statuses=("completed",)):
     """Build the base SQLAlchemy filter list for TimeEntry queries.
 
     The member-scope tri-state (None → all org / [] → none / [ids] → subset)
@@ -99,11 +102,16 @@ def _build_filter(org_id, start_date, end_date, member_ids):
     arrive already parsed (and date-only upper bounds already +1'd) from the
     controller, so the ``clock_in`` window stays inline rather than routing
     back through the string-parsing query constructor.
+
+    ``statuses`` defaults to ``("completed",)`` so every existing caller keeps
+    its completed-only window unchanged; the project-list query passes the
+    broader ``("completed", "active")`` set (excluding ``voided``) so an
+    in-progress clock-in still counts the project as worked this week.
     """
     scope = TimeEntryScope(viewer=None, org_id=org_id)
     return [
         TimeEntry.org_id == org_id,
-        TimeEntry.status == "completed",
+        TimeEntry.status.in_(list(statuses)),
         TimeEntry.clock_in >= start_date,
         TimeEntry.clock_in < end_date,
     ] + scope.member_ids_conditions(member_ids)
@@ -396,6 +404,38 @@ def _get_weekly_category_hours(org_id, start_date, end_date, member_ids):
         )
 
     return sorted(weekly_cat_map.values(), key=lambda x: x["week"]), all_cats
+
+
+def _get_projects_clocked_into(org_id, start_date, end_date, member_ids):
+    """Distinct projects with at least one TimeEntry in the selected window.
+
+    Reuses ``_build_filter`` for the same org / date-window / member-scope
+    conditions as every other helper, but widens the status set to
+    ``("completed", "active")`` (excluding ``voided``) so an in-progress
+    clock-in still counts. Only non-null ``project_id`` entries are joined.
+    Serialized to the frontend's SSOT shape; ``short_name`` is the raw column
+    value (may be null — the frontend handles the display fallback).
+    """
+    f = _build_filter(
+        org_id, start_date, end_date, member_ids, statuses=("completed", "active")
+    )
+    rows = (
+        db.session.query(Project)
+        .join(TimeEntry, TimeEntry.project_id == Project.id)
+        .filter(*f, TimeEntry.project_id.isnot(None))
+        .distinct()
+        .order_by(Project.short_name, Project.name)
+        .all()
+    )
+    return [
+        {
+            "id": proj.id,
+            "name": proj.name,
+            "short_name": proj.short_name,
+            "url": proj.url or "",
+        }
+        for proj in rows
+    ]
 
 
 def _get_comparison(org_id, cmp_start, cmp_end, member_ids):
