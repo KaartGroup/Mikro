@@ -331,6 +331,8 @@ class TimeTrackingAPI(MethodView):
             return self.admin_active_sessions()
         elif path == "long_sessions":
             return self.admin_long_sessions()
+        elif path == "dismiss_long_session":
+            return self.admin_dismiss_long_session()
         elif path == "history":
             return self.admin_history()
         elif path == "force_clock_out":
@@ -1106,6 +1108,9 @@ class TimeTrackingAPI(MethodView):
             TimeEntry.org_id == g.user.org_id,
             TimeEntry.status != "voided",
             TimeEntry.clock_in >= window_start,
+            # Dismissed ("reviewed") alerts drop out of the queue. The
+            # underlying entry is untouched; only this marker is set.
+            TimeEntry.long_session_reviewed_at.is_(None),
             or_(
                 and_(
                     TimeEntry.status == "active",
@@ -1137,6 +1142,71 @@ class TimeTrackingAPI(MethodView):
         )
 
         return jsonify({"status": 200, "sessions": sessions}), 200
+
+    @requires_team_admin_or_above
+    def admin_dismiss_long_session(self):
+        """Dismiss (mark reviewed) a long-running-session alert.
+
+        Removes the entry from the long_sessions queue by stamping
+        ``long_session_reviewed_by`` / ``long_session_reviewed_at``. This
+        is purely a queue/audit marker — the clock-in/clock-out/duration
+        of the time entry are never touched.
+
+        Body: { session_id (or entry_id), reviewed? }. ``reviewed`` defaults
+        to True; pass False to undo a dismissal (re-surface the alert).
+        """
+        data = request.get_json() or {}
+        session_id = data.get("session_id") or data.get("entry_id")
+        reviewed = data.get("reviewed", True)
+
+        if not session_id:
+            return (
+                jsonify({"message": "session_id is required", "status": 400}),
+                400,
+            )
+
+        entry = TimeEntry.query.filter_by(id=session_id, org_id=g.user.org_id).first()
+
+        if not entry:
+            return (
+                jsonify({"message": "Entry not found", "status": 404}),
+                404,
+            )
+
+        # team_admin: target user must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, entry.user_id):
+                return (
+                    jsonify({"message": "Not in your managed teams", "status": 403}),
+                    403,
+                )
+
+        if reviewed:
+            entry.long_session_reviewed_by = g.user.id
+            entry.long_session_reviewed_at = datetime.utcnow()
+            message = "Long session dismissed"
+        else:
+            entry.long_session_reviewed_by = None
+            entry.long_session_reviewed_at = None
+            message = "Long session restored"
+
+        db.session.commit()
+
+        logger.info(
+            f"[CLOCK] long-session {'dismissed' if reviewed else 'restored'} — "
+            f"admin={g.user.id} entry_id={entry.id} owned by user={entry.user_id}"
+        )
+
+        return (
+            jsonify(
+                {
+                    "message": message,
+                    "status": 200,
+                    "session": TimeTrackingHelpers._format_entry(entry),
+                }
+            ),
+            200,
+        )
 
     @requires_team_admin_or_above
     def admin_time_stats(self):

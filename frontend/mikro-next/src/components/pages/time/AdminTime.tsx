@@ -24,6 +24,7 @@ import {
   useApiMutation,
   useAdminActiveSessions,
   useAdminLongSessions,
+  useDismissLongSession,
   useVoidTimeEntry,
   useForceClockOut,
   useExportTimeEntries,
@@ -302,6 +303,8 @@ export default function AdminTime() {
   const { mutate: voidEntry, loading: voiding } = useVoidTimeEntry();
   const { mutate: forceClockOut, loading: forcingClockOut } =
     useForceClockOut();
+  const { mutate: dismissLongSession, loading: dismissingLongSession } =
+    useDismissLongSession();
   const { exportEntries, loading: exporting } = useExportTimeEntries();
   const { data: filterOptions } = useFetchFilterOptions();
   const { data: usersData } = useUsersList();
@@ -617,6 +620,30 @@ export default function AdminTime() {
 
   const handleOpenEdit = (entry: TimeEntry) => {
     setEditingEntry(entry);
+  };
+
+  // Dismiss a long-session alert (mark reviewed). Offers an Undo that
+  // restores it to the queue. Underlying time entry is never touched.
+  const handleDismissLongSession = async (id: number) => {
+    try {
+      await dismissLongSession({ session_id: id, reviewed: true });
+      await refetchLongSessions();
+      toast.success("Long session dismissed", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await dismissLongSession({ session_id: id, reviewed: false });
+              await refetchLongSessions();
+            } catch {
+              toast.error("Failed to restore long session");
+            }
+          },
+        },
+      });
+    } catch {
+      toast.error("Failed to dismiss long session");
+    }
   };
 
   const handleVoidEntry = async (id: number) => {
@@ -1235,41 +1262,55 @@ export default function AdminTime() {
                                 </Badge>
                               </td>
                               <td className="py-2 px-2">
-                                {isActive ? (
+                                <div className="flex items-center gap-1">
+                                  {isActive ? (
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleForceClockOut(session.id)
+                                      }
+                                      disabled={forcingClockOut}
+                                      className="whitespace-nowrap"
+                                    >
+                                      Clock Out
+                                    </Button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEdit(session)}
+                                      disabled={false}
+                                      className="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                                      title="Edit entry"
+                                    >
+                                      <svg
+                                        className="w-4 h-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                        />
+                                      </svg>
+                                    </button>
+                                  )}
                                   <Button
-                                    variant="destructive"
+                                    variant="outline"
                                     size="sm"
                                     onClick={() =>
-                                      handleForceClockOut(session.id)
+                                      handleDismissLongSession(session.id)
                                     }
-                                    disabled={forcingClockOut}
+                                    disabled={dismissingLongSession}
                                     className="whitespace-nowrap"
+                                    title="Mark as reviewed — remove from this queue (does not change the time entry)"
                                   >
-                                    Clock Out
+                                    Dismiss
                                   </Button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEdit(session)}
-                                    disabled={false}
-                                    className="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                                    title="Edit entry"
-                                  >
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                                      />
-                                    </svg>
-                                  </button>
-                                )}
+                                </div>
                               </td>
                             </tr>
                           );
