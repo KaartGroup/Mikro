@@ -773,6 +773,15 @@ export function useAdminLongSessions() {
   );
 }
 
+// Admin: dismiss ("mark reviewed") a long-running session so it drops out
+// of the queue. Pass { session_id, reviewed: false } to undo. Never alters
+// the underlying time entry — only the review marker.
+export function useDismissLongSession() {
+  return useApiMutation<TimeTrackingSessionResponse>(
+    "/timetracking/dismiss_long_session",
+  );
+}
+
 // Admin: aggregate week/last-week stats (hours, adjustments, clusters) —
 // computed server-side, not limited by history pagination.
 export function useAdminTimeStats() {

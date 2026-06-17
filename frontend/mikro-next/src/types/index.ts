@@ -448,6 +448,10 @@ export interface TimeEntry {
   editedBy: string | null;
   editedAt: string | null;
   forceClockedOutBy: string | null;
+  /** Set when an admin dismissed this entry from the long-running-sessions
+   *  queue. Audit-only — it never changes the underlying time data. */
+  longSessionReviewedBy?: string | null;
+  longSessionReviewedAt?: string | null;
 }
 
 export interface TimeTrackingSessionResponse {
