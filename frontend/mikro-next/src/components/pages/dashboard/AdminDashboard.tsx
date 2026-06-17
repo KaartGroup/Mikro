@@ -137,6 +137,7 @@ export function AdminDashboard() {
     const longRunning = longSessions?.sessions?.length ?? 0;
     return {
       weekHours: serverTimeStats?.weekHours ?? 0,
+      weekHoursToDate: serverTimeStats?.weekHoursToDate ?? 0,
       lastWeekHours: serverTimeStats?.lastWeekHours ?? 0,
       pendingAdjustments: serverTimeStats?.pendingAdjustments ?? 0,
       lastWeekPendingAdjustments:
@@ -267,23 +268,27 @@ export function AdminDashboard() {
           }
           href={ROUTES.reports}
           linkLabel="View task reports"
-          tooltip="Total mapping and validation tasks completed this calendar month"
+          tooltip="Total mapping and validation tasks completed this calendar month (Grand Junction time). The change compares completed days this month against the same number of completed days last month."
           loading={statsLoading}
         />
         <DashboardStatCard
           label="Hours This Week"
           value={`${timeStats.weekHours}h`}
           delta={{
+            // Compare equal spans: this week's completed days vs the same
+            // number of completed days last week (today's partial day excluded
+            // from both sides so the trend isn't skewed by an in-progress day).
             value:
-              Math.round((timeStats.weekHours - timeStats.lastWeekHours) * 10) /
-              10,
+              Math.round(
+                (timeStats.weekHoursToDate - timeStats.lastWeekHours) * 10,
+              ) / 10,
             period: "vs last week",
             format: "hours",
             goodDirection: "up",
           }}
           href={ROUTES.adminTime}
           linkLabel="View time tracking"
-          tooltip="Total hours logged by all users this week (Sunday to now)"
+          tooltip="Total hours logged by all users this week (Sunday to now, Grand Junction time). The change compares completed days this week against the same number of completed days last week."
           loading={timeHistoryLoading}
         />
       </div>

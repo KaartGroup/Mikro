@@ -522,6 +522,39 @@ export function useDeleteProject() {
   return useApiMutation("/project/delete_project");
 }
 
+// Admin: list soft-deleted projects (deleted_date set) for the Deleted
+// Projects modal so they can be restored or permanently purged.
+export interface DeletedProject {
+  id: number;
+  name: string;
+  short_name: string | null;
+  source: string;
+  created_by: string;
+  deleted_date: string;
+}
+
+export function useFetchDeletedProjects() {
+  return useApiMutation<{ status: number; projects: DeletedProject[] }>(
+    "/project/fetch_deleted_projects",
+  );
+}
+
+// Admin: restore a soft-deleted project (clears deleted_date). Body:
+// { project_id }.
+export function useRestoreProject() {
+  return useApiMutation<{ status: number; message: string }>(
+    "/project/restore_project",
+  );
+}
+
+// Org admin: permanently purge a soft-deleted project (hard delete, removes
+// associated task/payment data). Body: { project_id }.
+export function usePurgeProject() {
+  return useApiMutation<{ status: number; message: string }>(
+    "/project/purge_project",
+  );
+}
+
 export function useFetchProjectUsers() {
   return useApiMutation<{
     users: Array<{ id: string; name: string; email: string; assigned: string }>;
