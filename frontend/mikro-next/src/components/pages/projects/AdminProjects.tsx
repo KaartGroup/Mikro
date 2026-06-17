@@ -37,6 +37,7 @@ import { EditProjectModal } from "@/components/modals/project/EditProjectModal";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
+import { TablePaginator } from "@/components/tables/TablePaginator";
 import { projectDisplayName } from "@/lib/sortProjects";
 import Link from "next/link";
 import {
@@ -321,11 +322,7 @@ export function AdminProjects() {
   // `currentPageNum`, `setCurrentPageNum`, and `listLoading` from closure —
   // the server already filtered/sorted/sliced, so there's no client work here.
   const ProjectTable = () => {
-    const currentPage = currentPageNum;
-    const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
     const paginatedProjects = projects;
-    const showingStart = total > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
-    const showingEnd = Math.min(currentPage * ROWS_PER_PAGE, total);
 
     return (
       <>
@@ -648,32 +645,14 @@ export function AdminProjects() {
           </TableBody>
         </Table>
         {total > ROWS_PER_PAGE && (
-          <div className="flex items-center justify-between mt-4 px-2">
-            <span className="text-sm text-muted-foreground">
-              Showing {showingStart}–{showingEnd} of {total} projects
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage === 1 || listLoading}
-                onClick={() => setCurrentPageNum((p: number) => p - 1)}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage >= totalPages || listLoading}
-                onClick={() => setCurrentPageNum((p: number) => p + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <TablePaginator
+            page={currentPageNum}
+            totalItems={total}
+            pageSize={ROWS_PER_PAGE}
+            onPageChange={(p) => setCurrentPageNum(p)}
+            disabled={listLoading}
+            itemLabel="projects"
+          />
         )}
       </>
     );
