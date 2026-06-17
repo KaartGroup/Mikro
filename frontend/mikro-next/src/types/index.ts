@@ -293,7 +293,6 @@ export interface TrainingsResponse {
 export interface AdminDashboardStats {
   month_contribution_change: number;
   total_contributions_for_month: number;
-  weekly_contributions_array: number[];
   active_projects: number;
   inactive_projects: number;
   completed_projects: number;
@@ -311,7 +310,6 @@ export interface AdminDashboardStats {
 export interface UserDashboardStats {
   month_contribution_change: number;
   total_contributions_for_month: number;
-  weekly_contributions_array: number[];
   mapped_tasks: number;
   validated_tasks: number;
   invalidated_tasks: number;
@@ -984,6 +982,7 @@ export interface AdminAggregateStatsResponse {
 export interface AdminTimeStatsResponse {
   status: number;
   weekHours: number;
+  weekHoursToDate: number;
   lastWeekHours: number;
   pendingAdjustments: number;
   lastWeekPendingAdjustments: number;
