@@ -96,6 +96,9 @@ export function SidebarClock() {
     name: string;
     short_name?: string | null;
     last_worked_on: string | null;
+    total_mapped: number;
+    total_tasks: number;
+    in_user_country: boolean;
   }[] = sortProjectsRecentPinned(
     projects?.user_projects?.map(
       (p: {
@@ -103,11 +106,17 @@ export function SidebarClock() {
         name: string;
         short_name?: string | null;
         last_worked_on?: string | null;
+        total_mapped?: number;
+        total_tasks?: number;
+        in_user_country?: boolean;
       }) => ({
         id: p.id,
         name: p.name,
         short_name: p.short_name ?? null,
         last_worked_on: p.last_worked_on ?? null,
+        total_mapped: p.total_mapped ?? 0,
+        total_tasks: p.total_tasks ?? 0,
+        in_user_country: p.in_user_country ?? false,
       }),
     ) ?? [],
   );
@@ -601,11 +610,24 @@ export function SidebarClock() {
                     ? `Project (${filteredProjectList.length} match${filteredProjectList.length === 1 ? "" : "es"})...`
                     : "Project..."}
               </option>
-              {filteredProjectList.map((p) => (
-                <option key={p.id} value={p.id.toString()}>
-                  {projectDisplayName(p)}
-                </option>
-              ))}
+              {filteredProjectList.map((p) => {
+                // Fully-mapped = every task mapped. Mark with a ✓ (and a
+                // green option color, best-effort) so editors can see at a
+                // glance which projects are done and avoid clocking into them.
+                const isComplete =
+                  p.total_tasks > 0 && p.total_mapped >= p.total_tasks;
+                return (
+                  <option
+                    key={p.id}
+                    value={p.id.toString()}
+                    style={isComplete ? { color: "#15803d" } : undefined}
+                  >
+                    {isComplete
+                      ? `✓ ${projectDisplayName(p)}`
+                      : projectDisplayName(p)}
+                  </option>
+                );
+              })}
             </select>
           </>
         )}

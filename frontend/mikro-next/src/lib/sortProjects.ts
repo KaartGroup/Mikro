@@ -6,10 +6,12 @@
  *   user picks from the full org/validator project list (admin pages,
  *   filters, edit-entry modals).
  * - sortProjectsRecentPinned: the project with the most recent
- *   `last_worked_on` is pinned to the top; everything else (including
- *   projects with no last_worked_on) is alphabetical underneath. Use on
- *   personal clock-in widgets so the project you just used is one click
- *   away while the rest stays predictable to scan.
+ *   `last_worked_on` is pinned to the top; then the user's in-country
+ *   projects (A–Z), then all other projects (A–Z). Use on personal
+ *   clock-in widgets so the project you just used is one click away,
+ *   your country's projects float near the top, and the rest stays
+ *   predictable to scan. When no project carries `in_user_country`,
+ *   this degrades to recent-pin + pure alphabetical (today's behavior).
  *
  * Both helpers are pure and return a NEW array — never mutate the input.
  */
@@ -19,6 +21,7 @@ interface ProjectLike {
   name: string;
   short_name?: string | null;
   last_worked_on?: string | null;
+  in_user_country?: boolean;
 }
 
 /**
@@ -59,11 +62,21 @@ export function sortProjectsRecentPinned<T extends ProjectLike>(
     }
   }
 
-  if (!mostRecent) {
-    // Nobody has a last_worked_on — degrade to pure alphabetical.
-    return sortProjectsAlphabetical(projects);
-  }
-
-  const rest = projects.filter((p) => p.id !== mostRecent!.id);
-  return [mostRecent, ...sortProjectsAlphabetical(rest)];
+  // Everything below the (optional) pinned project: in-country projects
+  // first, alphabetized, then the rest, alphabetized. When mostRecent is
+  // null there's no pin and the whole list is partitioned this way.
+  const rest = mostRecent
+    ? projects.filter((p) => p.id !== mostRecent!.id)
+    : projects;
+  // Partition the remainder: the user's in-country projects float above
+  // everything else, each group alphabetized on its own. When no project
+  // is flagged in_user_country, `inCountry` is empty and the result is
+  // identical to recent-pin + pure alphabetical.
+  const inCountry = rest.filter((p) => p.in_user_country === true);
+  const others = rest.filter((p) => p.in_user_country !== true);
+  const ordered = [
+    ...sortProjectsAlphabetical(inCountry),
+    ...sortProjectsAlphabetical(others),
+  ];
+  return mostRecent ? [mostRecent, ...ordered] : ordered;
 }

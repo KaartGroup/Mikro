@@ -1012,6 +1012,17 @@ class ProjectAPI(MethodView):
         project_ids = [p.id for p in projects]
         user_projects = []
 
+        user_country_id = g.user.country_id
+        in_country_project_ids = set()
+        if user_country_id:
+            in_country_project_ids = {
+                row.project_id
+                for row in ProjectCountry.query.filter(
+                    ProjectCountry.country_id == user_country_id,
+                    ProjectCountry.project_id.in_(project_ids),
+                ).all()
+            }
+
         user_task_ids = {
             r.task_id
             for r in UserTasks.query.filter_by(user_id=g.user.id).all()
@@ -1066,6 +1077,7 @@ class ProjectAPI(MethodView):
                     "total_invalidated": _proj_stats["tasks_invalidated"],
                     "user_earnings": 0,
                     "status": project.status,
+                    "in_user_country": project.id in in_country_project_ids,
                 }
             )
 

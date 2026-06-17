@@ -47,6 +47,9 @@ type UserProject = {
   name: string;
   short_name?: string;
   last_worked_on?: string | null;
+  total_mapped?: number;
+  total_tasks?: number;
+  in_user_country?: boolean;
 };
 
 // Duration helpers consolidated into @/lib/timeTracking:
@@ -59,6 +62,9 @@ export function TimeTrackingWidget() {
       name: p.name,
       short_name: p.short_name,
       last_worked_on: p.last_worked_on ?? null,
+      total_mapped: p.total_mapped ?? 0,
+      total_tasks: p.total_tasks ?? 0,
+      in_user_country: p.in_user_country ?? false,
     })) ?? [];
 
   const [isClockedIn, setIsClockedIn] = useState(false);
@@ -446,10 +452,17 @@ export function TimeTrackingWidget() {
   );
 
   const projectOptions: SelectOption[] = sortProjectsRecentPinned(projects).map(
-    (p) => ({
-      value: p.id.toString(),
-      label: projectDisplayName(p),
-    }),
+    (p) => {
+      // Fully-mapped = every task mapped. Prefix a ✓ so editors can see
+      // which projects are already complete (custom Select renders the
+      // label string, so the marker is the signal here).
+      const isComplete = p.total_tasks > 0 && p.total_mapped >= p.total_tasks;
+      const displayName = projectDisplayName(p);
+      return {
+        value: p.id.toString(),
+        label: isComplete ? `✓ ${displayName}` : displayName,
+      };
+    },
   );
 
   const trainingOptions: SelectOption[] = [
