@@ -38,7 +38,10 @@ import { TaskHoursByCategoryCard } from "./_components/TaskHoursByCategoryCard";
 import { CommunityOutreachCard } from "./_components/CommunityOutreachCard";
 import { ExportDropdown } from "./_components/ExportDropdown";
 import { ProjectSnapshotTable } from "@/components/tables/reports/ProjectSnapshotTable";
-import { sortProjectsAlphabetical } from "@/lib/sortProjects";
+import {
+  sortProjectsAlphabetical,
+  projectDisplayName,
+} from "@/lib/sortProjects";
 import { dynamicRoutes } from "@/lib/routes";
 
 function localDateStr(d: Date): string {
@@ -414,20 +417,6 @@ export function AdminReports() {
     };
   }, [timekeepingData, editingData, overallProgress]);
 
-  // ── team_admin with no managed teams → empty state ───────────
-  if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-        <TeamAdminEmptyState context="reports" />
-      </div>
-    );
-  }
-
-  const totalChangesets = timekeepingData?.summary.total_changesets ?? 0;
-  const totalHours = timekeepingData?.summary.total_hours ?? 0;
-  const totalChanges = timekeepingData?.summary.total_changes ?? 0;
-
   const projectsClockedInto = useMemo(
     () =>
       sortProjectsAlphabetical(timekeepingData?.projects_clocked_into ?? []),
@@ -441,6 +430,22 @@ export function AdminReports() {
   useEffect(() => {
     console.log(heatmapLoading);
   }, [heatmapLoading]);
+
+  // ── team_admin with no managed teams → empty state ───────────
+  // NOTE: every hook must run before this early return — React requires the
+  // same hook order on every render, so no hooks may live below this guard.
+  if (isTeamAdmin && !managedTeamsLoading && managedTeams.length === 0) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
+        <TeamAdminEmptyState context="reports" />
+      </div>
+    );
+  }
+
+  const totalChangesets = timekeepingData?.summary.total_changesets ?? 0;
+  const totalHours = timekeepingData?.summary.total_hours ?? 0;
+  const totalChanges = timekeepingData?.summary.total_changes ?? 0;
 
   return (
     <div className="space-y-6">
@@ -761,7 +766,7 @@ export function AdminReports() {
                       href={dynamicRoutes.project(p.id)}
                       className="text-sm text-foreground hover:text-kaart-orange hover:underline font-medium"
                     >
-                      {p.short_name || p.name}
+                      {projectDisplayName(p)}
                     </Link>
                   </li>
                 ))}

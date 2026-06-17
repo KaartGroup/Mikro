@@ -118,7 +118,8 @@ export function SidebarClock() {
   const filteredProjectList = projectSearch.trim()
     ? projectList.filter((p) => {
         const q = projectSearch.toLowerCase();
-        if (projectDisplayName(p).toLowerCase().includes(q)) return true;
+        // Match either the full name or the short name so the project is
+        // findable by whichever label the user remembers it under.
         if (p.name.toLowerCase().includes(q)) return true;
         if (p.short_name && p.short_name.toLowerCase().includes(q)) return true;
         if (selectedProject && p.id.toString() === selectedProject) return true;

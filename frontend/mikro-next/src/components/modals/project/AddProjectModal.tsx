@@ -34,6 +34,7 @@ import {
 } from "@/hooks";
 import type { TeamsResponse } from "@/types";
 import { reviewProjectDraft } from "./projectDraft";
+import { detectSource } from "./detectSource";
 
 /**
  * Guided stepper order. The user walks each screen in sequence (rather than
@@ -405,55 +406,50 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
 
         <TabsContent value="details">
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                Project Source
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="add-source"
-                    value="tm4"
-                    checked={formData.source === "tm4"}
-                    onChange={() => handleInputChange("source", "tm4")}
-                    className="accent-kaart-orange"
-                  />
-                  <span className="text-sm">TM4 (Tasking Manager)</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="add-source"
-                    value="mr"
-                    checked={formData.source === "mr"}
-                    onChange={() => handleInputChange("source", "mr")}
-                    className="accent-kaart-orange"
-                  />
-                  <span className="text-sm">MapRoulette</span>
-                </label>
-              </div>
-            </div>
             <Input
-              label={
-                formData.source === "mr"
-                  ? "MapRoulette Challenge URL"
-                  : "TM4 Project URL"
-              }
-              placeholder={
-                formData.source === "mr"
-                  ? "https://maproulette.org/browse/challenges/123"
-                  : "https://tasks.kaart.com/projects/123"
-              }
+              label="Project URL"
+              placeholder="https://tasks.kaart.com/projects/123  or  https://maproulette.org/browse/challenges/123"
               value={formData.url}
               onChange={(e) => {
-                handleInputChange("url", e.target.value);
+                const url = e.target.value;
+                // Auto-derive the source from the URL so the admin never has
+                // to pick TM4 vs MapRoulette by hand (mirrors detect_source).
+                setFormData((prev) => ({
+                  ...prev,
+                  url,
+                  source: detectSource(url),
+                }));
                 if (addPreflight.state !== "idle") {
                   setAddPreflight({ state: "idle" });
                 }
               }}
               onBlur={runAddPreflight}
             />
+            {/* Source is auto-detected from the URL above — no manual radio
+                selection. Reflects what create_project will derive server-side. */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Project Source
+              </label>
+              {formData.url.trim() ? (
+                <div className="flex items-center gap-2">
+                  {formData.source === "mr" ? (
+                    <Badge variant="default" className="bg-blue-500">
+                      MapRoulette
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">TM4 (Tasking Manager)</Badge>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    Auto-detected from the URL
+                  </span>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Detected automatically once you paste a project URL above.
+                </p>
+              )}
+            </div>
             {/* Preflight duplicate-check banner (2026-05-21, Logan ask).
                 Runs on URL blur. Surfaces same-org dupes with a link to
                 the existing project; cross-org dupes get a generic
