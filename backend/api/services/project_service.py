@@ -193,6 +193,10 @@ class ProjectService:
         parsed_short, parsed_country = self.auto_parse_project_name(project_name)
         final_short_name = short_name_input or parsed_short or ""
 
+        # Community projects are always publicly visible (enforced server-side).
+        if community:
+            visibility = True
+
         Project.create(
             id=project_id,
             org_id=org_id,
@@ -263,6 +267,10 @@ class ProjectService:
         parsed_short, parsed_country = self.auto_parse_project_name(project_name)
         final_short_name = parsed_short or ""
 
+        # Community projects are always publicly visible (enforced server-side).
+        if community:
+            visibility = True
+
         Project.create(
             id=challenge_id,
             org_id=org_id,
@@ -329,6 +337,15 @@ class ProjectService:
         if short_name is None:
             short_name = target_project.short_name
 
+        # Community projects are always publicly visible (enforced server-side).
+        # Use the incoming community value when provided, else the project's
+        # current state, so an edit can never leave a community project private.
+        effective_community = (
+            community if community is not None else target_project.community
+        )
+        if effective_community:
+            visibility = True
+
         target_project.update(
             visibility=visibility,
             difficulty=difficulty,
@@ -359,9 +376,101 @@ class ProjectService:
                 "status": 403,
             }
 
+        target_project.delete(soft=True)
+        return {
+            "message": f"Project {project_id} deleted (recoverable)",
+            "status": 200,
+        }
+
+    @staticmethod
+    def fetch_deleted_projects(user) -> dict:
+        """Return soft-deleted projects for the user's org.
+
+        Org admins see all soft-deleted projects in the org; team admins
+        (not org admin) see only the ones they created.
+        """
+        query = Project.query.with_deleted().filter(
+            Project.org_id == user.org_id,
+            Project.deleted_date.isnot(None),
+        )
+        if not is_org_admin_or_above(user):
+            query = query.filter(Project.created_by == user.id)
+
+        projects = query.all()
+        return {
+            "status": 200,
+            "projects": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "short_name": p.short_name or "",
+                    "source": p.source,
+                    "created_by": p.created_by,
+                    "deleted_date": (
+                        p.deleted_date.isoformat() if p.deleted_date else None
+                    ),
+                }
+                for p in projects
+            ],
+        }
+
+    @staticmethod
+    def restore_project(project_id, user) -> dict:
+        """Restore a soft-deleted project by clearing its deleted_date."""
+        # MUST use with_deleted() — the default query hides soft-deleted rows.
+        target_project = (
+            Project.query.with_deleted()
+            .filter_by(org_id=user.org_id, id=project_id)
+            .first()
+        )
+        if not target_project or target_project.deleted_date is None:
+            return {
+                "message": f"Deleted project {project_id} not found",
+                "status": 400,
+            }
+
+        if not is_org_admin_or_above(user) and target_project.created_by != user.id:
+            return {
+                "message": "Team admins can only restore projects they created",
+                "status": 403,
+            }
+
+        target_project.update(deleted_date=None)
+        return {
+            "message": f"Project {project_id} restored",
+            "status": 200,
+        }
+
+    @staticmethod
+    def purge_project(project_id, user) -> dict:
+        """Permanently (hard) delete an already soft-deleted project.
+
+        Org admin only — purge is destructive and irreversible.
+        """
+        if not is_org_admin_or_above(user):
+            return {
+                "message": "Org admin access required to purge projects",
+                "status": 403,
+            }
+
+        # MUST use with_deleted() — the default query hides soft-deleted rows.
+        target_project = (
+            Project.query.with_deleted()
+            .filter_by(org_id=user.org_id, id=project_id)
+            .first()
+        )
+        if not target_project or target_project.deleted_date is None:
+            return {
+                "message": f"Deleted project {project_id} not found",
+                "status": 400,
+            }
+
         target_project.delete(soft=False)
-        return {"message": f"Project {project_id} deleted", "status": 200}
-    
+        return {
+            "message": f"Project {project_id} permanently deleted",
+            "status": 200,
+        }
+
     @staticmethod
     def role_scope_projects_query(query, user):
         """Return a base Project query scoped to the user's role visibility."""

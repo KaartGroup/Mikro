@@ -98,6 +98,12 @@ class ProjectAPI(MethodView):
             return self.create_project()
         elif path == "delete_project":
             return self.delete_project()
+        elif path == "fetch_deleted_projects":
+            return self.fetch_deleted_projects()
+        elif path == "restore_project":
+            return self.restore_project()
+        elif path == "purge_project":
+            return self.purge_project()
         elif path == "calculate_budget":
             return self.calculate_budget()
         elif path == "fetch_org_projects":
@@ -228,6 +234,39 @@ class ProjectAPI(MethodView):
         if not project_id:
             return {"message": "project_id required", "status": 400}
         return ProjectService.delete_project(project_id=project_id, user=g.user)
+
+    @requires_team_admin_or_above
+    def fetch_deleted_projects(self):
+        """List soft-deleted projects recoverable by the current user."""
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+        return ProjectService.fetch_deleted_projects(user=g.user)
+
+    @requires_team_admin_or_above
+    def restore_project(self):
+        """Restore a soft-deleted project (clears deleted_date)."""
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+        project_id = request.json.get("project_id")
+        if not project_id:
+            return {"message": "project_id required", "status": 400}
+        return ProjectService.restore_project(project_id=project_id, user=g.user)
+
+    @requires_team_admin_or_above
+    def purge_project(self):
+        """Permanently delete an already soft-deleted project. Org admin only.
+
+        Gated with @requires_team_admin_or_above at the view layer but
+        enforces org-admin internally via is_org_admin_or_above — mirroring
+        how delete_project gates team_admin scope inside the service rather
+        than relying on a separate decorator.
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+        project_id = request.json.get("project_id")
+        if not project_id:
+            return {"message": "project_id required", "status": 400}
+        return ProjectService.purge_project(project_id=project_id, user=g.user)
 
     @requires_admin
     def calculate_budget(self):
@@ -973,6 +1012,17 @@ class ProjectAPI(MethodView):
         project_ids = [p.id for p in projects]
         user_projects = []
 
+        user_country_id = g.user.country_id
+        in_country_project_ids = set()
+        if user_country_id:
+            in_country_project_ids = {
+                row.project_id
+                for row in ProjectCountry.query.filter(
+                    ProjectCountry.country_id == user_country_id,
+                    ProjectCountry.project_id.in_(project_ids),
+                ).all()
+            }
+
         user_task_ids = {
             r.task_id
             for r in UserTasks.query.filter_by(user_id=g.user.id).all()
@@ -1027,6 +1077,7 @@ class ProjectAPI(MethodView):
                     "total_invalidated": _proj_stats["tasks_invalidated"],
                     "user_earnings": 0,
                     "status": project.status,
+                    "in_user_country": project.id in in_country_project_ids,
                 }
             )
 

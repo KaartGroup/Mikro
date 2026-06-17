@@ -422,7 +422,7 @@ def _get_projects_clocked_into(org_id, start_date, end_date, member_ids):
     rows = (
         db.session.query(Project)
         .join(TimeEntry, TimeEntry.project_id == Project.id)
-        .filter(*f, TimeEntry.project_id.isnot(None))
+        .filter(*f, TimeEntry.project_id.isnot(None), Project.deleted_date.is_(None))
         .distinct()
         .order_by(Project.short_name, Project.name)
         .all()

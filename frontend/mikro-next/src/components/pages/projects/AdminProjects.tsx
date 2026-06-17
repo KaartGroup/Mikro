@@ -34,6 +34,7 @@ import {
 } from "@/hooks";
 import { AddProjectModal } from "@/components/modals/project/AddProjectModal";
 import { EditProjectModal } from "@/components/modals/project/EditProjectModal";
+import { DeletedProjectsModal } from "@/components/modals/project/DeletedProjectsModal";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
@@ -79,6 +80,7 @@ export function AdminProjects() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeletedModal, setShowDeletedModal] = useState(false);
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
   // Debounced mirror of the search box → drives the server query (one request
   // after typing settles, not per keystroke).
@@ -692,7 +694,15 @@ export function AdminProjects() {
           </p>
         </div>
         {canCreateOrEditOrDelete && (
-          <Button onClick={() => setShowAddModal(true)}>Add Project</Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeletedModal(true)}
+            >
+              Deleted Projects
+            </Button>
+            <Button onClick={() => setShowAddModal(true)}>Add Project</Button>
+          </div>
         )}
       </div>
 
@@ -817,6 +827,12 @@ export function AdminProjects() {
         onSaved={() => refreshAll()}
       />
 
+      <DeletedProjectsModal
+        isOpen={showDeletedModal}
+        onClose={() => setShowDeletedModal(false)}
+        onChanged={() => refreshAll()}
+      />
+
       {/* Delete Confirmation */}
       <ConfirmDialog
         isOpen={showDeleteModal}
@@ -826,7 +842,7 @@ export function AdminProjects() {
         }}
         onConfirm={handleDeleteProject}
         title="Delete Project"
-        message={`Are you sure you want to delete "${selectedProject?.name}"? This action cannot be undone and will remove all associated task and payment data.`}
+        message={`Are you sure you want to delete "${selectedProject?.name}"? The project will be moved to Deleted Projects and can be restored later.`}
         confirmText="Delete"
         variant="destructive"
         isLoading={deleting}
