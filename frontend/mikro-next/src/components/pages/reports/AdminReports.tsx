@@ -14,7 +14,6 @@ import {
   useCheckElementAnalysisStatus,
   useQueueElementAnalysisBackfill,
   useCheckElementAnalysisBackfillStatus,
-  useFetchMapillaryStats,
 } from "@/hooks/useApi";
 import { useFilters, useCurrentUserRole, useManagedTeams } from "@/hooks";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
@@ -146,7 +145,6 @@ export function AdminReports() {
     useQueueElementAnalysisBackfill();
   const { mutate: checkElementAnalysisBackfillStatus } =
     useCheckElementAnalysisBackfillStatus();
-  const { mutate: fetchMapillaryStats } = useFetchMapillaryStats();
   // ── Data fetching ────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!customStart || !customEnd) return;
@@ -192,12 +190,6 @@ export function AdminReports() {
           }
         })
         .finally(() => setElementLoading(false)),
-      fetchMapillaryStats({
-        startDate: startIso,
-        endDate: endIso,
-        ...(filtersBody?.team ? { teamId: filtersBody.team[0] } : {}),
-        ...(filtersBody?.user ? { userId: filtersBody.user[0] } : {}),
-      }),
     ]);
   }, [
     customStart,
@@ -211,7 +203,6 @@ export function AdminReports() {
     fetchTimekeeping,
     fetchHeatmap,
     fetchElementAnalysis,
-    fetchMapillaryStats,
   ]);
 
   useEffect(() => {
