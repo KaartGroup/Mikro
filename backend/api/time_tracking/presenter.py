@@ -77,6 +77,10 @@ class TimeTrackingHelpers:
             "userName": user.full_name if user else "Unknown",
             "firstName": (user.first_name or "") if user else "",
             "lastName": (user.last_name or "") if user else "",
+            # IANA zone of the entry's owner (nullable). Lets admin
+            # adjustment UIs render/edit clock times in the user's wall
+            # clock rather than the admin's browser timezone.
+            "timezone": user.timezone if user else None,
             "projectId": entry.project_id,
             "projectName": project.name if project else "No Project",
             "projectShortName": (project.short_name or "") if project else "",

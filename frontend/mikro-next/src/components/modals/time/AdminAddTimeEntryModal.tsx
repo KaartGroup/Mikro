@@ -6,6 +6,8 @@ import {
   CATEGORY_LABELS,
   categoryLabel,
   fromDatetimeLocal,
+  isValidTimeZone,
+  timeZoneLabel,
 } from "@/lib/timeTracking";
 import { useAdminAddTimeEntry } from "@/hooks/useApi";
 import {
@@ -43,6 +45,14 @@ export function AdminAddTimeEntryModal({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // The typed clock times are interpreted in the SELECTED user's timezone
+  // (not the admin's browser zone), so a Manila mapper's manual entry lands
+  // at the right UTC instant regardless of where the admin sits. Falls back
+  // to browser-local until a user with a timezone is picked.
+  const selectedUser = users.find((u) => u.id === userId);
+  const tz = selectedUser?.timezone ?? undefined;
+  const hasUserTz = isValidTimeZone(tz);
+
   // Reset all fields each time the modal opens.
   useEffect(() => {
     if (isOpen) {
@@ -77,8 +87,8 @@ export function AdminAddTimeEntryModal({
         userId,
         projectId: projectId ? Number(projectId) : undefined,
         category,
-        clockIn: fromDatetimeLocal(clockIn),
-        clockOut: fromDatetimeLocal(clockOut),
+        clockIn: fromDatetimeLocal(clockIn, tz),
+        clockOut: fromDatetimeLocal(clockOut, tz),
         notes,
       });
       toast.success("Time entry created");
@@ -158,6 +168,25 @@ export function AdminAddTimeEntryModal({
             ))}
           </select>
         </div>
+
+        {userId && (
+          <p className="text-xs text-muted-foreground">
+            {hasUserTz ? (
+              <>
+                Enter clock times in {selectedUser?.first_name || "the user"}
+                &rsquo;s timezone &mdash;{" "}
+                <span className="font-medium text-foreground">
+                  {timeZoneLabel(tz)}
+                </span>
+              </>
+            ) : (
+              <>
+                {selectedUser?.first_name || "This user"} has no timezone set
+                &mdash; enter times in your local timezone
+              </>
+            )}
+          </p>
+        )}
 
         <div>
           <label className="block text-sm font-medium mb-1">Clock In</label>

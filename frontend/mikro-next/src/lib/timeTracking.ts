@@ -411,13 +411,121 @@ export function formatDateRangeShort(
 
 export { formatDateTime } from "@/lib/utils";
 
-export function toDatetimeLocal(iso: string): string {
+/**
+ * True when `tz` is a usable IANA zone name that `Intl` accepts. Used to
+ * decide whether the timezone-aware datetime helpers below can render in a
+ * specific zone, or must fall back to the browser's local zone.
+ */
+export function isValidTimeZone(tz: string | null | undefined): tz is string {
+  if (!tz) return false;
+  try {
+    // Throws a RangeError for unknown/invalid zone names.
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Numeric wall-clock components of `date` as observed in `timeZone`. */
+function zonedParts(date: Date, timeZone: string) {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23", // 00–23; avoids the "24" some engines emit at midnight
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const out: Record<string, string> = {};
+  for (const p of dtf.formatToParts(date)) {
+    if (p.type !== "literal") out[p.type] = p.value;
+  }
+  return {
+    year: Number(out.year),
+    month: Number(out.month),
+    day: Number(out.day),
+    hour: Number(out.hour),
+    minute: Number(out.minute),
+    second: Number(out.second),
+  };
+}
+
+/** Offset of `timeZone` at instant `date`, in ms (zone wall-clock − UTC). */
+function zoneOffsetMs(date: Date, timeZone: string): number {
+  const p = zonedParts(date, timeZone);
+  const asUtc = Date.UTC(
+    p.year,
+    p.month - 1,
+    p.day,
+    p.hour,
+    p.minute,
+    p.second,
+  );
+  return asUtc - date.getTime();
+}
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * UTC ISO instant → the value for an `<input type="datetime-local">`.
+ * With a valid `timeZone`, renders the wall-clock in that zone; otherwise
+ * falls back to the browser's local zone (legacy behavior).
+ */
+export function toDatetimeLocal(iso: string, timeZone?: string): string {
   const d = new Date(iso);
+  if (isValidTimeZone(timeZone)) {
+    const p = zonedParts(d, timeZone);
+    return `${p.year}-${pad2(p.month)}-${pad2(p.day)}T${pad2(p.hour)}:${pad2(p.minute)}`;
+  }
   const offset = d.getTimezoneOffset();
   const local = new Date(d.getTime() - offset * 60000);
   return local.toISOString().slice(0, 16);
 }
 
-export function fromDatetimeLocal(value: string): string {
+/**
+ * `<input type="datetime-local">` value → UTC ISO instant.
+ * With a valid `timeZone`, treats the wall-clock as local to that zone;
+ * otherwise falls back to the browser's local zone (legacy behavior).
+ */
+export function fromDatetimeLocal(value: string, timeZone?: string): string {
+  if (isValidTimeZone(timeZone)) {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (m) {
+      const [, y, mo, d, h, mi] = m.map(Number);
+      // Treat the wall components as UTC for a first guess, then correct
+      // by the zone's offset at that instant. A second pass handles the
+      // rare DST-boundary case where the offset differs across the guess.
+      const guess = Date.UTC(y, mo - 1, d, h, mi);
+      let utc = guess - zoneOffsetMs(new Date(guess), timeZone);
+      const refined = guess - zoneOffsetMs(new Date(utc), timeZone);
+      if (refined !== utc) utc = refined;
+      return new Date(utc).toISOString();
+    }
+  }
   return new Date(value).toISOString();
+}
+
+/**
+ * Short human label for a zone at `date`, e.g. "Asia/Manila (GMT+8)".
+ * Falls back to the raw name (or "") if the zone is unusable.
+ */
+export function timeZoneLabel(
+  timeZone: string | null | undefined,
+  date: Date = new Date(),
+): string {
+  if (!isValidTimeZone(timeZone)) return timeZone ?? "";
+  try {
+    const off = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      timeZoneName: "shortOffset",
+    })
+      .formatToParts(date)
+      .find((p) => p.type === "timeZoneName")?.value;
+    return off ? `${timeZone} (${off})` : timeZone;
+  } catch {
+    return timeZone;
+  }
 }

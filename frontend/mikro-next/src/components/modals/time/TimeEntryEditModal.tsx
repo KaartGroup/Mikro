@@ -6,6 +6,8 @@ import {
   resolveCategoryKey,
   toDatetimeLocal,
   fromDatetimeLocal,
+  isValidTimeZone,
+  timeZoneLabel,
 } from "@/lib/timeTracking";
 import { useEditTimeEntry } from "@/hooks/useApi";
 import type { TimeEntry } from "@/types";
@@ -38,14 +40,19 @@ export function TimeEntryEditModal({
   const [category, setCategory] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Render/edit clock times in the entry owner's timezone (not the admin's
+  // browser zone). Falls back to browser-local when the user has none set.
+  const tz = entry?.timezone ?? undefined;
+  const hasUserTz = isValidTimeZone(tz);
+
   // Seed / reset fields whenever a new entry is opened.
   useEffect(() => {
     if (!entry) return;
-    setClockIn(entry.clockIn ? toDatetimeLocal(entry.clockIn) : "");
-    setClockOut(entry.clockOut ? toDatetimeLocal(entry.clockOut) : "");
+    setClockIn(entry.clockIn ? toDatetimeLocal(entry.clockIn, tz) : "");
+    setClockOut(entry.clockOut ? toDatetimeLocal(entry.clockOut, tz) : "");
     setCategory(resolveCategoryKey(entry.category) ?? "editing");
     setError(null);
-  }, [entry]);
+  }, [entry, tz]);
 
   const handleSave = async () => {
     if (!entry) return;
@@ -59,8 +66,8 @@ export function TimeEntryEditModal({
     try {
       await editEntry({
         entry_id: entry.id,
-        clockIn: fromDatetimeLocal(clockIn),
-        clockOut: clockOut ? fromDatetimeLocal(clockOut) : undefined,
+        clockIn: fromDatetimeLocal(clockIn, tz),
+        clockOut: clockOut ? fromDatetimeLocal(clockOut, tz) : undefined,
         category,
       });
       toast.success("Time entry updated");
@@ -105,6 +112,23 @@ export function TimeEntryEditModal({
               </p>
             </div>
           )}
+
+          <p className="text-xs text-muted-foreground">
+            {hasUserTz ? (
+              <>
+                Times shown in {entry.firstName || entry.userName}&rsquo;s
+                timezone &mdash;{" "}
+                <span className="font-medium text-foreground">
+                  {timeZoneLabel(tz)}
+                </span>
+              </>
+            ) : (
+              <>
+                {entry.firstName || entry.userName} has no timezone set &mdash;
+                times shown in your local timezone
+              </>
+            )}
+          </p>
 
           <div>
             <label className="block text-sm font-medium mb-1">Clock In</label>

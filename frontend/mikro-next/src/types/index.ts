@@ -409,6 +409,10 @@ export interface TimeEntry {
   userName: string;
   firstName?: string;
   lastName?: string;
+  /** IANA timezone of the entry's owner (e.g. "Asia/Manila"). Used so admin
+   *  adjustment UIs render/edit clock times in the user's wall clock. Null
+   *  when the user has no timezone set. */
+  timezone?: string | null;
   projectId: number | null;
   projectName: string;
   projectShortName?: string;
