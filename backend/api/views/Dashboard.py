@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-from datetime import datetime, timedelta
-
 from flask.views import MethodView
 from flask import g, request
 from sqlalchemy import func, case, and_
 
 from ..utils import requires_team_admin_or_above
+from ..utils.tz import org_month_compare_bounds_utc
 from ..auth import is_org_admin_or_above
 from ..services.payment_balance import PaymentBalanceService
 from ..services.project_service import ProjectService
@@ -55,51 +54,33 @@ class DashboardAPI(MethodView):
                 p.id for p in ProjectService().get(org_id=org_id, user=g.user, filters=svc_filters)
             ]
 
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=30)
+        # Calendar-month windows anchored to Grand Junction. The headline counts
+        # this month so far (incl. today); the change compares this month's
+        # completed days against the same number of completed days last month,
+        # so a partial month isn't measured against a complete one.
+        (
+            month_start,
+            today_start,
+            prev_month_start,
+            prev_month_compare_end,
+        ) = org_month_compare_bounds_utc()
 
-        _contrib_base = (
-            UserTasks.query.with_entities(
-                func.extract("week", UserTasks.timestamp).label("week"),
-                func.count().label("total_contributions"),
-            )
-            .join(Task, Task.id == UserTasks.task_id)
-            .filter(Task.org_id == org_id)
+        _contrib_base = UserTasks.query.join(Task, Task.id == UserTasks.task_id).filter(
+            Task.org_id == org_id
         )
         if visible_project_ids is not None:
             _contrib_base = _contrib_base.filter(Task.project_id.in_(visible_project_ids))
 
-        weekly_contributions_this_month = (
-            _contrib_base
-            .filter(UserTasks.timestamp >= start_date, UserTasks.timestamp <= end_date)
-            .group_by(func.extract("week", UserTasks.timestamp))
-            .all()
-        )
+        def _count_contribs(start_dt, end_dt=None):
+            q = _contrib_base.filter(UserTasks.timestamp >= start_dt)
+            if end_dt is not None:
+                q = q.filter(UserTasks.timestamp < end_dt)
+            return q.count()
 
-        weekly_contributions_last_month = (
-            _contrib_base
-            .filter(
-                UserTasks.timestamp >= start_date - timedelta(days=30),
-                UserTasks.timestamp <= end_date - timedelta(days=30),
-            )
-            .group_by(func.extract("week", UserTasks.timestamp))
-            .all()
-        )
-
-        weekly_contributions_array = []
-        total_contributions_this_month = 0
-        total_contributions_last_month = 0
-        for week, total_contributions in weekly_contributions_this_month:
-            weekly_contributions_array.append(total_contributions)
-            total_contributions_this_month += total_contributions
-
-        for week, total_contributions in weekly_contributions_last_month:
-            weekly_contributions_array.append(total_contributions)
-            total_contributions_last_month += total_contributions
-
-        month_contribution_change = (
-            total_contributions_this_month - total_contributions_last_month
-        )
+        total_contributions_this_month = _count_contribs(month_start)
+        month_contribution_change = _count_contribs(
+            month_start, today_start
+        ) - _count_contribs(prev_month_start, prev_month_compare_end)
 
         proj_counts_q = db.session.query(
             func.count(case((Project.status == True, 1))).label("active"),
@@ -143,7 +124,6 @@ class DashboardAPI(MethodView):
         return {
             "month_contribution_change": month_contribution_change,
             "total_contributions_for_month": total_contributions_this_month,
-            "weekly_contributions_array": weekly_contributions_array,
             "active_projects": active_projects_count,
             "inactive_projects": inactive_projects_count,
             "completed_projects": completed_projects_count,
@@ -201,54 +181,35 @@ class DashboardAPI(MethodView):
             func.coalesce(func.sum(Payments.amount_paid), 0)
         ).filter(Payments.org_id == org_id, Payments.user_id == user_id).scalar() or 0
 
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=30)
+        # Calendar-month windows anchored to Grand Junction. The headline counts
+        # this month so far (incl. today); the change compares this month's
+        # completed days against the same number of completed days last month,
+        # so a partial month isn't measured against a complete one.
+        (
+            month_start,
+            today_start,
+            prev_month_start,
+            prev_month_compare_end,
+        ) = org_month_compare_bounds_utc()
 
-        _contrib_base = (
-            UserTasks.query.with_entities(
-                func.extract("week", UserTasks.timestamp).label("week"),
-                func.count().label("total_contributions"),
-            )
-            .join(Task, Task.id == UserTasks.task_id)
-            .filter(UserTasks.user_id == user_id, Task.org_id == org_id)
+        _contrib_base = UserTasks.query.join(Task, Task.id == UserTasks.task_id).filter(
+            UserTasks.user_id == user_id, Task.org_id == org_id
         )
 
-        weekly_contributions_this_month = (
-            _contrib_base
-            .filter(UserTasks.timestamp >= start_date, UserTasks.timestamp <= end_date)
-            .group_by(func.extract("week", UserTasks.timestamp))
-            .all()
-        )
+        def _count_contribs(start_dt, end_dt=None):
+            q = _contrib_base.filter(UserTasks.timestamp >= start_dt)
+            if end_dt is not None:
+                q = q.filter(UserTasks.timestamp < end_dt)
+            return q.count()
 
-        weekly_contributions_last_month = (
-            _contrib_base
-            .filter(
-                UserTasks.timestamp >= start_date - timedelta(days=30),
-                UserTasks.timestamp <= end_date - timedelta(days=30),
-            )
-            .group_by(func.extract("week", UserTasks.timestamp))
-            .all()
-        )
-
-        weekly_contributions_array = []
-        total_contributions_this_month = 0
-        total_contributions_last_month = 0
-        for week, total_contributions in weekly_contributions_this_month:
-            weekly_contributions_array.append(total_contributions)
-            total_contributions_this_month += total_contributions
-
-        for week, total_contributions in weekly_contributions_last_month:
-            weekly_contributions_array.append(total_contributions)
-            total_contributions_last_month += total_contributions
-
-        month_contribution_change = (
-            total_contributions_this_month - total_contributions_last_month
-        )
+        total_contributions_this_month = _count_contribs(month_start)
+        month_contribution_change = _count_contribs(
+            month_start, today_start
+        ) - _count_contribs(prev_month_start, prev_month_compare_end)
 
         return {
             "month_contribution_change": month_contribution_change,
             "total_contributions_for_month": total_contributions_this_month,
-            "weekly_contributions_array": weekly_contributions_array,
             "mapped_tasks": user_mapped_tasks_count,
             "validated_tasks": user_validated_tasks_count,
             "invalidated_tasks": user_invalidated_tasks_count,

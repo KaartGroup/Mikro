@@ -110,6 +110,12 @@ class TimeTrackingHelpers:
             "editedBy": entry.edited_by,
             "editedAt": entry.edited_at.isoformat() + "Z" if entry.edited_at else None,
             "forceClockedOutBy": entry.force_clocked_out_by,
+            "longSessionReviewedBy": entry.long_session_reviewed_by,
+            "longSessionReviewedAt": (
+                entry.long_session_reviewed_at.isoformat() + "Z"
+                if entry.long_session_reviewed_at
+                else None
+            ),
         }
 
     @staticmethod

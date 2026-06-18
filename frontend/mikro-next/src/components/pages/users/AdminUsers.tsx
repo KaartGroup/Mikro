@@ -12,6 +12,7 @@ import {
   Skeleton,
   TableSkeleton,
 } from "@/components/ui";
+import { TablePaginator } from "@/components/tables/TablePaginator";
 import { StandaloneFilter } from "@/components/admin/StandaloneFilter";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import {
@@ -355,16 +356,9 @@ export function AdminUsers() {
   const tabUsers =
     activeUsersTab === "deactivated" ? deactivatedUsersAll : activeUsersAll;
   const filteredUsers = sortUsers(filterUsersBySearch(tabUsers));
-  const totalPages = Math.ceil(filteredUsers.length / ROWS_PER_PAGE);
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * ROWS_PER_PAGE,
     currentPage * ROWS_PER_PAGE,
-  );
-  const showingStart =
-    filteredUsers.length > 0 ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
-  const showingEnd = Math.min(
-    currentPage * ROWS_PER_PAGE,
-    filteredUsers.length,
   );
 
   return (
@@ -663,32 +657,13 @@ export function AdminUsers() {
       </Card>
 
       {filteredUsers.length > ROWS_PER_PAGE && (
-        <div className="flex items-center justify-between mt-4 px-2">
-          <span className="text-sm text-muted-foreground">
-            Showing {showingStart}–{showingEnd} of {filteredUsers.length} users
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
-            >
-              Previous
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+        <TablePaginator
+          page={currentPage}
+          totalItems={filteredUsers.length}
+          pageSize={ROWS_PER_PAGE}
+          onPageChange={setCurrentPage}
+          itemLabel="users"
+        />
       )}
 
       {/* Team Admin: search the broader org by email to find candidates

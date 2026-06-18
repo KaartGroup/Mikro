@@ -33,7 +33,11 @@ except ImportError:
     _unidecode = None
 
 from ..utils import requires_team_admin_or_above
-from ..utils.tz import org_month_bounds_utc, parse_filter_datetime
+from ..utils.tz import (
+    org_month_bounds_utc,
+    org_week_compare_bounds_utc,
+    parse_filter_datetime,
+)
 from sqlalchemy import func, or_, and_
 from ..database import (
     TimeEntry,
@@ -327,6 +331,8 @@ class TimeTrackingAPI(MethodView):
             return self.admin_active_sessions()
         elif path == "long_sessions":
             return self.admin_long_sessions()
+        elif path == "dismiss_long_session":
+            return self.admin_dismiss_long_session()
         elif path == "history":
             return self.admin_history()
         elif path == "force_clock_out":
@@ -1102,6 +1108,9 @@ class TimeTrackingAPI(MethodView):
             TimeEntry.org_id == g.user.org_id,
             TimeEntry.status != "voided",
             TimeEntry.clock_in >= window_start,
+            # Dismissed ("reviewed") alerts drop out of the queue. The
+            # underlying entry is untouched; only this marker is set.
+            TimeEntry.long_session_reviewed_at.is_(None),
             or_(
                 and_(
                     TimeEntry.status == "active",
@@ -1135,23 +1144,93 @@ class TimeTrackingAPI(MethodView):
         return jsonify({"status": 200, "sessions": sessions}), 200
 
     @requires_team_admin_or_above
+    def admin_dismiss_long_session(self):
+        """Dismiss (mark reviewed) a long-running-session alert.
+
+        Removes the entry from the long_sessions queue by stamping
+        ``long_session_reviewed_by`` / ``long_session_reviewed_at``. This
+        is purely a queue/audit marker — the clock-in/clock-out/duration
+        of the time entry are never touched.
+
+        Body: { session_id (or entry_id), reviewed? }. ``reviewed`` defaults
+        to True; pass False to undo a dismissal (re-surface the alert).
+        """
+        data = request.get_json() or {}
+        session_id = data.get("session_id") or data.get("entry_id")
+        reviewed = data.get("reviewed", True)
+
+        if not session_id:
+            return (
+                jsonify({"message": "session_id is required", "status": 400}),
+                400,
+            )
+
+        entry = TimeEntry.query.filter_by(id=session_id, org_id=g.user.org_id).first()
+
+        if not entry:
+            return (
+                jsonify({"message": "Entry not found", "status": 404}),
+                404,
+            )
+
+        # team_admin: target user must be on a managed team
+        if not is_org_admin_or_above(g.user):
+            if not team_admin_can_access_user(g.user, entry.user_id):
+                return (
+                    jsonify({"message": "Not in your managed teams", "status": 403}),
+                    403,
+                )
+
+        if reviewed:
+            entry.long_session_reviewed_by = g.user.id
+            entry.long_session_reviewed_at = datetime.utcnow()
+            message = "Long session dismissed"
+        else:
+            entry.long_session_reviewed_by = None
+            entry.long_session_reviewed_at = None
+            message = "Long session restored"
+
+        db.session.commit()
+
+        logger.info(
+            f"[CLOCK] long-session {'dismissed' if reviewed else 'restored'} — "
+            f"admin={g.user.id} entry_id={entry.id} owned by user={entry.user_id}"
+        )
+
+        return (
+            jsonify(
+                {
+                    "message": message,
+                    "status": 200,
+                    "session": TimeTrackingHelpers._format_entry(entry),
+                }
+            ),
+            200,
+        )
+
+    @requires_team_admin_or_above
     def admin_time_stats(self):
         """Aggregate time stats for the admin dashboard.
 
         Returns exact this-week/last-week sums computed via DB aggregation —
-        not limited by pagination. Weeks are UTC Sunday-start.
+        not limited by pagination. Weeks are Sunday-start, anchored to the org
+        timezone (Grand Junction / Mountain Time). The last-week figure spans
+        only the same number of fully completed days that have elapsed this
+        week, so a partial week isn't compared against a complete one.
 
         Body: { teamId? }
         """
         data = request.get_json() or {}
 
-        now = datetime.utcnow()
-        # Most recent Sunday (UTC) — Python weekday: Mon=0 … Sun=6
-        days_since_sunday = (now.weekday() + 1) % 7
-        week_start = (now - timedelta(days=days_since_sunday)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        last_week_start = week_start - timedelta(days=7)
+        # Grand-Junction-anchored Sunday-start week. ``today_start`` is local
+        # midnight today (the end of this week's completed days); the previous
+        # week's window covers that same number of completed days.
+        (
+            week_start,
+            today_start,
+            prev_week_start,
+            prev_week_compare_end,
+        ) = org_week_compare_bounds_utc()
 
         # Build user-scope conditions once, reused across all queries.
         scope = [TimeEntry.org_id == g.user.org_id]
@@ -1214,7 +1293,7 @@ class TimeTrackingAPI(MethodView):
         cluster_conds = scope + [
             TimeEntry.status == "completed",
             TimeEntry.duration_seconds < 300,
-            TimeEntry.clock_in >= last_week_start,
+            TimeEntry.clock_in >= prev_week_start,
         ]
         cluster_subq = (
             db.session.query(
@@ -1237,11 +1316,15 @@ class TimeTrackingAPI(MethodView):
             jsonify(
                 {
                     "status": 200,
+                    # weekHours: this week so far (incl. today) — the headline.
                     "weekHours": sum_hours(week_start),
-                    "lastWeekHours": sum_hours(last_week_start, week_start),
+                    # weekHoursToDate / lastWeekHours: equal completed-day spans,
+                    # this week vs last week — the apples-to-apples comparison.
+                    "weekHoursToDate": sum_hours(week_start, today_start),
+                    "lastWeekHours": sum_hours(prev_week_start, prev_week_compare_end),
                     "pendingAdjustments": count_adjustments(week_start),
                     "lastWeekPendingAdjustments": count_adjustments(
-                        last_week_start, week_start
+                        prev_week_start, week_start
                     ),
                     "shortSessionClusters": short_clusters,
                 }

@@ -810,6 +810,13 @@ class TimeEntry(CRUDMixin, db.Model):
     edited_by = db.Column(db.String(255), nullable=True)
     edited_at = db.Column(DateTime, nullable=True)
     force_clocked_out_by = db.Column(db.String(255), nullable=True)
+    # Long-session-alert review metadata. Set when an admin dismisses
+    # ("marks as reviewed") this entry from the long-running-sessions
+    # queue. Purely an audit/queue marker — it never touches the
+    # clock_in/clock_out/duration data. A non-NULL reviewed_at hides the
+    # entry from the long_sessions endpoint.
+    long_session_reviewed_by = db.Column(db.String(255), nullable=True)
+    long_session_reviewed_at = db.Column(DateTime, nullable=True)
     notes = db.Column(db.Text, nullable=True)
     user_notes = db.Column(db.Text, nullable=True)
 
