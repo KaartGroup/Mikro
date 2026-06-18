@@ -169,6 +169,12 @@ class Project(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     visibility = db.Column(db.Boolean, nullable=True, server_default="False")
     status = db.Column(db.Boolean, nullable=True, server_default="False")
 
+    # Reactivation request (set when a non-admin asks an admin to unarchive
+    # a soft-deleted/"archived" project; cleared on reactivate/dismiss/purge)
+    reactivation_requested_at = db.Column(db.DateTime, nullable=True)
+    reactivation_requested_by = db.Column(db.String(255), nullable=True)
+    reactivation_reason = db.Column(db.Text, nullable=True)
+
     def __repr__(self):
         return f"<Project {self.id}: {self.name}>"
 

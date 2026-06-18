@@ -34,7 +34,7 @@ import {
 } from "@/hooks";
 import { AddProjectModal } from "@/components/modals/project/AddProjectModal";
 import { EditProjectModal } from "@/components/modals/project/EditProjectModal";
-import { DeletedProjectsModal } from "@/components/modals/project/DeletedProjectsModal";
+import { ArchivedProjectsTab } from "@/components/modals/project/ArchivedProjectsTab";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
@@ -79,12 +79,13 @@ export function AdminProjects() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showDeletedModal, setShowDeletedModal] = useState(false);
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
   // Debounced mirror of the search box → drives the server query (one request
   // after typing settles, not per keystroke).
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"active" | "inactive">("active");
+  const [activeTab, setActiveTab] = useState<
+    "active" | "inactive" | "archived"
+  >("active");
   const [activePageNum, setActivePageNum] = useState(1);
   const [inactivePageNum, setInactivePageNum] = useState(1);
   const [projSortKey, setProjSortKey] = useState<string>("name");
@@ -131,8 +132,10 @@ export function AdminProjects() {
     filters.priorityFilter,
   ]);
 
-  // Fetch one page of the active tab (status + sort + page).
+  // Fetch one page of the active tab (status + sort + page). The Archived tab
+  // loads its own list (useFetchDeletedProjects), so skip the main query there.
   const fetchList = useCallback(async () => {
+    if (activeTab === "archived") return;
     setListLoading(true);
     try {
       const resp = await fetchProjectsPage({
@@ -716,12 +719,6 @@ export function AdminProjects() {
         </div>
         {canCreateOrEditOrDelete && (
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowDeletedModal(true)}
-            >
-              Deleted Projects
-            </Button>
             <Button onClick={() => setShowAddModal(true)}>Add Project</Button>
           </div>
         )}
@@ -806,7 +803,9 @@ export function AdminProjects() {
       <Tabs
         defaultValue="active"
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as "active" | "inactive")}
+        onValueChange={(v) =>
+          setActiveTab(v as "active" | "inactive" | "archived")
+        }
       >
         <TabsList>
           <TabsTrigger value="active">
@@ -815,6 +814,7 @@ export function AdminProjects() {
           <TabsTrigger value="inactive">
             Inactive ({formatNumber(stats?.inactive_count ?? 0).text})
           </TabsTrigger>
+          <TabsTrigger value="archived">Archived</TabsTrigger>
         </TabsList>
         <TabsContent value="active">
           <Card>
@@ -827,6 +827,16 @@ export function AdminProjects() {
           <Card>
             <CardContent className="p-0">
               <ProjectTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="archived">
+          <Card>
+            <CardContent className="p-0">
+              <ArchivedProjectsTab
+                isActive={activeTab === "archived"}
+                onChanged={() => refreshAll()}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -848,12 +858,6 @@ export function AdminProjects() {
         onSaved={() => refreshAll()}
       />
 
-      <DeletedProjectsModal
-        isOpen={showDeletedModal}
-        onClose={() => setShowDeletedModal(false)}
-        onChanged={() => refreshAll()}
-      />
-
       {/* Delete Confirmation */}
       <ConfirmDialog
         isOpen={showDeleteModal}
@@ -862,9 +866,9 @@ export function AdminProjects() {
           setSelectedProject(null);
         }}
         onConfirm={handleDeleteProject}
-        title="Delete Project"
-        message={`Are you sure you want to delete "${selectedProject?.name}"? The project will be moved to Deleted Projects and can be restored later.`}
-        confirmText="Delete"
+        title="Archive Project"
+        message={`Are you sure you want to archive "${selectedProject?.name}"? The project will be moved to the Archived tab and can be reactivated later.`}
+        confirmText="Archive"
         variant="destructive"
         isLoading={deleting}
       />

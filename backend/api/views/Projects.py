@@ -13,7 +13,7 @@ from flask.views import MethodView
 from flask import g, request, current_app
 from sqlalchemy import func
 
-from ..utils import requires_admin, requires_team_admin_or_above
+from ..utils import requires_admin, requires_auth, requires_team_admin_or_above
 from ..auth import (
     is_org_admin_or_above,
     team_admin_can_access_user,
@@ -104,6 +104,12 @@ class ProjectAPI(MethodView):
             return self.restore_project()
         elif path == "purge_project":
             return self.purge_project()
+        elif path == "request_reactivation":
+            return self.request_reactivation()
+        elif path == "fetch_my_archived_projects":
+            return self.fetch_my_archived_projects()
+        elif path == "dismiss_reactivation_request":
+            return self.dismiss_reactivation_request()
         elif path == "calculate_budget":
             return self.calculate_budget()
         elif path == "fetch_org_projects":
@@ -267,6 +273,42 @@ class ProjectAPI(MethodView):
         if not project_id:
             return {"message": "project_id required", "status": 400}
         return ProjectService.purge_project(project_id=project_id, user=g.user)
+
+    @requires_auth
+    def request_reactivation(self):
+        """Let an assigned mapper request reactivation of an archived project.
+
+        Open to any authenticated user — the service enforces that the
+        requester is actually assigned to the (archived) project.
+        """
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+        project_id = request.json.get("project_id")
+        if not project_id:
+            return {"message": "project_id required", "status": 400}
+        reason = request.json.get("reason")
+        return ProjectService.request_reactivation(
+            project_id=project_id, reason=reason, user=g.user
+        )
+
+    @requires_auth
+    def fetch_my_archived_projects(self):
+        """List archived projects the current user is assigned to."""
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+        return ProjectService.fetch_my_archived_projects(user=g.user)
+
+    @requires_team_admin_or_above
+    def dismiss_reactivation_request(self):
+        """Clear a pending reactivation request (project stays archived)."""
+        if not g.user:
+            return {"message": "Missing user info", "status": 304}
+        project_id = request.json.get("project_id")
+        if not project_id:
+            return {"message": "project_id required", "status": 400}
+        return ProjectService.dismiss_reactivation_request(
+            project_id=project_id, user=g.user
+        )
 
     @requires_admin
     def calculate_budget(self):

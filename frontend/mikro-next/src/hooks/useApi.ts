@@ -531,6 +531,22 @@ export interface DeletedProject {
   source: string;
   created_by: string;
   deleted_date: string;
+  // Pending reactivation request (null when none). Set when a non-admin
+  // requests the project be unarchived; cleared on reactivate/dismiss/purge.
+  reactivation_requested_at: string | null;
+  reactivation_requested_by: string | null;
+  reactivation_reason: string | null;
+}
+
+// Editor-facing: an archived project the current user was assigned to,
+// shown read-only with a "Request reactivation" action.
+export interface MyArchivedProject {
+  id: number;
+  name: string;
+  short_name: string | null;
+  source: string;
+  deleted_date: string;
+  reactivation_requested: boolean;
 }
 
 export function useFetchDeletedProjects() {
@@ -552,6 +568,30 @@ export function useRestoreProject() {
 export function usePurgeProject() {
   return useApiMutation<{ status: number; message: string }>(
     "/project/purge_project",
+  );
+}
+
+// Editor: list the current user's archived (soft-deleted) assigned projects,
+// read-only, for the "Request reactivation" flow.
+export function useFetchMyArchivedProjects() {
+  return useApiMutation<{ status: number; projects: MyArchivedProject[] }>(
+    "/project/fetch_my_archived_projects",
+  );
+}
+
+// Editor: request that an archived project be reactivated. Notifies all
+// admins (bell only, no email). Body: { project_id, reason } — reason required.
+export function useRequestReactivation() {
+  return useApiMutation<{ status: number; message: string }>(
+    "/project/request_reactivation",
+  );
+}
+
+// Admin: dismiss a pending reactivation request without reactivating (clears
+// the request flag; project stays archived). Body: { project_id }.
+export function useDismissReactivationRequest() {
+  return useApiMutation<{ status: number; message: string }>(
+    "/project/dismiss_reactivation_request",
   );
 }
 
