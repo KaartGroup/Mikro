@@ -15,7 +15,7 @@ class SyncJobQueue:
         returned instead of creating a duplicate. Dedup key is
         (org_id, job_type, target_id, progress) across status="queued" rows.
         """
-        from ..database import db, SyncJob
+        from ..database import SyncJob
 
         existing = SyncJob.query.filter(
             SyncJob.org_id == org_id,
@@ -48,7 +48,9 @@ class SyncJobQueue:
     @classmethod
     def enqueue_project_sync(cls, org_id, project_id, user_id=None):
         progress = f"user:{user_id}" if user_id else None
-        return cls.enqueue(org_id, "project_sync", target_id=project_id, progress=progress)
+        return cls.enqueue(
+            org_id, "project_sync", target_id=project_id, progress=progress
+        )
 
     @classmethod
     def enqueue_task_sync(cls, org_id):

@@ -12,7 +12,7 @@ Usage::
     bal = PaymentBalanceService.user_balances(user)
 """
 
-from sqlalchemy import func, case, and_
+from sqlalchemy import func
 
 from ..database import Task, UserTasks, PayRequests, Payments, db
 
@@ -45,8 +45,7 @@ class PaymentBalanceService:
         Returns ``{mapping_payable_total, validation_payable_total}``.
         """
         user_task_ids = set(
-            ut.task_id
-            for ut in UserTasks.query.filter_by(user_id=user.id).all()
+            ut.task_id for ut in UserTasks.query.filter_by(user_id=user.id).all()
         )
 
         if all_org_tasks is None:
@@ -90,7 +89,8 @@ class PaymentBalanceService:
 
         all_uts = (
             UserTasks.query.filter(UserTasks.user_id.in_(user_ids)).all()
-            if user_ids else []
+            if user_ids
+            else []
         )
         ut_map = {}
         for ut in all_uts:
@@ -98,11 +98,13 @@ class PaymentBalanceService:
 
         all_pay_requests = (
             PayRequests.query.filter(PayRequests.user_id.in_(user_ids)).all()
-            if user_ids else []
+            if user_ids
+            else []
         )
         all_payments = (
             Payments.query.filter(Payments.user_id.in_(user_ids)).all()
-            if user_ids else []
+            if user_ids
+            else []
         )
 
         claimed_map = {}
@@ -156,9 +158,7 @@ class PaymentBalanceService:
         all_pay_requests = PayRequests.query.filter(
             PayRequests.user_id.in_(user_ids)
         ).all()
-        all_payments = Payments.query.filter(
-            Payments.user_id.in_(user_ids)
-        ).all()
+        all_payments = Payments.query.filter(Payments.user_id.in_(user_ids)).all()
 
         claimed_map = {}
         for req in all_pay_requests:
@@ -180,7 +180,7 @@ class PaymentBalanceService:
             .join(Task, Task.id == UserTasks.task_id)
             .filter(
                 UserTasks.user_id.in_(user_ids),
-                Task.validated == True,   # noqa: E712
+                Task.validated == True,  # noqa: E712
                 Task.self_validated == False,  # noqa: E712
                 claimed_filter,
             )
@@ -201,7 +201,9 @@ class PaymentBalanceService:
                     Task.org_id == self.org_id,
                     Task.validated_by.in_(osm_usernames),
                     Task.self_validated == False,  # noqa: E712
-                    db.or_(Task.validated == True, Task.invalidated == True),  # noqa: E712
+                    db.or_(
+                        Task.validated == True, Task.invalidated == True
+                    ),  # noqa: E712
                     claimed_filter,
                 )
                 .group_by(Task.validated_by)

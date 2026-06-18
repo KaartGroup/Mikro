@@ -21,10 +21,18 @@ import xml.dom.minidom
 
 
 def _parse_args():
-    p = argparse.ArgumentParser(description="Fetch and preview a stripped adiff XML from osmcha.")
+    p = argparse.ArgumentParser(
+        description="Fetch and preview a stripped adiff XML from osmcha."
+    )
     p.add_argument("changeset_id", type=int, help="OSM changeset ID")
-    p.add_argument("--out", metavar="FILE", help="Output path (default: <changeset_id>_stripped.xml)")
-    p.add_argument("--raw", action="store_true", help="Write raw XML without pretty-printing")
+    p.add_argument(
+        "--out",
+        metavar="FILE",
+        help="Output path (default: <changeset_id>_stripped.xml)",
+    )
+    p.add_argument(
+        "--raw", action="store_true", help="Write raw XML without pretty-printing"
+    )
     return p.parse_args()
 
 
@@ -42,7 +50,9 @@ def main():
         sys.exit(1)
 
     raw_bytes = len(xml_text.encode())
-    print(f"Fetched and stripped: {raw_bytes:,} bytes ({raw_bytes / (1024*1024):.2f} MB)")
+    print(
+        f"Fetched and stripped: {raw_bytes:,} bytes ({raw_bytes / (1024*1024):.2f} MB)"
+    )
 
     if not args.raw:
         try:

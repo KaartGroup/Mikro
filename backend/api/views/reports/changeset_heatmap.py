@@ -22,6 +22,7 @@ _EMPTY_RESPONSE = {
 # Controllers
 # ---------------------------------------------------------------------------
 
+
 def fetch_my_changeset_heatmap():
     """Self-scoped heatmap — returns only the current user's changeset centroids."""
     if not g.user:
@@ -44,7 +45,9 @@ def fetch_my_changeset_heatmap():
         end_date = end_date + timedelta(days=1)
 
     try:
-        changesets = ChangesetFetcher().fetch([osm_username], since=start_date, until=end_date)
+        changesets = ChangesetFetcher().fetch(
+            [osm_username], since=start_date, until=end_date
+        )
     except Exception as e:
         logger.warning(f"ChangesetFetcher failed for {osm_username}: {e}")
         return _EMPTY_RESPONSE
@@ -68,7 +71,7 @@ def fetch_changeset_heatmap():
         return {"message": "Invalid startDate or endDate", "status": 400}
     if end_was_date_only:
         end_date = end_date + timedelta(days=1)
-    
+
     return get_changeset_heatmap(
         org_id=g.user.org_id,
         viewer=g.user,
@@ -83,7 +86,10 @@ def fetch_changeset_heatmap():
 # Testable orchestrator
 # ---------------------------------------------------------------------------
 
-def get_changeset_heatmap(org_id, viewer, start_date, end_date, filters=None, max_per_user=100):
+
+def get_changeset_heatmap(
+    org_id, viewer, start_date, end_date, filters=None, max_per_user=100
+):
     """Fetches and aggregates OSM changeset heatmap data. No Flask context required."""
     osm_usernames = _get_active_mapper_usernames(org_id, viewer, filters)
     if not osm_usernames:
@@ -93,8 +99,12 @@ def get_changeset_heatmap(org_id, viewer, start_date, end_date, filters=None, ma
         )
         return _EMPTY_RESPONSE
 
-    all_changesets = _fetch_all_user_changesets(osm_usernames, start_date, end_date, max_per_user)
-    logger.info(f"Fetched {len(all_changesets)} changesets for {len(osm_usernames)} users")
+    all_changesets = _fetch_all_user_changesets(
+        osm_usernames, start_date, end_date, max_per_user
+    )
+    logger.info(
+        f"Fetched {len(all_changesets)} changesets for {len(osm_usernames)} users"
+    )
     return {
         "status": 200,
         "heatmapPoints": changesets_to_heatmap_points(all_changesets),
@@ -105,6 +115,7 @@ def get_changeset_heatmap(org_id, viewer, start_date, end_date, filters=None, ma
 # Single-purpose helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_active_mapper_usernames(org_id, viewer, filters=None):
     """Returns OSM usernames to fetch changesets for, scoped to viewer's teams."""
     ta_osm = _team_admin_osm_usernames(viewer)
@@ -112,9 +123,10 @@ def _get_active_mapper_usernames(org_id, viewer, filters=None):
         osm_usernames = ta_osm
     else:
         rows = (
-            User.query
-            .with_entities(User.osm_username)
-            .filter(User.org_id == org_id, User.osm_username != None, User.is_active == True)
+            User.query.with_entities(User.osm_username)
+            .filter(
+                User.org_id == org_id, User.osm_username != None, User.is_active == True
+            )
             .all()
         )
         osm_usernames = [r.osm_username for r in rows]
@@ -133,7 +145,9 @@ def _fetch_all_user_changesets(osm_usernames, start_date, end_date, max_per_user
     all_changesets = []
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {
-            executor.submit(ChangesetFetcher().fetch, [un], start_date, end_date, max_per_user): un
+            executor.submit(
+                ChangesetFetcher().fetch, [un], start_date, end_date, max_per_user
+            ): un
             for un in osm_usernames
         }
         for future in as_completed(futures):

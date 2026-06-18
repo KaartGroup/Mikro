@@ -84,10 +84,6 @@ export interface User {
   is_active?: boolean;
 }
 
-export interface UserListItem extends User {
-  assigned?: "Yes" | "No";
-}
-
 // Project types
 export interface Project {
   id: number;
@@ -167,23 +163,6 @@ export interface ProjectStatsResponse {
   status: number;
 }
 
-/** Request body for the paginated projects list. */
-export interface ProjectPageParams {
-  status?: boolean;
-  search?: string;
-  community?: boolean | null;
-  priority?: string | null;
-  country_id?: number;
-  region_id?: number;
-  team_id?: number;
-  created_by_me?: boolean;
-  filters?: Record<string, string[]>;
-  sort_key?: string;
-  sort_dir?: "asc" | "desc";
-  page?: number;
-  page_size?: number;
-}
-
 // Task types
 export interface Task {
   id: number;
@@ -205,46 +184,6 @@ export interface Task {
 }
 
 // Payment types
-export interface PayRequest {
-  id: number;
-  user_id: string;
-  user: string;
-  osm_username: string;
-  amount_requested: number;
-  date_requested: string;
-  payment_email?: string;
-  task_ids?: number[];
-  notes?: string;
-}
-
-export interface Payment {
-  id: number;
-  user_id: string;
-  user: string;
-  osm_username?: string;
-  amount_paid: number;
-  date_paid: string;
-  payment_email?: string;
-  payoneer_id?: string;
-  task_ids?: number[];
-  notes?: string;
-}
-
-export interface TransactionsResponse {
-  requests: PayRequest[];
-  payments: Payment[];
-  message: string;
-  status: number;
-}
-
-export interface UserPayableResponse {
-  message: string;
-  mapping_earnings: number;
-  validation_earnings: number;
-  payable_total: number;
-  status: number;
-}
-
 // Training types
 export interface Training {
   id: number;
@@ -307,54 +246,7 @@ export interface AdminDashboardStats {
   status: number;
 }
 
-export interface UserDashboardStats {
-  month_contribution_change: number;
-  total_contributions_for_month: number;
-  mapped_tasks: number;
-  validated_tasks: number;
-  invalidated_tasks: number;
-  validator_validated: number;
-  validator_invalidated: number;
-  mapping_payable_total: number;
-  validation_payable_total: number;
-  payable_total: number;
-  requests_total: number;
-  payouts_total: number;
-  message: string;
-  status: number;
-}
-
 // Validator Dashboard Stats (snake_case to match backend API response)
-export interface ValidatorDashboardStats {
-  // Project counts
-  active_projects: number;
-  inactive_projects: number;
-  completed_projects: number;
-  // Mapped tasks (as mapper)
-  tasks_mapped: number;
-  mapped_tasks: number; // Legacy alias
-  // Tasks validated by others (where user was mapper)
-  tasks_validated: number;
-  validated_tasks: number; // Legacy alias
-  tasks_invalidated: number;
-  invalidated_tasks: number; // Legacy alias
-  // Validation work done BY this user (as validator)
-  validator_validated: number;
-  validator_invalidated: number;
-  self_validated_count?: number;
-  // Payment totals
-  mapping_payable_total: number;
-  validation_payable_total: number;
-  calculated_validation_earnings: number;
-  payable_total: number;
-  paid_total: number;
-  requests_total: number;
-  payouts_total: number;
-  // API response
-  message: string;
-  status: number;
-}
-
 // Time Tracking types
 
 /**
@@ -1114,28 +1006,6 @@ export interface ElementAnalysisResponse {
   lastUpdated: string | null;
 }
 
-export interface MapillaryTrip {
-  user_name: string;
-  mapillary_username: string;
-  date: string;
-  image_count: number;
-  sequence_count: number;
-}
-
-export interface MapillaryStatsResponse {
-  status: number;
-  message?: string;
-  summary: {
-    total_images: number;
-    total_trips: number;
-    total_sequences: number;
-    active_contributors: number;
-    images_by_user: Array<{ username: string; name: string; count: number }>;
-  };
-  trips: MapillaryTrip[];
-  weekly_uploads: Array<{ week: string; images: number }>;
-}
-
 // Punks List types
 export interface Punk {
   id: number;
@@ -1246,72 +1116,8 @@ export interface FriendDiscussionsResponse {
 }
 
 // Community Data types
-export interface CommunityEntry {
-  id: number;
-  entry_type: string;
-  submitted_at: string | null;
-  original_data: Record<string, string>;
-  edited_data: Record<string, string> | null;
-  is_edited: boolean;
-  submitted_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CommunityEntriesResponse {
-  entries: CommunityEntry[];
-  headers: string[];
-  status: number;
-}
-
-export interface CommunitySheetConfigResponse {
-  configured: boolean;
-  tab_name: string;
-  last_synced: string | null;
-  headers: string[];
-  total_entries: number;
-  status: number;
-}
-
 // Channel Monitor types
-export interface MonitoredChannel {
-  id: number;
-  name: string;
-  url: string;
-  channel_type: string;
-  active: boolean;
-  last_fetched_at: string | null;
-  last_summary: string | null;
-  last_summary_at: string | null;
-  post_count: number;
-  created_by: string | null;
-  created_at: string;
-}
-
-export interface ChannelsResponse {
-  channels: MonitoredChannel[];
-  status: number;
-}
-
-export interface ChannelSummariesResponse {
-  summaries: Array<{
-    id: number;
-    name: string;
-    summary: string | null;
-    summary_date: string | null;
-    post_count: number;
-    last_fetched: string | null;
-  }>;
-  status: number;
-}
-
 // API Response types
-export interface ApiResponse<T = unknown> {
-  data?: T;
-  error?: string;
-  message?: string;
-  status: number;
-}
 
 export interface UsersResponse {
   users: User[];
@@ -1330,20 +1136,6 @@ export interface UserDetailsResponse {
   payment_email: string;
   micropayments_visible: boolean;
   hourly_rate: number | null;
-  status: number;
-}
-
-export interface LoginResponse {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  osm_username: string;
-  payment_email: string;
-  city: string;
-  country: string;
-  needs_onboarding: boolean;
-  micropayments_visible: boolean;
   status: number;
 }
 
@@ -1424,13 +1216,6 @@ export interface TaskHistoryResponse {
 
 // ─── Region & Filter Types ──────────────────────────────────
 
-export interface Region {
-  id: number;
-  name: string;
-  org_id: string | null;
-  created_at: string;
-}
-
 export interface Country {
   id: number;
   name: string;
@@ -1441,27 +1226,11 @@ export interface Country {
   org_id: string | null;
 }
 
-export interface FilterDimension {
-  key: string;
-  label: string;
-  options: Array<{ value: string; label: string }>;
-}
-
-export interface ActiveFilter {
-  key: string;
-  values: string[];
-}
-
 export interface FilterOptionsResponse {
   dimensions: Record<
     string,
     Array<string | { id?: number; name: string; value?: string }>
   >;
-  status: number;
-}
-
-export interface RegionsResponse {
-  regions: Array<Region & { countries: Country[] }>;
   status: number;
 }
 
@@ -1498,7 +1267,7 @@ export interface PaymentCycleRow {
 
 export type CompensationModel = "per_task" | "hourly" | "project_based";
 
-export interface PayrollCadenceConfig {
+interface PayrollCadenceConfig {
   cadence: "monthly" | "semi_monthly" | "bi_weekly";
   anchor_day: number | null;
   anchor_date: string | null;
@@ -1644,54 +1413,6 @@ export interface PaymentStatusRow {
 }
 
 // Hourly contractor payment tracking
-export interface HourlyMonthData {
-  totalSeconds: number;
-  hours: number;
-  earnings: number;
-  paid: boolean;
-  paidAt: string | null;
-  notes: string | null;
-}
-
-export interface HourlyContractor {
-  userId: string;
-  name: string;
-  osmUsername: string;
-  country: string;
-  hourlyRate: number | null;
-  months: Record<string, HourlyMonthData>;
-  yearTotal: { totalSeconds: number; hours: number; earnings: number };
-}
-
-export interface HourlySummaryResponse {
-  status: number;
-  year: number;
-  contractors: HourlyContractor[];
-}
-
-export interface HourlyRateEntry {
-  id: number;
-  user_id: string;
-  org_id: string | null;
-  rate: number;
-  start_date: string; // ISO date "YYYY-MM-DD"
-  end_date: string | null;
-  notes: string | null;
-  created_by: string;
-  created_at: string;
-}
-
-export interface HourlyRateHistoryResponse {
-  rates: HourlyRateEntry[];
-  status: number;
-}
-
-export interface HourlyRateMutationResponse {
-  rate?: HourlyRateEntry;
-  message?: string;
-  status: number;
-}
-
 // ─── Comms platform — notifications + email + messenger ───────────────
 //
 // These types mirror the SEPARATE comms service contract (comms/views/*.py

@@ -19,7 +19,6 @@ import {
   useFetchTrainingLocations,
   useAssignTrainingLocations,
   useUnassignTrainingLocation,
-  type LocationsResponse,
 } from "@/hooks/useApi";
 
 // ─── Types ──────────────────────────────────────────────────

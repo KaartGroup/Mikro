@@ -7,6 +7,7 @@ else login is rejected with a 403 + reason 'org_not_active' (which the frontend
 routes to /wrong-org). These call _do_login() directly with a mocked JWT and a
 mocked Organization/User layer — no Postgres needed.
 """
+
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -56,8 +57,8 @@ def test_disabled_org_is_rejected(app):
     with app.test_request_context(json={}):
         g.current_user = _jwt("org_other")
         with patch("api.database.Organization") as MockOrg:
-            MockOrg.query.filter_by.return_value.first.return_value = (
-                SimpleNamespace(id="org_other", status="disabled")
+            MockOrg.query.filter_by.return_value.first.return_value = SimpleNamespace(
+                id="org_other", status="disabled"
             )
             resp = LoginAPI()._do_login()
     assert resp[1] == 403
@@ -70,8 +71,8 @@ def test_active_org_passes_the_gate(app):
         with patch("api.database.Organization") as MockOrg, patch(
             "api.views.Login.User"
         ) as MockUser:
-            MockOrg.query.filter_by.return_value.first.return_value = (
-                SimpleNamespace(id="org_other", status="active")
+            MockOrg.query.filter_by.return_value.first.return_value = SimpleNamespace(
+                id="org_other", status="active"
             )
             MockUser.query.filter_by.return_value.first.side_effect = _Stop()
             with pytest.raises(_Stop):

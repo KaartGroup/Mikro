@@ -17,8 +17,7 @@ Usage::
     row   = PaymentCycleService.build_row(user, hours, status)
 """
 
-from datetime import date, datetime, timezone
-from decimal import Decimal
+from datetime import date
 
 from ..database import (
     PaymentCycleStatus,
@@ -26,7 +25,6 @@ from ..database import (
     db,
 )
 from ..time_tracking import PayrollHoursQuery
-
 
 # ─── Constants ────────────────────────────────────────────────────────
 
@@ -131,15 +129,6 @@ class PaymentCycleService:
         return model != "per_task"
 
     @staticmethod
-    def cycle_label(start: date, end: date, cadence: str) -> str:
-        """Human label for a forecast cycle bar."""
-        if cadence == "monthly":
-            return start.strftime("%b %Y")
-        if cadence == "semi_monthly":
-            return f"{start.strftime('%b')} {start.day}–{end.day}"
-        return f"{start.strftime('%b %d')}–{end.strftime('%d')}"
-
-    @staticmethod
     def build_row(user, seconds, status_row) -> dict:
         """Compose a single PaymentCycleRow dict for the table."""
         hours = round(seconds / 3600.0, 2) if seconds else 0.0
@@ -183,11 +172,10 @@ class PaymentCycleService:
         ``effective_comp_model``, etc.).
         """
         from .hourly_rate_history import HourlyRateHistoryService
+
         return HourlyRateHistoryService().rate_map_for_users(list(user_ids), for_date)
 
-    def hours_by_user(
-        self, user_ids, cycle_start: date, cycle_end: date
-    ) -> dict:
+    def hours_by_user(self, user_ids, cycle_start: date, cycle_end: date) -> dict:
         """Aggregate completed-session seconds per user inside the cycle window.
 
         ``user_ids`` is either an iterable of ids or ``None`` (no per-user filter).
@@ -213,9 +201,7 @@ class PaymentCycleService:
             user_ids, cycle_start, cycle_end, num_weeks
         )
 
-    def status_by_user(
-        self, user_ids, cycle_start: date, cycle_end: date
-    ) -> dict:
+    def status_by_user(self, user_ids, cycle_start: date, cycle_end: date) -> dict:
         """Return ``{user_id: PaymentCycleStatus}`` for a cycle.
 
         Missing rows are treated as ``STATUS_PENDING`` by the caller.

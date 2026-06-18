@@ -17,7 +17,7 @@ Covered:
 
 from datetime import date
 from decimal import Decimal
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -25,10 +25,8 @@ from api.services.hourly_rate_history import (
     DeleteGuardError,
     HourlyRateHistoryService,
     OverlapError,
-    _MAX_DATE,
 )
 from api.services.payment_cycle import PaymentCycleService
-
 
 # ─── _FakeUser ────────────────────────────────────────────────────────
 
@@ -200,7 +198,6 @@ def test_rate_map_deduplicates_per_user():
     only the first (highest start_date) row per user_id.  Simulate this
     Python-side logic by directly testing the seen-set de-dup step.
     """
-    svc = HourlyRateHistoryService()
     u1_old = _entry(20, "2024-01-01", "2025-12-31", user_id="u1")
     u1_new = _entry(30, "2026-01-01", None, user_id="u1")
     u2 = _entry(15, "2025-06-01", None, user_id="u2")
@@ -285,7 +282,7 @@ class TestDeleteGuard:
         """Bug 6: entry.start_date mid-month should still block deletion when a
         paid HourlyPayment for that month exists (month-range overlap test)."""
         entry = _entry(25, "2026-02-05")  # starts Feb 5, open-ended
-        paid = self._paid_hp(2026, 2)     # paid for February 2026
+        paid = self._paid_hp(2026, 2)  # paid for February 2026
         with pytest.raises(DeleteGuardError):
             self._call_guard(entry, [paid], [])
 

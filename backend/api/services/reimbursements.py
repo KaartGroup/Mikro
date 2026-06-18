@@ -26,13 +26,9 @@ class ReimbursementService:
     def __init__(self, org_id: str):
         self.org_id = org_id
 
-    def get_user_reimbursements(
-        self, user_id: str, status_filter: str = None
-    ) -> list:
+    def get_user_reimbursements(self, user_id: str, status_filter: str = None) -> list:
         """Return a user's own reimbursement requests, newest-first."""
-        q = ReimbursementRequest.query.filter(
-            ReimbursementRequest.user_id == user_id
-        )
+        q = ReimbursementRequest.query.filter(ReimbursementRequest.user_id == user_id)
         if status_filter:
             q = q.filter(ReimbursementRequest.status == status_filter)
         return q.order_by(ReimbursementRequest.submitted_at.desc()).all()

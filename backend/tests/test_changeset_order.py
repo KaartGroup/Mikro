@@ -9,6 +9,7 @@ Run with:
 or directly:
     python tests/test_changeset_order.py
 """
+
 import sys
 import os
 from datetime import datetime, timezone, timedelta
@@ -16,7 +17,6 @@ from datetime import datetime, timezone, timedelta
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from api.utils.changeset_fetcher import ChangesetFetcher
-
 
 # A well-known OSM mapper with frequent edits — substitute any active username.
 TEST_USERNAME = "kaartense"
@@ -30,7 +30,9 @@ def test_changeset_order_is_newest_first():
     fetcher = ChangesetFetcher()
     changesets = fetcher.fetch([TEST_USERNAME], since=since, until=until)
 
-    assert changesets, f"No changesets returned for {TEST_USERNAME} in the last {WINDOW_DAYS} days"
+    assert (
+        changesets
+    ), f"No changesets returned for {TEST_USERNAME} in the last {WINDOW_DAYS} days"
 
     timestamps = [
         datetime.fromisoformat(cs["created_at"].replace("Z", "+00:00"))

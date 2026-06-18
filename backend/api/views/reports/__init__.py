@@ -7,7 +7,7 @@ Handles editing statistics and timekeeping reports for admin dashboards.
 
 from flask.views import MethodView
 
-from ...utils import requires_admin, requires_auth, requires_team_admin_or_above
+from ...utils import requires_auth, requires_team_admin_or_above
 from .editing_stats import fetch_editing_stats
 from .timekeeping_stats import fetch_timekeeping_stats
 from .changeset_heatmap import fetch_changeset_heatmap, fetch_my_changeset_heatmap

@@ -8,15 +8,13 @@ import {
   CardHeader,
   CardTitle,
   Button,
-  Skeleton,
   Tabs,
   TabsList,
   TabsTrigger,
   useToastActions,
-  Val,
 } from "@/components/ui";
 import { KpiCard } from "@/components/ui/KpiCard";
-import { formatCurrency, formatNumber, type FormattedValue } from "@/lib/utils";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
   useFetchPaymentCycle,
   useFetchPaymentCycleKpis,
@@ -26,7 +24,6 @@ import {
   useFetchFilterOptions,
 } from "@/hooks";
 import { StandaloneFilter } from "@/components/admin/StandaloneFilter";
-import { isAnyAdmin } from "@/types";
 import type {
   PaymentCycleKpis,
   PaymentCycleResponse,

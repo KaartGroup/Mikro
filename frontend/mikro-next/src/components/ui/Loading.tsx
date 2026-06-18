@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export interface SpinnerProps {
+interface SpinnerProps {
   size?: "sm" | "md" | "lg";
   className?: string;
 }
@@ -36,44 +36,8 @@ export function Spinner({ size = "md", className }: SpinnerProps) {
   );
 }
 
-export interface LoadingOverlayProps {
-  message?: string;
-}
-
-export function LoadingOverlay({
-  message = "Loading...",
-}: LoadingOverlayProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="flex flex-col items-center gap-4">
-        <Spinner size="lg" />
-        <p className="text-sm text-muted-foreground">{message}</p>
-      </div>
-    </div>
-  );
-}
-
-export interface LoadingCardProps {
-  message?: string;
-  className?: string;
-}
-
-export function LoadingCard({ message, className }: LoadingCardProps) {
-  return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center gap-4 rounded-lg border border-input bg-background p-8",
-        className,
-      )}
-    >
-      <Spinner size="md" />
-      {message && <p className="text-sm text-muted-foreground">{message}</p>}
-    </div>
-  );
-}
-
 // Skeleton loader for content placeholders
-export interface SkeletonProps {
+interface SkeletonProps {
   className?: string;
 }
 
@@ -94,12 +58,3 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
 }
 
 // Card skeleton
-export function CardSkeleton() {
-  return (
-    <div className="rounded-lg border border-input bg-background p-6 space-y-4">
-      <Skeleton className="h-4 w-1/3" />
-      <Skeleton className="h-8 w-1/2" />
-      <Skeleton className="h-4 w-full" />
-    </div>
-  );
-}

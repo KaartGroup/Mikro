@@ -256,8 +256,12 @@ def test_weekly_buckets_by_clock_out_week(db_session):
         [
             _entry(clock_out=datetime(2026, 5, 1, 11, 0), duration_seconds=7200),  # wk1
             _entry(clock_out=datetime(2026, 5, 4, 11, 0), duration_seconds=3600),  # wk2
-            _entry(clock_out=datetime(2026, 5, 11, 11, 0), duration_seconds=1800),  # wk3
-            _entry(clock_out=datetime(2026, 5, 18, 11, 0), duration_seconds=3600),  # wk4
+            _entry(
+                clock_out=datetime(2026, 5, 11, 11, 0), duration_seconds=1800
+            ),  # wk3
+            _entry(
+                clock_out=datetime(2026, 5, 18, 11, 0), duration_seconds=3600
+            ),  # wk4
         ]
     )
     db_session.flush()
@@ -270,9 +274,15 @@ def test_weekly_buckets_overflow_folds_into_last_week(db_session):
     spilling past the fixed four buckets."""
     db_session.add_all(
         [
-            _entry(clock_out=datetime(2026, 5, 18, 11, 0), duration_seconds=3600),  # wk4
-            _entry(clock_out=datetime(2026, 5, 25, 11, 0), duration_seconds=3600),  # ↳wk4
-            _entry(clock_out=datetime(2026, 5, 31, 11, 0), duration_seconds=1800),  # ↳wk4
+            _entry(
+                clock_out=datetime(2026, 5, 18, 11, 0), duration_seconds=3600
+            ),  # wk4
+            _entry(
+                clock_out=datetime(2026, 5, 25, 11, 0), duration_seconds=3600
+            ),  # ↳wk4
+            _entry(
+                clock_out=datetime(2026, 5, 31, 11, 0), duration_seconds=1800
+            ),  # ↳wk4
         ]
     )
     db_session.flush()
@@ -289,8 +299,12 @@ def test_weekly_respects_clock_out_window_and_status(db_session):
     db_session.add_all(
         [
             _entry(clock_out=datetime(2026, 5, 4, 11, 0), duration_seconds=3600),  # in
-            _entry(clock_out=datetime(2026, 4, 30, 11, 0), duration_seconds=9999),  # pre
-            _entry(clock_out=datetime(2026, 6, 1, 11, 0), duration_seconds=9999),  # post
+            _entry(
+                clock_out=datetime(2026, 4, 30, 11, 0), duration_seconds=9999
+            ),  # pre
+            _entry(
+                clock_out=datetime(2026, 6, 1, 11, 0), duration_seconds=9999
+            ),  # post
             _entry(
                 status="voided",
                 clock_out=datetime(2026, 5, 4, 11, 0),

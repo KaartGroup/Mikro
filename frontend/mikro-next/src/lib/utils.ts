@@ -63,29 +63,6 @@ export function formatCurrency(
 }
 
 /**
- * Format a string value with a fallback for null/undefined/blank.
- * Returns a FormattedValue — isPlaceholder is true when the fallback is used.
- */
-export function formatString(
-  value: string | null | undefined,
-  fallback: string = "\u2014",
-): FormattedValue {
-  if (!value || !value.trim()) {
-    return { text: fallback, isPlaceholder: true };
-  }
-  return { text: value, isPlaceholder: false };
-}
-
-/**
- * Build the canonical TM4 project URL from a project ID.
- * Always returns `https://tasks.kaart.com/projects/{id}` regardless
- * of whatever URL string might be stored in the database.
- */
-export function getTM4ProjectUrl(projectId: number | string): string {
-  return `https://tasks.kaart.com/projects/${projectId}`;
-}
-
-/**
  * Format a date string as "Month Day, Year" (e.g., "Jan 1, 2024").
  * Returns "-" for null/undefined/empty input.
  */

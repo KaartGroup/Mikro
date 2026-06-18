@@ -21,7 +21,6 @@ from ..database import (
     TrainingCountry,
     User,
     Team,
-    TeamUser,
 )
 
 

@@ -17,6 +17,7 @@ def run_mr_metadata_backfill(app, job):
     from ...database import db, Project
     from ...views.MapRoulette import MapRouletteSync
     from ...services.project_service import ProjectService
+
     _strip_trailing_hashtags = ProjectService.strip_trailing_hashtags
 
     challenge_id = job.target_id
@@ -40,7 +41,9 @@ def run_mr_metadata_backfill(app, job):
         mr_data = None
         for attempt in range(max_retries):
             try:
-                job.progress = f"Attempt {attempt + 1}/{max_retries} for challenge {challenge_id}"
+                job.progress = (
+                    f"Attempt {attempt + 1}/{max_retries} for challenge {challenge_id}"
+                )
                 db.session.commit()
                 mr_data = MapRouletteSync().fetch_challenge_metadata(challenge_id)
                 if mr_data:

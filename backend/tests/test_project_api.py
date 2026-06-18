@@ -2,7 +2,6 @@ import pytest
 from app import app
 from flask import g
 from api.database import (
-    Project,
     User,
     db,
 )

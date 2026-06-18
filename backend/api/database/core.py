@@ -14,7 +14,6 @@ from sqlalchemy import (
     String,
     DateTime,
     Float,
-    ForeignKey,
     Text,
     func,
     Integer,
@@ -143,8 +142,12 @@ class Project(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     short_name = db.Column(db.String(100), nullable=True)  # Admin-set display name
     org_id = db.Column(db.String(255), nullable=True)  # Changed to String for Auth0
     url = db.Column(db.String(500), nullable=False)
-    source = db.Column(db.String(20), nullable=False, server_default="tm4")  # "tm4" or "mr"
-    created_by = db.Column(db.String(255), nullable=True)  # Auth0 user ID of admin who created/imported
+    source = db.Column(
+        db.String(20), nullable=False, server_default="tm4"
+    )  # "tm4" or "mr"
+    created_by = db.Column(
+        db.String(255), nullable=True
+    )  # Auth0 user ID of admin who created/imported
     last_sync_cursor = db.Column(db.DateTime, nullable=True)  # For incremental MR sync
 
     # Payment settings
@@ -153,7 +156,9 @@ class Project(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     total_payout = db.Column(db.Float, nullable=True, default=0)
     validation_rate_per_task = db.Column(db.Float, nullable=True, default=100)
     mapping_rate_per_task = db.Column(db.Float, nullable=True, default=100)
-    payments_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default="true")
+    payments_enabled = db.Column(
+        db.Boolean, nullable=False, default=True, server_default="true"
+    )
 
     # Capacity
     total_editors = db.Column(db.BigInteger, default=0)
@@ -164,8 +169,12 @@ class Project(ModelWithSoftDeleteAndCRUD, SurrogatePK):
 
     # Metadata
     difficulty = db.Column(db.String(50), nullable=True, default="Intermediate")
-    community = db.Column(db.Boolean, nullable=False, default=False, server_default="false")
-    priority = db.Column(db.String(50), nullable=False, default="Medium", server_default="Medium")
+    community = db.Column(
+        db.Boolean, nullable=False, default=False, server_default="false"
+    )
+    priority = db.Column(
+        db.String(50), nullable=False, default="Medium", server_default="Medium"
+    )
     visibility = db.Column(db.Boolean, nullable=True, server_default="False")
     status = db.Column(db.Boolean, nullable=True, server_default="False")
 
@@ -188,7 +197,9 @@ class Task(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     task_id = db.Column(db.BigInteger, nullable=True, index=True)
     org_id = db.Column(db.String(255), nullable=True)  # Changed to String for Auth0
     project_id = db.Column(db.BigInteger, nullable=False, index=True)
-    source = db.Column(db.String(20), nullable=False, server_default="tm4")  # "tm4" or "mr"
+    source = db.Column(
+        db.String(20), nullable=False, server_default="tm4"
+    )  # "tm4" or "mr"
 
     # Rates
     validation_rate = db.Column(db.Float, nullable=True, default=100)
@@ -199,14 +210,18 @@ class Task(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     mapped = db.Column(db.Boolean, nullable=True, default=False)
     validated = db.Column(db.Boolean, nullable=True, default=False)
     invalidated = db.Column(db.Boolean, nullable=True, default=False)
-    self_validated = db.Column(db.Boolean, default=False)  # Flags tasks where mapper validated their own work
+    self_validated = db.Column(
+        db.Boolean, default=False
+    )  # Flags tasks where mapper validated their own work
 
     # MapRoulette status (NULL for TM4 tasks; 1=Fixed, 2=FalsePositive, 3=Skipped, 5=AlreadyFixed, 6=CantComplete)
     mr_status = db.Column(db.Integer, nullable=True)
 
     # TM4 split tracking
     parent_task_id = db.Column(db.Integer, nullable=True)  # From TM4 for split tracking
-    sibling_count = db.Column(db.Integer, nullable=True)  # Total siblings in split group (4 for TM4)
+    sibling_count = db.Column(
+        db.Integer, nullable=True
+    )  # Total siblings in split group (4 for TM4)
 
     # Date tracking for time-filtered stats
     date_mapped = db.Column(db.DateTime, nullable=True)
@@ -258,7 +273,9 @@ class ValidatorTaskAction(CRUDMixin, db.Model):
     # passive_deletes lets the DB's ON DELETE CASCADE remove these rows
     # when a User is hard-deleted, instead of SQLAlchemy trying to NULL
     # user_id first (which fails — column is NOT NULL).
-    validator = db.relationship("User", backref=db.backref("validation_actions", passive_deletes=True))
+    validator = db.relationship(
+        "User", backref=db.backref("validation_actions", passive_deletes=True)
+    )
     task = db.relationship("Task", backref="validation_actions")
     project = db.relationship("Project", backref="validation_actions")
 
@@ -692,11 +709,14 @@ class ReimbursementRequest(CRUDMixin, SurrogatePK, db.Model):
             name="ck_reimbursement_requests_amount_positive",
         ),
         db.Index(
-            "ix_reimbursement_requests_org_status", "org_id", "status",
+            "ix_reimbursement_requests_org_status",
+            "org_id",
+            "status",
         ),
         db.Index(
             "ix_reimbursement_requests_user_submitted",
-            "user_id", "submitted_at",
+            "user_id",
+            "submitted_at",
         ),
     )
 
@@ -728,9 +748,7 @@ class PaymentCycleStatus(CRUDMixin, SurrogatePK, db.Model):
     cycle_start = db.Column(db.Date, nullable=False, index=True)
     cycle_end = db.Column(db.Date, nullable=False, index=True)
     # "pending" | "approved" | "held" | "paid"
-    status = db.Column(
-        db.String(20), nullable=False, server_default="pending"
-    )
+    status = db.Column(db.String(20), nullable=False, server_default="pending")
     note = db.Column(db.Text, nullable=True)
     actor_id = db.Column(db.String(255), nullable=True)
     updated_at = db.Column(
@@ -794,9 +812,15 @@ class TimeEntry(CRUDMixin, db.Model):
     # for subcategories that don't allow them.
     retained_participants = db.Column(db.Integer, nullable=True)
     new_participants = db.Column(db.Integer, nullable=True)
-    task_name = db.Column(db.String(255), nullable=True)       # display name of the selected task
-    task_ref_type = db.Column(db.String(50), nullable=True)     # "project", "training", "checklist", or null
-    task_ref_id = db.Column(db.Integer, nullable=True)          # FK to the referenced entity, or null
+    task_name = db.Column(
+        db.String(255), nullable=True
+    )  # display name of the selected task
+    task_ref_type = db.Column(
+        db.String(50), nullable=True
+    )  # "project", "training", "checklist", or null
+    task_ref_id = db.Column(
+        db.Integer, nullable=True
+    )  # FK to the referenced entity, or null
     clock_in = db.Column(DateTime, nullable=False, default=func.now())
     clock_out = db.Column(DateTime, nullable=True)
     duration_seconds = db.Column(db.Integer, nullable=True)
@@ -823,7 +847,9 @@ class TimeEntry(CRUDMixin, db.Model):
     # Relationships
     # passive_deletes — let the DB's ON DELETE CASCADE clean these up
     # when a User is hard-deleted, instead of ORM trying to NULL user_id.
-    user = db.relationship("User", backref=db.backref("time_entries", passive_deletes=True))
+    user = db.relationship(
+        "User", backref=db.backref("time_entries", passive_deletes=True)
+    )
     project = db.relationship("Project", backref="time_entries")
     subcategory = db.relationship("ActivitySubcategory")
 
@@ -834,7 +860,9 @@ class TimeEntry(CRUDMixin, db.Model):
         # GROUP BY (activity, subcategory_name).
         db.Index(
             "ix_time_entries_org_activity_sub",
-            "org_id", "activity", "subcategory_name",
+            "org_id",
+            "activity",
+            "subcategory_name",
         ),
     )
 
@@ -851,6 +879,7 @@ class CustomTopic(CRUDMixin, db.Model):
     rollback stays trivial; a follow-up migration drops it once we're
     satisfied with backfill quality on prod.
     """
+
     __tablename__ = "custom_topics"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -896,6 +925,7 @@ class ActivitySubcategory(CRUDMixin, db.Model):
       ``# Retained Participants`` / ``# New Participants`` inputs (e.g.
       Community -> Events).
     """
+
     __tablename__ = "activity_subcategories"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -911,9 +941,7 @@ class ActivitySubcategory(CRUDMixin, db.Model):
     is_active = db.Column(
         db.Boolean, nullable=False, default=True, server_default=db.true()
     )
-    sort_order = db.Column(
-        db.Integer, nullable=False, default=0, server_default="0"
-    )
+    sort_order = db.Column(db.Integer, nullable=False, default=0, server_default="0")
     requires_project = db.Column(
         db.Boolean, nullable=False, default=False, server_default=db.false()
     )
@@ -937,7 +965,10 @@ class ActivitySubcategory(CRUDMixin, db.Model):
             name="ck_activity_subcategories_team_requires_org",
         ),
         db.UniqueConstraint(
-            "activity", "slug", "org_id", "team_id",
+            "activity",
+            "slug",
+            "org_id",
+            "team_id",
             name="uq_activity_subcategories_scope",
         ),
         db.Index("ix_activity_subcategories_dropdown", "activity", "is_active"),
@@ -947,24 +978,32 @@ class ActivitySubcategory(CRUDMixin, db.Model):
 
     def __repr__(self):
         scope = (
-            f"team={self.team_id}" if self.team_id is not None
-            else f"org={self.org_id}" if self.org_id is not None
-            else "global"
+            f"team={self.team_id}"
+            if self.team_id is not None
+            else f"org={self.org_id}" if self.org_id is not None else "global"
         )
         return f"<ActivitySubcategory {self.activity}/{self.slug} {scope}>"
 
 
 class HourlyPayment(CRUDMixin, db.Model):
     """Tracks hourly contractor payment status per month."""
+
     __tablename__ = "hourly_payments"
 
     id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String(255), db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = db.Column(
+        db.String(255),
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     org_id = db.Column(db.String(255), nullable=True, index=True)
     year = db.Column(db.Integer, nullable=False)
     month = db.Column(db.Integer, nullable=False)  # 1-12
     total_seconds = db.Column(db.Integer, nullable=False, default=0)
-    hourly_rate = db.Column(db.Float, nullable=False)  # snapshot of rate at payment time
+    hourly_rate = db.Column(
+        db.Float, nullable=False
+    )  # snapshot of rate at payment time
     amount_due = db.Column(db.Float, nullable=False, default=0)
     paid = db.Column(db.Boolean, nullable=False, default=False, server_default="False")
     paid_at = db.Column(db.DateTime, nullable=True)
@@ -972,10 +1011,14 @@ class HourlyPayment(CRUDMixin, db.Model):
     notes = db.Column(db.Text, nullable=True)
 
     # passive_deletes — DB cascade handles removal on User hard-delete.
-    user = db.relationship("User", backref=db.backref("hourly_payments", passive_deletes=True))
+    user = db.relationship(
+        "User", backref=db.backref("hourly_payments", passive_deletes=True)
+    )
 
     __table_args__ = (
-        db.UniqueConstraint("user_id", "year", "month", name="uq_hourly_payment_user_month"),
+        db.UniqueConstraint(
+            "user_id", "year", "month", name="uq_hourly_payment_user_month"
+        ),
         db.Index("ix_hourly_payments_year_month", "year", "month"),
     )
 
@@ -1008,7 +1051,9 @@ class UserHourlyRate(CRUDMixin, db.Model):
     created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
     notes = db.Column(db.Text, nullable=True)
 
-    user = db.relationship("User", backref=db.backref("hourly_rates", passive_deletes=True))
+    user = db.relationship(
+        "User", backref=db.backref("hourly_rates", passive_deletes=True)
+    )
 
     __table_args__ = (
         db.Index("ix_user_hourly_rates_user_start", "user_id", "start_date"),
@@ -1029,8 +1074,12 @@ class SyncJob(CRUDMixin, db.Model):
     id = Column(Integer, primary_key=True, autoincrement=True)
     org_id = Column(String(255), nullable=True, index=True)
     status = Column(String(50), nullable=False, default="queued")
-    job_type = Column(String(50), nullable=False, default="task_sync", server_default="task_sync")
-    target_id = Column(BigInteger, nullable=True)  # e.g. project_id for project_sync jobs
+    job_type = Column(
+        String(50), nullable=False, default="task_sync", server_default="task_sync"
+    )
+    target_id = Column(
+        BigInteger, nullable=True
+    )  # e.g. project_id for project_sync jobs
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     progress = Column(String(500), nullable=True)
@@ -1039,7 +1088,6 @@ class SyncJob(CRUDMixin, db.Model):
 
     def __repr__(self):
         return f"<SyncJob {self.id} org={self.org_id} type={self.job_type} status={self.status}>"
-
 
 
 class ChangesetAdiff(CRUDMixin, db.Model):
@@ -1054,11 +1102,15 @@ class ChangesetAdiff(CRUDMixin, db.Model):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     org_id = Column(String(255), nullable=False, index=True)
     changeset_id = Column(BigInteger, nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=False, index=True)  # when the changeset occurred (UTC)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, index=True
+    )  # when the changeset occurred (UTC)
     user_id = Column(String(255), nullable=True, index=True)
     team_id = Column(db.Integer, nullable=True, index=True)
     osm_user = Column(String(255), nullable=True)
-    adiff_xml = Column(db.Text, nullable=True)  # raw osmcha adiff XML; null when no diff exists
+    adiff_xml = Column(
+        db.Text, nullable=True
+    )  # raw osmcha adiff XML; null when no diff exists
 
     __table_args__ = (
         db.UniqueConstraint("org_id", "changeset_id", name="uq_changeset_adiff_org"),
@@ -1082,7 +1134,7 @@ class PayrollConfig(CRUDMixin, db.Model):
     org_id = Column(String(255), nullable=False, unique=True, index=True)
     # "monthly" | "semi_monthly" | "bi_weekly"
     cadence = Column(String(20), nullable=False, default="monthly")
-    anchor_day = Column(Integer, nullable=True)   # monthly day-of-month (1–28)
+    anchor_day = Column(Integer, nullable=True)  # monthly day-of-month (1–28)
     anchor_date = Column(db.Date, nullable=True)  # bi_weekly period origin
     timezone = Column(String(50), nullable=True)
     updated_by = Column(String(255), nullable=True)
@@ -1110,8 +1162,12 @@ class Punk(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     cached_last_active = db.Column(db.DateTime, nullable=True)
     cached_account_created = db.Column(db.DateTime, nullable=True)
     cache_updated_at = db.Column(db.DateTime, nullable=True)
-    cached_discussions = db.Column(db.Text, nullable=True)  # JSON blob of discussion entries
-    flagged_discussions = db.Column(db.Text, nullable=True)  # JSON array of flagged discussion links
+    cached_discussions = db.Column(
+        db.Text, nullable=True
+    )  # JSON blob of discussion entries
+    flagged_discussions = db.Column(
+        db.Text, nullable=True
+    )  # JSON array of flagged discussion links
 
 
 class PunkChangeset(CRUDMixin, SurrogatePK, db.Model):

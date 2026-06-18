@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 
-export interface ActiveFilter {
+interface ActiveFilter {
   key: string;
   values: string[];
 }

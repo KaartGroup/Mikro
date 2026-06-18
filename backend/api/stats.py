@@ -49,16 +49,6 @@ def count_tasks_split_aware(tasks, condition_fn=None):
     return normal_count + split_count
 
 
-def get_project_stats(project_id):
-    """
-    Live-count task stats for a project from the Task table.
-
-    Returns dict with tasks_mapped, tasks_validated, tasks_invalidated.
-    """
-    tasks = Task.query.filter_by(project_id=project_id).all()
-    return _compute_task_stats(tasks)
-
-
 def get_project_stats_from_tasks(tasks):
     """
     Compute task stats from a pre-loaded list of tasks.
@@ -105,8 +95,7 @@ def get_user_task_stats(user, all_org_tasks=None):
     NOTE: Payment balances are NOT included here — use PaymentBalanceService.user_balances().
     """
     user_task_ids = set(
-        ut.task_id
-        for ut in UserTasks.query.filter_by(user_id=user.id).all()
+        ut.task_id for ut in UserTasks.query.filter_by(user_id=user.id).all()
     )
 
     if all_org_tasks is None:
@@ -154,9 +143,11 @@ def get_batch_user_task_stats(users, org_id):
 
     # Batch-load all UserTasks for these users
     user_ids = [u.id for u in users]
-    all_user_tasks = UserTasks.query.filter(
-        UserTasks.user_id.in_(user_ids)
-    ).all() if user_ids else []
+    all_user_tasks = (
+        UserTasks.query.filter(UserTasks.user_id.in_(user_ids)).all()
+        if user_ids
+        else []
+    )
 
     user_task_map = {}
     for ut in all_user_tasks:
@@ -178,7 +169,9 @@ def get_batch_user_task_stats(users, org_id):
 
         # Capture osm_un in closure properly
         def _make_val_cond(un):
-            return lambda t: t.validated and t.validated_by == un and not t.self_validated
+            return (
+                lambda t: t.validated and t.validated_by == un and not t.self_validated
+            )
 
         def _make_inv_cond(un):
             return lambda t: t.invalidated and t.validated_by == un
@@ -231,15 +224,28 @@ def get_batch_user_task_stats_fast(users, org_id):
     mapper_rows = (
         db.session.query(
             UserTasks.user_id,
-            func.count(case(
-                (and_(Task.mapped == True, Task.validated == False, Task.invalidated == False), 1),
-            )).label("mapped"),
-            func.count(case(
-                (and_(Task.mapped == True, Task.validated == True), 1),
-            )).label("validated"),
-            func.count(case(
-                (Task.invalidated == True, 1),
-            )).label("invalidated"),
+            func.count(
+                case(
+                    (
+                        and_(
+                            Task.mapped == True,
+                            Task.validated == False,
+                            Task.invalidated == False,
+                        ),
+                        1,
+                    ),
+                )
+            ).label("mapped"),
+            func.count(
+                case(
+                    (and_(Task.mapped == True, Task.validated == True), 1),
+                )
+            ).label("validated"),
+            func.count(
+                case(
+                    (Task.invalidated == True, 1),
+                )
+            ).label("invalidated"),
         )
         .join(Task, Task.id == UserTasks.task_id)
         .filter(UserTasks.user_id.in_(user_ids))
@@ -263,12 +269,16 @@ def get_batch_user_task_stats_fast(users, org_id):
         validator_rows = (
             db.session.query(
                 Task.validated_by,
-                func.count(case(
-                    (and_(Task.validated == True, Task.self_validated == False), 1),
-                )).label("val_validated"),
-                func.count(case(
-                    (Task.invalidated == True, 1),
-                )).label("val_invalidated"),
+                func.count(
+                    case(
+                        (and_(Task.validated == True, Task.self_validated == False), 1),
+                    )
+                ).label("val_validated"),
+                func.count(
+                    case(
+                        (Task.invalidated == True, 1),
+                    )
+                ).label("val_invalidated"),
             )
             .filter(
                 Task.org_id == org_id,
@@ -314,15 +324,28 @@ def get_batch_project_stats_fast(project_ids, org_id=None):
     rows = (
         db.session.query(
             Task.project_id,
-            func.count(case(
-                (and_(Task.mapped == True, Task.validated == False, Task.invalidated == False), 1),
-            )).label("mapped"),
-            func.count(case(
-                (and_(Task.mapped == True, Task.validated == True), 1),
-            )).label("validated"),
-            func.count(case(
-                (Task.invalidated == True, 1),
-            )).label("invalidated"),
+            func.count(
+                case(
+                    (
+                        and_(
+                            Task.mapped == True,
+                            Task.validated == False,
+                            Task.invalidated == False,
+                        ),
+                        1,
+                    ),
+                )
+            ).label("mapped"),
+            func.count(
+                case(
+                    (and_(Task.mapped == True, Task.validated == True), 1),
+                )
+            ).label("validated"),
+            func.count(
+                case(
+                    (Task.invalidated == True, 1),
+                )
+            ).label("invalidated"),
         )
         .filter(Task.project_id.in_(project_ids))
         .group_by(Task.project_id)

@@ -5,7 +5,7 @@ import { Button, Modal, useToastActions } from "@/components/ui";
 import { useDirectAddReimbursement } from "@/hooks";
 import { formatCurrency } from "@/lib/utils";
 
-export interface DirectAddReimbursementModalProps {
+interface DirectAddReimbursementModalProps {
   userId: string;
   userName: string;
   isOpen: boolean;

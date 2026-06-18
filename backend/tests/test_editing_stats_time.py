@@ -17,7 +17,7 @@ from api.views.reports.editing_stats import (
     _get_time_per_project,
     _get_top_contributors,
 )
-from tests.conftest import USER_ID, OTHER_USER_ID, ORG
+from tests.conftest import USER_ID, ORG
 
 WIN_START = datetime(2026, 4, 1)
 WIN_END = datetime(2026, 5, 1)

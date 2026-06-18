@@ -11,8 +11,6 @@ import {
   CardHeader,
   CardTitle,
   Button,
-  Select,
-  Input,
   Skeleton,
   Spinner,
   useToastActions,
@@ -56,7 +54,7 @@ import type {
 } from "@/types";
 import { roleLabel, isOrgAdminOrAbove } from "@/types";
 import { useCurrentUserRole } from "@/hooks";
-import { formatNumber, formatCurrency, formatDate, formatDateTime, formatTime } from "@/lib/utils";
+import { formatNumber, formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import {
   dateInputToLocalStartIsoUtc,
   dateInputToLocalEndIsoUtc,
@@ -66,7 +64,6 @@ import { AssignedProjectsTable } from "@/components/tables/admin/AssignedProject
 import { NotesButton } from "@/components/widgets/NotesButton";
 import {
   formatDuration,
-  resolveCategoryKey,
   localDayEndIsoUtc,
   localWeekStartIsoUtc,
   localMonthStartIsoUtc,
@@ -85,13 +82,6 @@ const MappingHeatmap = dynamic(() => import("@/components/MappingHeatmap"), {
 
 type DatePreset = "daily" | "weekly" | "monthly" | "custom";
 
-const TIME_CATEGORY_OPTIONS = [
-  "mapping",
-  "validation",
-  "review",
-  "training",
-  "other",
-];
 
 // Calendar-aligned semantics — same spec as the rest of Mikro:
 //   Daily   = today (single day)

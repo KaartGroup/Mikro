@@ -23,30 +23,19 @@ from ..auth import (
 )
 from ..database import (
     Payments,
-    Project,
-    ProjectTeam,
     ReimbursementRequest,
     db,
 )
-from ..payroll_periods import generate_cycles
 from ..services.payment_cycle import (
     PaymentCycleService as PaymentService,
     STATUS_APPROVED,
     STATUS_HELD,
     STATUS_PAID,
     STATUS_PENDING,
-    VALID_COMP_MODELS,
     VALID_STATUSES,
 )
 from ..utils import requires_admin, requires_team_admin_or_above
 from ..time_tracking import PayrollHoursQuery
-
-
-def _decimal(v):
-    """Convert a Decimal (or int) to float for JSON responses; pass None through."""
-    if v is None:
-        return None
-    return float(v)
 
 
 def _parse_iso_date(raw):
@@ -208,7 +197,6 @@ class PaymentsAPI(MethodView):
             scope.users(filters=body.get("filters"), active_only=True)
         )
         candidate_ids = [u.id for u in candidate_users]
-        user_by_id = {u.id: u for u in candidate_users}
 
         svc = PaymentService(g.user.org_id)
         hours_map = svc.hours_by_user(candidate_ids, cycle_start, cycle_end)
@@ -530,20 +518,6 @@ class PaymentsAPI(MethodView):
         )
         return Response(
             csv_text,
-            mimetype="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
-
-    def _empty_csv(self, cycle_start, cycle_end):
-        filename = (
-            f"mikro-payments-{cycle_start.isoformat()}-{cycle_end.isoformat()}.csv"
-        )
-        header = (
-            "Name,OSM Username,week 1,week 2,week 3,week 4,"
-            "total hours,hourly rate,reimbursements,total payment\n"
-        )
-        return Response(
-            header,
             mimetype="text/csv",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )

@@ -20,13 +20,13 @@ import pytest
 import api.worker.main as worker_main
 from api.worker.main import _drain_running_jobs, poll_for_jobs
 
-
 ORG_A = "org_aaa"
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_job(id=1, org_id=ORG_A, job_type="task_sync", status="running"):
     job = MagicMock()
@@ -57,12 +57,14 @@ def clear_running_threads():
 # _drain_running_jobs
 # ---------------------------------------------------------------------------
 
+
 def test_drain_no_in_flight_jobs():
     """With no threads registered, drain exits without entering the app context."""
     app = _make_app()
 
-    with patch("api.worker.main.SyncJob") as MockJob, \
-         patch("api.worker.main.db") as mock_db:
+    with patch("api.worker.main.SyncJob") as MockJob, patch(
+        "api.worker.main.db"
+    ) as mock_db:
         _drain_running_jobs(app, timeout=1)
 
     app.app_context.assert_not_called()
@@ -79,8 +81,9 @@ def test_drain_clean_when_threads_already_done():
     t.join()  # Already dead before drain runs
     worker_main._running_sync_threads[99] = t
 
-    with patch("api.worker.main.SyncJob") as MockJob, \
-         patch("api.worker.main.db") as mock_db:
+    with patch("api.worker.main.SyncJob") as MockJob, patch(
+        "api.worker.main.db"
+    ) as mock_db:
         _drain_running_jobs(app, timeout=5)
 
     MockJob.query.get.assert_not_called()
@@ -100,8 +103,9 @@ def test_drain_requeues_job_when_thread_outlives_timeout():
     job = _mock_job(id=42, status="running")
 
     try:
-        with patch("api.worker.main.SyncJob") as MockJob, \
-             patch("api.worker.main.db") as mock_db:
+        with patch("api.worker.main.SyncJob") as MockJob, patch(
+            "api.worker.main.db"
+        ) as mock_db:
             MockJob.query.get.return_value = job
             _drain_running_jobs(app, timeout=0)
 
@@ -126,8 +130,9 @@ def test_drain_skips_requeue_if_job_already_finished():
     job = _mock_job(id=7, status="completed")
 
     try:
-        with patch("api.worker.main.SyncJob") as MockJob, \
-             patch("api.worker.main.db") as mock_db:
+        with patch("api.worker.main.SyncJob") as MockJob, patch(
+            "api.worker.main.db"
+        ) as mock_db:
             MockJob.query.get.return_value = job
             _drain_running_jobs(app, timeout=0)
 
@@ -141,6 +146,7 @@ def test_drain_skips_requeue_if_job_already_finished():
 # ---------------------------------------------------------------------------
 # poll_for_jobs — orphan requeue
 # ---------------------------------------------------------------------------
+
 
 def test_poll_requeues_orphan_instead_of_failing():
     """
@@ -165,9 +171,9 @@ def test_poll_requeues_orphan_instead_of_failing():
             m.first.return_value = None
         return m
 
-    with patch("api.worker.main.SyncJob") as MockJob, \
-         patch("api.worker.main.db"), \
-         patch("api.worker.main._dispatch_sync_job"):
+    with patch("api.worker.main.SyncJob") as MockJob, patch(
+        "api.worker.main.db"
+    ), patch("api.worker.main._dispatch_sync_job"):
         MockJob.query.filter_by.side_effect = filter_by_side_effect
         poll_for_jobs(app)
 

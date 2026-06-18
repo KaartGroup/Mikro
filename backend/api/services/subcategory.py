@@ -11,10 +11,9 @@ Usage::
     svc = SubcategoryService()
     sub = svc.create(activity, name, slug, org_id, team_id, ...)
     sub = svc.update(sub_id, {"name": "New Name", "sort_order": 2})
-    sub = svc.deactivate(sub_id)
 """
 
-from ..database import ActivitySubcategory, db
+from ..database import ActivitySubcategory
 
 
 class SubcategoryService:
@@ -63,22 +62,14 @@ class SubcategoryService:
         sub = ActivitySubcategory.query.get(sub_id)
         if sub is None:
             return None
-        for key in ("name", "is_active", "sort_order", "requires_project", "allow_event_fields"):
+        for key in (
+            "name",
+            "is_active",
+            "sort_order",
+            "requires_project",
+            "allow_event_fields",
+        ):
             if key in fields:
                 setattr(sub, key, fields[key])
-        sub.save()
-        return sub
-
-    def deactivate(self, sub_id: int) -> ActivitySubcategory | None:
-        """Soft-delete a subcategory (is_active = False).
-
-        We never hard-delete: keeping the row preserves the FK from
-        time_entries.subcategory_id for audit joins.
-        Returns the row, or None if not found.
-        """
-        sub = ActivitySubcategory.query.get(sub_id)
-        if sub is None:
-            return None
-        sub.is_active = False
         sub.save()
         return sub

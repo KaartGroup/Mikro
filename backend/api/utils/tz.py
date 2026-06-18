@@ -63,49 +63,6 @@ def parse_filter_datetime(value):
             return None, False
 
 
-def parse_date_range(start_value, end_value):
-    """Parse start/end values into an inclusive (start_date, end_date) pair
-    of date objects. Handles both input forms:
-
-      - Plain date strings ("YYYY-MM-DD"): used as-is, inclusive on both ends.
-      - ISO UTC datetime strings (from dateInputToLocalStart/EndIsoUtc): the
-        end value is the exclusive next-day midnight, so 1 day is subtracted
-        to recover the user's intended inclusive end date.
-
-    Returns (start_date, end_date) or (None, None) if either value is invalid.
-    Use this for any endpoint that queries a Date column.
-    Use apply_date_range_filter for DateTime/timestamp columns.
-    """
-    start_dt, _ = parse_filter_datetime(start_value)
-    end_dt, end_is_date_only = parse_filter_datetime(end_value)
-    if start_dt is None or end_dt is None:
-        return None, None
-    start_date = start_dt.date()
-    end_date = end_dt.date()
-    if not end_is_date_only:
-        end_date = end_date - timedelta(days=1)
-    return start_date, end_date
-
-
-def apply_date_range_filter(conditions, column, start_value, end_value):
-    """Append start/end conditions against `column` to `conditions` list.
-
-    Shared helper: parses the frontend-supplied start/end values via
-    `parse_filter_datetime` and appends `column >= start`, `column < end`.
-    Adds a day to the upper bound only when `end_value` was a date-only
-    string (legacy input).
-    """
-    start_dt, _ = parse_filter_datetime(start_value)
-    end_dt, end_was_date_only = parse_filter_datetime(end_value)
-    if start_dt is not None:
-        conditions.append(column >= start_dt)
-    if end_dt is not None:
-        if end_was_date_only:
-            end_dt = end_dt + timedelta(days=1)
-        conditions.append(column < end_dt)
-    return start_dt, end_dt
-
-
 def org_month_bounds_utc(year: int, month: int) -> tuple[datetime, datetime]:
     """Return [start, end_exclusive) for the given org-TZ month, as naive UTC."""
     start_local = datetime(year, month, 1, tzinfo=ORG_TIMEZONE)
@@ -113,16 +70,6 @@ def org_month_bounds_utc(year: int, month: int) -> tuple[datetime, datetime]:
         end_local = datetime(year + 1, 1, 1, tzinfo=ORG_TIMEZONE)
     else:
         end_local = datetime(year, month + 1, 1, tzinfo=ORG_TIMEZONE)
-    return (
-        start_local.astimezone(timezone.utc).replace(tzinfo=None),
-        end_local.astimezone(timezone.utc).replace(tzinfo=None),
-    )
-
-
-def org_year_bounds_utc(year: int) -> tuple[datetime, datetime]:
-    """Return [start, end_exclusive) for the given org-TZ year, as naive UTC."""
-    start_local = datetime(year, 1, 1, tzinfo=ORG_TIMEZONE)
-    end_local = datetime(year + 1, 1, 1, tzinfo=ORG_TIMEZONE)
     return (
         start_local.astimezone(timezone.utc).replace(tzinfo=None),
         end_local.astimezone(timezone.utc).replace(tzinfo=None),

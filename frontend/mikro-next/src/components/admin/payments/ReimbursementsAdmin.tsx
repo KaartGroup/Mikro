@@ -32,59 +32,6 @@ const STATUS_BADGE: Record<
 };
 
 // ─── Small summary widget (lives on the Payments tab) ─────────────
-
-interface SummaryProps {
-  /** Parent passes this so the widget can switch tabs on click. */
-  onNavigate: () => void;
-}
-
-export function ReimbursementsAdminSummary({ onNavigate }: SummaryProps) {
-  const { mutate: fetchPending } = usePendingReimbursements();
-  const [pendingCount, setPendingCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchPending({ status: "pending" })
-      .then((res) => {
-        if (cancelled) return;
-        setPendingCount(res?.pending_count ?? 0);
-      })
-      .catch(() => {
-        if (!cancelled) setPendingCount(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <Card
-      className="cursor-pointer hover:border-kaart-orange/60 transition-colors"
-      onClick={onNavigate}
-    >
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Reimbursement Inbox
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold">
-            {pendingCount === null ? "—" : pendingCount}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            pending {pendingCount === 1 ? "request" : "requests"}
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          Click to open the Reimbursements tab →
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ─── Full panel (lives on the Reimbursements tab) ────────────────
 
 const STATUS_FILTER_OPTIONS = [

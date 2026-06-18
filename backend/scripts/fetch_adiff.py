@@ -23,8 +23,12 @@ def _parse_args():
     p = argparse.ArgumentParser(description="Fetch a changeset adiff XML from the DB.")
     p.add_argument("changeset_id", type=int, help="OSM changeset ID")
     p.add_argument("--org", metavar="ORG_ID", help="Filter by org_id (optional)")
-    p.add_argument("--out", metavar="FILE", help="Output path (default: <changeset_id>.xml)")
-    p.add_argument("--raw", action="store_true", help="Write raw XML without pretty-printing")
+    p.add_argument(
+        "--out", metavar="FILE", help="Output path (default: <changeset_id>.xml)"
+    )
+    p.add_argument(
+        "--raw", action="store_true", help="Write raw XML without pretty-printing"
+    )
     return p.parse_args()
 
 
@@ -45,11 +49,17 @@ def main():
 
     if row is None:
         org_hint = f" (org={args.org})" if args.org else ""
-        print(f"No record found for changeset {args.changeset_id}{org_hint}.", file=sys.stderr)
+        print(
+            f"No record found for changeset {args.changeset_id}{org_hint}.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     if row.adiff_xml is None:
-        print(f"Record found but adiff_xml is NULL for changeset {args.changeset_id}.", file=sys.stderr)
+        print(
+            f"Record found but adiff_xml is NULL for changeset {args.changeset_id}.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     xml_text = row.adiff_xml

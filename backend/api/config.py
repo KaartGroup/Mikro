@@ -116,13 +116,6 @@ class BaseConfig:
     COMMS_URL = os.environ.get("COMMS_URL")
     COMMS_WEBHOOK_SECRET = os.environ.get("COMMS_WEBHOOK_SECRET")
 
-    # Google Sheets Integration (community data)
-    GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-    GOOGLE_SHEETS_SPREADSHEET_ID = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID")
-    GOOGLE_SHEETS_TAB_NAME = os.environ.get(
-        "GOOGLE_SHEETS_TAB_NAME", "Form Responses 1"
-    )
-
     # Frontend URL for OAuth redirect after completion
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 

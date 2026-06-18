@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
   Badge,
   Button,
   Tabs,
@@ -70,7 +69,6 @@ export default function PunkDetailPage() {
 
   const {
     mutate: fetchDetail,
-    loading: detailLoading,
     error: detailError,
   } = usePunkDetail();
 
@@ -185,7 +183,7 @@ export default function PunkDetailPage() {
 
   if (!data) return null;
 
-  const { punk, changesets, heatmapPoints, summary, hashtagSummary } = data;
+  const { punk, changesets, heatmapPoints, hashtagSummary } = data;
 
   const sortedChangesets = [...changesets].sort(
     (a, b) =>

@@ -8,18 +8,18 @@ import {
 } from "@/components/ui/MultiSelect";
 import { FilterChip } from "./FilterChip";
 
-export interface FilterDimension {
+interface FilterDimension {
   key: string;
   label: string;
   options: MultiSelectOption[];
 }
 
-export interface ActiveFilter {
+interface ActiveFilter {
   key: string;
   values: string[];
 }
 
-export interface FilterBarProps {
+interface FilterBarProps {
   dimensions: FilterDimension[];
   activeFilters: ActiveFilter[];
   onChange: (filters: ActiveFilter[]) => void;

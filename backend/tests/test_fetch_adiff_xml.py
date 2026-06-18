@@ -7,7 +7,6 @@ catching encoding and regex issues that session-level mocks would miss.
 
 from unittest.mock import MagicMock
 
-import pytest
 
 from api.utils.adiff_analyzer import AdiffAnalyzer
 
@@ -17,8 +16,7 @@ def _make_resp(lines, status_code=200, encoding="utf-8"):
     resp.status_code = status_code
     resp.encoding = encoding
     resp.iter_lines.return_value = [
-        line.encode(encoding) if isinstance(line, str) else line
-        for line in lines
+        line.encode(encoding) if isinstance(line, str) else line for line in lines
     ]
     return resp
 
@@ -32,6 +30,7 @@ def _analyzer(resp):
 # ---------------------------------------------------------------------------
 # Basic fetch behaviour
 # ---------------------------------------------------------------------------
+
 
 class TestFetchAdiffXml:
     def test_returns_xml_string(self):
@@ -47,6 +46,7 @@ class TestFetchAdiffXml:
 
     def test_returns_none_on_request_exception(self):
         import requests
+
         session = MagicMock()
         session.get.side_effect = requests.RequestException("timeout")
         result = AdiffAnalyzer(session=session).fetch_adiff_xml(123)
@@ -83,6 +83,7 @@ class TestFetchAdiffXml:
 # ---------------------------------------------------------------------------
 # nd / bounds stripping
 # ---------------------------------------------------------------------------
+
 
 class TestStripping:
     def test_nd_lines_removed(self):
@@ -163,9 +164,9 @@ class TestStripping:
     def test_action_and_way_structure_preserved(self):
         lines = [
             "<osm>",
-            "  <action type=\"modify\">",
+            '  <action type="modify">',
             "    <old>",
-            "      <way id=\"1\">",
+            '      <way id="1">',
             '        <nd ref="10" version="1" lon="1.0" lat="2.0"/>',
             '        <tag k="highway" v="secondary"/>',
             "      </way>",

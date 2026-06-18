@@ -18,7 +18,7 @@ function useTabs() {
   return context;
 }
 
-export interface TabsProps {
+interface TabsProps {
   defaultValue: string;
   value?: string;
   onValueChange?: (value: string) => void;
@@ -50,7 +50,7 @@ export function Tabs({
   );
 }
 
-export interface TabsListProps {
+interface TabsListProps {
   children: React.ReactNode;
   className?: string;
 }
@@ -68,7 +68,7 @@ export function TabsList({ children, className }: TabsListProps) {
   );
 }
 
-export interface TabsTriggerProps {
+interface TabsTriggerProps {
   value: string;
   children: React.ReactNode;
   className?: string;
@@ -104,7 +104,7 @@ export function TabsTrigger({
   );
 }
 
-export interface TabsContentProps {
+interface TabsContentProps {
   value: string;
   children: React.ReactNode;
   className?: string;

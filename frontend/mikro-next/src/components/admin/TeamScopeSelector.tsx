@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Select } from "@/components/ui";
 import { useFetchTeams, useManagedTeams } from "@/hooks";
 
-export interface TeamScopeSelectorProps {
+interface TeamScopeSelectorProps {
   /** Currently selected team id, or null for "All teams". */
   value: number | null;
   onChange: (teamId: number | null) => void;

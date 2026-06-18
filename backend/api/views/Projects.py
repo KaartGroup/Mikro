@@ -19,7 +19,11 @@ from ..auth import (
     team_admin_can_access_user,
 )
 from ..filters import resolve_filtered_user_ids
-from ..stats import count_tasks_split_aware, get_project_stats_from_tasks, get_batch_project_stats_fast
+from ..stats import (
+    count_tasks_split_aware,
+    get_project_stats_from_tasks,
+    get_batch_project_stats_fast,
+)
 from ..services.project_service import ProjectService
 from ..time_tracking import AggregateQuery, ACTIVITY_DISPLAY_MAP
 from .MapRoulette import MapRouletteSync
@@ -40,7 +44,6 @@ from ..database import (
 )
 
 
-
 class ProjectAPI(MethodView):
     """Project management API endpoints."""
 
@@ -52,46 +55,6 @@ class ProjectAPI(MethodView):
 
     def _extract_mr_challenge_id(self, url):
         return ProjectService.extract_mr_challenge_id(url)
-
-    def _calculate_task_payment(self, task, is_mapping=True):
-        """
-        Calculate payment for a task, handling split tasks.
-
-        For split tasks (those with parent_task_id), payment is divided among siblings
-        and only paid out when all siblings are validated.
-
-        Args:
-            task: Task object
-            is_mapping: True for mapping rate, False for validation rate
-
-        Returns:
-            float: Payment amount for this task
-        """
-        project = Project.query.filter_by(id=task.project_id).first()
-        if not project:
-            return 0
-
-        if not project.payments_enabled:
-            return 0
-
-        rate = project.mapping_rate_per_task if is_mapping else project.validation_rate_per_task
-
-        # Check for split task
-        if task.parent_task_id:
-            # Count siblings with same parent
-            siblings = Task.query.filter_by(
-                project_id=task.project_id,
-                parent_task_id=task.parent_task_id
-            ).all()
-            sibling_count = len(siblings)
-
-            if sibling_count > 1:
-                # Check if all siblings are validated
-                if not all(s.validated for s in siblings):
-                    return 0  # Not payable until all siblings done
-                return rate / sibling_count
-
-        return rate
 
     def post(self, path: str):
         if path == "create_project":
@@ -334,7 +297,10 @@ class ProjectAPI(MethodView):
             # --- MapRoulette path ---
             challenge_id = self._extract_mr_challenge_id(url)
             if not challenge_id:
-                return {"message": "Cannot get challenge ID from MapRoulette URL", "status": 400}
+                return {
+                    "message": "Cannot get challenge ID from MapRoulette URL",
+                    "status": 400,
+                }
 
             try:
                 mr_data = MapRouletteSync().fetch_challenge_metadata(challenge_id)
@@ -343,7 +309,10 @@ class ProjectAPI(MethodView):
                 return {"message": "MapRoulette API error", "status": 500}
 
             if not mr_data:
-                return {"message": "Could not fetch challenge metadata from MapRoulette", "status": 500}
+                return {
+                    "message": "Could not fetch challenge metadata from MapRoulette",
+                    "status": 500,
+                }
 
             total_tasks = mr_data.get("task_count", 0)
         else:
@@ -367,8 +336,13 @@ class ProjectAPI(MethodView):
                 current_app.logger.info(f"Fetching TM4 project data from: {stats_api}")
                 tm_fetch = requests.get(stats_api, timeout=30)
                 if not tm_fetch.ok:
-                    current_app.logger.error(f"TM4 API returned {tm_fetch.status_code}: {tm_fetch.text[:500]}")
-                    return {"message": f"TM4 API returned status {tm_fetch.status_code}", "status": 500}
+                    current_app.logger.error(
+                        f"TM4 API returned {tm_fetch.status_code}: {tm_fetch.text[:500]}"
+                    )
+                    return {
+                        "message": f"TM4 API returned status {tm_fetch.status_code}",
+                        "status": 500,
+                    }
             except requests.RequestException as e:
                 current_app.logger.error(f"TM4 API request error: {e}")
                 return {"message": "TM4 API error", "status": 500}
@@ -376,20 +350,28 @@ class ProjectAPI(MethodView):
             try:
                 json_data = tm_fetch.json()
             except requests.exceptions.JSONDecodeError:
-                current_app.logger.error(f"TM4 API returned non-JSON response: {tm_fetch.text[:500]}")
+                current_app.logger.error(
+                    f"TM4 API returned non-JSON response: {tm_fetch.text[:500]}"
+                )
                 return {"message": "TM4 API returned invalid response", "status": 500}
 
             # Debug logging for task count
             project_info = json_data.get("projectInfo", {})
             features_count = len(json_data.get("tasks", {}).get("features", []))
             project_info_total = project_info.get("totalTasks")
-            current_app.logger.info(f"TM4 project {project_id} - projectInfo.totalTasks: {project_info_total}, features count: {features_count}")
-            current_app.logger.info(f"TM4 projectInfo keys: {list(project_info.keys())}")
+            current_app.logger.info(
+                f"TM4 project {project_id} - projectInfo.totalTasks: {project_info_total}, features count: {features_count}"
+            )
+            current_app.logger.info(
+                f"TM4 projectInfo keys: {list(project_info.keys())}"
+            )
 
             # Use totalTasks from projectInfo if available (more accurate than counting features)
             total_tasks = project_info_total or features_count
             tasks_overlap = project_info.get("tasksOverlap", 0) or 0
-            current_app.logger.info(f"Using total_tasks: {total_tasks}, tasks_overlap: {tasks_overlap}")
+            current_app.logger.info(
+                f"Using total_tasks: {total_tasks}, tasks_overlap: {tasks_overlap}"
+            )
 
         if rate_type is True:
             mapping_rate = float(mapping_rate)
@@ -397,7 +379,9 @@ class ProjectAPI(MethodView):
 
             projected_mapping_budget = mapping_rate * total_tasks
             projected_validation_budget = validation_rate * total_tasks
-            total_projected_budget = projected_mapping_budget + projected_validation_budget
+            total_projected_budget = (
+                projected_mapping_budget + projected_validation_budget
+            )
 
             return_text = (
                 f"${mapping_rate:.2f}(Mapping) + ${validation_rate:.2f}(Validation) "
@@ -458,7 +442,11 @@ class ProjectAPI(MethodView):
         for parent_id, group in split_groups.items():
             actual_sibling_count = len(group["tasks"])
             # Get expected sibling count (default to 4 for TM4 splits)
-            expected_sibling_count = group["tasks"][0].sibling_count if group["tasks"][0].sibling_count else 4
+            expected_sibling_count = (
+                group["tasks"][0].sibling_count
+                if group["tasks"][0].sibling_count
+                else 4
+            )
 
             # Only count if we have ALL expected siblings
             if actual_sibling_count != expected_sibling_count:
@@ -487,8 +475,10 @@ class ProjectAPI(MethodView):
             "effective_invalidated": normal_invalidated + split_invalidated,
             # Raw counts: actual number of task records (includes each split segment)
             "raw_mapped": normal_mapped + len([t for t in split_tasks if t.mapped]),
-            "raw_validated": normal_validated + len([t for t in split_tasks if t.validated]),
-            "raw_invalidated": normal_invalidated + len([t for t in split_tasks if t.invalidated]),
+            "raw_validated": normal_validated
+            + len([t for t in split_tasks if t.validated]),
+            "raw_invalidated": normal_invalidated
+            + len([t for t in split_tasks if t.invalidated]),
             "split_task_groups": len(split_groups),
             "split_task_count": len(split_tasks),
             # MR status breakdown: {status_code: count} for MR projects
@@ -496,9 +486,15 @@ class ProjectAPI(MethodView):
         }
 
     _EMPTY_TASK_COUNTS = {
-        "effective_mapped": 0, "effective_validated": 0, "effective_invalidated": 0,
-        "raw_mapped": 0, "raw_validated": 0, "raw_invalidated": 0,
-        "split_task_groups": 0, "split_task_count": 0, "mr_status_breakdown": {},
+        "effective_mapped": 0,
+        "effective_validated": 0,
+        "effective_invalidated": 0,
+        "raw_mapped": 0,
+        "raw_validated": 0,
+        "raw_invalidated": 0,
+        "split_task_groups": 0,
+        "split_task_count": 0,
+        "mr_status_breakdown": {},
     }
 
     @staticmethod
@@ -539,8 +535,7 @@ class ProjectAPI(MethodView):
                 "source": project.source,
                 "created_by": project.created_by,
                 "can_delete": (
-                    is_org_admin_or_above(g.user)
-                    or project.created_by == g.user.id
+                    is_org_admin_or_above(g.user) or project.created_by == g.user.id
                 ),
                 "total_mapped": tc["effective_mapped"],
                 "total_validated": tc["effective_validated"],
@@ -554,7 +549,11 @@ class ProjectAPI(MethodView):
                 "payments_enabled": project.payments_enabled,
                 "assigned_locations": loc_counts.get(project.id, 0),
                 "assigned_trainings": trn_counts.get(project.id, 0),
-                "last_synced": project.last_sync_cursor.isoformat() if project.last_sync_cursor else None,
+                "last_synced": (
+                    project.last_sync_cursor.isoformat()
+                    if project.last_sync_cursor
+                    else None
+                ),
             }
 
         return [_serialize(p) for p in projects]
@@ -736,9 +735,7 @@ class ProjectAPI(MethodView):
         if not project_id:
             return {"message": "project_id required", "status": 400}
 
-        project = Project.query.filter_by(
-            id=project_id, org_id=g.user.org_id
-        ).first()
+        project = Project.query.filter_by(id=project_id, org_id=g.user.org_id).first()
         if not project:
             return {"message": "Project not found", "status": 404}
 
@@ -763,7 +760,10 @@ class ProjectAPI(MethodView):
         if project.created_by:
             creator = User.query.get(project.created_by)
             if creator:
-                created_by_name = f"{creator.first_name or ''} {creator.last_name or ''}".strip() or creator.email
+                created_by_name = (
+                    f"{creator.first_name or ''} {creator.last_name or ''}".strip()
+                    or creator.email
+                )
 
         # --- Assigned users with per-user stats ---
         assigned_pu = ProjectUser.query.filter_by(project_id=project.id).all()
@@ -828,28 +828,37 @@ class ProjectAPI(MethodView):
                 User.org_id == g.user.org_id,
             ).all()
 
-        all_user_ids = assigned_user_ids | user_ids_with_time | {u.id for u in contributor_users}
+        all_user_ids = (
+            assigned_user_ids | user_ids_with_time | {u.id for u in contributor_users}
+        )
         users_data = []
-        users = User.query.filter(User.id.in_(all_user_ids)).all() if all_user_ids else []
+        users = (
+            User.query.filter(User.id.in_(all_user_ids)).all() if all_user_ids else []
+        )
         for u in users:
             osm_un = u.osm_username or ""
             stats = user_task_stats.get(osm_un, {"mapped": 0, "validated": 0})
             mapping_earnings = stats["mapped"] * (project.mapping_rate_per_task or 0)
-            validation_earnings = stats["validated"] * (project.validation_rate_per_task or 0)
-            users_data.append({
-                "id": u.id,
-                "name": f"{u.first_name or ''} {u.last_name or ''}".strip() or u.email,
-                "first_name": u.first_name or "",
-                "last_name": u.last_name or "",
-                "email": u.email,
-                "role": u.role,
-                "osm_username": u.osm_username,
-                "tasks_mapped": stats["mapped"],
-                "tasks_validated": stats["validated"],
-                "time_logged_seconds": user_time.get(u.id, 0),
-                "earnings": round(mapping_earnings + validation_earnings, 2),
-                "is_assigned": u.id in assigned_user_ids,
-            })
+            validation_earnings = stats["validated"] * (
+                project.validation_rate_per_task or 0
+            )
+            users_data.append(
+                {
+                    "id": u.id,
+                    "name": f"{u.first_name or ''} {u.last_name or ''}".strip()
+                    or u.email,
+                    "first_name": u.first_name or "",
+                    "last_name": u.last_name or "",
+                    "email": u.email,
+                    "role": u.role,
+                    "osm_username": u.osm_username,
+                    "tasks_mapped": stats["mapped"],
+                    "tasks_validated": stats["validated"],
+                    "time_logged_seconds": user_time.get(u.id, 0),
+                    "earnings": round(mapping_earnings + validation_earnings, 2),
+                    "is_assigned": u.id in assigned_user_ids,
+                }
+            )
 
         # --- Assigned teams ---
         team_rows = (
@@ -905,27 +914,40 @@ class ProjectAPI(MethodView):
         recent_entries_data = []
         # Build a quick user ID->name lookup
         entry_user_ids = list(set(e.user_id for e in recent_entries))
-        entry_users = {u.id: u for u in User.query.filter(User.id.in_(entry_user_ids)).all()} if entry_user_ids else {}
+        entry_users = (
+            {u.id: u for u in User.query.filter(User.id.in_(entry_user_ids)).all()}
+            if entry_user_ids
+            else {}
+        )
         for e in recent_entries:
             eu = entry_users.get(e.user_id)
             # Mirror TimeTracking.py:444-449 convention: `category` is the
             # display label (kept for frontend back-compat), `activity` is the
             # raw slug. Model column was renamed `category` -> `activity` in
             # migration c4f8a9b0d1e2 — reading e.activity here, never e.category.
-            recent_entries_data.append({
-                "user_name": (f"{eu.first_name or ''} {eu.last_name or ''}".strip() or eu.email) if eu else "Unknown",
-                "first_name": (eu.first_name or "") if eu else "",
-                "last_name": (eu.last_name or "") if eu else "",
-                "category": ACTIVITY_DISPLAY_MAP.get(
-                    e.activity,
-                    e.activity.capitalize() if e.activity else "",
-                ),
-                "activity": e.activity,
-                "clock_in": e.clock_in.isoformat() if e.clock_in else None,
-                "clock_out": e.clock_out.isoformat() if e.clock_out else None,
-                "duration_seconds": e.duration_seconds,
-                "user_notes": e.user_notes,
-            })
+            recent_entries_data.append(
+                {
+                    "user_name": (
+                        (
+                            f"{eu.first_name or ''} {eu.last_name or ''}".strip()
+                            or eu.email
+                        )
+                        if eu
+                        else "Unknown"
+                    ),
+                    "first_name": (eu.first_name or "") if eu else "",
+                    "last_name": (eu.last_name or "") if eu else "",
+                    "category": ACTIVITY_DISPLAY_MAP.get(
+                        e.activity,
+                        e.activity.capitalize() if e.activity else "",
+                    ),
+                    "activity": e.activity,
+                    "clock_in": e.clock_in.isoformat() if e.clock_in else None,
+                    "clock_out": e.clock_out.isoformat() if e.clock_out else None,
+                    "duration_seconds": e.duration_seconds,
+                    "user_notes": e.user_notes,
+                }
+            )
 
         # --- Assigned trainings ---
         pt_rows = ProjectTraining.query.filter_by(project_id=project.id).all()
@@ -934,13 +956,15 @@ class ProjectAPI(MethodView):
         if training_ids:
             trainings = Training.query.filter(Training.id.in_(training_ids)).all()
             for t in trainings:
-                trainings_data.append({
-                    "id": t.id,
-                    "title": t.title,
-                    "difficulty": t.difficulty,
-                    "point_value": t.point_value,
-                    "training_type": t.training_type,
-                })
+                trainings_data.append(
+                    {
+                        "id": t.id,
+                        "title": t.title,
+                        "difficulty": t.difficulty,
+                        "point_value": t.point_value,
+                        "training_type": t.training_type,
+                    }
+                )
 
         # --- Assigned locations ---
         loc_rows = (
@@ -952,10 +976,10 @@ class ProjectAPI(MethodView):
         locations_data = []
         if country_ids:
             from ..database import Country
+
             countries = Country.query.filter(Country.id.in_(country_ids)).all()
             locations_data = [
-                {"id": c.id, "name": c.name, "code": c.iso_code}
-                for c in countries
+                {"id": c.id, "name": c.name, "code": c.iso_code} for c in countries
             ]
 
         # --- Recent tasks (last 50) ---
@@ -971,7 +995,9 @@ class ProjectAPI(MethodView):
                 "mapped_by": t.mapped_by,
                 "validated_by": t.validated_by,
                 "date_mapped": t.date_mapped.isoformat() if t.date_mapped else None,
-                "date_validated": t.date_validated.isoformat() if t.date_validated else None,
+                "date_validated": (
+                    t.date_validated.isoformat() if t.date_validated else None
+                ),
                 "paid_out": t.paid_out,
                 "mr_status": t.mr_status,
             }
@@ -979,8 +1005,14 @@ class ProjectAPI(MethodView):
         ]
 
         # Avg time per task
-        completed_tasks = task_counts["effective_mapped"] + task_counts["effective_validated"]
-        avg_time_per_task = round(total_time_seconds / completed_tasks) if completed_tasks > 0 and total_time_seconds > 0 else None
+        completed_tasks = (
+            task_counts["effective_mapped"] + task_counts["effective_validated"]
+        )
+        avg_time_per_task = (
+            round(total_time_seconds / completed_tasks)
+            if completed_tasks > 0 and total_time_seconds > 0
+            else None
+        )
 
         return {
             "status": 200,
@@ -1005,7 +1037,11 @@ class ProjectAPI(MethodView):
                 "total_payout": project.total_payout,
                 "payments_enabled": project.payments_enabled,
                 "total_editors": project.total_editors,
-                "last_synced": project.last_sync_cursor.isoformat() if project.last_sync_cursor else None,
+                "last_synced": (
+                    project.last_sync_cursor.isoformat()
+                    if project.last_sync_cursor
+                    else None
+                ),
                 **task_counts,
             },
             "assigned_users": users_data,
@@ -1066,8 +1102,7 @@ class ProjectAPI(MethodView):
             }
 
         user_task_ids = {
-            r.task_id
-            for r in UserTasks.query.filter_by(user_id=g.user.id).all()
+            r.task_id for r in UserTasks.query.filter_by(user_id=g.user.id).all()
         }
         tasks_by_project: dict = {}
         for t in Task.query.filter(Task.project_id.in_(project_ids)).all():
@@ -1081,15 +1116,21 @@ class ProjectAPI(MethodView):
             # Use split-aware counting - only counts as 1 when ALL siblings complete
             user_project_mapped_tasks = count_tasks_split_aware(
                 user_project_tasks,
-                lambda t: t.mapped is True and t.validated is False and t.invalidated is False
+                lambda t: t.mapped is True
+                and t.validated is False
+                and t.invalidated is False,
             )
             user_project_approved_tasks = count_tasks_split_aware(
                 user_project_tasks,
-                lambda t: t.mapped is True and t.validated is True and t.invalidated is False
+                lambda t: t.mapped is True
+                and t.validated is True
+                and t.invalidated is False,
             )
             user_project_unapproved_tasks = count_tasks_split_aware(
                 user_project_tasks,
-                lambda t: t.mapped is True and t.validated is False and t.invalidated is True
+                lambda t: t.mapped is True
+                and t.validated is False
+                and t.invalidated is True,
             )
 
             user_projects.append(
@@ -1176,7 +1217,9 @@ class ProjectAPI(MethodView):
         # `team_admin_can_access_user` short-circuits to False for any
         # viewer with no managed teams, which would also catch org_admins
         # who don't happen to lead a team — gate explicitly on the role.
-        if g.user.role == "team_admin" and not team_admin_can_access_user(g.user, user_id):
+        if g.user.role == "team_admin" and not team_admin_can_access_user(
+            g.user, user_id
+        ):
             return {
                 "message": "User not on a team you manage",
                 "status": 403,
@@ -1209,7 +1252,9 @@ class ProjectAPI(MethodView):
         # team_admin scope mirrors assign: can only detach a member of
         # a team they lead. Bypass for org_admin+ — see assign for why
         # the explicit role gate is needed.
-        if g.user.role == "team_admin" and not team_admin_can_access_user(g.user, user_id):
+        if g.user.role == "team_admin" and not team_admin_can_access_user(
+            g.user, user_id
+        ):
             return {
                 "message": "User not on a team you manage",
                 "status": 403,
@@ -1232,5 +1277,3 @@ class ProjectAPI(MethodView):
             "message": "User %s has left project %s" % (user_id, project_id),
             "status": 200,
         }
-
-

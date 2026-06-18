@@ -9,7 +9,7 @@ Example: filters = {"country": [1, 2], "team": [7]}
 → Users in (country 1 OR country 2) AND in team 7
 """
 
-from .database import db, User, TeamUser, UserCountry, Country
+from .database import User, TeamUser, UserCountry, Country
 
 
 def resolve_filtered_user_ids(filters, org_id):

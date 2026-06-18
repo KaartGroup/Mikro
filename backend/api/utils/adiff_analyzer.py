@@ -1,11 +1,10 @@
 import logging
 import re
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
 
 import requests
 
-_STRIP_TAGS_RE = re.compile(r'<(?:nd|bounds)\b[^>]*/>|</?member\b[^>]*>')
+_STRIP_TAGS_RE = re.compile(r"<(?:nd|bounds)\b[^>]*/>|</?member\b[^>]*>")
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +21,16 @@ TRACKED_KEYS = {
 }
 
 _HIGH_PRIORITY_HIGHWAY = {
-    "motorway", "motorway_link",
-    "trunk", "trunk_link",
-    "primary", "primary_link",
-    "secondary", "secondary_link",
-    "tertiary", "tertiary_link",
+    "motorway",
+    "motorway_link",
+    "trunk",
+    "trunk_link",
+    "primary",
+    "primary_link",
+    "secondary",
+    "secondary_link",
+    "tertiary",
+    "tertiary_link",
 }
 
 KEY_FILTERS = {
@@ -37,6 +41,7 @@ KEY_FILTERS = {
 # ---------------------------------------------------------------------------
 # Pure parsing helpers — no I/O, easy to unit-test directly
 # ---------------------------------------------------------------------------
+
 
 def _element_tag_values(container):
     """Return {key: value} for all tags in the first OSM element inside container."""
@@ -103,22 +108,9 @@ def merge_transitions(totals, stats):
 
 
 # ---------------------------------------------------------------------------
-# Result type
-# ---------------------------------------------------------------------------
-
-@dataclass
-class AnalysisResult:
-    changeset_count: int
-    changes_count: int
-    # {key: {(old_val, new_val): count}}
-    tag_stats: dict
-    # changeset dicts that had any tracked-key activity, each with 'tag_stats' added
-    active_changesets: list
-
-
-# ---------------------------------------------------------------------------
 # AdiffAnalyzer
 # ---------------------------------------------------------------------------
+
 
 class AdiffAnalyzer:
     """
@@ -126,7 +118,9 @@ class AdiffAnalyzer:
     Accepts any list of changeset dicts; knows nothing about how they were fetched.
     """
 
-    def __init__(self, tracked_keys=TRACKED_KEYS, key_filters=KEY_FILTERS, session=None):
+    def __init__(
+        self, tracked_keys=TRACKED_KEYS, key_filters=KEY_FILTERS, session=None
+    ):
         self.tracked_keys = frozenset(tracked_keys)
         self.key_filters = key_filters or {}
         self.session = session or requests.Session()
@@ -146,32 +140,36 @@ class AdiffAnalyzer:
             if resp.status_code != 200:
                 logger.warning(
                     "Unexpected status %s for changeset %s — skipping",
-                    resp.status_code, changeset_id,
+                    resp.status_code,
+                    changeset_id,
                 )
                 resp.raise_for_status()
-            encoding = resp.encoding or 'utf-8'
+            encoding = resp.encoding or "utf-8"
             lines = []
             for raw in resp.iter_lines():
                 line = raw.decode(encoding) if isinstance(raw, bytes) else raw
                 if not _STRIP_TAGS_RE.search(line):
                     lines.append(line)
-            result = '\n'.join(lines)
+            result = "\n".join(lines)
             assert result.strip(), (
                 f"Empty adiff body for changeset {changeset_id} "
                 f"(status={resp.status_code} encoding={encoding})"
             )
-            assert '<osm' in result, (
-                f"Response for changeset {changeset_id} has no <osm> root — got: {result[:200]!r}"
-            )
-            assert '<action' in result, (
-                f"Adiff for changeset {changeset_id} has no <action> elements — got: {result[:200]!r}"
-            )
+            assert (
+                "<osm" in result
+            ), f"Response for changeset {changeset_id} has no <osm> root — got: {result[:200]!r}"
+            assert (
+                "<action" in result
+            ), f"Adiff for changeset {changeset_id} has no <action> elements — got: {result[:200]!r}"
             logger.info(
                 "Fetched adiff for changeset %s: %d lines, %d bytes",
-                changeset_id, len(lines), len(result),
+                changeset_id,
+                len(lines),
+                len(result),
             )
             return result
         except (requests.RequestException, UnicodeDecodeError) as e:
-            logger.warning("Failed to fetch adiff for changeset %s: %s", changeset_id, e)
+            logger.warning(
+                "Failed to fetch adiff for changeset %s: %s", changeset_id, e
+            )
             return None
-

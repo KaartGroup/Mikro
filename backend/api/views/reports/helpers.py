@@ -20,8 +20,7 @@ def _team_admin_osm_usernames(viewer):
     if not member_ids:
         return []
     rows = (
-        User.query
-        .with_entities(User.osm_username)
+        User.query.with_entities(User.osm_username)
         .filter(User.id.in_(member_ids))
         .all()
     )
@@ -54,7 +53,9 @@ def resolve_osm_username_filter(org_id, viewer, filters, user_id, team_id):
         osm_usernames = resolve_filtered_osm_usernames(filters, org_id)
     elif user_id:
         user_obj = User.query.get(user_id)
-        osm_usernames = [user_obj.osm_username] if (user_obj and user_obj.osm_username) else []
+        osm_usernames = (
+            [user_obj.osm_username] if (user_obj and user_obj.osm_username) else []
+        )
     elif team_id:
         member_users = (
             User.query.join(TeamUser, TeamUser.user_id == User.id)

@@ -62,8 +62,6 @@ class CommsError(Exception):
     into a 502.
     """
 
-    pass
-
 
 def _comms_config() -> tuple[Optional[str], Optional[str]]:
     """(base_url, secret) from current_app.config, falling back to env."""

@@ -36,16 +36,13 @@ export function TeamProfile({ isAdmin = false }: Props) {
   // Both hooks are called unconditionally (React rules); only the relevant one's mutate is invoked.
   const {
     mutate: fetchAdmin,
-    loading: adminLoading,
     error: adminError,
   } = useFetchTeamProfile();
   const {
     mutate: fetchUser,
-    loading: userLoading,
     error: userError,
   } = useFetchUserTeamProfile();
 
-  const profileLoading = isAdmin ? adminLoading : userLoading;
   const profileError = isAdmin ? adminError : userError;
 
   const [profile, setProfile] = useState<TeamProfileData | null>(null);

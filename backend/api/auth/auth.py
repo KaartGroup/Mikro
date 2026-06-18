@@ -36,7 +36,10 @@ def _trace_auth(event: str, **kw):
     a login issue. Keep fields short + parseable.
     """
     try:
-        ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or request.remote_addr
+        ip = (
+            request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            or request.remote_addr
+        )
     except Exception:
         ip = "?"
     try:

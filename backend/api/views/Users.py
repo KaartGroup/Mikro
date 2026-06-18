@@ -34,8 +34,6 @@ from ..database import (
     ProjectUser,
     Task,
     TimeEntry,
-    UserTasks,
-    TrainingCompleted,
     Country,
     Region,
     UserCountry,
@@ -357,7 +355,7 @@ class UserAPI(MethodView):
                         )
                         if osm_username:
                             create_fields["osm_username"] = osm_username
-                        new_user = User.create(
+                        User.create(
                             id=auth0_user_id,
                             email=email,
                             **create_fields,
@@ -756,9 +754,6 @@ class UserAPI(MethodView):
         ]
         country_changed = False
         payment_email_changed = False
-        # Snapshot pre-write name values so we can audit after the loop.
-        pre_first = g.user.first_name
-        pre_last = g.user.last_name
         for field in fields:
             value = request.json.get(field)
             if value is not None and value != "" and value != getattr(g.user, field):

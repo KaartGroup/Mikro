@@ -5,10 +5,15 @@ from datetime import timezone
 
 from flask import g, request
 
-from ...database import db, ChangesetAdiff, SyncJob, TeamUser
+from ...database import ChangesetAdiff, SyncJob, TeamUser
 from ...worker.sync_queue import SyncJobQueue
 from ...utils.tz import parse_filter_datetime, ORG_TIMEZONE
-from ...utils.adiff_analyzer import TRACKED_KEYS, KEY_FILTERS, parse_adiff_transitions, merge_transitions
+from ...utils.adiff_analyzer import (
+    TRACKED_KEYS,
+    KEY_FILTERS,
+    parse_adiff_transitions,
+    merge_transitions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +21,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Controllers
 # ---------------------------------------------------------------------------
+
 
 def fetch_element_analysis():
     """Reads Flask context and delegates to get_element_analysis."""
@@ -34,19 +40,22 @@ def fetch_element_analysis():
 
     logger.debug(
         "element_analysis request: raw startDate=%s endDate=%s | parsed start_dt=%s end_dt=%s",
-        start_date_str, end_date_str, start_dt, end_dt,
+        start_date_str,
+        end_date_str,
+        start_dt,
+        end_dt,
     )
 
     team_ids = request.json.get("teamIds")
     if not team_ids:
         team_ids = [
-            tu.team_id
-            for tu in TeamUser.query.filter_by(user_id=g.user.id).all()
+            tu.team_id for tu in TeamUser.query.filter_by(user_id=g.user.id).all()
         ] or None  # None signals org-wide query when user has no team
 
     logger.debug(
         "element_analysis request: org_id=%s team_ids=%s",
-        g.user.org_id, team_ids,
+        g.user.org_id,
+        team_ids,
     )
 
     return get_element_analysis(g.user.org_id, team_ids, start_dt, end_dt)
@@ -72,7 +81,9 @@ def check_element_analysis_backfill_status():
     """Reads Flask context and returns status of the latest backfill job."""
     if not g.user:
         return {"message": "Missing user info", "status": 304}
-    return get_element_analysis_status(g.user.org_id, job_type="element_analysis_backfill")
+    return get_element_analysis_status(
+        g.user.org_id, job_type="element_analysis_backfill"
+    )
 
 
 def check_element_analysis_status():
@@ -87,8 +98,13 @@ def check_element_analysis_status():
 # ---------------------------------------------------------------------------
 
 _ORDERED_CATEGORIES = [
-    "Oneways", "Access & Barriers", "Highways", "Refs",
-    "Turn Restrictions", "Names", "Construction",
+    "Oneways",
+    "Access & Barriers",
+    "Highways",
+    "Refs",
+    "Turn Restrictions",
+    "Names",
+    "Construction",
 ]
 
 _CATEGORY_KEYS = {
@@ -106,7 +122,13 @@ _CATEGORY_KEYS = {
 _CATEGORY_KEY_FILTERS = {}
 
 _HPR_CORE = {"motorway", "trunk", "primary", "secondary", "tertiary"}
-_HPR_LINKS = {"motorway_link", "trunk_link", "primary_link", "secondary_link", "tertiary_link"}
+_HPR_LINKS = {
+    "motorway_link",
+    "trunk_link",
+    "primary_link",
+    "secondary_link",
+    "tertiary_link",
+}
 _HPR_RANK = {"motorway": 1, "trunk": 2, "primary": 3, "secondary": 4, "tertiary": 5}
 
 
@@ -114,8 +136,9 @@ def _classify_hpr_transition(old_val, new_val):
     """Returns 'upgrade', 'downgrade', 'links', 'construction', or None."""
     if old_val in _HPR_LINKS or new_val in _HPR_LINKS:
         return "links"
-    if (old_val in _HPR_CORE and new_val == "construction") or \
-       (old_val == "construction" and new_val in _HPR_CORE):
+    if (old_val in _HPR_CORE and new_val == "construction") or (
+        old_val == "construction" and new_val in _HPR_CORE
+    ):
         return "construction"
     if old_val is None or new_val is None:
         return None
@@ -169,28 +192,35 @@ def build_category_data(day_key_stats):
                         deleted += count
                     else:
                         modified += count
-            data.append({
-                "day": day.strftime("%Y-%m-%d"),
-                "added": added,
-                "modified": modified,
-                "deleted": deleted,
-            })
+            data.append(
+                {
+                    "day": day.strftime("%Y-%m-%d"),
+                    "added": added,
+                    "modified": modified,
+                    "deleted": deleted,
+                }
+            )
         categories.append({"title": cat_name, "type": "standard", "data": data})
     return categories
 
 
 def get_element_analysis(org_id, team_ids, start_date, end_date):
     """Queries ChangesetAdiff for the given teams and date range, processes each stored adiff XML,
-    and returns per-day added/modified/deleted counts grouped into categories. No Flask context required."""
+    and returns per-day added/modified/deleted counts grouped into categories. No Flask context required.
+    """
 
     logger.debug(
         "get_element_analysis: org_id=%s team_ids=%s start_date=%s end_date=%s",
-        org_id, team_ids, start_date, end_date,
+        org_id,
+        team_ids,
+        start_date,
+        end_date,
     )
 
     meta_query = (
-        ChangesetAdiff.query
-        .with_entities(ChangesetAdiff.changeset_id, ChangesetAdiff.created_at)
+        ChangesetAdiff.query.with_entities(
+            ChangesetAdiff.changeset_id, ChangesetAdiff.created_at
+        )
         .filter(
             ChangesetAdiff.org_id == org_id,
             ChangesetAdiff.created_at >= start_date,
@@ -205,7 +235,9 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
 
     logger.info(
         "get_element_analysis: found %d changesets in window [%s, %s)",
-        len(changeset_meta), start_date, end_date,
+        len(changeset_meta),
+        start_date,
+        end_date,
     )
 
     # day -> key -> {(old_val, new_val): count}
@@ -214,8 +246,7 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
 
     for changeset_id, created_at in changeset_meta:
         adiff_xml = (
-            ChangesetAdiff.query
-            .with_entities(ChangesetAdiff.adiff_xml)
+            ChangesetAdiff.query.with_entities(ChangesetAdiff.adiff_xml)
             .filter_by(changeset_id=changeset_id, org_id=org_id)
             .scalar()
         )
@@ -251,8 +282,7 @@ def get_element_analysis(org_id, team_ids, start_date, end_date):
     # Use the global most-recent adiff timestamp so freshness reflects when
     # the pipeline last ran, not just the latest record in the selected window.
     global_last = (
-        ChangesetAdiff.query
-        .with_entities(ChangesetAdiff.created_at)
+        ChangesetAdiff.query.with_entities(ChangesetAdiff.created_at)
         .filter(
             ChangesetAdiff.org_id == org_id,
             ChangesetAdiff.adiff_xml.isnot(None),
@@ -293,6 +323,8 @@ def get_element_analysis_status(org_id, job_type="element_analysis"):
         "sync_status": job.status,
         "progress": job.progress,
         "started_at": job.started_at.isoformat() + "Z" if job.started_at else None,
-        "completed_at": job.completed_at.isoformat() + "Z" if job.completed_at else None,
+        "completed_at": (
+            job.completed_at.isoformat() + "Z" if job.completed_at else None
+        ),
         "error": job.error,
     }

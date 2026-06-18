@@ -12,12 +12,12 @@
 
 export const AUDIENCE_ALL_ORG = "all_org";
 export const AUDIENCE_CUSTOM = "custom";
-export const AUDIENCE_TEAM_PREFIX = "team:";
-export const AUDIENCE_REGION_PREFIX = "region:";
+const AUDIENCE_TEAM_PREFIX = "team:";
+const AUDIENCE_REGION_PREFIX = "region:";
 
-export type AudienceKind = "all_org" | "custom" | "team" | "region" | "unknown";
+type AudienceKind = "all_org" | "custom" | "team" | "region" | "unknown";
 
-export interface ParsedAudience {
+interface ParsedAudience {
   kind: AudienceKind;
   targetId: number | null;
 }
@@ -46,10 +46,6 @@ export function parseAudience(audience: string): ParsedAudience {
 
 export function formatTeamAudience(teamId: number): string {
   return `${AUDIENCE_TEAM_PREFIX}${teamId}`;
-}
-
-export function formatRegionAudience(regionId: number): string {
-  return `${AUDIENCE_REGION_PREFIX}${regionId}`;
 }
 
 /**

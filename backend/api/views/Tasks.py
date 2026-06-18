@@ -7,16 +7,14 @@ TM3 support has been removed.
 """
 
 import requests
-from datetime import datetime
 
 from sqlalchemy import func
 from flask.views import MethodView
 from flask import g, request, current_app
 
 from ..utils import requires_admin, requires_team_admin_or_above
-from ..auth import managed_team_ids_for, UserScope
+from ..auth import UserScope
 from .. import users_repo
-from .MapRoulette import MapRouletteSync
 from ..database import (
     Project,
     Task,
@@ -24,7 +22,6 @@ from ..database import (
     ProjectTeam,
     TeamUser,
     UserTasks,
-    ValidatorTaskAction,
     SyncJob,
     db,
 )
@@ -32,9 +29,6 @@ from ..worker.sync_queue import SyncJobQueue
 
 
 from .split_task_helpers import (
-    is_split_task,
-    get_split_siblings,
-    should_count_validation,
     should_count_invalidation,
 )
 
@@ -42,31 +36,15 @@ from .split_task_helpers import (
 class TaskAPI(MethodView):
     """Task management API endpoints for TM4 integration."""
 
-    # Delegate split-task helpers to shared module (SSOT)
-    def _is_split_task(self, task):
-        return is_split_task(task)
-
-    def _get_split_siblings(self, task):
-        return get_split_siblings(task)
-
-    def _should_count_validation(self, task):
-        return should_count_validation(task)
-
     def _should_count_invalidation(self, task):
         return should_count_invalidation(task)
 
     def post(self, path: str):
         """Route POST requests to appropriate handler."""
-        if path == "update_user_tasks":
-            return self.update_user_tasks()
-        elif path == "admin_update_all_user_tasks":
+        if path == "admin_update_all_user_tasks":
             return self.admin_update_all_user_tasks()
         elif path == "check_sync_status":
             return self.check_sync_status()
-        elif path == "fetch_external_validations":
-            return self.admin_fetch_external_validations()
-        elif path == "update_task":
-            return self.update_task()
         elif path == "sync_project":
             return self.sync_project()
         elif path == "sync_user_projects":
@@ -563,98 +541,6 @@ class TaskAPI(MethodView):
 
         return {"message": "complete"}
 
-    def fetch_invalidated_tasks_from_tm4(self, project_id, user):
-        """
-        Fetch invalidated tasks from TM4's dedicated invalidation endpoint.
-
-        When TM4 invalidates a task, it clears mapped_by, so the task
-        disappears from the contributions endpoint. This method calls
-        the dedicated invalidation endpoint to get tasks that were invalidated.
-
-        Endpoint: /api/v2/projects/{project_id}/tasks/queries/own/invalidated/
-        """
-        headers = self._get_tm4_headers()
-        base_url = self._get_tm4_base_url()
-        target_project = Project.query.filter_by(id=project_id).first()
-
-        if not target_project:
-            current_app.logger.error(f"Project {project_id} not found")
-            return {"response": "project not found"}
-
-        # TM4 requires the user's OSM username for this endpoint
-        # The endpoint returns tasks where user was the original mapper that got invalidated
-        invalidated_url = (
-            f"{base_url}/projects/{project_id}/tasks/queries/own/invalidated/"
-        )
-
-        current_app.logger.info(
-            f"fetch_invalidated_tasks_from_tm4: user={user.osm_username}, project={project_id}, url={invalidated_url}"
-        )
-
-        try:
-            response = requests.get(invalidated_url, headers=headers, timeout=30)
-
-            if response.ok:
-                data = response.json()
-                invalidated_tasks = data.get("invalidatedTasks", [])
-
-                current_app.logger.info(
-                    f"TM4 invalidation endpoint returned {len(invalidated_tasks)} tasks for user {user.osm_username}"
-                )
-
-                for task_info in invalidated_tasks:
-                    task_id = task_info.get("taskId")
-                    if not task_id:
-                        continue
-
-                    # Check if task already exists
-                    existing_task = Task.query.filter_by(
-                        task_id=task_id,
-                        project_id=project_id,
-                    ).first()
-
-                    if existing_task:
-                        # Task exists - update invalidation status if needed
-                        if not existing_task.invalidated:
-                            current_app.logger.info(
-                                f"Updating existing task {task_id} to invalidated"
-                            )
-                            existing_task.update(
-                                invalidated=True,
-                                validated=False,
-                            )
-                    else:
-                        # Task doesn't exist - create it as invalidated
-                        current_app.logger.info(
-                            f"Creating new invalidated task {task_id} for user {user.osm_username}"
-                        )
-                        new_task = Task.create(
-                            task_id=task_id,
-                            org_id=user.org_id,
-                            project_id=project_id,
-                            mapping_rate=target_project.mapping_rate_per_task,
-                            validation_rate=target_project.validation_rate_per_task,
-                            paid_out=False,
-                            mapped=True,
-                            mapped_by=user.osm_username,
-                            validated_by=task_info.get("invalidatedBy", ""),
-                            validated=False,
-                            invalidated=True,
-                            date_mapped=func.now(),
-                            date_validated=func.now(),
-                        )
-                        UserTasks.create(user_id=user.id, task_id=new_task.id)
-
-                return {"response": "complete", "count": len(invalidated_tasks)}
-            else:
-                current_app.logger.warning(
-                    f"TM4 invalidation endpoint failed: {response.status_code} - {response.text}"
-                )
-                return {"response": "failed", "status": response.status_code}
-        except requests.RequestException as e:
-            current_app.logger.error(f"TM4 invalidation API error: {e}")
-            return {"response": "error", "error": str(e)}
-
     def TM4_payment_call(self, project_id, user):
         """
         Fetch contributions from TM4 and update local task records.
@@ -714,51 +600,6 @@ class TaskAPI(MethodView):
         except requests.RequestException as e:
             current_app.logger.error(f"TM4 API error: {e}")
             return {"message": f"TM4 API error: {str(e)}"}
-
-    def update_user_tasks(self):
-        """
-        Update tasks for the current user from TM4.
-
-        Syncs mapped, validated, and invalidated tasks.
-        Includes both assigned projects AND public (visible) projects.
-        """
-        if not g.user:
-            return {"message": "User not found", "status": 304}
-
-        # Get user's explicitly assigned projects
-        assigned_project_ids = [
-            relation.project_id
-            for relation in ProjectUser.query.filter_by(user_id=g.user.id).all()
-        ]
-
-        # Get all active projects in org (assigned + public/visible)
-        user_projects = (
-            Project.query.filter(
-                Project.org_id == g.user.org_id,
-                Project.status == True,
-            )
-            .filter(
-                # Include if assigned OR if visible to users
-                (Project.id.in_(assigned_project_ids))
-                | (Project.visibility == True)
-            )
-            .all()
-        )
-
-        # Queue background sync jobs instead of running inline
-        # (MR syncs can take minutes and kill the gunicorn worker)
-        org_id = g.user.org_id
-        user_id = g.user.id
-
-        queued = 0
-        for project in user_projects:
-            _, created = SyncJobQueue.enqueue_project_sync(
-                org_id, project.id, user_id=user_id
-            )
-            if created:
-                queued += 1
-
-        return {"message": f"Sync queued for {queued} project(s)", "status": 200}
 
     @requires_team_admin_or_above
     def admin_update_all_user_tasks(self):
@@ -897,119 +738,3 @@ class TaskAPI(MethodView):
             "completed_at": job.completed_at.isoformat() if job.completed_at else None,
             "error": job.error,
         }
-
-    @requires_team_admin_or_above
-    def admin_fetch_external_validations(self):
-        """
-        Fetch tasks validated by users outside the organization.
-
-        Returns tasks with unknown_validator=True. For team_admin,
-        narrows to tasks in projects assigned to their managed teams.
-        """
-        if not g.user:
-            return {"message": "User not found", "status": 304}
-
-        unknown_validator_query = Task.query.filter_by(
-            org_id=g.user.org_id, unknown_validator=True
-        )
-
-        if g.user.role == "team_admin":
-            managed = managed_team_ids_for(g.user)
-            if not managed:
-                return {"external_validations": [], "status": 200}
-            ta_project_ids = {
-                pt.project_id
-                for pt in ProjectTeam.query.filter(
-                    ProjectTeam.team_id.in_(managed)
-                ).all()
-            }
-            if not ta_project_ids:
-                return {"external_validations": [], "status": 200}
-            unknown_validator_query = unknown_validator_query.filter(
-                Task.project_id.in_(ta_project_ids)
-            )
-
-        unknown_validator_tasks = unknown_validator_query.all()
-
-        external_validations = []
-        for task in unknown_validator_tasks:
-            task_project = Project.query.filter_by(id=task.project_id).first()
-            task_obj = {
-                "id": task.id,
-                "task_id": task.task_id,
-                "project_id": task.project_id,
-                "project_name": task_project.name if task_project else None,
-                "project_short_name": (
-                    (task_project.short_name or "") if task_project else ""
-                ),
-                "project_url": task_project.url if task_project else None,
-                "validation_rate": task.validation_rate,
-                "mapping_rate": task.mapping_rate,
-                "paid_out": task.paid_out,
-                "mapped": task.mapped,
-                "validated": task.validated,
-                "invalidated": task.invalidated,
-                "mapped_by": task.mapped_by,
-                "validated_by": task.validated_by,
-                "unknown_validator": task.unknown_validator,
-            }
-            external_validations.append(task_obj)
-
-        return {
-            "external_validations": external_validations,
-            "status": 200,
-        }
-
-    @requires_admin
-    def update_task(self):
-        """
-        Manually update a task's validation status.
-
-        Admin-only endpoint for handling external validations.
-        """
-        if not g.user:
-            return {"message": "User not found", "status": 304}
-
-        task_id = request.json.get("task_id")
-        task_action = request.json.get("task_action")
-
-        if not task_id:
-            return {"message": "task_id required", "status": 400}
-        if not task_action:
-            return {"message": "task_action required", "status": 400}
-
-        target_task = Task.query.filter_by(task_id=task_id).first()
-        if not target_task:
-            return {"message": "Task not found", "status": 404}
-
-        target_project = Project.query.filter_by(id=target_task.project_id).first()
-        target_mapper = users_repo.by_osm_username(
-            target_task.mapped_by,
-            target_project.org_id if target_project else None,
-        )
-
-        if not target_mapper:
-            return {"message": "Mapper not found", "status": 404}
-
-        if task_action == "Validate":
-            # Update task status first (always happens)
-            target_task.update(
-                validated=True,
-                invalidated=False,
-                validated_by=g.user.osm_username,
-                unknown_validator=False,
-            )
-
-        elif task_action == "Invalidate":
-            # Update task status first (always happens)
-            target_task.update(
-                validated=False,
-                invalidated=True,
-                validated_by=g.user.osm_username,
-                unknown_validator=False,
-            )
-
-        else:
-            return {"message": f"Invalid task_action: {task_action}", "status": 400}
-
-        return {"message": "Task updated", "status": 200}

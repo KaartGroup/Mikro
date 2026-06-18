@@ -8,7 +8,7 @@ export interface MultiSelectOption {
   label: string;
 }
 
-export interface MultiSelectProps {
+interface MultiSelectProps {
   options: MultiSelectOption[];
   value: string[];
   onChange: (values: string[]) => void;

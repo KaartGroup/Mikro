@@ -4,17 +4,11 @@ import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Button,
-  Modal,
-  useToastActions,
   Val,
 } from "@/components/ui";
 import { Task } from "@/types";
 import {
-  formatNumber,
-  formatCurrency,
   getProjectExternalUrl,
 } from "@/lib/utils";
 
@@ -24,7 +18,6 @@ export default function AdminTasksPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const ROWS_PER_PAGE = 20;
-  const toast = useToastActions();
 
   useEffect(() => {
     fetchExternalValidations();

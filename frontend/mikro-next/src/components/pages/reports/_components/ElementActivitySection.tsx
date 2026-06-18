@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import { ElementActivityChart } from "./ElementActivityChart";
-import { formatDateTime } from "./reportUtils";
+import { formatDateTime } from "@/lib/utils";
 import type { ElementAnalysisCategory } from "@/types";
 import { OsmClassificationPieChart } from "./OsmClassificationPieChart";
 
@@ -35,7 +35,6 @@ export function ElementActivitySection({
   onStartAnalysis,
   onStartBackfill,
   granularity,
-  extraContent,
 }: ElementActivitySectionProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);

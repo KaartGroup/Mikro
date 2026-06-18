@@ -8,10 +8,9 @@ This module creates and configures the Flask application.
 Deploy marker: 2026-05-12
 """
 
-import os
 import logging
 
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_mail import Mail
@@ -43,6 +42,7 @@ def create_app(config_class=None):
         app.config.from_object(config_class)
     else:
         from api.config import get_config
+
         app.config.from_object(get_config()())
 
     # Configure logging
@@ -56,6 +56,7 @@ def create_app(config_class=None):
 
     # Initialize database
     from api.database import db
+
     db.init_app(app)
 
     # Initialize migrations
@@ -72,6 +73,7 @@ def create_app(config_class=None):
     @app.before_request
     def before_request():
         from api.auth import authenticate_request
+
         return authenticate_request()
 
     # Health check endpoint
@@ -129,8 +131,6 @@ def _register_views(app):
         WebhookAPI,
         PunkAPI,
         FriendAPI,
-        CommunityDataAPI,
-        ChannelMonitorAPI,
         OrganizationAPI,
         HourlyRatesAPI,
         CommsAPI,
@@ -146,10 +146,15 @@ def _register_views(app):
 
     # Project management
     app.add_url_rule("/api/project/<path>", view_func=ProjectAPI.as_view("project"))
-    app.add_url_rule("/api/project-training/<path>", view_func=ProjectTrainingAPI.as_view("project_training"))
+    app.add_url_rule(
+        "/api/project-training/<path>",
+        view_func=ProjectTrainingAPI.as_view("project_training"),
+    )
 
     # Dashboard stats
-    app.add_url_rule("/api/dashboard/<path>", view_func=DashboardAPI.as_view("dashboard"))
+    app.add_url_rule(
+        "/api/dashboard/<path>", view_func=DashboardAPI.as_view("dashboard")
+    )
 
     # Transaction/payment management
     app.add_url_rule(
@@ -199,27 +204,13 @@ def _register_views(app):
     )
 
     # Webhooks (HMAC-authenticated, not JWT)
-    app.add_url_rule(
-        "/api/webhook/<path>", view_func=WebhookAPI.as_view("webhook")
-    )
+    app.add_url_rule("/api/webhook/<path>", view_func=WebhookAPI.as_view("webhook"))
 
     # Punks watchlist
     app.add_url_rule("/api/punk/<path>", view_func=PunkAPI.as_view("punk"))
 
     # Friends List
     app.add_url_rule("/api/friend/<path>", view_func=FriendAPI.as_view("friend"))
-
-    # Community Data
-    app.add_url_rule(
-        "/api/community/<path>",
-        view_func=CommunityDataAPI.as_view("community"),
-    )
-
-    # Channel Monitor
-    app.add_url_rule(
-        "/api/channel/<path>",
-        view_func=ChannelMonitorAPI.as_view("channel"),
-    )
 
     # Hourly rate history
     app.add_url_rule(
@@ -248,7 +239,6 @@ def _register_views(app):
         view_func=FeedbackAPI.as_view("feedback"),
         methods=["POST"],
     )
-
 
 
 # Create application instance for gunicorn

@@ -18,8 +18,6 @@ from .Regions import RegionAPI
 from .Webhook import WebhookAPI
 from .Punks import PunkAPI
 from .Friends import FriendAPI
-from .CommunityData import CommunityDataAPI
-from .ChannelMonitor import ChannelMonitorAPI
 from .Organizations import OrganizationAPI
 from .HourlyRates import HourlyRatesAPI
 from .Comms import CommsAPI
@@ -45,8 +43,6 @@ __all__ = {
     "WebhookAPI",
     "PunkAPI",
     "FriendAPI",
-    "CommunityDataAPI",
-    "ChannelMonitorAPI",
     "OrganizationAPI",
     "HourlyRatesAPI",
     "CommsAPI",

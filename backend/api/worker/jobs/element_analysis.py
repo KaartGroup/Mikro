@@ -11,7 +11,9 @@ _MAX_WINDOW_DAYS = 2
 _BATCH_SIZE = 50
 
 
-def _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, fallback_dt):
+def _upsert_changesets(
+    org_id, osm_to_user_id, user_id_to_team_id, changesets, fallback_dt
+):
     """Insert new changesets into ChangesetAdiff, skipping any that already exist.
 
     Changesets with no adiff on osmcha are skipped silently.
@@ -57,19 +59,23 @@ def _upsert_changesets(org_id, osm_to_user_id, user_id_to_team_id, changesets, f
         if cs_id in empty_rows:
             empty_rows[cs_id].adiff_xml = adiff_xml
         else:
-            db.session.add(ChangesetAdiff(
-                org_id=org_id,
-                changeset_id=cs_id,
-                created_at=cs_created_at,
-                user_id=uid,
-                team_id=user_id_to_team_id.get(uid),
-                osm_user=osm_user,
-                adiff_xml=adiff_xml,
-            ))
+            db.session.add(
+                ChangesetAdiff(
+                    org_id=org_id,
+                    changeset_id=cs_id,
+                    created_at=cs_created_at,
+                    user_id=uid,
+                    team_id=user_id_to_team_id.get(uid),
+                    osm_user=osm_user,
+                    adiff_xml=adiff_xml,
+                )
+            )
         stored += 1
         if stored % _BATCH_SIZE == 0:
             db.session.commit()
-            logger.info(f"  [{org_id}] batch committed: {stored}/{len(candidates)} changesets")
+            logger.info(
+                f"  [{org_id}] batch committed: {stored}/{len(candidates)} changesets"
+            )
 
     if stored % _BATCH_SIZE != 0:
         db.session.commit()
@@ -215,7 +221,9 @@ def run_element_analysis_backfill_job(job):
         window_start = backfill_start
 
         while window_start < backfill_until:
-            window_end = min(window_start + timedelta(days=_MAX_WINDOW_DAYS), backfill_until)
+            window_end = min(
+                window_start + timedelta(days=_MAX_WINDOW_DAYS), backfill_until
+            )
             window_num += 1
             job.progress = (
                 f"Window {window_num}: {window_start.date()} → {window_end.date()} "
@@ -228,7 +236,9 @@ def run_element_analysis_backfill_job(job):
             )
 
             osm_usernames = list(osm_to_user_id.keys())
-            changesets = ChangesetFetcher().fetch(osm_usernames, window_start, window_end)
+            changesets = ChangesetFetcher().fetch(
+                osm_usernames, window_start, window_end
+            )
             total_stored += _upsert_changesets(
                 org_id, osm_to_user_id, user_id_to_team_id, changesets, window_start
             )
@@ -265,7 +275,9 @@ if __name__ == "__main__":
     import types
 
     # Resolve to backend/ regardless of where the script is invoked from.
-    backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    backend_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..")
+    )
     sys.path.insert(0, backend_dir)
     os.chdir(backend_dir)
 

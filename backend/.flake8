@@ -1,0 +1,14 @@
+[flake8]
+# Pyflakes-only gate. Enforces "no unused code":
+#   F401 unused import  ·  F811 redefinition  ·  F841 unused local variable
+# plus pyflakes correctness checks (F821 undefined name, F-string issues, …).
+# Code formatting/style (E/W codes) is handled by `black`, so they are not
+# selected here. Run with: `flake8` from the backend/ directory.
+select = F
+exclude =
+    venv,
+    migrations,
+    .git,
+    __pycache__,
+    build,
+    dist

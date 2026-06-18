@@ -9,14 +9,14 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 
-export type ToastVariant = "default" | "success" | "warning" | "error";
+type ToastVariant = "default" | "success" | "warning" | "error";
 
-export interface ToastAction {
+interface ToastAction {
   label: string;
   onClick: () => void;
 }
 
-export interface Toast {
+interface Toast {
   id: string;
   title?: string;
   message: string;
@@ -34,7 +34,7 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-export function useToast() {
+function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
     throw new Error("useToast must be used within a ToastProvider");

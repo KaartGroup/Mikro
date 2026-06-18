@@ -6,7 +6,7 @@
  * region/location selected.
  */
 
-export interface ProjectDraftReview {
+interface ProjectDraftReview {
   missingTeam: boolean;
   missingRegion: boolean;
   /** Human-readable labels for what's missing; empty when nothing is missing. */

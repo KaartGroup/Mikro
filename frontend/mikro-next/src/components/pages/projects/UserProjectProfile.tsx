@@ -60,7 +60,6 @@ export function UserProjectProfile() {
 
   const {
     mutate: fetchProfile,
-    loading: profileLoading,
     error: profileError,
   } = useFetchProjectProfile();
 

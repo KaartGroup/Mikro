@@ -22,13 +22,23 @@ import requests
 from api.utils.changeset_fetcher import ChangesetFetcher
 
 WINDOW_START = datetime(2026, 5, 9, tzinfo=timezone.utc)
-WINDOW_END   = datetime(2026, 5, 11, tzinfo=timezone.utc)
+WINDOW_END = datetime(2026, 5, 11, tzinfo=timezone.utc)
 
 # Users that had changesets in this window (from the logs).
 ACTIVE_USERS = [
-    "Josuer", "amtplskaart", "felipeeugenio", "AndresDuhour",
-    "Timmy_Tesseract", "Ezra Edwards", "jptolosa", "luisrobledomx1",
-    "Stephanievanr", "kaartense", "VMPanes", "JuanMelo", "mapitero",
+    "Josuer",
+    "amtplskaart",
+    "felipeeugenio",
+    "AndresDuhour",
+    "Timmy_Tesseract",
+    "Ezra Edwards",
+    "jptolosa",
+    "luisrobledomx1",
+    "Stephanievanr",
+    "kaartense",
+    "VMPanes",
+    "JuanMelo",
+    "mapitero",
 ]
 
 
@@ -68,11 +78,13 @@ def main():
             f"{cs.get('user', '?'):<25}  {cs.get('created_at', '?')}"
         )
 
-    print(f"\nChecking adiff sizes for top 15 by changes_count…")
+    print("\nChecking adiff sizes for top 15 by changes_count…")
     session = requests.Session()
     session.headers["User-Agent"] = "Mikro-diagnostic/1.0"
 
-    print(f"\n{'ID':>12}  {'changes':>8}  {'adiff_bytes':>14}  {'adiff_MB':>10}  status")
+    print(
+        f"\n{'ID':>12}  {'changes':>8}  {'adiff_bytes':>14}  {'adiff_MB':>10}  status"
+    )
     print("-" * 65)
     for cs in changesets[:15]:
         size, status = adiff_size(cs["id"], session)
@@ -82,7 +94,9 @@ def main():
             f"{str(size) if size else '?':>14}  {mb:>10}  {status}"
         )
 
-    print("\nDone. Any adiff_MB > 50 would have triggered an OOM on a constrained container.")
+    print(
+        "\nDone. Any adiff_MB > 50 would have triggered an OOM on a constrained container."
+    )
 
 
 if __name__ == "__main__":

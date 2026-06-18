@@ -18,7 +18,6 @@ from ..database import (
     TrainingQuestion,
     TrainingQuestionAnswer,
     TeamTraining,
-    User,
 )
 
 
@@ -65,8 +64,6 @@ class TrainingAPI(MethodView):
             return self.fetch_user_trainings()
         elif path == "delete_training":
             return self.delete_training()
-        elif path == "complete_training":
-            return self.complete_training()
         elif path == "submit_quiz":
             return self.submit_quiz()
         return {
@@ -83,9 +80,7 @@ class TrainingAPI(MethodView):
             "training_url",
             "training_type",
         ]
-        missing_args = [
-            arg for arg in required_args if arg not in request.json
-        ]
+        missing_args = [arg for arg in required_args if arg not in request.json]
         if missing_args:
             response = {
                 "message": f"Missing required argument(s): {', '.join(missing_args)}",  # noqa: E501
@@ -156,35 +151,50 @@ class TrainingAPI(MethodView):
                 return rows
             return [t for t in rows if t.id in ta_training_ids]
 
-        mapping_trainings = _filter_ta(Training.query.filter_by(
-            org_id=org_id, training_type="Mapping"
-        ).all())
-        validation_trainings = _filter_ta(Training.query.filter_by(
-            org_id=org_id, training_type="Validation"
-        ).all())
-        project_trainings = _filter_ta(Training.query.filter_by(
-            org_id=org_id, training_type="Project"
-        ).all())
+        mapping_trainings = _filter_ta(
+            Training.query.filter_by(org_id=org_id, training_type="Mapping").all()
+        )
+        validation_trainings = _filter_ta(
+            Training.query.filter_by(org_id=org_id, training_type="Validation").all()
+        )
+        project_trainings = _filter_ta(
+            Training.query.filter_by(org_id=org_id, training_type="Project").all()
+        )
         # Batch-load location counts for admin display
-        all_training_ids = [t.id for t in mapping_trainings + validation_trainings + project_trainings]
-        _tc_rows = TrainingCountry.query.filter(
-            TrainingCountry.training_id.in_(all_training_ids)
-        ).all() if all_training_ids else []
+        all_training_ids = [
+            t.id for t in mapping_trainings + validation_trainings + project_trainings
+        ]
+        _tc_rows = (
+            TrainingCountry.query.filter(
+                TrainingCountry.training_id.in_(all_training_ids)
+            ).all()
+            if all_training_ids
+            else []
+        )
         _tc_counts = {}
         for r in _tc_rows:
             _tc_counts[r.training_id] = _tc_counts.get(r.training_id, 0) + 1
 
         # Prepare response
         org_mapping_trainings = [
-            {**self.format_training(training), "assigned_locations": _tc_counts.get(training.id, 0)}
+            {
+                **self.format_training(training),
+                "assigned_locations": _tc_counts.get(training.id, 0),
+            }
             for training in mapping_trainings
         ]
         org_validation_trainings = [
-            {**self.format_training(training), "assigned_locations": _tc_counts.get(training.id, 0)}
+            {
+                **self.format_training(training),
+                "assigned_locations": _tc_counts.get(training.id, 0),
+            }
             for training in validation_trainings
         ]
         org_project_trainings = [
-            {**self.format_training(training), "assigned_locations": _tc_counts.get(training.id, 0)}
+            {
+                **self.format_training(training),
+                "assigned_locations": _tc_counts.get(training.id, 0),
+            }
             for training in project_trainings
         ]
         return {
@@ -235,9 +245,7 @@ class TrainingAPI(MethodView):
             "training_url",
             "training_type",
         ]
-        missing_args = [
-            arg for arg in required_args if arg not in request.json
-        ]
+        missing_args = [arg for arg in required_args if arg not in request.json]
         if missing_args:
             response = {
                 "message": f"Missing required argument(s): {', '.join(missing_args)}",  # noqa: E501
@@ -316,46 +324,6 @@ class TrainingAPI(MethodView):
             response["status"] = 200
             return response
 
-    def complete_training(self):
-        if not g:
-            return {"message": "User Not Found", "status": 304}
-        training_id = request.json.get("training_id")
-        if not training_id:
-            return {"message": "Training ID required", "status": 400}
-        target_training = Training.query.filter_by(id=training_id).first()
-        if not target_training:
-            return {"message": "Training not found", "status": 400}
-        completion_exists = TrainingCompleted.query.filter_by(
-            training_id=training_id, user_id=g.user.id
-        ).first()
-        if completion_exists:
-            return {"message": "Training already completed", "status": 200}
-        TrainingCompleted.create(training_id=training_id, user_id=g.user.id)
-        if target_training.training_type == "Mapping":
-            g.user.update(
-                mapper_points=g.user.mapper_points
-                + target_training.point_value
-            )
-            earned_points = g.user.mapper_points
-        elif target_training.training_type == "Validation":
-            g.user.update(
-                validator_points=g.user.validator_points
-                + target_training.point_value
-            )
-            earned_points = g.user.validator_points
-        elif target_training.training_type == "Project":
-            g.user.update(
-                special_project_points=g.user.special_project_points
-                + target_training.point_value
-            )
-            earned_points = g.user.special_project_points
-        return {
-            "training_type": target_training.training_type,
-            "earned_points": earned_points,
-            "message": "Training completed",
-            "status": 200,
-        }
-
     def submit_quiz(self):
         """
         Submit quiz answers and calculate score.
@@ -411,7 +379,9 @@ class TrainingAPI(MethodView):
                 correct_count += 1
 
         # Calculate percentage score
-        score = int((correct_count / total_questions) * 100) if total_questions > 0 else 0
+        score = (
+            int((correct_count / total_questions) * 100) if total_questions > 0 else 0
+        )
         passed = score >= 70
 
         # If passed, mark training as complete and award points
@@ -424,7 +394,8 @@ class TrainingAPI(MethodView):
                 )
             elif target_training.training_type == "Validation":
                 g.user.update(
-                    validator_points=g.user.validator_points + target_training.point_value
+                    validator_points=g.user.validator_points
+                    + target_training.point_value
                 )
             elif target_training.training_type == "Project":
                 g.user.update(
@@ -437,7 +408,9 @@ class TrainingAPI(MethodView):
             "passed": passed,
             "correct": correct_count,
             "total": total_questions,
-            "message": "Quiz passed!" if passed else "Quiz failed. You need 70% to pass.",
+            "message": (
+                "Quiz passed!" if passed else "Quiz failed. You need 70% to pass."
+            ),
             "status": 200,
         }
 
@@ -449,40 +422,45 @@ class TrainingAPI(MethodView):
         org_id = g.user.org_id
         trainings_completed_ids = [
             completion.training_id
-            for completion in TrainingCompleted.query.filter_by(
-                user_id=g.user.id
-            ).all()
+            for completion in TrainingCompleted.query.filter_by(user_id=g.user.id).all()
         ]
 
         # Location visibility filter
         all_org_trainings = Training.query.filter_by(org_id=org_id).all()
         _user_cids = get_user_country_ids(g.user.id)
-        _tc_all = TrainingCountry.query.filter(
-            TrainingCountry.training_id.in_([t.id for t in all_org_trainings])
-        ).all() if all_org_trainings else []
+        _tc_all = (
+            TrainingCountry.query.filter(
+                TrainingCountry.training_id.in_([t.id for t in all_org_trainings])
+            ).all()
+            if all_org_trainings
+            else []
+        )
         _t_loc_map = {}
         for r in _tc_all:
             _t_loc_map.setdefault(r.training_id, set()).add(r.country_id)
         visible_trainings = [
-            t for t in all_org_trainings
+            t
+            for t in all_org_trainings
             if is_visible_by_location(_t_loc_map.get(t.id, set()), _user_cids)
         ]
 
         mapping_trainings = [
-            t for t in visible_trainings
+            t
+            for t in visible_trainings
             if t.training_type == "Mapping" and t.id not in trainings_completed_ids
         ]
         validation_trainings = [
-            t for t in visible_trainings
+            t
+            for t in visible_trainings
             if t.training_type == "Validation" and t.id not in trainings_completed_ids
         ]
         project_trainings = [
-            t for t in visible_trainings
+            t
+            for t in visible_trainings
             if t.training_type == "Project" and t.id not in trainings_completed_ids
         ]
         completed_trainings = [
-            t for t in visible_trainings
-            if t.id in trainings_completed_ids
+            t for t in visible_trainings if t.id in trainings_completed_ids
         ]
         # Prepare response
         formatted_mapping_trainings = [
@@ -541,4 +519,3 @@ class TrainingAPI(MethodView):
             "created_by": training.created_by,
             "questions": questions,
         }
-

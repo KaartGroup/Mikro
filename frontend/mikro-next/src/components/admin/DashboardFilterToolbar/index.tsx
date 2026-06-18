@@ -4,7 +4,7 @@ import { Button, Tooltip } from "@/components/ui";
 import { RegionFilter } from "@/components/admin/RegionFilter";
 import { TeamScopeSelector } from "@/components/admin/TeamScopeSelector";
 
-export interface DashboardFilterToolbarProps {
+interface DashboardFilterToolbarProps {
   teamId: number | null;
   onTeamIdChange: (id: number | null) => void;
   regionCountryId: number | null;

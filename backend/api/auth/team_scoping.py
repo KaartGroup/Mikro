@@ -20,7 +20,7 @@ cross-org access attempt all return False / [] / set().
 
 from typing import Iterable
 
-from ..database import Team, TeamLead, TeamUser, User
+from ..database import Team, TeamLead, TeamUser
 
 
 def managed_team_ids_for(viewer) -> list[int]:
@@ -85,10 +85,13 @@ def team_admin_can_access_user(viewer, target_user_id: str) -> bool:
     managed = managed_team_ids_for(viewer)
     if not managed:
         return False
-    return TeamUser.query.filter(
-        TeamUser.user_id == target_user_id,
-        TeamUser.team_id.in_(managed),
-    ).first() is not None
+    return (
+        TeamUser.query.filter(
+            TeamUser.user_id == target_user_id,
+            TeamUser.team_id.in_(managed),
+        ).first()
+        is not None
+    )
 
 
 def is_admin_tier(viewer) -> bool:

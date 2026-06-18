@@ -30,6 +30,7 @@ END = datetime(2024, 1, 31)
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _load(filename):
     return (FIXTURES / filename).read_text()
 
@@ -43,7 +44,9 @@ def _day_stats(*filenames):
     stats = {key: {} for key in TRACKED_KEYS}
     for fname in filenames:
         merge_transitions(stats, _parse(fname))
-    return defaultdict(lambda: {key: {} for key in TRACKED_KEYS}, {date(2024, 1, 1): stats})
+    return defaultdict(
+        lambda: {key: {} for key in TRACKED_KEYS}, {date(2024, 1, 1): stats}
+    )
 
 
 def _cat(categories, title):
@@ -58,6 +61,7 @@ def _d0(categories, title):
 # ---------------------------------------------------------------------------
 # 1. parse_adiff_transitions — real XML fixtures
 # ---------------------------------------------------------------------------
+
 
 class TestParseAdiffTransitions:
     # --- access ---
@@ -85,7 +89,6 @@ class TestParseAdiffTransitions:
         # secondary IS high-priority → passes KEY_FILTER even though new value is not
         stats = _parse("182135772.xml")
         assert stats["highway"] == {("secondary", "residential"): 1}
-
 
     # --- barrier ---
 
@@ -155,7 +158,9 @@ class TestParseAdiffTransitions:
         assert stats["construction"] == {}
 
     def test_182054191_seven_keys(self):
-        stats = _parse("182054191_multi_access_highway_name_oneway_ref_restriction_type.xml")
+        stats = _parse(
+            "182054191_multi_access_highway_name_oneway_ref_restriction_type.xml"
+        )
         assert stats["access"][(None, "private")] == 1
         assert stats["highway"][("trunk", "primary")] == 16
         assert stats["highway"][("trunk_link", "primary_link")] == 4
@@ -178,6 +183,7 @@ class TestParseAdiffTransitions:
 # 2. build_category_data — pure categorization logic
 # ---------------------------------------------------------------------------
 
+
 class TestBuildCategoryData:
     def test_empty_stats_no_data_points(self):
         cats = build_category_data({})
@@ -188,7 +194,7 @@ class TestBuildCategoryData:
         # access add + barrier modify + barrier add — all land in "Access & Barriers"
         cats = build_category_data(_day_stats("182054401.xml", "182434007_barrier.xml"))
         d = _d0(cats, "Access & Barriers")
-        assert d["added"] >= 2    # access=private + barrier lift_gate
+        assert d["added"] >= 2  # access=private + barrier lift_gate
         assert d["modified"] >= 1  # gate → lift_gate
 
     def test_name_add_category(self):
@@ -225,14 +231,22 @@ class TestBuildCategoryData:
     def test_no_transitions_file_produces_zeros(self):
         cats = build_category_data(_day_stats("182054655.xml"))
         for cat in cats:
-            assert cat["data"][0]["added"] == cat["data"][0]["modified"] == cat["data"][0]["deleted"] == 0
+            assert (
+                cat["data"][0]["added"]
+                == cat["data"][0]["modified"]
+                == cat["data"][0]["deleted"]
+                == 0
+            )
 
     def test_multi_day_grouping(self):
         d1, d2 = date(2024, 1, 1), date(2024, 1, 5)
-        stats = defaultdict(lambda: {key: {} for key in TRACKED_KEYS}, {
-            d1: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 1}},
-            d2: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 3}},
-        })
+        stats = defaultdict(
+            lambda: {key: {} for key in TRACKED_KEYS},
+            {
+                d1: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 1}},
+                d2: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 3}},
+            },
+        )
         cat = _cat(build_category_data(stats), "Oneways")
         by_day = {d["day"]: d for d in cat["data"]}
         assert by_day["2024-01-01"]["added"] == 1
@@ -246,35 +260,57 @@ class TestBuildCategoryData:
         for key, triples in key_transitions.items():
             for old_val, new_val, count in triples:
                 day_entry[key][(old_val, new_val)] = count
-        return defaultdict(lambda: {key: {} for key in TRACKED_KEYS},
-                           {date(2024, 1, 1): day_entry})
+        return defaultdict(
+            lambda: {key: {} for key in TRACKED_KEYS}, {date(2024, 1, 1): day_entry}
+        )
 
     def test_delete_counted_in_deleted_field(self):
         cats = build_category_data(self._one_day(oneway=[("yes", None, 1)]))
-        assert _d0(cats, "Oneways") == {"day": "2024-01-01", "added": 0, "modified": 0, "deleted": 1}
+        assert _d0(cats, "Oneways") == {
+            "day": "2024-01-01",
+            "added": 0,
+            "modified": 0,
+            "deleted": 1,
+        }
 
     def test_modify_counted_in_modified_field(self):
         cats = build_category_data(self._one_day(oneway=[("yes", "no", 1)]))
-        assert _d0(cats, "Oneways") == {"day": "2024-01-01", "added": 0, "modified": 1, "deleted": 0}
+        assert _d0(cats, "Oneways") == {
+            "day": "2024-01-01",
+            "added": 0,
+            "modified": 1,
+            "deleted": 0,
+        }
 
     def test_transition_count_greater_than_one_accumulates(self):
         cats = build_category_data(self._one_day(oneway=[(None, "yes", 7)]))
         assert _d0(cats, "Oneways")["added"] == 7
 
     def test_add_modify_delete_all_counted_in_one_day(self):
-        cats = build_category_data(self._one_day(oneway=[
-            (None, "yes", 2),
-            ("yes", "no", 1),
-            ("no", None, 3),
-        ]))
-        assert _d0(cats, "Oneways") == {"day": "2024-01-01", "added": 2, "modified": 1, "deleted": 3}
+        cats = build_category_data(
+            self._one_day(
+                oneway=[
+                    (None, "yes", 2),
+                    ("yes", "no", 1),
+                    ("no", None, 3),
+                ]
+            )
+        )
+        assert _d0(cats, "Oneways") == {
+            "day": "2024-01-01",
+            "added": 2,
+            "modified": 1,
+            "deleted": 3,
+        }
 
     def test_multi_key_category_sums_both_keys_inline(self):
         # Access & Barriers: access add + barrier delete
-        cats = build_category_data(self._one_day(
-            access=[(None, "private", 1)],
-            barrier=[("gate", None, 2)],
-        ))
+        cats = build_category_data(
+            self._one_day(
+                access=[(None, "private", 1)],
+                barrier=[("gate", None, 2)],
+            )
+        )
         d = _d0(cats, "Access & Barriers")
         assert d["added"] == 1
         assert d["deleted"] == 2
@@ -287,18 +323,27 @@ class TestBuildCategoryData:
     def test_keys_do_not_bleed_across_categories(self):
         # oneway data must not affect Highways or any other category
         cats = build_category_data(self._one_day(oneway=[(None, "yes", 4)]))
-        for title in ["Highways", "Access & Barriers", "Refs", "Turn Restrictions",
-                      "Names", "Construction"]:
+        for title in [
+            "Highways",
+            "Access & Barriers",
+            "Refs",
+            "Turn Restrictions",
+            "Names",
+            "Construction",
+        ]:
             d = _d0(cats, title)
             assert d["added"] == 0 and d["modified"] == 0 and d["deleted"] == 0
 
     def test_days_appear_in_ascending_order(self):
         d1, d2, d3 = date(2024, 3, 1), date(2024, 1, 1), date(2024, 2, 1)
-        stats = defaultdict(lambda: {key: {} for key in TRACKED_KEYS}, {
-            d1: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 1}},
-            d2: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 2}},
-            d3: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 3}},
-        })
+        stats = defaultdict(
+            lambda: {key: {} for key in TRACKED_KEYS},
+            {
+                d1: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 1}},
+                d2: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 2}},
+                d3: {**{key: {} for key in TRACKED_KEYS}, "oneway": {(None, "yes"): 3}},
+            },
+        )
         days = [d["day"] for d in _cat(build_category_data(stats), "Oneways")["data"]]
         assert days == ["2024-01-01", "2024-02-01", "2024-03-01"]
 
@@ -312,14 +357,30 @@ _PATCH_TARGET = "api.views.reports.element_analysis.ChangesetAdiff"
 
 class _MockColumn:
     """Supports SQLAlchemy comparison operators so MagicMock patches work in Python 3.14+."""
-    def __eq__(self, _): return MagicMock()
-    def __ge__(self, _): return MagicMock()
-    def __le__(self, _): return MagicMock()
-    def __lt__(self, _): return MagicMock()
-    def isnot(self, _): return MagicMock()
-    def in_(self, _): return MagicMock()
-    def desc(self): return MagicMock()
-    def __hash__(self): return id(self)
+
+    def __eq__(self, _):
+        return MagicMock()
+
+    def __ge__(self, _):
+        return MagicMock()
+
+    def __le__(self, _):
+        return MagicMock()
+
+    def __lt__(self, _):
+        return MagicMock()
+
+    def isnot(self, _):
+        return MagicMock()
+
+    def in_(self, _):
+        return MagicMock()
+
+    def desc(self):
+        return MagicMock()
+
+    def __hash__(self):
+        return id(self)
 
 
 def _db_row(filename, created_at, changeset_id="cs1"):
@@ -361,7 +422,9 @@ def _db_run(rows, team_ids=None):
         global_q.limit.return_value = global_q
         global_q.scalar.return_value = None
 
-        MockAdiff.query.with_entities.side_effect = [meta_q] + [xml_q] * len(rows) + [global_q]
+        MockAdiff.query.with_entities.side_effect = (
+            [meta_q] + [xml_q] * len(rows) + [global_q]
+        )
 
         return get_element_analysis(ORG, team_ids, START, END)
 
@@ -403,7 +466,9 @@ class TestGetElementAnalysis:
             global_q.scalar.return_value = None
             MockAdiff.query.with_entities.side_effect = [meta_q, global_q]
             get_element_analysis(ORG, None, START, END)
-            assert meta_q.filter.call_count == 1  # initial conditions only, no team filter
+            assert (
+                meta_q.filter.call_count == 1
+            )  # initial conditions only, no team filter
 
     def test_team_ids_provided_applies_team_filter(self):
         with patch(_PATCH_TARGET) as MockAdiff:

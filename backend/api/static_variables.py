@@ -39,5 +39,5 @@ TESTING_PORT = os.getenv("TESTING_PORT", "5432")
 TESTING_USER = os.getenv("TESTING_USER", None)
 
 # Protocol separators
-ASCII_RECORD_SEPARATOR = b"\x1E"
-ASCII_LINE_FEED = b"\x0A"
+ASCII_RECORD_SEPARATOR = b"\x1e"
+ASCII_LINE_FEED = b"\x0a"

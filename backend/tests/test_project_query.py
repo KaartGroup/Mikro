@@ -41,10 +41,12 @@ def _project(pid, **kwargs):
 
 
 def test_search_matches_name_case_insensitive(db_session):
-    db_session.add_all([
-        _project(101, name="Highway Mapping"),
-        _project(102, name="Building Audit"),
-    ])
+    db_session.add_all(
+        [
+            _project(101, name="Highway Mapping"),
+            _project(102, name="Building Audit"),
+        ]
+    )
     db_session.flush()
 
     items, total = svc.get_page(ORG, ADMIN, {"search": "highway"})
@@ -54,10 +56,12 @@ def test_search_matches_name_case_insensitive(db_session):
 
 
 def test_search_matches_short_name(db_session):
-    db_session.add_all([
-        _project(103, name="Project A", short_name="HWY-01"),
-        _project(104, name="Project B", short_name="BLD-02"),
-    ])
+    db_session.add_all(
+        [
+            _project(103, name="Project A", short_name="HWY-01"),
+            _project(104, name="Project B", short_name="BLD-02"),
+        ]
+    )
     db_session.flush()
 
     items, total = svc.get_page(ORG, ADMIN, {"search": "hwy"})
@@ -66,10 +70,12 @@ def test_search_matches_short_name(db_session):
 
 
 def test_search_matches_url(db_session):
-    db_session.add_all([
-        _project(105, url="https://tasks.kaart.com/projects/55"),
-        _project(106, url="https://maproulette.org/browse/99"),
-    ])
+    db_session.add_all(
+        [
+            _project(105, url="https://tasks.kaart.com/projects/55"),
+            _project(106, url="https://maproulette.org/browse/99"),
+        ]
+    )
     db_session.flush()
 
     items, total = svc.get_page(ORG, ADMIN, {"search": "maproulette"})
@@ -99,10 +105,12 @@ def test_blank_search_is_noop(db_session):
 
 
 def test_community_filter(db_session):
-    db_session.add_all([
-        _project(201, community=True),
-        _project(202, community=False),
-    ])
+    db_session.add_all(
+        [
+            _project(201, community=True),
+            _project(202, community=False),
+        ]
+    )
     db_session.flush()
 
     items, total = svc.get_page(ORG, ADMIN, {"community": True})
@@ -111,10 +119,12 @@ def test_community_filter(db_session):
 
 
 def test_priority_filter(db_session):
-    db_session.add_all([
-        _project(203, priority="High"),
-        _project(204, priority="Low"),
-    ])
+    db_session.add_all(
+        [
+            _project(203, priority="High"),
+            _project(204, priority="Low"),
+        ]
+    )
     db_session.flush()
 
     items, total = svc.get_page(ORG, ADMIN, {"priority": "High"})
@@ -123,16 +133,16 @@ def test_priority_filter(db_session):
 
 
 def test_search_and_priority_compose(db_session):
-    db_session.add_all([
-        _project(205, name="Road Survey", priority="High"),
-        _project(206, name="Road Audit", priority="Low"),
-        _project(207, name="Bridge Survey", priority="High"),
-    ])
+    db_session.add_all(
+        [
+            _project(205, name="Road Survey", priority="High"),
+            _project(206, name="Road Audit", priority="Low"),
+            _project(207, name="Bridge Survey", priority="High"),
+        ]
+    )
     db_session.flush()
 
-    items, total = svc.get_page(
-        ORG, ADMIN, {"search": "road", "priority": "High"}
-    )
+    items, total = svc.get_page(ORG, ADMIN, {"search": "road", "priority": "High"})
 
     assert total == 1
     assert [p.id for p in items] == [205]
@@ -142,10 +152,12 @@ def test_search_and_priority_compose(db_session):
 
 
 def test_sort_by_name_uses_short_name_then_name(db_session):
-    db_session.add_all([
-        _project(301, name="Zeta", short_name="Alpha"),
-        _project(302, name="Beta", short_name=None),
-    ])
+    db_session.add_all(
+        [
+            _project(301, name="Zeta", short_name="Alpha"),
+            _project(302, name="Beta", short_name=None),
+        ]
+    )
     db_session.flush()
 
     items, _ = svc.get_page(ORG, ADMIN, {}, sort_key="name", sort_dir="asc")
@@ -155,47 +167,47 @@ def test_sort_by_name_uses_short_name_then_name(db_session):
 
 
 def test_sort_by_total_tasks_desc(db_session):
-    db_session.add_all([
-        _project(303, total_tasks=10),
-        _project(304, total_tasks=99),
-        _project(305, total_tasks=50),
-    ])
+    db_session.add_all(
+        [
+            _project(303, total_tasks=10),
+            _project(304, total_tasks=99),
+            _project(305, total_tasks=50),
+        ]
+    )
     db_session.flush()
 
-    items, _ = svc.get_page(
-        ORG, ADMIN, {}, sort_key="total_tasks", sort_dir="desc"
-    )
+    items, _ = svc.get_page(ORG, ADMIN, {}, sort_key="total_tasks", sort_dir="desc")
 
     assert [p.id for p in items] == [304, 305, 303]
 
 
 def test_sort_by_difficulty_custom_order(db_session):
-    db_session.add_all([
-        _project(306, difficulty="Hard"),
-        _project(307, difficulty="Easy"),
-        _project(308, difficulty="Medium"),
-    ])
+    db_session.add_all(
+        [
+            _project(306, difficulty="Hard"),
+            _project(307, difficulty="Easy"),
+            _project(308, difficulty="Medium"),
+        ]
+    )
     db_session.flush()
 
-    items, _ = svc.get_page(
-        ORG, ADMIN, {}, sort_key="difficulty", sort_dir="asc"
-    )
+    items, _ = svc.get_page(ORG, ADMIN, {}, sort_key="difficulty", sort_dir="asc")
 
     assert [p.id for p in items] == [307, 308, 306]
 
 
 def test_sort_tiebreaker_is_stable_by_id(db_session):
     # Same total_tasks → id tiebreaker (asc) keeps a deterministic order.
-    db_session.add_all([
-        _project(311, total_tasks=5),
-        _project(309, total_tasks=5),
-        _project(310, total_tasks=5),
-    ])
+    db_session.add_all(
+        [
+            _project(311, total_tasks=5),
+            _project(309, total_tasks=5),
+            _project(310, total_tasks=5),
+        ]
+    )
     db_session.flush()
 
-    items, _ = svc.get_page(
-        ORG, ADMIN, {}, sort_key="total_tasks", sort_dir="asc"
-    )
+    items, _ = svc.get_page(ORG, ADMIN, {}, sort_key="total_tasks", sort_dir="asc")
 
     assert [p.id for p in items] == [309, 310, 311]
 
@@ -209,16 +221,31 @@ def test_pagination_returns_page_and_total(db_session):
     db_session.flush()
 
     page1, total = svc.get_page(
-        ORG, ADMIN, {}, sort_key="total_tasks", sort_dir="asc",
-        page=1, page_size=2,
+        ORG,
+        ADMIN,
+        {},
+        sort_key="total_tasks",
+        sort_dir="asc",
+        page=1,
+        page_size=2,
     )
     page2, _ = svc.get_page(
-        ORG, ADMIN, {}, sort_key="total_tasks", sort_dir="asc",
-        page=2, page_size=2,
+        ORG,
+        ADMIN,
+        {},
+        sort_key="total_tasks",
+        sort_dir="asc",
+        page=2,
+        page_size=2,
     )
     page3, _ = svc.get_page(
-        ORG, ADMIN, {}, sort_key="total_tasks", sort_dir="asc",
-        page=3, page_size=2,
+        ORG,
+        ADMIN,
+        {},
+        sort_key="total_tasks",
+        sort_dir="asc",
+        page=3,
+        page_size=2,
     )
 
     assert total == 5
@@ -228,16 +255,16 @@ def test_pagination_returns_page_and_total(db_session):
 
 
 def test_pagination_respects_filters_in_total(db_session):
-    db_session.add_all([
-        _project(407, priority="High"),
-        _project(408, priority="High"),
-        _project(409, priority="Low"),
-    ])
+    db_session.add_all(
+        [
+            _project(407, priority="High"),
+            _project(408, priority="High"),
+            _project(409, priority="Low"),
+        ]
+    )
     db_session.flush()
 
-    items, total = svc.get_page(
-        ORG, ADMIN, {"priority": "High"}, page=1, page_size=10
-    )
+    items, total = svc.get_page(ORG, ADMIN, {"priority": "High"}, page=1, page_size=10)
 
     assert total == 2
     assert {p.id for p in items} == {407, 408}
@@ -247,11 +274,13 @@ def test_pagination_respects_filters_in_total(db_session):
 
 
 def test_status_counts_aggregate(db_session):
-    db_session.add_all([
-        _project(501, status=True, source="tm4", total_tasks=10),
-        _project(502, status=True, source="mr", total_tasks=5),
-        _project(503, status=False, source="tm4", total_tasks=20),
-    ])
+    db_session.add_all(
+        [
+            _project(501, status=True, source="tm4", total_tasks=10),
+            _project(502, status=True, source="mr", total_tasks=5),
+            _project(503, status=False, source="tm4", total_tasks=20),
+        ]
+    )
     db_session.flush()
 
     counts = svc.get_status_counts(ORG, ADMIN, {})
@@ -264,17 +293,17 @@ def test_status_counts_aggregate(db_session):
 
 
 def test_status_counts_ignores_status_filter_but_honors_others(db_session):
-    db_session.add_all([
-        _project(504, status=True, priority="High", total_tasks=1),
-        _project(505, status=False, priority="High", total_tasks=2),
-        _project(506, status=True, priority="Low", total_tasks=99),
-    ])
+    db_session.add_all(
+        [
+            _project(504, status=True, priority="High", total_tasks=1),
+            _project(505, status=False, priority="High", total_tasks=2),
+            _project(506, status=True, priority="Low", total_tasks=99),
+        ]
+    )
     db_session.flush()
 
     # status passed in is dropped; priority is honored.
-    counts = svc.get_status_counts(
-        ORG, ADMIN, {"status": True, "priority": "High"}
-    )
+    counts = svc.get_status_counts(ORG, ADMIN, {"status": True, "priority": "High"})
 
     assert counts["active_count"] == 1
     assert counts["inactive_count"] == 1

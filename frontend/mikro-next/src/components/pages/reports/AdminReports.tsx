@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle, Val } from "@/components/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { KpiCard } from "@/components/ui/KpiCard";
 import {
   useFetchEditingStats,

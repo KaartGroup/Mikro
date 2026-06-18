@@ -11,7 +11,7 @@ import type { TimeEntry } from "@/types";
 
 const ADJUSTMENT_PREFIX = "[ADJUSTMENT REQUESTED] ";
 
-export interface PendingAdjustmentsStripProps {
+interface PendingAdjustmentsStripProps {
   /** Optional team scope — passed through to the backend so this strip
    *  matches whatever the dashboard's Team scope dropdown is set to. */
   teamId?: number | null;

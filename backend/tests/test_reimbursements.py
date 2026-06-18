@@ -23,7 +23,6 @@ from api.views.Reimbursements import (
     _safe_filename,
 )
 
-
 # ─── _safe_filename ──────────────────────────────────────────────
 
 
@@ -170,9 +169,18 @@ def test_format_reimbursement_returns_expected_shape():
     out = ReimbursementsAPI._format_reimbursement(row)
     # Required keys present.
     for key in (
-        "id", "user_id", "org_id", "event_proposal_id", "amount", "description",
-        "attachment_url", "has_attachment", "status",
-        "submitted_at", "reviewed_by", "reviewed_at",
+        "id",
+        "user_id",
+        "org_id",
+        "event_proposal_id",
+        "amount",
+        "description",
+        "attachment_url",
+        "has_attachment",
+        "status",
+        "submitted_at",
+        "reviewed_by",
+        "reviewed_at",
         "reviewer_note",
     ):
         assert key in out, f"missing key: {key}"
@@ -191,11 +199,14 @@ def test_format_reimbursement_has_attachment_reflects_attachment_url_truthiness(
     no_attach = _FakeReimbursement(attachment_url=None)
     with_attach = _FakeReimbursement(attachment_url="reimbursements/abc/uuid/r.jpg")
     assert ReimbursementsAPI._format_reimbursement(no_attach)["has_attachment"] is False
-    assert ReimbursementsAPI._format_reimbursement(with_attach)["has_attachment"] is True
+    assert (
+        ReimbursementsAPI._format_reimbursement(with_attach)["has_attachment"] is True
+    )
 
 
 def test_format_reimbursement_emits_iso_z_timestamps_when_present_and_none_when_not():
     from datetime import datetime
+
     row = _FakeReimbursement(
         submitted_at=datetime(2026, 5, 21, 14, 30, 0),
         reviewed_at=None,
@@ -210,7 +221,9 @@ def test_format_reimbursement_with_user_adds_user_name_and_osm_username():
     """The admin queue table needs the editor's display name + OSM
     handle inline so it can render without a second round-trip."""
     row = _FakeReimbursement(user_id="u1")
-    user = _FakeUser("u1", first_name="Logan", last_name="Foo", osm_username="logan_osm")
+    user = _FakeUser(
+        "u1", first_name="Logan", last_name="Foo", osm_username="logan_osm"
+    )
     out = ReimbursementsAPI._format_reimbursement_with_user(row, user)
     assert out["user_name"] == "Logan Foo"
     assert out["user_osm_username"] == "logan_osm"

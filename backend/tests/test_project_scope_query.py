@@ -6,7 +6,7 @@ Uses the shared db_session fixture (PostgreSQL, rolled back per test).
 """
 
 import pytest
-from api.database import db, Project, Region, Country, ProjectCountry
+from api.database import Project, Region, Country, ProjectCountry
 from api.database.core import Team, TeamLead, ProjectTeam, ProjectUser
 from api.services.project_service import ProjectService
 
@@ -119,8 +119,8 @@ def test_team_admin_sees_union_of_team_and_created_projects(db_session):
     user = _User(TEAM_ADMIN_ID, "team_admin")
     ids = {p.id for p in svc.role_scope_projects_query(_base_query(), user).all()}
 
-    assert 8004 in ids      # on their team
-    assert 8005 in ids      # created by them
+    assert 8004 in ids  # on their team
+    assert 8005 in ids  # created by them
     assert 8006 not in ids  # neither
 
 
@@ -146,10 +146,12 @@ def test_user_sees_only_explicitly_assigned_projects(db_session):
 
 
 def test_status_true_returns_only_active_projects(db_session):
-    db_session.add_all([
-        Project(id=6001, url="https://example.com/6001", org_id=ORG, status=True),
-        Project(id=6002, url="https://example.com/6002", org_id=ORG, status=False),
-    ])
+    db_session.add_all(
+        [
+            Project(id=6001, url="https://example.com/6001", org_id=ORG, status=True),
+            Project(id=6002, url="https://example.com/6002", org_id=ORG, status=False),
+        ]
+    )
     db_session.flush()
 
     base = Project.query.filter(Project.org_id == ORG)
@@ -160,10 +162,12 @@ def test_status_true_returns_only_active_projects(db_session):
 
 
 def test_status_false_returns_only_inactive_projects(db_session):
-    db_session.add_all([
-        Project(id=6003, url="https://example.com/6003", org_id=ORG, status=True),
-        Project(id=6004, url="https://example.com/6004", org_id=ORG, status=False),
-    ])
+    db_session.add_all(
+        [
+            Project(id=6003, url="https://example.com/6003", org_id=ORG, status=True),
+            Project(id=6004, url="https://example.com/6004", org_id=ORG, status=False),
+        ]
+    )
     db_session.flush()
 
     base = Project.query.filter(Project.org_id == ORG)
@@ -308,14 +312,19 @@ def test_team_filter_excludes_projects_on_other_teams(db_session):
 
 
 def test_created_by_returns_only_own_projects(db_session):
-    db_session.add_all([
-        _project(2001, created_by=TEAM_ADMIN_ID),
-        _project(2002, created_by=OTHER_ADMIN_ID),
-    ])
+    db_session.add_all(
+        [
+            _project(2001, created_by=TEAM_ADMIN_ID),
+            _project(2002, created_by=OTHER_ADMIN_ID),
+        ]
+    )
     db_session.flush()
 
     base = Project.query.filter(Project.org_id == ORG)
-    ids = {p.id for p in ProjectService.get_project_by_created_by(base, TEAM_ADMIN_ID).all()}
+    ids = {
+        p.id
+        for p in ProjectService.get_project_by_created_by(base, TEAM_ADMIN_ID).all()
+    }
 
     assert 2001 in ids
     assert 2002 not in ids
@@ -326,7 +335,10 @@ def test_created_by_returns_empty_when_no_match(db_session):
     db_session.flush()
 
     base = Project.query.filter(Project.org_id == ORG)
-    ids = {p.id for p in ProjectService.get_project_by_created_by(base, TEAM_ADMIN_ID).all()}
+    ids = {
+        p.id
+        for p in ProjectService.get_project_by_created_by(base, TEAM_ADMIN_ID).all()
+    }
 
     assert 2003 not in ids
 
@@ -344,7 +356,8 @@ def test_assigned_users_returns_projects_with_any_matching_user(db_session):
 
     base = Project.query.filter(Project.org_id == ORG)
     ids = {
-        p.id for p in ProjectService.get_project_by_assigned_users(
+        p.id
+        for p in ProjectService.get_project_by_assigned_users(
             base, [PLAIN_USER_ID, OTHER_ADMIN_ID]
         ).all()
     }
@@ -363,7 +376,8 @@ def test_assigned_users_excludes_projects_for_other_users(db_session):
 
     base = Project.query.filter(Project.org_id == ORG)
     ids = {
-        p.id for p in ProjectService.get_project_by_assigned_users(
+        p.id
+        for p in ProjectService.get_project_by_assigned_users(
             base, [PLAIN_USER_ID]
         ).all()
     }

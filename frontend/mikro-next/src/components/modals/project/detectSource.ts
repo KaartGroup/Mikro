@@ -10,7 +10,7 @@
  * that actually gets created.)
  */
 
-export type ProjectSource = "tm4" | "mr";
+type ProjectSource = "tm4" | "mr";
 
 export function detectSource(url: string): ProjectSource {
   return url.toLowerCase().includes("maproulette") ? "mr" : "tm4";

@@ -67,7 +67,9 @@ def test_managed_team_ids_for_empty_when_not_a_lead_anywhere():
     with patch("api.auth.team_scoping.Team") as MockTeam, patch(
         "api.auth.team_scoping.TeamLead"
     ):
-        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = []
+        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = (
+            []
+        )
         assert managed_team_ids_for(viewer) == []
 
 
@@ -164,7 +166,9 @@ def test_team_admin_can_access_user_zero_managed_teams():
     with patch("api.auth.team_scoping.Team") as MockTeam, patch(
         "api.auth.team_scoping.TeamLead"
     ):
-        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = []
+        MockTeam.query.join.return_value.filter.return_value.filter.return_value.all.return_value = (
+            []
+        )
         assert not team_admin_can_access_user(viewer, "auth0|x")
 
 

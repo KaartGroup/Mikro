@@ -36,7 +36,7 @@ export const ROUTES = {
   authLogout: "/auth/logout",
 } as const;
 
-export type Route = (typeof ROUTES)[keyof typeof ROUTES];
+type Route = (typeof ROUTES)[keyof typeof ROUTES];
 
 /** Routes handled by Auth0 — excluded from page.tsx existence checks. */
 export const AUTH_ROUTES: readonly Route[] = [

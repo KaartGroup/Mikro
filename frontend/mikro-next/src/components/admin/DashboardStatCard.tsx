@@ -16,11 +16,11 @@ import type { FormattedValue } from "@/lib/utils";
  * component so the visual rhythm stays consistent.
  */
 
-export type DeltaFormat = "number" | "hours" | "currency";
+type DeltaFormat = "number" | "hours" | "currency";
 
-export type Severity = "neutral" | "info" | "success" | "warning" | "critical";
+type Severity = "neutral" | "info" | "success" | "warning" | "critical";
 
-export interface DashboardStatCardProps {
+interface DashboardStatCardProps {
   label: string;
   value: string | number | FormattedValue;
   /** Optional period-over-period delta. Pass null for stats where a delta is not meaningful. */

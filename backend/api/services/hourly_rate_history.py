@@ -210,18 +210,17 @@ class HourlyRateHistoryService:
         e_end = entry.end_date or _MAX_DATE
 
         # Check HourlyPayment (old monthly-rate system)
-        paid_hp = (
-            HourlyPayment.query.filter(
-                HourlyPayment.user_id == entry.user_id,
-                HourlyPayment.paid.is_(True),
-            )
-            .all()
-        )
+        paid_hp = HourlyPayment.query.filter(
+            HourlyPayment.user_id == entry.user_id,
+            HourlyPayment.paid.is_(True),
+        ).all()
         for hp in paid_hp:
             # Use full month-range overlap: [entry.start_date, e_end] overlaps
             # [month_start, month_end] when start <= month_end AND e_end >= month_start.
             month_start = date(hp.year, hp.month, 1)
-            month_end = date(hp.year, hp.month, calendar.monthrange(hp.year, hp.month)[1])
+            month_end = date(
+                hp.year, hp.month, calendar.monthrange(hp.year, hp.month)[1]
+            )
             if entry.start_date <= month_end and e_end >= month_start:
                 raise DeleteGuardError(
                     f"Cannot delete: paid HourlyPayment exists for "
@@ -229,13 +228,10 @@ class HourlyRateHistoryService:
                 )
 
         # Check PaymentCycleStatus (v1 payments system)
-        paid_pcs = (
-            PaymentCycleStatus.query.filter(
-                PaymentCycleStatus.user_id == entry.user_id,
-                PaymentCycleStatus.status == "paid",
-            )
-            .all()
-        )
+        paid_pcs = PaymentCycleStatus.query.filter(
+            PaymentCycleStatus.user_id == entry.user_id,
+            PaymentCycleStatus.status == "paid",
+        ).all()
         for pcs in paid_pcs:
             if entry.start_date <= pcs.cycle_start <= e_end:
                 raise DeleteGuardError(

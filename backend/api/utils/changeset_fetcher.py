@@ -1,5 +1,6 @@
 import time
 import logging
+
 logger = logging.getLogger(__name__)
 import requests
 
@@ -14,7 +15,12 @@ def changesets_to_heatmap_points(changesets):
         max_lat = cs.get("max_lat")
         min_lon = cs.get("min_lon")
         max_lon = cs.get("max_lon")
-        if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
+        if (
+            min_lat is not None
+            and max_lat is not None
+            and min_lon is not None
+            and max_lon is not None
+        ):
             lat = (float(min_lat) + float(max_lat)) / 2
             lon = (float(min_lon) + float(max_lon)) / 2
             intensity = max(int(cs.get("changes_count", 0)), 1)
@@ -36,7 +42,9 @@ class ChangesetFetcher:
         usernames = [u for u in osm_usernames if u]
         all_changesets = []
         for username in usernames:
-            all_changesets.extend(self._fetch_for_user(username, since, until, max_results=max_results))
+            all_changesets.extend(
+                self._fetch_for_user(username, since, until, max_results=max_results)
+            )
         return all_changesets
 
     def _fetch_for_user(self, osm_username, since, until, max_results=None):
@@ -46,7 +54,11 @@ class ChangesetFetcher:
         page = 1
 
         while True:
-            time_param = closed_after if created_before is None else f"{closed_after},{created_before}"
+            time_param = (
+                closed_after
+                if created_before is None
+                else f"{closed_after},{created_before}"
+            )
             url = (
                 f"https://api.openstreetmap.org/api/0.6/changesets.json"
                 f"?display_name={osm_username}&time={time_param}&limit={_PAGE_SIZE}"
@@ -73,6 +85,8 @@ class ChangesetFetcher:
             resp = self.session.get(url, timeout=30)
             if resp.status_code != 429:
                 return resp
-            logger.warning(f"Rate limited on OSM API, retrying in {2 ** attempt}s (attempt {attempt + 1}/4)")
-            time.sleep(2 ** attempt)
+            logger.warning(
+                f"Rate limited on OSM API, retrying in {2 ** attempt}s (attempt {attempt + 1}/4)"
+            )
+            time.sleep(2**attempt)
         return resp

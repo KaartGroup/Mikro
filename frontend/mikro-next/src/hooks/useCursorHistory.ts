@@ -6,7 +6,7 @@ import type { TimeEntry, TimeTrackingHistoryResponse } from "@/types";
 
 type Cursor = { clockIn: string; id: number };
 
-export interface CursorHistoryResult {
+interface CursorHistoryResult {
   entries: TimeEntry[];
   nextCursor: Cursor | null;
   loading: boolean;

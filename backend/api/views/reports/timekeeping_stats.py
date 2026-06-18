@@ -8,10 +8,10 @@ from ...utils.tz import parse_filter_datetime
 from ...time_tracking import TimeEntryScope, ACTIVITY_SLUGS
 from .helpers import resolve_member_id_filter
 
-
 # ---------------------------------------------------------------------------
 # Controller
 # ---------------------------------------------------------------------------
+
 
 def fetch_timekeeping_stats():
     """Reads Flask context and delegates to get_timekeeping_stats."""
@@ -45,7 +45,10 @@ def fetch_timekeeping_stats():
         cmp_start, _ = parse_filter_datetime(compare_start_str)
         cmp_end, cmp_end_was_date_only = parse_filter_datetime(compare_end_str)
         if cmp_start is None or cmp_end is None:
-            return {"message": "Invalid compareStartDate or compareEndDate", "status": 400}
+            return {
+                "message": "Invalid compareStartDate or compareEndDate",
+                "status": 400,
+            }
         if cmp_end_was_date_only:
             cmp_end = cmp_end + timedelta(days=1)
 
@@ -63,16 +66,27 @@ def fetch_timekeeping_stats():
 # Testable orchestrator
 # ---------------------------------------------------------------------------
 
-def get_timekeeping_stats(org_id, start_date, end_date, member_ids=None, cmp_start=None, cmp_end=None):
+
+def get_timekeeping_stats(
+    org_id, start_date, end_date, member_ids=None, cmp_start=None, cmp_end=None
+):
     """Assembles the full timekeeping stats response. No Flask context required."""
-    weekly_category_hours, all_cats = _get_weekly_category_hours(org_id, start_date, end_date, member_ids)
-    daily_category_hours, _ = _get_daily_category_hours(org_id, start_date, end_date, member_ids)
+    weekly_category_hours, all_cats = _get_weekly_category_hours(
+        org_id, start_date, end_date, member_ids
+    )
+    daily_category_hours, _ = _get_daily_category_hours(
+        org_id, start_date, end_date, member_ids
+    )
     return {
         "status": 200,
         "snapshot_timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": _get_summary(org_id, start_date, end_date, member_ids),
-        "hours_by_category": _get_hours_by_category(org_id, start_date, end_date, member_ids),
-        "weekly_activity": _get_weekly_activity(org_id, start_date, end_date, member_ids),
+        "hours_by_category": _get_hours_by_category(
+            org_id, start_date, end_date, member_ids
+        ),
+        "weekly_activity": _get_weekly_activity(
+            org_id, start_date, end_date, member_ids
+        ),
         "daily_activity": _get_daily_activity(org_id, start_date, end_date, member_ids),
         "weekly_category_hours": weekly_category_hours,
         "weekly_category_names": sorted(all_cats),
@@ -83,7 +97,8 @@ def get_timekeeping_stats(org_id, start_date, end_date, member_ids=None, cmp_sta
         ),
         "comparison": (
             _get_comparison(org_id, cmp_start, cmp_end, member_ids)
-            if cmp_start and cmp_end else None
+            if cmp_start and cmp_end
+            else None
         ),
     }
 
@@ -91,6 +106,7 @@ def get_timekeeping_stats(org_id, start_date, end_date, member_ids=None, cmp_sta
 # ---------------------------------------------------------------------------
 # Filter builder
 # ---------------------------------------------------------------------------
+
 
 def _build_filter(org_id, start_date, end_date, member_ids, statuses=("completed",)):
     """Build the base SQLAlchemy filter list for TimeEntry queries.
@@ -121,6 +137,7 @@ def _build_filter(org_id, start_date, end_date, member_ids, statuses=("completed
 # Single-purpose query helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_summary(org_id, start_date, end_date, member_ids):
     f = _build_filter(org_id, start_date, end_date, member_ids)
     row = (
@@ -139,13 +156,18 @@ def _get_summary(org_id, start_date, end_date, member_ids):
     active_users = row.active_users or 0
 
     period_length = (end_date - start_date).days
-    prior_f = _build_filter(org_id, start_date - timedelta(days=period_length), start_date, member_ids)
+    prior_f = _build_filter(
+        org_id, start_date - timedelta(days=period_length), start_date, member_ids
+    )
     prior_seconds = (
-        db.session.query(func.sum(TimeEntry.duration_seconds)).filter(*prior_f).scalar() or 0
+        db.session.query(func.sum(TimeEntry.duration_seconds)).filter(*prior_f).scalar()
+        or 0
     )
     prior_hours = prior_seconds / 3600
     weekly_change = (
-        round((total_hours - prior_hours) / prior_hours * 100, 1) if prior_hours > 0 else 0
+        round((total_hours - prior_hours) / prior_hours * 100, 1)
+        if prior_hours > 0
+        else 0
     )
 
     return {
@@ -154,7 +176,9 @@ def _get_summary(org_id, start_date, end_date, member_ids):
         "total_changesets": row.total_changesets or 0,
         "total_changes": row.total_changes or 0,
         "active_users": active_users,
-        "avg_hours_per_user": round(total_hours / active_users, 1) if active_users else 0,
+        "avg_hours_per_user": (
+            round(total_hours / active_users, 1) if active_users else 0
+        ),
         "weekly_rate_change_percent": weekly_change,
     }
 
@@ -162,7 +186,9 @@ def _get_summary(org_id, start_date, end_date, member_ids):
 def _get_hours_by_category(org_id, start_date, end_date, member_ids):
     f = _build_filter(org_id, start_date, end_date, member_ids)
     rows = (
-        db.session.query(TimeEntry.activity, func.sum(TimeEntry.duration_seconds).label("seconds"))
+        db.session.query(
+            TimeEntry.activity, func.sum(TimeEntry.duration_seconds).label("seconds")
+        )
         .filter(*f)
         .group_by(TimeEntry.activity)
         .all()
@@ -170,7 +196,10 @@ def _get_hours_by_category(org_id, start_date, end_date, member_ids):
     return [
         # JSON key "category" preserved for frontend compat (reads from
         # the renamed `activity` column underneath).
-        {"category": row.activity or "other", "hours": round((row.seconds or 0) / 3600, 1)}
+        {
+            "category": row.activity or "other",
+            "hours": round((row.seconds or 0) / 3600, 1),
+        }
         for row in rows
     ]
 
@@ -179,7 +208,10 @@ def _get_weekly_activity(org_id, start_date, end_date, member_ids):
     f = _build_filter(org_id, start_date, end_date, member_ids)
     rows = (
         db.session.query(
-            (func.date_trunc("week", TimeEntry.clock_in + timedelta(days=1)) - timedelta(days=1)).label("week"),
+            (
+                func.date_trunc("week", TimeEntry.clock_in + timedelta(days=1))
+                - timedelta(days=1)
+            ).label("week"),
             func.sum(TimeEntry.duration_seconds).label("seconds"),
             func.sum(TimeEntry.changeset_count).label("changesets"),
             func.sum(TimeEntry.changes_count).label("changes"),
@@ -198,14 +230,18 @@ def _get_weekly_activity(org_id, start_date, end_date, member_ids):
         hours = round((row.seconds or 0) / 3600, 1)
         changesets = row.changesets or 0
         changes = row.changes or 0
-        result.append({
-            "week": week_str,
-            "hours": hours,
-            "changesets": changesets,
-            "changes": changes,
-            "changes_per_changeset": round(changes / changesets, 1) if changesets else 0,
-            "changes_per_hour": round(changes / hours, 1) if hours else 0,
-        })
+        result.append(
+            {
+                "week": week_str,
+                "hours": hours,
+                "changesets": changesets,
+                "changes": changes,
+                "changes_per_changeset": (
+                    round(changes / changesets, 1) if changesets else 0
+                ),
+                "changes_per_hour": round(changes / hours, 1) if hours else 0,
+            }
+        )
     return result
 
 
@@ -228,15 +264,20 @@ def _get_daily_activity(org_id, start_date, end_date, member_ids):
         hours = round((row.seconds or 0) / 3600, 1)
         changesets = row.changesets or 0
         changes = row.changes or 0
-        result.append({
-            "day": row.day.strftime("%Y-%m-%d"),
-            "hours": hours,
-            "changesets": changesets,
-            "changes": changes,
-            "changes_per_changeset": round(changes / changesets, 1) if changesets else 0,
-            "changes_per_hour": round(changes / hours, 1) if hours else 0,
-        })
+        result.append(
+            {
+                "day": row.day.strftime("%Y-%m-%d"),
+                "hours": hours,
+                "changesets": changesets,
+                "changes": changes,
+                "changes_per_changeset": (
+                    round(changes / changesets, 1) if changesets else 0
+                ),
+                "changes_per_hour": round(changes / hours, 1) if hours else 0,
+            }
+        )
     return result
+
 
 def _categorize_activity(activity=None, subcategory_name=None) -> str:
     """
@@ -352,24 +393,30 @@ def _get_user_breakdown(org_id, start_date, end_date, member_ids):
         if not user:
             continue
         cat_rows = (
-            db.session.query(TimeEntry.activity, func.sum(TimeEntry.duration_seconds).label("seconds"))
+            db.session.query(
+                TimeEntry.activity,
+                func.sum(TimeEntry.duration_seconds).label("seconds"),
+            )
             .filter(*f, TimeEntry.user_id == row.user_id)
             .group_by(TimeEntry.activity)
             .all()
         )
-        result.append({
-            "user_id": row.user_id,
-            "user_name": f"{user.first_name} {user.last_name}".strip() or user.email,
-            "osm_username": user.osm_username or "",
-            "total_hours": round((row.seconds or 0) / 3600, 1),
-            "entries_count": row.entries or 0,
-            "changeset_count": row.changesets or 0,
-            "changes_count": row.changes or 0,
-            "category_hours": {
-                cd.activity or "other": round((cd.seconds or 0) / 3600, 1)
-                for cd in cat_rows
-            },
-        })
+        result.append(
+            {
+                "user_id": row.user_id,
+                "user_name": f"{user.first_name} {user.last_name}".strip()
+                or user.email,
+                "osm_username": user.osm_username or "",
+                "total_hours": round((row.seconds or 0) / 3600, 1),
+                "entries_count": row.entries or 0,
+                "changeset_count": row.changesets or 0,
+                "changes_count": row.changes or 0,
+                "category_hours": {
+                    cd.activity or "other": round((cd.seconds or 0) / 3600, 1)
+                    for cd in cat_rows
+                },
+            }
+        )
     return result
 
 
@@ -378,7 +425,10 @@ def _get_weekly_category_hours(org_id, start_date, end_date, member_ids):
     f = _build_filter(org_id, start_date, end_date, member_ids)
     rows = (
         db.session.query(
-            (func.date_trunc("week", TimeEntry.clock_in + timedelta(days=1)) - timedelta(days=1)).label("week"),
+            (
+                func.date_trunc("week", TimeEntry.clock_in + timedelta(days=1))
+                - timedelta(days=1)
+            ).label("week"),
             TimeEntry.activity,
             TimeEntry.subcategory_name,
             func.sum(TimeEntry.duration_seconds).label("seconds"),

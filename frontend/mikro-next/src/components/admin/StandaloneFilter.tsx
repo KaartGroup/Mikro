@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Select } from "@/components/ui";
 
-export interface StandaloneFilterOption {
+interface StandaloneFilterOption {
   value: string;
   label: string;
 }

@@ -5,9 +5,9 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useToastActions } from "@/components/ui";
 
-export const USER_NOTES_MAX_LEN = 500;
+const USER_NOTES_MAX_LEN = 500;
 
-export interface NotesDialogProps {
+interface NotesDialogProps {
   isOpen: boolean;
   onClose: () => void;
   initialValue: string | null;

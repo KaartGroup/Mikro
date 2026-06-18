@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
   Badge,
   Button,
   Tabs,
@@ -70,7 +69,6 @@ export default function FriendDetailPage() {
 
   const {
     mutate: fetchDetail,
-    loading: detailLoading,
     error: detailError,
   } = useFriendDetail();
 
@@ -185,7 +183,7 @@ export default function FriendDetailPage() {
 
   if (!data) return null;
 
-  const { friend, changesets, heatmapPoints, summary, hashtagSummary } = data;
+  const { friend, changesets, heatmapPoints, hashtagSummary } = data;
 
   const sortedChangesets = [...changesets].sort(
     (a, b) =>

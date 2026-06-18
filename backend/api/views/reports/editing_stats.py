@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from flask import g, request
 from sqlalchemy import func
 
-from ...database import db, Task, Project, User, TimeEntry
+from ...database import db, Task, Project, TimeEntry
 from ...stats import get_batch_project_stats
 from ...utils.tz import parse_filter_datetime
 from ...time_tracking import AggregateQuery
@@ -12,12 +12,19 @@ from .helpers import resolve_osm_username_filter
 
 logger = logging.getLogger(__name__)
 
-_MR_STATUS_KEYS = {1: "fixed", 2: "false_positive", 3: "skipped", 5: "already_fixed", 6: "cant_complete"}
+_MR_STATUS_KEYS = {
+    1: "fixed",
+    2: "false_positive",
+    3: "skipped",
+    5: "already_fixed",
+    6: "cant_complete",
+}
 
 
 # ---------------------------------------------------------------------------
 # Controller
 # ---------------------------------------------------------------------------
+
 
 def fetch_editing_stats(source=None):
     """Reads Flask context and delegates to get_editing_stats."""
@@ -54,7 +61,10 @@ def fetch_editing_stats(source=None):
         cmp_start, _ = parse_filter_datetime(compare_start_str)
         cmp_end, cmp_end_was_date_only = parse_filter_datetime(compare_end_str)
         if cmp_start is None or cmp_end is None:
-            return {"message": "Invalid compareStartDate or compareEndDate", "status": 400}
+            return {
+                "message": "Invalid compareStartDate or compareEndDate",
+                "status": 400,
+            }
         if cmp_end_was_date_only:
             cmp_end = cmp_end + timedelta(days=1)
 
@@ -73,26 +83,36 @@ def fetch_editing_stats(source=None):
 # Testable orchestrator
 # ---------------------------------------------------------------------------
 
-def get_editing_stats(org_id, source, start_date, end_date, osm_usernames, cmp_start=None, cmp_end=None):
+
+def get_editing_stats(
+    org_id, source, start_date, end_date, osm_usernames, cmp_start=None, cmp_end=None
+):
     """Assembles the full editing stats response. No Flask context required."""
     return {
         "status": 200,
         "snapshot_timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": _get_summary(org_id, source, start_date, end_date, osm_usernames),
-        "tasks_over_time": _get_tasks_over_time(org_id, source, start_date, end_date, osm_usernames),
-        "tasks_over_time_daily": _get_tasks_over_time_daily(org_id, source, start_date, end_date, osm_usernames),
+        "tasks_over_time": _get_tasks_over_time(
+            org_id, source, start_date, end_date, osm_usernames
+        ),
+        "tasks_over_time_daily": _get_tasks_over_time_daily(
+            org_id, source, start_date, end_date, osm_usernames
+        ),
         "mr_status_over_time": (
             _get_mr_status_over_time(org_id, start_date, end_date, osm_usernames)
-            if source == "mr" else None
+            if source == "mr"
+            else None
         ),
         "mr_status_over_time_daily": (
             _get_mr_status_over_time_daily(org_id, start_date, end_date, osm_usernames)
-            if source == "mr" else None
+            if source == "mr"
+            else None
         ),
         "projects": _get_projects_list(org_id, source),
         "comparison": (
             _get_comparison(org_id, source, cmp_start, cmp_end, osm_usernames)
-            if cmp_start and cmp_end else None
+            if cmp_start and cmp_end
+            else None
         ),
     }
 
@@ -101,11 +121,15 @@ def get_editing_stats(org_id, source, start_date, end_date, osm_usernames, cmp_s
 # Single-purpose query helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_summary(org_id, source, start_date, end_date, osm_usernames):
     def _count(flag_col, date_col, user_col):
         q = Task.query.filter(
-            Task.org_id == org_id, Task.source == source,
-            flag_col == True, date_col >= start_date, date_col < end_date,
+            Task.org_id == org_id,
+            Task.source == source,
+            flag_col == True,
+            date_col >= start_date,
+            date_col < end_date,
         )
         if osm_usernames:
             q = q.filter(user_col.in_(osm_usernames))
@@ -113,43 +137,52 @@ def _get_summary(org_id, source, start_date, end_date, osm_usernames):
 
     return {
         "total_mapped": _count(Task.mapped, Task.date_mapped, Task.mapped_by),
-        "total_validated": _count(Task.validated, Task.date_validated, Task.validated_by),
-        "total_invalidated": _count(Task.invalidated, Task.date_validated, Task.validated_by),
+        "total_validated": _count(
+            Task.validated, Task.date_validated, Task.validated_by
+        ),
+        "total_invalidated": _count(
+            Task.invalidated, Task.date_validated, Task.validated_by
+        ),
         "active_projects": Project.query.filter_by(
             org_id=org_id, source=source, status=True
         ).count(),
         "mr_status_summary": (
             _get_mr_status_summary(org_id, start_date, end_date, osm_usernames)
-            if source == "mr" else None
+            if source == "mr"
+            else None
         ),
     }
 
 
 def _get_mr_status_summary(org_id, start_date, end_date, osm_usernames):
-    q = (
-        db.session.query(Task.mr_status, func.count())
-        .filter(
-            Task.org_id == org_id, Task.source == "mr",
-            Task.mapped == True,
-            Task.date_mapped >= start_date, Task.date_mapped < end_date,
-        )
+    q = db.session.query(Task.mr_status, func.count()).filter(
+        Task.org_id == org_id,
+        Task.source == "mr",
+        Task.mapped == True,
+        Task.date_mapped >= start_date,
+        Task.date_mapped < end_date,
     )
     if osm_usernames:
         q = q.filter(Task.mapped_by.in_(osm_usernames))
-    return {row[0]: row[1] for row in q.group_by(Task.mr_status).all() if row[0] is not None}
+    return {
+        row[0]: row[1] for row in q.group_by(Task.mr_status).all() if row[0] is not None
+    }
 
 
 def _get_tasks_over_time(org_id, source, start_date, end_date, osm_usernames):
     def _weekly(date_col, user_col, flag_col):
-        q = (
-            db.session.query(
-                (func.date_trunc("week", date_col + timedelta(days=1)) - timedelta(days=1)).label("week"),
-                func.count().label("count"),
-            )
-            .filter(
-                Task.org_id == org_id, Task.source == source,
-                flag_col == True, date_col >= start_date, date_col < end_date,
-            )
+        q = db.session.query(
+            (
+                func.date_trunc("week", date_col + timedelta(days=1))
+                - timedelta(days=1)
+            ).label("week"),
+            func.count().label("count"),
+        ).filter(
+            Task.org_id == org_id,
+            Task.source == source,
+            flag_col == True,
+            date_col >= start_date,
+            date_col < end_date,
         )
         if osm_usernames:
             q = q.filter(user_col.in_(osm_usernames))
@@ -158,32 +191,41 @@ def _get_tasks_over_time(org_id, source, start_date, end_date, osm_usernames):
     weeks = {}
     for row in _weekly(Task.date_mapped, Task.mapped_by, Task.mapped):
         key = row.week.strftime("%Y-%m-%d")
-        weeks.setdefault(key, {"week": key, "mapped": 0, "validated": 0, "invalidated": 0})
+        weeks.setdefault(
+            key, {"week": key, "mapped": 0, "validated": 0, "invalidated": 0}
+        )
         weeks[key]["mapped"] = row.count
     for row in _weekly(Task.date_validated, Task.validated_by, Task.validated):
         key = row.week.strftime("%Y-%m-%d")
-        weeks.setdefault(key, {"week": key, "mapped": 0, "validated": 0, "invalidated": 0})
+        weeks.setdefault(
+            key, {"week": key, "mapped": 0, "validated": 0, "invalidated": 0}
+        )
         weeks[key]["validated"] = row.count
     for row in _weekly(Task.date_validated, Task.validated_by, Task.invalidated):
         key = row.week.strftime("%Y-%m-%d")
-        weeks.setdefault(key, {"week": key, "mapped": 0, "validated": 0, "invalidated": 0})
+        weeks.setdefault(
+            key, {"week": key, "mapped": 0, "validated": 0, "invalidated": 0}
+        )
         weeks[key]["invalidated"] = row.count
 
     return sorted(weeks.values(), key=lambda x: x["week"])
 
 
 def _get_mr_status_over_time(org_id, start_date, end_date, osm_usernames):
-    q = (
-        db.session.query(
-            (func.date_trunc("week", Task.date_mapped + timedelta(days=1)) - timedelta(days=1)).label("week"),
-            Task.mr_status,
-            func.count().label("count"),
-        )
-        .filter(
-            Task.org_id == org_id, Task.source == "mr",
-            Task.mapped == True, Task.mr_status != None,
-            Task.date_mapped >= start_date, Task.date_mapped < end_date,
-        )
+    q = db.session.query(
+        (
+            func.date_trunc("week", Task.date_mapped + timedelta(days=1))
+            - timedelta(days=1)
+        ).label("week"),
+        Task.mr_status,
+        func.count().label("count"),
+    ).filter(
+        Task.org_id == org_id,
+        Task.source == "mr",
+        Task.mapped == True,
+        Task.mr_status != None,
+        Task.date_mapped >= start_date,
+        Task.date_mapped < end_date,
     )
     if osm_usernames:
         q = q.filter(Task.mapped_by.in_(osm_usernames))
@@ -193,7 +235,14 @@ def _get_mr_status_over_time(org_id, start_date, end_date, osm_usernames):
         key = row.week.strftime("%Y-%m-%d")
         weeks_mr.setdefault(
             key,
-            {"week": key, "fixed": 0, "already_fixed": 0, "false_positive": 0, "skipped": 0, "cant_complete": 0},
+            {
+                "week": key,
+                "fixed": 0,
+                "already_fixed": 0,
+                "false_positive": 0,
+                "skipped": 0,
+                "cant_complete": 0,
+            },
         )
         status_key = _MR_STATUS_KEYS.get(row.mr_status)
         if status_key:
@@ -204,15 +253,15 @@ def _get_mr_status_over_time(org_id, start_date, end_date, osm_usernames):
 
 def _get_tasks_over_time_daily(org_id, source, start_date, end_date, osm_usernames):
     def _daily(date_col, user_col, flag_col):
-        q = (
-            db.session.query(
-                func.date_trunc("day", date_col).label("day"),
-                func.count().label("count"),
-            )
-            .filter(
-                Task.org_id == org_id, Task.source == source,
-                flag_col == True, date_col >= start_date, date_col < end_date,
-            )
+        q = db.session.query(
+            func.date_trunc("day", date_col).label("day"),
+            func.count().label("count"),
+        ).filter(
+            Task.org_id == org_id,
+            Task.source == source,
+            flag_col == True,
+            date_col >= start_date,
+            date_col < end_date,
         )
         if osm_usernames:
             q = q.filter(user_col.in_(osm_usernames))
@@ -221,32 +270,38 @@ def _get_tasks_over_time_daily(org_id, source, start_date, end_date, osm_usernam
     days = {}
     for row in _daily(Task.date_mapped, Task.mapped_by, Task.mapped):
         key = row.day.strftime("%Y-%m-%d")
-        days.setdefault(key, {"day": key, "mapped": 0, "validated": 0, "invalidated": 0})
+        days.setdefault(
+            key, {"day": key, "mapped": 0, "validated": 0, "invalidated": 0}
+        )
         days[key]["mapped"] = row.count
     for row in _daily(Task.date_validated, Task.validated_by, Task.validated):
         key = row.day.strftime("%Y-%m-%d")
-        days.setdefault(key, {"day": key, "mapped": 0, "validated": 0, "invalidated": 0})
+        days.setdefault(
+            key, {"day": key, "mapped": 0, "validated": 0, "invalidated": 0}
+        )
         days[key]["validated"] = row.count
     for row in _daily(Task.date_validated, Task.validated_by, Task.invalidated):
         key = row.day.strftime("%Y-%m-%d")
-        days.setdefault(key, {"day": key, "mapped": 0, "validated": 0, "invalidated": 0})
+        days.setdefault(
+            key, {"day": key, "mapped": 0, "validated": 0, "invalidated": 0}
+        )
         days[key]["invalidated"] = row.count
 
     return sorted(days.values(), key=lambda x: x["day"])
 
 
 def _get_mr_status_over_time_daily(org_id, start_date, end_date, osm_usernames):
-    q = (
-        db.session.query(
-            func.date_trunc("day", Task.date_mapped).label("day"),
-            Task.mr_status,
-            func.count().label("count"),
-        )
-        .filter(
-            Task.org_id == org_id, Task.source == "mr",
-            Task.mapped == True, Task.mr_status != None,
-            Task.date_mapped >= start_date, Task.date_mapped < end_date,
-        )
+    q = db.session.query(
+        func.date_trunc("day", Task.date_mapped).label("day"),
+        Task.mr_status,
+        func.count().label("count"),
+    ).filter(
+        Task.org_id == org_id,
+        Task.source == "mr",
+        Task.mapped == True,
+        Task.mr_status != None,
+        Task.date_mapped >= start_date,
+        Task.date_mapped < end_date,
     )
     if osm_usernames:
         q = q.filter(Task.mapped_by.in_(osm_usernames))
@@ -256,7 +311,14 @@ def _get_mr_status_over_time_daily(org_id, start_date, end_date, osm_usernames):
         key = row.day.strftime("%Y-%m-%d")
         days_mr.setdefault(
             key,
-            {"day": key, "fixed": 0, "already_fixed": 0, "false_positive": 0, "skipped": 0, "cant_complete": 0},
+            {
+                "day": key,
+                "fixed": 0,
+                "already_fixed": 0,
+                "false_positive": 0,
+                "skipped": 0,
+                "cant_complete": 0,
+            },
         )
         status_key = _MR_STATUS_KEYS.get(row.mr_status)
         if status_key:
@@ -294,8 +356,14 @@ def _get_projects_list(org_id, source):
             raw_pct_validated = 0
         else:
             effective_total = total - (proj.tasks_overlap or 0)
-            raw_pct_mapped = round(mapped / effective_total * 100, 1) if effective_total > 0 else 0
-            raw_pct_validated = round(validated / effective_total * 100, 1) if effective_total > 0 else 0
+            raw_pct_mapped = (
+                round(mapped / effective_total * 100, 1) if effective_total > 0 else 0
+            )
+            raw_pct_validated = (
+                round(validated / effective_total * 100, 1)
+                if effective_total > 0
+                else 0
+            )
 
         # if raw_pct_mapped > 100:
         #     logger.warning(
@@ -326,7 +394,9 @@ def _get_projects_list(org_id, source):
             "status": proj.status,
             "difficulty": proj.difficulty or "Unknown",
             "avg_time_per_task": (
-                round(total_secs / completed_tasks) if completed_tasks > 0 and total_secs > 0 else None
+                round(total_secs / completed_tasks)
+                if completed_tasks > 0 and total_secs > 0
+                else None
             ),
         }
 
@@ -347,8 +417,11 @@ def _get_projects_list(org_id, source):
 def _get_comparison(org_id, source, cmp_start, cmp_end, osm_usernames):
     def _count(flag_col, date_col, user_col):
         q = Task.query.filter(
-            Task.org_id == org_id, Task.source == source,
-            flag_col == True, date_col >= cmp_start, date_col < cmp_end,
+            Task.org_id == org_id,
+            Task.source == source,
+            flag_col == True,
+            date_col >= cmp_start,
+            date_col < cmp_end,
         )
         if osm_usernames:
             q = q.filter(user_col.in_(osm_usernames))
@@ -357,9 +430,17 @@ def _get_comparison(org_id, source, cmp_start, cmp_end, osm_usernames):
     return {
         "summary": {
             "total_mapped": _count(Task.mapped, Task.date_mapped, Task.mapped_by),
-            "total_validated": _count(Task.validated, Task.date_validated, Task.validated_by),
-            "total_invalidated": _count(Task.invalidated, Task.date_validated, Task.validated_by),
+            "total_validated": _count(
+                Task.validated, Task.date_validated, Task.validated_by
+            ),
+            "total_invalidated": _count(
+                Task.invalidated, Task.date_validated, Task.validated_by
+            ),
         },
-        "tasks_over_time": _get_tasks_over_time(org_id, source, cmp_start, cmp_end, osm_usernames),
-        "tasks_over_time_daily": _get_tasks_over_time_daily(org_id, source, cmp_start, cmp_end, osm_usernames),
+        "tasks_over_time": _get_tasks_over_time(
+            org_id, source, cmp_start, cmp_end, osm_usernames
+        ),
+        "tasks_over_time_daily": _get_tasks_over_time_daily(
+            org_id, source, cmp_start, cmp_end, osm_usernames
+        ),
     }

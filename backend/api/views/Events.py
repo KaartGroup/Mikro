@@ -25,7 +25,6 @@ from ..utils import requires_auth, requires_team_admin_or_above
 from ..auth.team_scoping import is_org_admin_or_above
 from ..auth.team_scoping import managed_team_ids_for
 
-
 # ── Supporting-document upload helpers ──────────────────────────────────────
 
 _EVENT_ATTACHMENT_ALLOWED_TYPES = {
@@ -80,6 +79,7 @@ def _event_presigned_put_url(key: str, content_type: str) -> str:
         HttpMethod="PUT",
     )
 
+
 _VALID_EVENT_TYPES = {
     "community_field_mapping",
     "conference",
@@ -96,13 +96,23 @@ _VALID_EVENT_TYPES = {
 _VALID_EVENT_FORMATS = {"field_based", "hybrid", "in_person", "remote"}
 
 _VALID_TRANSPORT_METHODS = {
-    "bus", "motorcycle", "other", "personal_vehicle",
-    "rental_vehicle", "taxi", "train",
+    "bus",
+    "motorcycle",
+    "other",
+    "personal_vehicle",
+    "rental_vehicle",
+    "taxi",
+    "train",
 }
 
 _VALID_BUDGET_CATEGORIES = {
-    "accommodation", "equipment", "food", "fuel",
-    "mobile_data", "printing", "venue",
+    "accommodation",
+    "equipment",
+    "food",
+    "fuel",
+    "mobile_data",
+    "printing",
+    "venue",
 }
 
 _VALID_TRAVEL_EXTRAS = {"parking", "public_transit", "tolls", "vehicle_rental"}
@@ -167,9 +177,7 @@ def _format_proposal(p):
         "budget_categories": (
             json.loads(p.budget_categories) if p.budget_categories else []
         ),
-        "budget_amounts": (
-            json.loads(p.budget_amounts) if p.budget_amounts else {}
-        ),
+        "budget_amounts": (json.loads(p.budget_amounts) if p.budget_amounts else {}),
         "other_expense_amount": (
             float(p.other_expense_amount)
             if p.other_expense_amount is not None
@@ -178,9 +186,7 @@ def _format_proposal(p):
         "other_expense_explanation": p.other_expense_explanation,
         "cost_justification": p.cost_justification,
         "agrees_to_report": p.agrees_to_report,
-        "attachment_keys": (
-            json.loads(p.attachment_keys) if p.attachment_keys else []
-        ),
+        "attachment_keys": (json.loads(p.attachment_keys) if p.attachment_keys else []),
         "additional_notes": p.additional_notes,
         "status": p.status,
         "submitted_at": p.submitted_at.isoformat() + "Z" if p.submitted_at else None,
@@ -188,7 +194,6 @@ def _format_proposal(p):
         "reviewed_at": p.reviewed_at.isoformat() + "Z" if p.reviewed_at else None,
         "reviewer_note": p.reviewer_note,
     }
-
 
 
 class EventsAPI(MethodView):
@@ -241,7 +246,10 @@ class EventsAPI(MethodView):
         if not end_date:
             return {"message": "endDate is required", "status": 400}, 400
         if end_date < start_date:
-            return {"message": "endDate must be on or after startDate", "status": 400}, 400
+            return {
+                "message": "endDate must be on or after startDate",
+                "status": 400,
+            }, 400
 
         raw_country = body.get("country")
         try:
@@ -267,9 +275,14 @@ class EventsAPI(MethodView):
             if attendees < 1:
                 raise ValueError
         except (TypeError, ValueError):
-            return {"message": "attendees must be a positive integer", "status": 400}, 400
+            return {
+                "message": "attendees must be a positive integer",
+                "status": 400,
+            }, 400
 
-        expected_outcomes = (body.get("expectedOutcomes") or body.get("expected_outcomes") or "").strip()
+        expected_outcomes = (
+            body.get("expectedOutcomes") or body.get("expected_outcomes") or ""
+        ).strip()
         if not expected_outcomes:
             return {"message": "expectedOutcomes is required", "status": 400}, 400
 
@@ -290,53 +303,112 @@ class EventsAPI(MethodView):
 
         if needs_travel:
             try:
-                num_travelers = int(body.get("numTravelers") or body.get("num_travelers") or 0)
+                num_travelers = int(
+                    body.get("numTravelers") or body.get("num_travelers") or 0
+                )
                 if num_travelers < 1:
                     raise ValueError
             except (TypeError, ValueError):
-                return {"message": "numTravelers must be a positive integer", "status": 400}, 400
+                return {
+                    "message": "numTravelers must be a positive integer",
+                    "status": 400,
+                }, 400
 
-            transport_method = body.get("transportMethod") or body.get("transport_method") or ""
+            transport_method = (
+                body.get("transportMethod") or body.get("transport_method") or ""
+            )
             if transport_method not in _VALID_TRANSPORT_METHODS:
                 return {"message": "invalid transportMethod", "status": 400}, 400
 
-            origin_city = (body.get("originCity") or body.get("origin_city") or "").strip()
+            origin_city = (
+                body.get("originCity") or body.get("origin_city") or ""
+            ).strip()
             if not origin_city:
-                return {"message": "originCity is required when traveling", "status": 400}, 400
+                return {
+                    "message": "originCity is required when traveling",
+                    "status": 400,
+                }, 400
 
             raw_origin_country = body.get("originCountry") or body.get("origin_country")
             try:
-                origin_country_id = int(raw_origin_country) if raw_origin_country not in (None, "") else None
+                origin_country_id = (
+                    int(raw_origin_country)
+                    if raw_origin_country not in (None, "")
+                    else None
+                )
             except (TypeError, ValueError):
-                return {"message": "originCountry must be a valid country id", "status": 400}, 400
+                return {
+                    "message": "originCountry must be a valid country id",
+                    "status": 400,
+                }, 400
             if not origin_country_id:
-                return {"message": "originCountry is required when traveling", "status": 400}, 400
+                return {
+                    "message": "originCountry is required when traveling",
+                    "status": 400,
+                }, 400
 
-            destination_city = (body.get("destinationCity") or body.get("destination_city") or "").strip()
+            destination_city = (
+                body.get("destinationCity") or body.get("destination_city") or ""
+            ).strip()
             if not destination_city:
-                return {"message": "destinationCity is required when traveling", "status": 400}, 400
+                return {
+                    "message": "destinationCity is required when traveling",
+                    "status": 400,
+                }, 400
 
-            raw_dest_country = body.get("destinationCountry") or body.get("destination_country")
+            raw_dest_country = body.get("destinationCountry") or body.get(
+                "destination_country"
+            )
             try:
-                destination_country_id = int(raw_dest_country) if raw_dest_country not in (None, "") else None
+                destination_country_id = (
+                    int(raw_dest_country)
+                    if raw_dest_country not in (None, "")
+                    else None
+                )
             except (TypeError, ValueError):
-                return {"message": "destinationCountry must be a valid country id", "status": 400}, 400
+                return {
+                    "message": "destinationCountry must be a valid country id",
+                    "status": 400,
+                }, 400
             if not destination_country_id:
-                return {"message": "destinationCountry is required when traveling", "status": 400}, 400
+                return {
+                    "message": "destinationCountry is required when traveling",
+                    "status": 400,
+                }, 400
 
-            raw_cost = body.get("estimatedTransportCost") or body.get("estimated_transport_cost") or ""
+            raw_cost = (
+                body.get("estimatedTransportCost")
+                or body.get("estimated_transport_cost")
+                or ""
+            )
             if not str(raw_cost).strip():
-                return {"message": "estimatedTransportCost is required when traveling", "status": 400}, 400
+                return {
+                    "message": "estimatedTransportCost is required when traveling",
+                    "status": 400,
+                }, 400
             estimated_transport_cost = _parse_decimal(raw_cost)
             if estimated_transport_cost is None or estimated_transport_cost < 0:
-                return {"message": "estimatedTransportCost must be a non-negative number", "status": 400}, 400
+                return {
+                    "message": "estimatedTransportCost must be a non-negative number",
+                    "status": 400,
+                }, 400
 
-            raw_extras = body.get("additionalTravelExpenses") or body.get("additional_travel_expenses") or []
+            raw_extras = (
+                body.get("additionalTravelExpenses")
+                or body.get("additional_travel_expenses")
+                or []
+            )
             if not isinstance(raw_extras, list):
-                return {"message": "additionalTravelExpenses must be an array", "status": 400}, 400
+                return {
+                    "message": "additionalTravelExpenses must be an array",
+                    "status": 400,
+                }, 400
             for item in raw_extras:
                 if item not in _VALID_TRAVEL_EXTRAS:
-                    return {"message": f"invalid additionalTravelExpenses value: {item}", "status": 400}, 400
+                    return {
+                        "message": f"invalid additionalTravelExpenses value: {item}",
+                        "status": 400,
+                    }, 400
             additional_travel_expenses = raw_extras
 
         # ── Page 4 validation ────────────────────────────────────────
@@ -346,18 +418,30 @@ class EventsAPI(MethodView):
         if len(currency) > 10:
             return {"message": "currency code too long", "status": 400}, 400
 
-        cost_justification = (body.get("costJustification") or body.get("cost_justification") or "").strip()
+        cost_justification = (
+            body.get("costJustification") or body.get("cost_justification") or ""
+        ).strip()
         if not cost_justification:
             return {"message": "costJustification is required", "status": 400}, 400
 
-        raw_budget_cats = body.get("selectedBudgetCategories") or body.get("budget_categories") or []
+        raw_budget_cats = (
+            body.get("selectedBudgetCategories") or body.get("budget_categories") or []
+        )
         if not isinstance(raw_budget_cats, list):
-            return {"message": "selectedBudgetCategories must be an array", "status": 400}, 400
+            return {
+                "message": "selectedBudgetCategories must be an array",
+                "status": 400,
+            }, 400
         for cat in raw_budget_cats:
             if cat not in _VALID_BUDGET_CATEGORIES:
-                return {"message": f"invalid budget category: {cat}", "status": 400}, 400
+                return {
+                    "message": f"invalid budget category: {cat}",
+                    "status": 400,
+                }, 400
 
-        raw_budget_amounts = body.get("budgetAmounts") or body.get("budget_amounts") or {}
+        raw_budget_amounts = (
+            body.get("budgetAmounts") or body.get("budget_amounts") or {}
+        )
         if not isinstance(raw_budget_amounts, dict):
             return {"message": "budgetAmounts must be an object", "status": 400}, 400
 
@@ -365,21 +449,31 @@ class EventsAPI(MethodView):
             body.get("otherExpenseAmount") or body.get("other_expense_amount")
         )
         if other_expense_amount is not None and other_expense_amount < 0:
-            return {"message": "otherExpenseAmount must be non-negative", "status": 400}, 400
+            return {
+                "message": "otherExpenseAmount must be non-negative",
+                "status": 400,
+            }, 400
 
         # ── Page 5 validation ────────────────────────────────────────
-        agrees_to_report = bool(body.get("agreesToReport") or body.get("agrees_to_report"))
+        agrees_to_report = bool(
+            body.get("agreesToReport") or body.get("agrees_to_report")
+        )
         if not agrees_to_report:
             return {"message": "agreesToReport must be true", "status": 400}, 400
 
         # ── Optional page 6 fields ───────────────────────────────────
-        additional_notes = (body.get("additionalNotes") or body.get("additional_notes") or "").strip() or None
+        additional_notes = (
+            body.get("additionalNotes") or body.get("additional_notes") or ""
+        ).strip() or None
 
-        raw_attachment_keys = body.get("attachmentKeys") or body.get("attachment_keys") or []
+        raw_attachment_keys = (
+            body.get("attachmentKeys") or body.get("attachment_keys") or []
+        )
         if not isinstance(raw_attachment_keys, list):
             return {"message": "attachmentKeys must be an array", "status": 400}, 400
         attachment_keys = [
-            k for k in raw_attachment_keys
+            k
+            for k in raw_attachment_keys
             if isinstance(k, str) and k.startswith("event-proposals/")
         ]
 
@@ -387,7 +481,10 @@ class EventsAPI(MethodView):
             user_id=g.user.id,
             org_id=g.user.org_id,
             title=title,
-            co_organizers=(body.get("coOrganizers") or body.get("co_organizers") or "").strip() or None,
+            co_organizers=(
+                body.get("coOrganizers") or body.get("co_organizers") or ""
+            ).strip()
+            or None,
             event_type=event_type,
             event_format=event_format,
             start_date=start_date,
@@ -397,7 +494,10 @@ class EventsAPI(MethodView):
             venue_name=venue_name,
             description=description,
             attendees=attendees,
-            external_orgs=(body.get("externalOrgs") or body.get("external_orgs") or "").strip() or None,
+            external_orgs=(
+                body.get("externalOrgs") or body.get("external_orgs") or ""
+            ).strip()
+            or None,
             expected_outcomes=expected_outcomes,
             needs_travel=needs_travel,
             num_travelers=num_travelers,
@@ -413,7 +513,12 @@ class EventsAPI(MethodView):
             budget_amounts=json.dumps(raw_budget_amounts),
             other_expense_amount=other_expense_amount,
             other_expense_explanation=(
-                (body.get("otherExpenseExplanation") or body.get("other_expense_explanation") or "").strip() or None
+                (
+                    body.get("otherExpenseExplanation")
+                    or body.get("other_expense_explanation")
+                    or ""
+                ).strip()
+                or None
             ),
             cost_justification=cost_justification,
             agrees_to_report=agrees_to_report,
@@ -432,12 +537,14 @@ class EventsAPI(MethodView):
             return {"message": "Missing user info", "status": 401}, 401
 
         proposals = (
-            EventProposal.query
-            .filter_by(user_id=g.user.id, org_id=g.user.org_id)
+            EventProposal.query.filter_by(user_id=g.user.id, org_id=g.user.org_id)
             .order_by(EventProposal.submitted_at.desc())
             .all()
         )
-        return {"status": 200, "proposals": [_format_proposal(p) for p in proposals]}, 200
+        return {
+            "status": 200,
+            "proposals": [_format_proposal(p) for p in proposals],
+        }, 200
 
     # ── Withdraw ─────────────────────────────────────────────────────
 
@@ -456,7 +563,10 @@ class EventsAPI(MethodView):
         if proposal.user_id != g.user.id:
             return {"message": "Forbidden", "status": 403}, 403
         if proposal.status != "pending":
-            return {"message": "Only pending proposals can be withdrawn", "status": 400}, 400
+            return {
+                "message": "Only pending proposals can be withdrawn",
+                "status": 400,
+            }, 400
 
         proposal.update(status="withdrawn")
         return {"status": 200, "proposal": _format_proposal(proposal)}, 200
@@ -472,8 +582,7 @@ class EventsAPI(MethodView):
         if not is_org_admin_or_above(g.user):
             managed_ids = managed_team_ids_for(g.user)
             member_user_ids = (
-                TeamUser.query
-                .filter(TeamUser.team_id.in_(managed_ids))
+                TeamUser.query.filter(TeamUser.team_id.in_(managed_ids))
                 .with_entities(TeamUser.user_id)
                 .distinct()
                 .all()
@@ -486,7 +595,10 @@ class EventsAPI(MethodView):
             query = query.filter_by(status=status_filter)
 
         proposals = query.order_by(EventProposal.submitted_at.desc()).all()
-        return {"status": 200, "proposals": [_format_proposal(p) for p in proposals]}, 200
+        return {
+            "status": 200,
+            "proposals": [_format_proposal(p) for p in proposals],
+        }, 200
 
     # ── Admin: update status ─────────────────────────────────────────
 
@@ -499,7 +611,10 @@ class EventsAPI(MethodView):
 
         new_status = body.get("status") or ""
         if new_status not in ("approved", "rejected"):
-            return {"message": "status must be 'approved' or 'rejected'", "status": 400}, 400
+            return {
+                "message": "status must be 'approved' or 'rejected'",
+                "status": 400,
+            }, 400
 
         proposal = EventProposal.query.get(proposal_id)
         if not proposal:
@@ -509,9 +624,9 @@ class EventsAPI(MethodView):
         if not is_org_admin_or_above(g.user):
             managed_ids = managed_team_ids_for(g.user)
             member_user_ids = [
-                r[0] for r in (
-                    TeamUser.query
-                    .filter(TeamUser.team_id.in_(managed_ids))
+                r[0]
+                for r in (
+                    TeamUser.query.filter(TeamUser.team_id.in_(managed_ids))
                     .with_entities(TeamUser.user_id)
                     .distinct()
                     .all()
@@ -521,7 +636,10 @@ class EventsAPI(MethodView):
             if proposal.user_id not in member_user_ids:
                 return {"message": "Forbidden", "status": 403}, 403
         if proposal.status not in ("pending",):
-            return {"message": "Only pending proposals can be reviewed", "status": 400}, 400
+            return {
+                "message": "Only pending proposals can be reviewed",
+                "status": 400,
+            }, 400
 
         reviewer_note = (body.get("reviewer_note") or "").strip() or None
         proposal.update(
@@ -542,7 +660,9 @@ class EventsAPI(MethodView):
 
         body = request.json or {}
         filename = (body.get("filename") or "").strip()
-        content_type = (body.get("content_type") or "").strip().lower() or "application/octet-stream"
+        content_type = (
+            body.get("content_type") or ""
+        ).strip().lower() or "application/octet-stream"
         if not filename:
             return {"message": "filename required", "status": 400}, 400
         if content_type not in _EVENT_ATTACHMENT_ALLOWED_TYPES:

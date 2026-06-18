@@ -139,6 +139,7 @@ class LoginAPI(MethodView):
                 try:
                     from datetime import datetime
                     from ..database import PendingInvite, TeamUser
+
                     invites = (
                         PendingInvite.query.filter_by(
                             email=email,
@@ -187,9 +188,7 @@ class LoginAPI(MethodView):
                 # Only set first/last name from Auth0 if the user doesn't
                 # already have them set — prevents overwriting admin edits
                 # with Auth0's default (which is often just the email address)
-                write_first = (
-                    not user.first_name or user.first_name == user.email
-                )
+                write_first = not user.first_name or user.first_name == user.email
                 write_last = not user.last_name
                 if write_first:
                     updates["first_name"] = first_name

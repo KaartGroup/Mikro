@@ -71,12 +71,6 @@ export function slugifyName(name: string): string {
     .toLowerCase();
 }
 
-/** Displayed in tables/filters when a row has no subcategory (legacy). */
-export const UNSPECIFIED_SUBCATEGORY_LABEL = "Unspecified";
-
-/** Cell value shown in subcategory columns when a row has no sub. */
-export const EMPTY_SUBCATEGORY_CELL = "—";
-
 /**
  * Category SSOT — mirrors `VALID_CATEGORIES` and `CATEGORY_DISPLAY_MAP`
  * on the backend (`backend/api/views/TimeTracking.py`). Every category
@@ -265,11 +259,6 @@ export function localWeekStartAgoIsoUtc(
 /** Start of the user's local month as an ISO UTC string. */
 export function localMonthStartIsoUtc(d: Date = new Date()): string {
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
-}
-
-/** Start of the user's local NEXT month as an ISO UTC string (exclusive upper bound). */
-export function localMonthEndIsoUtc(d: Date = new Date()): string {
-  return new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString();
 }
 
 /** Start of the user's local month N months ago as an ISO UTC string. */

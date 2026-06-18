@@ -6,8 +6,7 @@ The filter logic that actually prevents duplicate rows is covered here by
 verifying what arguments reach SyncJob.query.filter and SyncJob.create.
 """
 
-from unittest.mock import patch, MagicMock, call
-import pytest
+from unittest.mock import patch, MagicMock
 
 from api.worker.sync_queue import SyncJobQueue
 
@@ -17,8 +16,14 @@ ORG_B = "org_bbb"
 _PATCH_TARGET = "api.database.SyncJob"
 
 
-def _mock_job(id=1, org_id=ORG_A, job_type="task_sync",
-              target_id=None, progress=None, status="queued"):
+def _mock_job(
+    id=1,
+    org_id=ORG_A,
+    job_type="task_sync",
+    target_id=None,
+    progress=None,
+    status="queued",
+):
     job = MagicMock()
     job.id = id
     job.org_id = org_id
@@ -32,6 +37,7 @@ def _mock_job(id=1, org_id=ORG_A, job_type="task_sync",
 # ---------------------------------------------------------------------------
 # enqueue — creation path
 # ---------------------------------------------------------------------------
+
 
 @patch(_PATCH_TARGET)
 def test_enqueue_creates_job_when_none_exists(MockSyncJob):
@@ -72,6 +78,7 @@ def test_enqueue_passes_target_and_progress_to_create(MockSyncJob):
 # enqueue — deduplication path
 # ---------------------------------------------------------------------------
 
+
 @patch(_PATCH_TARGET)
 def test_enqueue_returns_existing_job_without_creating(MockSyncJob):
     existing = _mock_job(id=42)
@@ -92,7 +99,6 @@ def test_enqueue_queries_only_queued_status(MockSyncJob):
 
     SyncJobQueue.enqueue(ORG_A, "task_sync")
 
-    filter_call_args = MockSyncJob.query.filter.call_args[0]
     # One of the filter conditions must compare SyncJob.status == "queued"
     # With a MagicMock, each condition arg is a MagicMock comparison result.
     # We verify the filter was called (not bypassed) — the real SQL predicate
@@ -103,6 +109,7 @@ def test_enqueue_queries_only_queued_status(MockSyncJob):
 # ---------------------------------------------------------------------------
 # enqueue — filter uses all four key dimensions
 # ---------------------------------------------------------------------------
+
 
 @patch(_PATCH_TARGET)
 def test_enqueue_filter_called_with_five_conditions(MockSyncJob):
@@ -120,6 +127,7 @@ def test_enqueue_filter_called_with_five_conditions(MockSyncJob):
 # ---------------------------------------------------------------------------
 # Convenience wrappers — argument forwarding
 # ---------------------------------------------------------------------------
+
 
 @patch(_PATCH_TARGET)
 def test_enqueue_project_sync_no_user(MockSyncJob):
@@ -206,9 +214,12 @@ def test_enqueue_mr_backfill(MockSyncJob):
 # Convenience wrappers — dedup passthrough
 # ---------------------------------------------------------------------------
 
+
 @patch(_PATCH_TARGET)
 def test_enqueue_project_sync_deduplicates(MockSyncJob):
-    existing = _mock_job(id=10, job_type="project_sync", target_id=55, progress="user:7")
+    existing = _mock_job(
+        id=10, job_type="project_sync", target_id=55, progress="user:7"
+    )
     MockSyncJob.query.filter.return_value.first.return_value = existing
 
     job, created = SyncJobQueue.enqueue_project_sync(ORG_A, 55, user_id=7)

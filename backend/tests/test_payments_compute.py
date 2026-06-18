@@ -12,12 +12,13 @@ DB-free: minimal ``_FakeUser`` stand-in carries only the attributes the
 functions under test actually read.
 """
 
-from datetime import date
 from decimal import Decimal
 
-from api.services.payment_cycle import PaymentCycleService as PaymentService, VALID_COMP_MODELS
-from api.views.Payments import _comp_filter_from_body, _decimal
-
+from api.services.payment_cycle import (
+    PaymentCycleService as PaymentService,
+    VALID_COMP_MODELS,
+)
+from api.views.Payments import _comp_filter_from_body
 
 # ─── _FakeUser ───────────────────────────────────────────────────
 
@@ -43,29 +44,6 @@ class _FakeUser:
         self.last_name = last_name
         self.email = email
         self.id = id
-
-
-# ─── _decimal ────────────────────────────────────────────────────
-
-
-def test_decimal_none_stays_none():
-    assert _decimal(None) is None
-
-
-def test_decimal_converts_decimal_to_float():
-    out = _decimal(Decimal("12.34"))
-    assert isinstance(out, float)
-    assert out == 12.34
-
-
-def test_decimal_passes_float_through():
-    assert _decimal(7.5) == 7.5
-
-
-def test_decimal_converts_int_to_float():
-    out = _decimal(5)
-    assert isinstance(out, float)
-    assert out == 5.0
 
 
 # ─── VALID_COMP_MODELS ───────────────────────────────────────────
@@ -144,7 +122,9 @@ def test_compute_payable_hourly_without_rate_is_zero():
 def test_compute_payable_hourly_adjustments_add_to_base():
     """Total must equal base + adjustments, rounded to cents."""
     u = _FakeUser(compensation_model="hourly", hourly_rate=Decimal("25"))
-    model, base, total = PaymentService.compute_payable(u, _hours_to_seconds(40), 150.00)
+    model, base, total = PaymentService.compute_payable(
+        u, _hours_to_seconds(40), 150.00
+    )
     assert base == 1000.00
     assert total == 1150.00
 
@@ -173,7 +153,9 @@ def test_compute_payable_project_based_base_is_zero_scaffold():
     """project_based is a scaffold — base=0 with adjustments overlay.
     When the math is defined, this test must be updated."""
     u = _FakeUser(compensation_model="project_based")
-    model, base, total = PaymentService.compute_payable(u, _hours_to_seconds(40), 200.00)
+    model, base, total = PaymentService.compute_payable(
+        u, _hours_to_seconds(40), 200.00
+    )
     assert model == "project_based"
     assert base == 0.0
     assert total == 200.00
@@ -233,9 +215,7 @@ def test_comp_filter_single_string_value_wrapped_in_set():
 
 
 def test_comp_filter_list_of_strings_becomes_set():
-    out = _comp_filter_from_body(
-        {"filters": {"compensation": ["hourly", "per_task"]}}
-    )
+    out = _comp_filter_from_body({"filters": {"compensation": ["hourly", "per_task"]}})
     assert out == {"hourly", "per_task"}
 
 

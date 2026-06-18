@@ -1,11 +1,11 @@
 const BACKEND_URL = process.env.FLASK_BACKEND_URL || "http://localhost:5004";
 
-export interface UserInfo {
+interface UserInfo {
   name?: string;
   email?: string;
 }
 
-export interface SyncResult {
+interface SyncResult {
   role: string;
   paymentsVisible: boolean;
   displayName: string;

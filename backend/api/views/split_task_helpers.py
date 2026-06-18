@@ -29,25 +29,6 @@ def get_split_siblings(task):
     ).all()
 
 
-def all_siblings_validated(task):
-    """
-    Check if ALL siblings of a split task are validated.
-
-    For non-split tasks, always returns True.
-    For split tasks, returns True only when ALL siblings are validated.
-    """
-    if not is_split_task(task):
-        return True
-
-    siblings = get_split_siblings(task)
-    expected_count = task.sibling_count or 4
-
-    if len(siblings) != expected_count:
-        return False
-
-    return all(s.validated for s in siblings)
-
-
 def all_siblings_invalidated(task):
     """
     Check if ALL siblings of a split task are invalidated.
@@ -65,18 +46,6 @@ def all_siblings_invalidated(task):
         return False
 
     return all(s.invalidated for s in siblings)
-
-
-def should_count_validation(task):
-    """
-    Determine if this validation should be counted toward stats.
-
-    For normal tasks: always count.
-    For split tasks: only count when ALL siblings are validated.
-    """
-    if not is_split_task(task):
-        return True
-    return all_siblings_validated(task)
 
 
 def should_count_invalidation(task):

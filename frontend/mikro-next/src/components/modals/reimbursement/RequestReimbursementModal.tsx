@@ -20,14 +20,9 @@
  * object key. The receipt never proxies through Flask.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Badge,
   Modal,
   Input,
   Skeleton,
@@ -35,18 +30,12 @@ import {
 } from "@/components/ui";
 import {
   useSubmitReimbursementRequest,
-  useMyReimbursementRequests,
-  useWithdrawReimbursementRequest,
-  useReimbursementUploadUrl,
-  useReimbursementAttachmentUrl,
+  useReimbursementUploadUrl
 } from "@/hooks";
-import type { ReimbursementRequest, ReimbursementStatus } from "@/types";
 import {
   EventProposal,
   totalBudget,
 } from "@/components/modals/event/ReviewEventProposalModal";
-import { formatCurrency, formatDate } from "@/lib/utils";
-
 const ALLOWED_RECEIPT_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -54,16 +43,6 @@ const ALLOWED_RECEIPT_TYPES = new Set([
   "application/pdf",
 ]);
 const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
-
-const STATUS_BADGE: Record<
-  ReimbursementStatus,
-  "warning" | "success" | "destructive" | "secondary"
-> = {
-  pending: "warning",
-  approved: "success",
-  rejected: "destructive",
-  withdrawn: "secondary",
-};
 
 // ─── Submit modal ─────────────────────────────────────────────────
 
@@ -312,183 +291,3 @@ export function ReimbursementSubmitModal({
 }
 
 // ─── My history panel ────────────────────────────────────────────
-
-interface HistoryPanelProps {
-  /** Bumped by parent after a successful submit to trigger a refetch. */
-  refreshKey?: number;
-}
-
-export function ReimbursementsHistoryPanel({
-  refreshKey = 0,
-}: HistoryPanelProps) {
-  const toast = useToastActions();
-  const { mutate: fetchMy, loading } = useMyReimbursementRequests();
-  const { mutate: withdraw, loading: withdrawing } =
-    useWithdrawReimbursementRequest();
-  const { mutate: fetchAttachmentUrl } = useReimbursementAttachmentUrl();
-
-  const [rows, setRows] = useState<ReimbursementRequest[]>([]);
-
-  const reload = useCallback(async () => {
-    try {
-      const res = await fetchMy({});
-      setRows(res?.requests ?? []);
-    } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Failed to load reimbursements",
-      );
-      setRows([]);
-    }
-  }, [fetchMy, toast]);
-
-  useEffect(() => {
-    reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
-
-  const handleWithdraw = async (id: number) => {
-    try {
-      await withdraw({ request_id: id });
-      toast.success("Request withdrawn");
-      reload();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to withdraw");
-    }
-  };
-
-  const handleViewReceipt = async (id: number) => {
-    try {
-      const res = await fetchAttachmentUrl({ request_id: id });
-      if (res?.url) {
-        window.open(res.url, "_blank", "noopener,noreferrer");
-      } else {
-        toast.error(res?.message || "Could not load receipt");
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load receipt");
-    }
-  };
-
-  if (loading && rows.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-4 space-y-2">
-          <Skeleton className="h-4 w-1/2" />
-          <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="h-4 w-1/3" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (rows.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          You haven&apos;t submitted any reimbursement requests yet. Use the
-          <strong> Submit Reimbursement </strong> button above to create one.
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          My Reimbursement Requests
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
-                  Submitted
-                </th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
-                  Amount
-                </th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
-                  Description
-                </th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
-                  Receipt
-                </th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
-                  Status
-                </th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
-                  Reviewer note
-                </th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-border last:border-0"
-                >
-                  <td className="py-2 px-2 text-muted-foreground">
-                    {formatDate(row.submitted_at)}
-                  </td>
-                  <td className="py-2 px-2 font-mono">
-                    {formatCurrency(row.amount).text}
-                  </td>
-                  <td
-                    className="py-2 px-2 max-w-md truncate"
-                    title={row.description}
-                  >
-                    {row.description}
-                  </td>
-                  <td className="py-2 px-2">
-                    {row.has_attachment ? (
-                      <button
-                        type="button"
-                        className="text-kaart-orange hover:underline text-xs"
-                        onClick={() => handleViewReceipt(row.id)}
-                      >
-                        View
-                      </button>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="py-2 px-2">
-                    <Badge variant={STATUS_BADGE[row.status]}>
-                      {row.status}
-                    </Badge>
-                  </td>
-                  <td
-                    className="py-2 px-2 text-muted-foreground max-w-xs truncate"
-                    title={row.reviewer_note ?? undefined}
-                  >
-                    {row.reviewer_note || "—"}
-                  </td>
-                  <td className="py-2 px-2">
-                    {row.status === "pending" ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleWithdraw(row.id)}
-                        disabled={withdrawing}
-                      >
-                        Withdraw
-                      </Button>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}

@@ -64,7 +64,6 @@ export function AdminProjectProfile() {
 
   const {
     mutate: fetchProfile,
-    loading: profileLoading,
     error: profileError,
   } = useFetchProjectProfile();
   const { mutate: syncProject, loading: syncing } = useSyncProject();

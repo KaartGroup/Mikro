@@ -38,10 +38,6 @@ marshmallow-sqlalchemy>=0.29.0
 # Anthropic API (AI channel summaries)
 anthropic>=0.40.0
 
-# Google Sheets API (community data integration)
-google-api-python-client>=2.0.0
-google-auth>=2.0.0
-
 # AWS (if needed for file storage)
 boto3>=1.34.0
 
@@ -51,3 +47,6 @@ faster-whisper>=1.0.0
 # Dev tools
 black>=24.0.0
 flake8>=7.0.0
+autoflake>=2.3.0
+vulture>=2.16
+libcst>=1.8.0

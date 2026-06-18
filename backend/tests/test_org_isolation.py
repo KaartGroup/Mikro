@@ -9,6 +9,7 @@ logic is additionally covered (no DB) by test_login_org_gate.py.
 Pattern mirrors test_time_entry_query.py: add rows via the session + flush (NOT
 Model.create(), which commits) so each test rolls back cleanly.
 """
+
 from flask import g
 
 from api.database import Organization, Team

@@ -35,7 +35,6 @@ from api.views.TimeTracking import (
     _resolve_subcategory_for_write,
 )
 
-
 # ─── Fakes ──────────────────────────────────────────────────────
 
 
@@ -209,14 +208,20 @@ def test_team_admin_can_edit_sub_they_created(TeamLead):
     TeamLead.query.filter_by.return_value.all.return_value = []
     ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
     own_org_sub = _FakeSub(
-        1, "qc_review", "Kaart QC",
-        org_id="kaart-org", team_id=None,
+        1,
+        "qc_review",
+        "Kaart QC",
+        org_id="kaart-org",
+        team_id=None,
     )
     own_org_sub.created_by = "ta"
     assert _can_manage_subcategory(ta, sub=own_org_sub)
     own_team_sub = _FakeSub(
-        2, "meeting", "Daily Standup",
-        org_id="kaart-org", team_id=99,
+        2,
+        "meeting",
+        "Daily Standup",
+        org_id="kaart-org",
+        team_id=99,
     )
     own_team_sub.created_by = "ta"
     assert _can_manage_subcategory(ta, sub=own_team_sub)
@@ -230,8 +235,11 @@ def test_team_admin_cannot_edit_sub_someone_else_created_in_their_org(TeamLead):
     TeamLead.query.filter_by.return_value.all.return_value = []
     ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
     org_sub_by_other = _FakeSub(
-        1, "qc_review", "Kaart QC",
-        org_id="kaart-org", team_id=None,
+        1,
+        "qc_review",
+        "Kaart QC",
+        org_id="kaart-org",
+        team_id=None,
     )
     org_sub_by_other.created_by = "other-team-admin"
     assert not _can_manage_subcategory(ta, sub=org_sub_by_other)
@@ -247,15 +255,21 @@ def test_team_admin_can_edit_team_subs_for_led_teams_via_lead_fallback(TeamLead)
     ]
     ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
     sub_on_led_team_by_other = _FakeSub(
-        1, "meeting", "Sprint Planning",
-        org_id="kaart-org", team_id=10,
+        1,
+        "meeting",
+        "Sprint Planning",
+        org_id="kaart-org",
+        team_id=10,
     )
     sub_on_led_team_by_other.created_by = "someone-else"
     assert _can_manage_subcategory(ta, sub=sub_on_led_team_by_other)
     # Same sub on a team they DON'T lead -> denied.
     sub_on_other_team = _FakeSub(
-        2, "meeting", "Sprint Planning",
-        org_id="kaart-org", team_id=11,
+        2,
+        "meeting",
+        "Sprint Planning",
+        org_id="kaart-org",
+        team_id=11,
     )
     sub_on_other_team.created_by = "someone-else"
     assert not _can_manage_subcategory(ta, sub=sub_on_other_team)
@@ -269,8 +283,11 @@ def test_team_admin_cannot_edit_sub_in_other_org_even_if_they_created_it(TeamLea
     TeamLead.query.filter_by.return_value.all.return_value = []
     ta = _FakeUser("ta", "team_admin", org_id="kaart-org")
     foreign_sub = _FakeSub(
-        1, "qc_review", "Kaart QC",
-        org_id="external-org", team_id=None,
+        1,
+        "qc_review",
+        "Kaart QC",
+        org_id="external-org",
+        team_id=None,
     )
     foreign_sub.created_by = "ta"  # authorship doesn't bypass cross-org
     assert not _can_manage_subcategory(ta, sub=foreign_sub)
@@ -470,7 +487,10 @@ def test_admin_sees_team_subs_they_arent_members_of_via_can_manage_proxy():
     branch in the SSOT query)."""
     admin = _FakeUser("a", "admin", org_id="kaart-org")
     team_sub_admin_not_member = _FakeSub(
-        1, "meeting", "Daily Standup",
-        org_id="kaart-org", team_id=99,
+        1,
+        "meeting",
+        "Daily Standup",
+        org_id="kaart-org",
+        team_id=99,
     )
     assert _can_manage_subcategory(admin, sub=team_sub_admin_not_member)

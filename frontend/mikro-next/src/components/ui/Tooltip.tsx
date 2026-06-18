@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, type ReactNode } from "react";
 
-export interface TooltipProps {
+interface TooltipProps {
   /** The content shown on hover */
   content: ReactNode;
   /** The element that triggers the tooltip */

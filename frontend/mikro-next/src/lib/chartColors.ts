@@ -39,35 +39,6 @@ export const HPR_COLORS = {
   links: "#fde047",
   construction: "#ffffff",
 };
-
-/** MapRoulette task-status colors. */
-export const MR_COLORS = {
-  fixed: "#22c55e",
-  already_fixed: "#10b981",
-  false_positive: "#f59e0b",
-  cant_complete: "#f97316",
-  skipped: "#9ca3af",
-};
-
-/** Time-tracking activity categories — used on timekeeping tab bar charts. */
-export const CATEGORY_COLORS: Record<string, string> = {
-  mapping: "#f97316",
-  "editing / osm": "#f97316",
-  validation: "#3b82f6",
-  "kaart qc": "#3b82f6",
-  review: "#6366f1",
-  management: "#8b5cf6",
-  training: "#f59e0b",
-  "kaart training / meetings": "#f59e0b",
-  "project creation / team planning": "#06b6d4",
-  "community outreach - general": "#10b981",
-  "community qc": "#14b8a6",
-  "community events / trainings / meetings": "#a855f7",
-  "wiki / osm documentation": "#ec4899",
-  "imagery capture": "#64748b",
-  other: "#9ca3af",
-};
-
 /**
  * Key-based color map for the weekly/daily task-hours stacked bar chart.
  * Keyed by the snake_case category names returned by the backend

@@ -3,7 +3,6 @@ from ..utils import requires_team_admin_or_above
 from flask.views import MethodView
 from flask import g, request
 
-from ..utils import requires_admin
 from ..database import Project, ProjectTraining, Training
 
 
@@ -69,7 +68,9 @@ class ProjectTrainingAPI(MethodView):
         if not project:
             return {"message": "Project not found", "status": 404}
 
-        training = Training.query.filter_by(id=training_id, org_id=g.user.org_id).first()
+        training = Training.query.filter_by(
+            id=training_id, org_id=g.user.org_id
+        ).first()
         if not training:
             return {"message": "Training not found", "status": 404}
 

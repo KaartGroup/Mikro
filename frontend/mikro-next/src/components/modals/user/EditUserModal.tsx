@@ -6,7 +6,7 @@ import { useModifyUserRole } from "@/hooks/useApi";
 import { roleLabel } from "@/types";
 import type { UserProfileData } from "@/types";
 
-export interface EditUserPayload {
+interface EditUserPayload {
   first_name: string;
   last_name: string;
   email: string;

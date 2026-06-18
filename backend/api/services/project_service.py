@@ -11,21 +11,16 @@ import re
 from datetime import datetime
 
 import requests
-from ..database import Team, TeamLead, TeamUser
+from ..database import TeamLead
 from sqlalchemy import func, cast, String, or_, case
 from ..auth.team_scoping import is_org_admin_or_above
 from ..database.core import ProjectTeam, ProjectUser
 from .. import comms_client
 from ..comms_client import NotificationType
 from ..targeting import org_admins_incl_team_admins
-from ..stats import (
-    count_tasks_split_aware,
-    get_batch_project_stats_fast,
-    get_project_stats_from_tasks,
-)
 from flask import current_app
 
-from ..database import db, Country, Region, Project, ProjectCountry, ProjectTraining
+from ..database import db, Country, Project, ProjectCountry, ProjectTraining
 
 
 class ProjectService:
@@ -146,11 +141,15 @@ class ProjectService:
             same_org = project_exists.org_id == org_id
             return {
                 "message": (
-                    "Project already exists in this org: "
-                    f"\"{project_exists.name}\" (#{project_exists.id})"
-                ) if same_org else (
-                    "Project source already imported by another organization; "
-                    "contact admin to share access."
+                    (
+                        "Project already exists in this org: "
+                        f'"{project_exists.name}" (#{project_exists.id})'
+                    )
+                    if same_org
+                    else (
+                        "Project source already imported by another organization; "
+                        "contact admin to share access."
+                    )
                 ),
                 "status": 400,
             }
@@ -165,7 +164,10 @@ class ProjectService:
                 current_app.logger.error(
                     f"TM4 API returned {tm_fetch.status_code}: {tm_fetch.text[:500]}"
                 )
-                return {"message": f"TM4 API returned status {tm_fetch.status_code}", "status": 400}
+                return {
+                    "message": f"TM4 API returned status {tm_fetch.status_code}",
+                    "status": 400,
+                }
         except requests.RequestException as e:
             current_app.logger.error(f"TM4 API request error: {e}")
             return {"message": "TM4 API error", "status": 500}
@@ -176,7 +178,10 @@ class ProjectService:
             current_app.logger.error(
                 f"TM4 API returned non-JSON response: {tm_fetch.text[:500]}"
             )
-            return {"message": "TM4 API returned invalid response - check project URL", "status": 400}
+            return {
+                "message": "TM4 API returned invalid response - check project URL",
+                "status": 400,
+            }
 
         project_info = project_data.get("projectInfo", {})
         project_name = project_info.get("name", f"Project {project_id}")
@@ -192,7 +197,10 @@ class ProjectService:
 
         if payments_enabled:
             if mapping_rate < 0.01 or validation_rate < 0.01:
-                return {"message": "Rate per task insufficient when payments enabled", "status": 400}
+                return {
+                    "message": "Rate per task insufficient when payments enabled",
+                    "status": 400,
+                }
 
         parsed_short, parsed_country = self.auto_parse_project_name(project_name)
         final_short_name = short_name_input or parsed_short or ""
@@ -240,25 +248,35 @@ class ProjectService:
         """Create a new MapRoulette project. Returns a response dict with a ``status`` key."""
         challenge_id = self.extract_mr_challenge_id(url)
         if not challenge_id:
-            return {"message": "Cannot get challenge ID from MapRoulette URL", "status": 400}
+            return {
+                "message": "Cannot get challenge ID from MapRoulette URL",
+                "status": 400,
+            }
 
         project_exists = Project.query.filter_by(id=challenge_id).first()
         if project_exists:
             same_org = project_exists.org_id == org_id
             return {
                 "message": (
-                    "Project already exists in this org: "
-                    f"\"{project_exists.name}\" (#{project_exists.id})"
-                ) if same_org else (
-                    "Project source already imported by another organization; "
-                    "contact admin to share access."
+                    (
+                        "Project already exists in this org: "
+                        f'"{project_exists.name}" (#{project_exists.id})'
+                    )
+                    if same_org
+                    else (
+                        "Project source already imported by another organization; "
+                        "contact admin to share access."
+                    )
                 ),
                 "status": 400,
             }
 
         if payments_enabled:
             if mapping_rate < 0.01 or validation_rate < 0.01:
-                return {"message": "Rate per task insufficient when payments enabled", "status": 400}
+                return {
+                    "message": "Rate per task insufficient when payments enabled",
+                    "status": 400,
+                }
 
         project_name = f"MR Challenge {challenge_id}"
         total_tasks = 0
@@ -297,6 +315,7 @@ class ProjectService:
         self.auto_assign_country(challenge_id, parsed_country)
 
         from ..worker.sync_queue import SyncJobQueue
+
         SyncJobQueue.enqueue_mr_backfill(org_id, challenge_id)
 
         return {
@@ -370,7 +389,9 @@ class ProjectService:
         """Delete a project. Returns a response dict with a ``status`` key."""
         from ..auth import is_org_admin_or_above
 
-        target_project = Project.query.filter_by(org_id=user.org_id, id=project_id).first()
+        target_project = Project.query.filter_by(
+            org_id=user.org_id, id=project_id
+        ).first()
         if not target_project:
             return {"message": f"Project {project_id} not found", "status": 400}
 
@@ -521,16 +542,14 @@ class ProjectService:
         try:
             requester_name = user.full_name or user.email or "A user"
             display = target_project.short_name or target_project.name
-            admins = org_admins_incl_team_admins(
-                user.org_id, exclude_user_id=user.id
-            )
+            admins = org_admins_incl_team_admins(user.org_id, exclude_user_id=user.id)
             comms_client.emit_batch(
                 user_ids=[a.id for a in admins],
                 org_id=user.org_id,
                 type=NotificationType.PROJECT_REACTIVATION_REQUESTED,
                 message=(
                     f"{requester_name} requested reactivation of "
-                    f"\"{display}\": {reason}"
+                    f'"{display}": {reason}'
                 ),
                 link="/admin/projects",
                 actor_id=user.id,
@@ -570,9 +589,7 @@ class ProjectService:
                     "deleted_date": (
                         p.deleted_date.isoformat() if p.deleted_date else None
                     ),
-                    "reactivation_requested": (
-                        p.reactivation_requested_at is not None
-                    ),
+                    "reactivation_requested": (p.reactivation_requested_at is not None),
                 }
                 for p in projects
             ],
@@ -636,9 +653,9 @@ class ProjectService:
             )
             return query
         else:
-            query = query.join(ProjectUser, ProjectUser.project_id == Project.id).filter(
-                ProjectUser.user_id == user.id
-            )
+            query = query.join(
+                ProjectUser, ProjectUser.project_id == Project.id
+            ).filter(ProjectUser.user_id == user.id)
             return query
 
     @staticmethod
@@ -648,7 +665,7 @@ class ProjectService:
             return query.filter(Project.status == status)
         logging.info(f"Invalid status filter: {status}")
         return query
-    
+
     @staticmethod
     def get_project_by_country(query, country_id: int):
         project_ids = (
@@ -875,9 +892,7 @@ class ProjectService:
         )
         return items, total
 
-    def get_status_counts(
-        self, org_id: str, user, filters: dict | None = None
-    ) -> dict:
+    def get_status_counts(self, org_id: str, user, filters: dict | None = None) -> dict:
         """Aggregate counts for the stat cards over the filtered set.
 
         Status is intentionally excluded from ``filters`` here so the active
@@ -888,9 +903,7 @@ class ProjectService:
         query = self._build_query(org_id, user, filters).order_by(None)
 
         active_count = query.filter(Project.status == True).count()  # noqa: E712
-        inactive_count = query.filter(
-            Project.status != True  # noqa: E712
-        ).count()
+        inactive_count = query.filter(Project.status != True).count()  # noqa: E712
         total_tasks = (
             query.with_entities(
                 func.coalesce(func.sum(Project.total_tasks), 0)

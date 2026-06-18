@@ -34,7 +34,7 @@ let _probeCache: { version: number | null; fetchedAt: number } | null = null;
  * Returns the JOSM build number, or null if unreachable. Result is
  * cached for PROBE_TTL_MS so back-to-back clicks don't spam the probe.
  */
-export async function probeJosm(): Promise<number | null> {
+async function probeJosm(): Promise<number | null> {
   const now = Date.now();
   if (_probeCache && now - _probeCache.fetchedAt < PROBE_TTL_MS) {
     return _probeCache.version;

@@ -22,7 +22,6 @@ from typing import Iterable
 
 from .team_scoping import team_admin_can_access_user
 
-
 # Role hierarchy for pay visibility. A viewer never sees pay for a target
 # whose role ranks at or above the viewer's own (a team_admin must not see
 # org/super-admin — or peer team_admin — pay even if they share a team).
@@ -40,26 +39,28 @@ _ROLE_RANK = {
 # Adding a new column to User that carries money/PII? Add it here AND
 # check that every existing endpoint returning User data either uses
 # redact_pay_fields or is explicitly admin/self-gated.
-PAY_FIELDS: frozenset[str] = frozenset({
-    "hourly_rate",
-    "hourlyRate",               # camelCase variant used by a few serializers
-    "payment_email",
-    "paymentEmail",
-    "payable_total",
-    "mapping_payable_total",
-    "validation_payable_total",
-    "requested_total",
-    "paid_total",
-    "total_payout",             # alias used in fetch_user_details response
-    "awaiting_payment",         # alias for requested_total in fetch_users
-    "validated_tasks_amounts",  # computed earnings-like field
-    "mapping_earnings",
-    "validation_earnings",
-    "earnings",
-    "amount_due",
-    "amount_paid",
-    "amount_requested",
-})
+PAY_FIELDS: frozenset[str] = frozenset(
+    {
+        "hourly_rate",
+        "hourlyRate",  # camelCase variant used by a few serializers
+        "payment_email",
+        "paymentEmail",
+        "payable_total",
+        "mapping_payable_total",
+        "validation_payable_total",
+        "requested_total",
+        "paid_total",
+        "total_payout",  # alias used in fetch_user_details response
+        "awaiting_payment",  # alias for requested_total in fetch_users
+        "validated_tasks_amounts",  # computed earnings-like field
+        "mapping_earnings",
+        "validation_earnings",
+        "earnings",
+        "amount_due",
+        "amount_paid",
+        "amount_requested",
+    }
+)
 
 
 def can_view_pay_for(viewer, target) -> bool:
@@ -103,7 +104,9 @@ def can_view_pay_for(viewer, target) -> bool:
     return False
 
 
-def redact_pay_fields(data: dict, viewer, target, *, fields: Iterable[str] = PAY_FIELDS) -> dict:
+def redact_pay_fields(
+    data: dict, viewer, target, *, fields: Iterable[str] = PAY_FIELDS
+) -> dict:
     """Strip pay fields from `data` unless `viewer` may see `target`'s pay.
 
     Mutates and returns `data`. Unauthorized callers get a dict with the

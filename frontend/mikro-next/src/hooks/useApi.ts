@@ -4,16 +4,12 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useErrorReporter } from "@/contexts/ErrorReporterContext";
 import type {
   AdminDashboardStats,
-  UserDashboardStats,
-  ValidatorDashboardStats,
   UsersResponse,
   ProjectsResponse,
   ProjectsPagedResponse,
   ProjectStatsResponse,
   UserProjectsPagedResponse,
-  TransactionsResponse,
   TrainingsResponse,
-  UserPayableResponse,
   UserDetailsResponse,
   TimeEntry,
   TimeTrackingSessionResponse,
@@ -38,9 +34,7 @@ import type {
   TimekeepingStatsResponse,
   ChangesetHeatmapResponse,
   FilterOptionsResponse,
-  RegionsResponse,
   CountriesResponse,
-  MapillaryStatsResponse,
   ProjectProfileResponse,
   PunksResponse,
   PunkDetailResponse,
@@ -48,11 +42,6 @@ import type {
   FriendsResponse,
   FriendDetailResponse,
   FriendDiscussionsResponse,
-  CommunityEntriesResponse,
-  CommunitySheetConfigResponse,
-  ChannelsResponse,
-  ChannelSummariesResponse,
-  HourlySummaryResponse,
   MyMonthlySummaryResponse,
   PaymentCycleResponse,
   PaymentCycleKpisResponse,
@@ -65,8 +54,6 @@ import type {
   ElementAnalysisResponse,
   AdminTimeStatsResponse,
   AdminAggregateStatsResponse,
-  HourlyRateHistoryResponse,
-  HourlyRateMutationResponse,
   NotificationsResponse,
   NotificationUnreadCountResponse,
   NotificationPreferencesResponse,
@@ -213,12 +200,6 @@ export function useAdminDashboardStats() {
 }
 
 // User Dashboard Stats
-export function useUserDashboardStats(enabled = true) {
-  return useApiCall<UserDashboardStats>("/dashboard/fetch_user_dash_stats", {
-    immediate: enabled,
-  });
-}
-
 // Users List (Admin)
 export function useUsersList() {
   return useApiCall<UsersResponse>("/user/fetch_users");
@@ -262,24 +243,8 @@ export function useUserProjectsPaged() {
 }
 
 // Transactions (Admin)
-export function useOrgTransactions() {
-  return useApiCall<TransactionsResponse>(
-    "/transaction/fetch_org_transactions",
-  );
-}
-
 // User Transactions
-export function useUserTransactions() {
-  return useApiCall<TransactionsResponse>(
-    "/transaction/fetch_user_transactions",
-  );
-}
-
 // User Payable Amount
-export function useUserPayable() {
-  return useApiCall<UserPayableResponse>("/transaction/fetch_user_payable");
-}
-
 // Trainings (Admin)
 export function useOrgTrainings() {
   return useApiCall<TrainingsResponse>("/training/fetch_org_trainings");
@@ -405,82 +370,6 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
 }
 
 // Common mutations
-export function useUpdateUserDetails() {
-  return useApiMutation("/user/update_user_details");
-}
-
-export function useSubmitPaymentRequest() {
-  return useApiMutation("/transaction/submit_payment_request");
-}
-
-export function useProcessPaymentRequest() {
-  return useApiMutation("/transaction/process_payment_request");
-}
-
-export function useRejectPaymentRequest() {
-  return useApiMutation("/transaction/delete_transaction");
-}
-
-export function useDeletePayment() {
-  return useApiMutation("/transaction/delete_transaction");
-}
-
-export interface PaymentRequestTaskDetail {
-  task_id: number;
-  internal_id: number;
-  mapped_by: string;
-  validated_by: string;
-  mapping_rate: number;
-  validation_rate: number;
-  validated: boolean;
-  invalidated: boolean;
-  is_mapping_earning: boolean;
-  is_validation_earning: boolean;
-  self_validated?: boolean;
-}
-
-export interface PaymentRequestProjectDetail {
-  project_id: number;
-  project_name: string;
-  project_url: string | null;
-  tasks: PaymentRequestTaskDetail[];
-  mapping_count: number;
-  validation_count: number;
-  mapping_earnings: number;
-  validation_earnings: number;
-  self_validated_count?: number;
-}
-
-export interface PaymentRequestDetailsResponse {
-  message: string;
-  request_id: number;
-  user_name: string;
-  osm_username: string;
-  amount_requested: number;
-  date_requested: string;
-  payment_email: string;
-  notes: string | null;
-  projects: PaymentRequestProjectDetail[];
-  summary: {
-    total_tasks: number;
-    total_projects: number;
-    mapping_earnings: number;
-    validation_earnings: number;
-    total_earnings: number;
-    self_validated_count?: number;
-  };
-  status: number;
-}
-
-export function useFetchPaymentRequestDetails() {
-  return useApiMutation<PaymentRequestDetailsResponse>(
-    "/transaction/fetch_payment_request_details",
-  );
-}
-
-export function useCompleteTraining() {
-  return useApiMutation("/training/complete_training");
-}
 
 export function useCreateProject() {
   return useApiMutation<{
@@ -605,16 +494,8 @@ export function useAssignUser() {
   return useApiMutation("/user/assign_user");
 }
 
-export function useUnassignUser() {
-  return useApiMutation("/user/unassign_user");
-}
-
 export function useModifyUserRole() {
   return useApiMutation("/user/modify_users");
-}
-
-export function useRemoveUser() {
-  return useApiMutation("/user/remove_users");
 }
 
 // Admin: deactivate a user (soft-disable; data preserved; auth gate
@@ -639,9 +520,6 @@ export function useReactivateUser() {
 }
 
 // Task sync - pulls latest task data from TM4
-export function useSyncUserTasks() {
-  return useApiMutation("/task/update_user_tasks");
-}
 
 export function useAdminSyncAllTasks() {
   return useApiMutation("/task/admin_update_all_user_tasks");
@@ -721,12 +599,6 @@ export function useCheckElementAnalysisBackfillStatus() {
   }>("/reports/check_element_analysis_backfill_status");
 }
 
-export function useFetchMapillaryStats() {
-  return useApiMutation<MapillaryStatsResponse>(
-    "/reports/fetch_mapillary_stats",
-  );
-}
-
 export function useCreateTraining() {
   return useApiMutation("/training/create_training");
 }
@@ -750,43 +622,7 @@ export function useSubmitTrainingQuiz() {
 }
 
 // Archive a transaction (soft delete)
-export function useArchiveTransaction() {
-  return useApiMutation("/transaction/archive_transaction");
-}
-
 // Fetch archived transactions
-export function useFetchArchivedTransactions() {
-  return useApiMutation<{
-    message: string;
-    archived_requests: Array<{
-      id: number;
-      amount_requested: number;
-      user: string;
-      osm_username: string;
-      user_id: number;
-      payment_email: string;
-      task_ids: number[];
-      date_requested: string;
-      notes: string | null;
-      archived_date: string | null;
-    }>;
-    archived_payments: Array<{
-      id: number;
-      payoneer_id: string;
-      amount_paid: number;
-      user: string;
-      osm_username: string;
-      user_id: number;
-      payment_email: string;
-      task_ids: number[];
-      date_paid: string;
-      notes: string | null;
-      archived_date: string | null;
-    }>;
-    status: number;
-  }>("/transaction/fetch_archived_transactions");
-}
-
 // ─── Time Tracking ───────────────────────────────────────────
 
 // User: clock in
@@ -807,15 +643,6 @@ export function useActiveTimeSession() {
 }
 
 // User: get history (auto-fetches on mount; call refetch(params) with filters)
-export function useMyTimeHistory() {
-  const result = useApiCall<TimeTrackingHistoryResponse>(
-    "/timetracking/my_history",
-  );
-  const refetch = result.refetch as (
-    params?: TimeHistoryFilterParams,
-  ) => Promise<TimeTrackingHistoryResponse>;
-  return { ...result, refetch };
-}
 
 export function useFetchMyTimeHistory() {
   return useApiMutation<TimeTrackingHistoryResponse>(
@@ -878,16 +705,6 @@ export function useAdminPendingAdjustments() {
 }
 
 // Admin: get history for org (auto-fetches on mount; call refetch(params) with filters)
-export function useAdminTimeHistory() {
-  const result = useApiCall<TimeTrackingHistoryResponse>(
-    "/timetracking/history",
-  );
-  const refetch = result.refetch as (
-    params?: TimeHistoryFilterParams,
-  ) => Promise<TimeTrackingHistoryResponse>;
-  return { ...result, refetch };
-}
-
 // Admin: force clock out
 export function useForceClockOut() {
   return useApiMutation<TimeTrackingSessionResponse>(
@@ -947,14 +764,6 @@ export function useAdminAddTimeEntry() {
 }
 
 // Admin: add 8-hour test entry (dev only)
-export function useAdminAddTestEntry() {
-  return useApiMutation<{
-    message: string;
-    status: number;
-    entry: TimeTrackingSessionResponse;
-  }>("/timetracking/admin_add_test_entry");
-}
-
 // Custom topics for "Other" time tracking category
 export function useCustomTopics() {
   return useApiCall<{
@@ -1210,12 +1019,6 @@ export function useFetchUserTeamProfile() {
 }
 
 // Admin: update user profile (country/timezone)
-export function useAdminUpdateUserProfile() {
-  return useApiMutation<{ status: number; message: string }>(
-    "/user/admin_update_user_profile",
-  );
-}
-
 // ─── Reports ────────────────────────────────────────────────
 
 export function useFetchEditingStats() {
@@ -1248,10 +1051,6 @@ export function useFetchMyChangesetHeatmap() {
 
 export function useFetchFilterOptions() {
   return useApiCall<FilterOptionsResponse>("/region/fetch_filter_options");
-}
-
-export function useFetchRegions() {
-  return useApiCall<RegionsResponse>("/region/fetch_regions");
 }
 
 export function useFetchCountries() {
@@ -1345,12 +1144,7 @@ export function useFetchProjectProfile() {
 export function usePunksList() {
   return useApiCall<PunksResponse>("/punk/fetch_punks");
 }
-export function useCreatePunk() {
-  return useApiMutation("/punk/create_punk");
-}
-export function useUpdatePunk() {
-  return useApiMutation("/punk/update_punk");
-}
+
 export function useDeletePunk() {
   return useApiMutation("/punk/delete_punk");
 }
@@ -1398,67 +1192,8 @@ export function useFriendDiscussions() {
 }
 
 // Community Data
-export function useSyncCommunitySheet() {
-  return useApiMutation<{
-    message: string;
-    synced: number;
-    skipped: number;
-    total: number;
-    status: number;
-  }>("/community/sync_from_sheet");
-}
-export function useFetchCommunityEntries() {
-  return useApiMutation<CommunityEntriesResponse>("/community/fetch_entries");
-}
-export function useUpdateCommunityEntry() {
-  return useApiMutation("/community/update_entry");
-}
-export function useFetchSheetConfig() {
-  return useApiCall<CommunitySheetConfigResponse>(
-    "/community/fetch_sheet_config",
-  );
-}
-
 // Channel Monitor
-export function useFetchChannels() {
-  return useApiCall<ChannelsResponse>("/channel/fetch_channels");
-}
-export function useAddChannel() {
-  return useApiMutation("/channel/add_channel");
-}
-export function useUpdateChannel() {
-  return useApiMutation("/channel/update_channel");
-}
-export function useRemoveChannel() {
-  return useApiMutation("/channel/remove_channel");
-}
-export function useFetchChannelContent() {
-  return useApiMutation("/channel/fetch_channel_content");
-}
-export function useSummarizeChannel() {
-  return useApiMutation<{ message: string; summary: string; status: number }>(
-    "/channel/summarize_channel",
-  );
-}
-export function useFetchAllSummaries() {
-  return useApiMutation<ChannelSummariesResponse>(
-    "/channel/fetch_all_summaries",
-  );
-}
-
 // ─── Hourly Contractor Payments ────────────────────────────
-export function useHourlySummary() {
-  return useApiCall<HourlySummaryResponse>("/timetracking/hourly_summary", {
-    immediate: false,
-  });
-}
-
-export function useMarkHourlyPaid() {
-  return useApiMutation<{ message: string; status: number }>(
-    "/timetracking/mark_hourly_paid",
-  );
-}
-
 // ─── Payments v1 (admin payroll workspace, Trello DWAbQFlL) ──────────
 
 export function useFetchPaymentCycle() {
@@ -1507,12 +1242,6 @@ export function useSubmitReimbursementRequest() {
 
 export function useMyReimbursementRequests() {
   return useApiMutation<ReimbursementListResponse>("/reimbursements/my");
-}
-
-export function useWithdrawReimbursementRequest() {
-  return useApiMutation<ReimbursementMutationResponse>(
-    "/reimbursements/withdraw",
-  );
 }
 
 export function useReimbursementUploadUrl() {
@@ -1605,82 +1334,6 @@ export function useExportPaymentCycle() {
 }
 
 // ─── Hourly Rate History ──────────────────────────────────────────────
-
-export function useFetchHourlyRates() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetch_ = useCallback(
-    async (userId: string): Promise<HourlyRateHistoryResponse> => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(
-          `/backend/hourly-rates?user_id=${encodeURIComponent(userId)}`,
-        );
-        const result = await response.json();
-        if (!response.ok || (result.status && result.status >= 300)) {
-          const msg = result.message || "Failed to fetch rate history";
-          setError(msg);
-          throw new Error(msg);
-        }
-        return result as HourlyRateHistoryResponse;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        setError(msg);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
-
-  return { fetch: fetch_, loading, error };
-}
-
-export function useCreateHourlyRate() {
-  return useApiMutation<HourlyRateMutationResponse>("/hourly-rates");
-}
-
-export function useDeleteHourlyRate() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const deleteRate = useCallback(
-    async (
-      rateId: number,
-      userId: string,
-    ): Promise<HourlyRateMutationResponse> => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch("/backend/hourly-rates", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rate_id: rateId, user_id: userId }),
-        });
-        const result = await response.json();
-        if (!response.ok || (result.status && result.status >= 300)) {
-          const msg = result.message || "Failed to delete rate entry";
-          setError(msg);
-          throw new Error(msg);
-        }
-        return result as HourlyRateMutationResponse;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        setError(msg);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
-
-  return { deleteRate, loading, error };
-}
-
 // ─── Comms platform ──────────────────────────────────────────────────
 //
 // These hooks hit the SEPARATE comms service via the "/comms" proxy

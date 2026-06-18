@@ -25,7 +25,6 @@ import { ROUTES } from "@/lib/routes";
 const TEAM_SCOPE_STORAGE_KEY = "mikro.dashboard.teamScope";
 
 export function AdminDashboard() {
-  const [showStats, setShowStats] = useState(false);
 
   // Role-aware behavior (F3 Phase 3.4):
   // - team_admin: dashboard scope is auto-restricted via TeamScopeSelector
@@ -78,12 +77,6 @@ export function AdminDashboard() {
 
   const onRegionCountryIdChange = useCallback((next: number | null) => {
     setRegionCountryId(next);
-  }, []);
-
-  // Defer lower sections until after the time section has painted
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setShowStats(true));
-    return () => cancelAnimationFrame(id);
   }, []);
 
   // team_admin with no managed teams → empty state, skip the rest.

@@ -15,11 +15,7 @@ class QueryWithSoftDelete(Query):
         obj._with_deleted = kwargs.pop("_with_deleted", False)
         if len(args) > 0:
             super(QueryWithSoftDelete, obj).__init__(*args, **kwargs)
-            return (
-                obj.filter_by(deleted_date=None)
-                if not obj._with_deleted
-                else obj
-            )
+            return obj.filter_by(deleted_date=None) if not obj._with_deleted else obj
         return obj
 
     def __init__(self, *args, **kwargs):
@@ -92,9 +88,7 @@ class ModelWithSoftDeleteAndCRUD(CRUDMixin, db.Model):
 
     __abstract__ = True
 
-    query_class = (
-        QueryWithSoftDelete  # automatically queries out soft deleted data
-    )
+    query_class = QueryWithSoftDelete  # automatically queries out soft deleted data
     deleted_date = db.Column(db.DateTime, index=True)  # for soft deletes
 
 

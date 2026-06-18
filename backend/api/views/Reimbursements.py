@@ -22,7 +22,6 @@ points are marked TODO comms-platform inline.
 import json
 import re
 import uuid
-from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 import boto3

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { NotesDialog } from "@/components/modals/NotesDialog";
 
-export interface NotesButtonProps {
+interface NotesButtonProps {
   notes: string | null | undefined;
   editable: boolean;
   onSave?: (value: string | null) => Promise<void> | void;

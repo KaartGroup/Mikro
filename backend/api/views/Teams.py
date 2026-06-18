@@ -15,7 +15,18 @@ from ..auth import (
     managed_team_ids_for,
     team_admin_can_access_team,
 )
-from ..database import Team, TeamUser, TeamLead, User, ProjectTeam, ProjectUser, Project, TeamTraining, Training, Task
+from ..database import (
+    Team,
+    TeamUser,
+    TeamLead,
+    User,
+    ProjectTeam,
+    ProjectUser,
+    Project,
+    TeamTraining,
+    Training,
+    Task,
+)
 from ..database.common import db
 from ..filters import resolve_filtered_user_ids
 from ..stats import get_batch_user_task_stats
@@ -41,12 +52,14 @@ def _build_team_leads(team_ids):
     out = {}
     for team_id, u in rows:
         name = f"{u.first_name or ''} {u.last_name or ''}".strip() or u.email
-        out.setdefault(team_id, []).append({
-            "id": u.id,
-            "name": name,
-            "first_name": u.first_name or "",
-            "last_name": u.last_name or "",
-        })
+        out.setdefault(team_id, []).append(
+            {
+                "id": u.id,
+                "name": name,
+                "first_name": u.first_name or "",
+                "last_name": u.last_name or "",
+            }
+        )
     return out
 
 
@@ -122,8 +135,7 @@ def _validate_lead_ids(lead_ids, org_id):
             return {"message": f"Lead user {uid} not found in your org", "status": 400}
         if not is_admin_tier(user):
             name = (
-                f"{user.first_name or ''} {user.last_name or ''}".strip()
-                or user.email
+                f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
             )
             return {
                 "message": (
@@ -211,14 +223,18 @@ class TeamAPI(MethodView):
         teams = []
         for team in org_teams:
             member_count = TeamUser.query.filter_by(team_id=team.id).count()
-            teams.append({
-                "id": team.id,
-                "name": team.name,
-                "description": team.description,
-                **_team_lead_fields(leads_map.get(team.id, [])),
-                "member_count": member_count,
-                "created_at": team.created_at.isoformat() if team.created_at else None,
-            })
+            teams.append(
+                {
+                    "id": team.id,
+                    "name": team.name,
+                    "description": team.description,
+                    **_team_lead_fields(leads_map.get(team.id, [])),
+                    "member_count": member_count,
+                    "created_at": (
+                        team.created_at.isoformat() if team.created_at else None
+                    ),
+                }
+            )
 
         return {"teams": teams, "status": 200}
 
@@ -277,7 +293,9 @@ class TeamAPI(MethodView):
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
 
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(
+            g.user, team_id
+        ):
             return {"message": "Not in your managed teams", "status": 403}
 
         updates = {}
@@ -290,7 +308,10 @@ class TeamAPI(MethodView):
         if lead_ids_input is not None:
             # Only Org Admin / super_admin can change team leads.
             if not is_org_admin_or_above(g.user):
-                return {"message": "Only Org Admin can change team leads", "status": 403}
+                return {
+                    "message": "Only Org Admin can change team leads",
+                    "status": 403,
+                }
             # Every lead must be an in-org admin-tier user.
             lead_error = _validate_lead_ids(lead_ids_input, g.user.org_id)
             if lead_error is not None:
@@ -341,13 +362,14 @@ class TeamAPI(MethodView):
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
 
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(
+            g.user, team_id
+        ):
             return {"message": "Not in your managed teams", "status": 403}
 
         # Get all assigned user IDs for this team
         assigned_ids = {
-            tu.user_id
-            for tu in TeamUser.query.filter_by(team_id=team_id).all()
+            tu.user_id for tu in TeamUser.query.filter_by(team_id=team_id).all()
         }
 
         # Get all org users
@@ -355,16 +377,22 @@ class TeamAPI(MethodView):
 
         users = []
         for user in org_users:
-            name = f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
-            users.append({
-                "id": user.id,
-                "name": name,
-                "first_name": user.first_name or "",
-                "last_name": user.last_name or "",
-                "email": user.email,
-                "role": user.role,
-                "assigned": "Assigned" if user.id in assigned_ids else "Not Assigned",
-            })
+            name = (
+                f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
+            )
+            users.append(
+                {
+                    "id": user.id,
+                    "name": name,
+                    "first_name": user.first_name or "",
+                    "last_name": user.last_name or "",
+                    "email": user.email,
+                    "role": user.role,
+                    "assigned": (
+                        "Assigned" if user.id in assigned_ids else "Not Assigned"
+                    ),
+                }
+            )
 
         return {"users": users, "status": 200}
 
@@ -385,13 +413,13 @@ class TeamAPI(MethodView):
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
 
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(
+            g.user, team_id
+        ):
             return {"message": "Not in your managed teams", "status": 403}
 
         # Check if already assigned
-        existing = TeamUser.query.filter_by(
-            team_id=team_id, user_id=user_id
-        ).first()
+        existing = TeamUser.query.filter_by(team_id=team_id, user_id=user_id).first()
         if not existing:
             TeamUser.create(team_id=team_id, user_id=user_id)
 
@@ -425,12 +453,12 @@ class TeamAPI(MethodView):
         if not user_id:
             return {"message": "userId required", "status": 400}
 
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(
+            g.user, team_id
+        ):
             return {"message": "Not in your managed teams", "status": 403}
 
-        relation = TeamUser.query.filter_by(
-            team_id=team_id, user_id=user_id
-        ).first()
+        relation = TeamUser.query.filter_by(team_id=team_id, user_id=user_id).first()
         if relation:
             relation.delete(soft=False)
 
@@ -449,9 +477,7 @@ class TeamAPI(MethodView):
         if not project_id:
             return {"message": "projectId required", "status": 400}
 
-        project = Project.query.filter_by(
-            id=project_id, org_id=g.user.org_id
-        ).first()
+        project = Project.query.filter_by(id=project_id, org_id=g.user.org_id).first()
         if not project:
             return {"message": f"Project {project_id} not found", "status": 400}
 
@@ -471,14 +497,18 @@ class TeamAPI(MethodView):
         for team in org_teams:
             member_count = TeamUser.query.filter_by(team_id=team.id).count()
             leads = leads_map.get(team.id, [])
-            teams.append({
-                "id": team.id,
-                "name": team.name,
-                "member_count": member_count,
-                "lead_name": leads[0]["name"] if leads else None,
-                "lead_names": [l["name"] for l in leads],
-                "assigned": "Assigned" if team.id in assigned_team_ids else "Not Assigned",
-            })
+            teams.append(
+                {
+                    "id": team.id,
+                    "name": team.name,
+                    "member_count": member_count,
+                    "lead_name": leads[0]["name"] if leads else None,
+                    "lead_names": [l["name"] for l in leads],
+                    "assigned": (
+                        "Assigned" if team.id in assigned_team_ids else "Not Assigned"
+                    ),
+                }
+            )
 
         return {"teams": teams, "status": 200}
 
@@ -499,12 +529,12 @@ class TeamAPI(MethodView):
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
 
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(
+            g.user, team_id
+        ):
             return {"message": "Not in your managed teams", "status": 403}
 
-        project = Project.query.filter_by(
-            id=project_id, org_id=g.user.org_id
-        ).first()
+        project = Project.query.filter_by(id=project_id, org_id=g.user.org_id).first()
         if not project:
             return {"message": f"Project {project_id} not found", "status": 400}
 
@@ -549,13 +579,13 @@ class TeamAPI(MethodView):
         if not project_id:
             return {"message": "projectId required", "status": 400}
 
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(
+            g.user, team_id
+        ):
             return {"message": "Not in your managed teams", "status": 403}
 
         # Remove ProjectTeam row
-        pt = ProjectTeam.query.filter_by(
-            team_id=team_id, project_id=project_id
-        ).first()
+        pt = ProjectTeam.query.filter_by(team_id=team_id, project_id=project_id).first()
         if pt:
             pt.delete(soft=False)
 
@@ -590,26 +620,29 @@ class TeamAPI(MethodView):
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
 
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(
+            g.user, team_id
+        ):
             return {"message": "Not in your managed teams", "status": 403}
 
         assigned_ids = {
-            tt.training_id
-            for tt in TeamTraining.query.filter_by(team_id=team_id).all()
+            tt.training_id for tt in TeamTraining.query.filter_by(team_id=team_id).all()
         }
 
         org_trainings = Training.query.filter_by(org_id=g.user.org_id).all()
 
         trainings = []
         for t in org_trainings:
-            trainings.append({
-                "id": t.id,
-                "title": t.title,
-                "training_type": t.training_type,
-                "difficulty": t.difficulty,
-                "point_value": t.point_value,
-                "assigned": "Assigned" if t.id in assigned_ids else "Not Assigned",
-            })
+            trainings.append(
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "training_type": t.training_type,
+                    "difficulty": t.difficulty,
+                    "point_value": t.point_value,
+                    "assigned": "Assigned" if t.id in assigned_ids else "Not Assigned",
+                }
+            )
 
         return {"trainings": trainings, "status": 200}
 
@@ -630,7 +663,9 @@ class TeamAPI(MethodView):
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
 
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(
+            g.user, team_id
+        ):
             return {"message": "Not in your managed teams", "status": 403}
 
         existing = TeamTraining.query.filter_by(
@@ -654,7 +689,9 @@ class TeamAPI(MethodView):
         if not training_id:
             return {"message": "trainingId required", "status": 400}
 
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(
+            g.user, team_id
+        ):
             return {"message": "Not in your managed teams", "status": 403}
 
         relation = TeamTraining.query.filter_by(
@@ -679,7 +716,9 @@ class TeamAPI(MethodView):
         if not team:
             return {"message": f"Team {team_id} not found", "status": 400}
 
-        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(g.user, team_id):
+        if not is_org_admin_or_above(g.user) and not team_admin_can_access_team(
+            g.user, team_id
+        ):
             return {"message": "Not in your managed teams", "status": 403}
 
         team_leads = _build_team_leads([team.id]).get(team.id, [])
@@ -723,21 +762,30 @@ class TeamAPI(MethodView):
             agg["requested_total"] += u.requested_total or 0
             agg["paid_total"] += u.paid_total or 0
 
-            members_data.append({
-                "id": u.id,
-                "name": name,
-                "email": u.email,
-                "role": u.role,
-                "osm_username": u.osm_username,
-                "total_tasks_mapped": _ustats.get("total_tasks_mapped", 0),
-                "total_tasks_validated": _ustats.get("total_tasks_validated", 0),
-                "total_tasks_invalidated": _ustats.get("total_tasks_invalidated", 0),
-                "payable_total": round(u.payable_total or 0, 2),
-            })
+            members_data.append(
+                {
+                    "id": u.id,
+                    "name": name,
+                    "email": u.email,
+                    "role": u.role,
+                    "osm_username": u.osm_username,
+                    "total_tasks_mapped": _ustats.get("total_tasks_mapped", 0),
+                    "total_tasks_validated": _ustats.get("total_tasks_validated", 0),
+                    "total_tasks_invalidated": _ustats.get(
+                        "total_tasks_invalidated", 0
+                    ),
+                    "payable_total": round(u.payable_total or 0, 2),
+                }
+            )
 
         # Round aggregated financial values
-        for key in ["mapping_payable_total", "validation_payable_total",
-                     "payable_total", "requested_total", "paid_total"]:
+        for key in [
+            "mapping_payable_total",
+            "validation_payable_total",
+            "payable_total",
+            "requested_total",
+            "paid_total",
+        ]:
             agg[key] = round(agg[key], 2)
 
         # Get projects via ProjectTeam
@@ -756,18 +804,20 @@ class TeamAPI(MethodView):
                 for t in tasks:
                     if t.mapped_by in osm_usernames and t.mapped:
                         team_mapped += 1
-                        team_earnings += (t.mapping_rate or 0)
+                        team_earnings += t.mapping_rate or 0
                     if t.validated_by in osm_usernames and t.validated:
                         team_validated += 1
-                        team_earnings += (t.validation_rate or 0)
-            projects_data.append({
-                "id": proj.id,
-                "name": proj.name,
-                "url": proj.url,
-                "team_tasks_mapped": team_mapped,
-                "team_tasks_validated": team_validated,
-                "team_earnings": round(team_earnings, 2),
-            })
+                        team_earnings += t.validation_rate or 0
+            projects_data.append(
+                {
+                    "id": proj.id,
+                    "name": proj.name,
+                    "url": proj.url,
+                    "team_tasks_mapped": team_mapped,
+                    "team_tasks_validated": team_validated,
+                    "team_earnings": round(team_earnings, 2),
+                }
+            )
 
         # Get assigned trainings
         team_trainings = TeamTraining.query.filter_by(team_id=team_id).all()
@@ -775,13 +825,15 @@ class TeamAPI(MethodView):
         for tt in team_trainings:
             t = Training.query.get(tt.training_id)
             if t:
-                trainings_data.append({
-                    "id": t.id,
-                    "title": t.title,
-                    "training_type": t.training_type,
-                    "difficulty": t.difficulty,
-                    "point_value": t.point_value,
-                })
+                trainings_data.append(
+                    {
+                        "id": t.id,
+                        "title": t.title,
+                        "training_type": t.training_type,
+                        "difficulty": t.difficulty,
+                        "point_value": t.point_value,
+                    }
+                )
 
         return {
             "team": {
@@ -817,14 +869,16 @@ class TeamAPI(MethodView):
         for team in visible_teams:
             member_count = TeamUser.query.filter_by(team_id=team.id).count()
             leads = leads_map.get(team.id, [])
-            teams.append({
-                "id": team.id,
-                "name": team.name,
-                "description": team.description,
-                "lead_name": leads[0]["name"] if leads else None,
-                "lead_names": [l["name"] for l in leads],
-                "member_count": member_count,
-            })
+            teams.append(
+                {
+                    "id": team.id,
+                    "name": team.name,
+                    "description": team.description,
+                    "lead_name": leads[0]["name"] if leads else None,
+                    "lead_names": [l["name"] for l in leads],
+                    "member_count": member_count,
+                }
+            )
 
         return {"teams": teams, "status": 200}
 
@@ -856,13 +910,15 @@ class TeamAPI(MethodView):
         teams = []
         for team in org_teams:
             member_count = TeamUser.query.filter_by(team_id=team.id).count()
-            teams.append({
-                "id": team.id,
-                "name": team.name,
-                "description": team.description,
-                **_team_lead_fields(leads_map.get(team.id, [])),
-                "member_count": member_count,
-            })
+            teams.append(
+                {
+                    "id": team.id,
+                    "name": team.name,
+                    "description": team.description,
+                    **_team_lead_fields(leads_map.get(team.id, [])),
+                    "member_count": member_count,
+                }
+            )
 
         return {"teams": teams, "status": 200}
 
@@ -915,14 +971,16 @@ class TeamAPI(MethodView):
             agg["total_tasks_validated"] += _ustats.get("total_tasks_validated", 0)
             agg["total_tasks_invalidated"] += _ustats.get("total_tasks_invalidated", 0)
 
-            members_data.append({
-                "id": u.id,
-                "name": name,
-                "role": u.role,
-                "osm_username": u.osm_username,
-                "total_tasks_mapped": _ustats.get("total_tasks_mapped", 0),
-                "total_tasks_validated": _ustats.get("total_tasks_validated", 0),
-            })
+            members_data.append(
+                {
+                    "id": u.id,
+                    "name": name,
+                    "role": u.role,
+                    "osm_username": u.osm_username,
+                    "total_tasks_mapped": _ustats.get("total_tasks_mapped", 0),
+                    "total_tasks_validated": _ustats.get("total_tasks_validated", 0),
+                }
+            )
 
         # Get projects via ProjectTeam (no earnings)
         project_teams = ProjectTeam.query.filter_by(team_id=team_id).all()
@@ -940,13 +998,15 @@ class TeamAPI(MethodView):
                         team_mapped += 1
                     if t.validated_by in osm_usernames and t.validated:
                         team_validated += 1
-            projects_data.append({
-                "id": proj.id,
-                "name": proj.name,
-                "url": proj.url,
-                "team_tasks_mapped": team_mapped,
-                "team_tasks_validated": team_validated,
-            })
+            projects_data.append(
+                {
+                    "id": proj.id,
+                    "name": proj.name,
+                    "url": proj.url,
+                    "team_tasks_mapped": team_mapped,
+                    "team_tasks_validated": team_validated,
+                }
+            )
 
         # Get assigned trainings
         team_trainings = TeamTraining.query.filter_by(team_id=team_id).all()
@@ -954,13 +1014,15 @@ class TeamAPI(MethodView):
         for tt in team_trainings:
             t = Training.query.get(tt.training_id)
             if t:
-                trainings_data.append({
-                    "id": t.id,
-                    "title": t.title,
-                    "training_type": t.training_type,
-                    "difficulty": t.difficulty,
-                    "point_value": t.point_value,
-                })
+                trainings_data.append(
+                    {
+                        "id": t.id,
+                        "title": t.title,
+                        "training_type": t.training_type,
+                        "difficulty": t.difficulty,
+                        "point_value": t.point_value,
+                    }
+                )
 
         return {
             "team": {

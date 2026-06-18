@@ -9,6 +9,7 @@ Mikro user. The token fetch is in Users.py; the Auth0 org calls are in the
 helper module — so these patch `requests` in BOTH, plus `User` (the replace
 lookup) and, where relevant, `Team` / `PendingInvite` / team-scoping.
 """
+
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -92,7 +93,9 @@ def _new_user_get(url, **kwargs):
     if "users-by-email" in url:
         return _resp(payload=[])
     if url.endswith("/connections"):
-        return _resp(payload=[{"name": "Username-Password-Authentication", "id": "con_db"}])
+        return _resp(
+            payload=[{"name": "Username-Password-Authentication", "id": "con_db"}]
+        )
     return _resp(ok=False, status=404)
 
 
@@ -164,9 +167,7 @@ def test_org_admin_can_invite_admin(auth0_app):
 
     assert result["status"] == 200
     # The admin role id was attached to the invitation payload.
-    inv_call = next(
-        c for c in hreq.post.call_args_list if "/invitations" in c.args[0]
-    )
+    inv_call = next(c for c in hreq.post.call_args_list if "/invitations" in c.args[0])
     assert inv_call.kwargs["json"]["roles"] == ["rol_admin"]
 
 
@@ -225,8 +226,8 @@ def test_team_admin_invites_validator_into_led_team(auth0_app):
         ) as MockPending, patch(
             "api.auth.team_admin_can_access_team", return_value=True
         ):
-            MockTeam.query.filter_by.return_value.first.return_value = (
-                SimpleNamespace(id=7)
+            MockTeam.query.filter_by.return_value.first.return_value = SimpleNamespace(
+                id=7
             )
             try:
                 result = UserAPI().invite_user()
@@ -236,9 +237,7 @@ def test_team_admin_invites_validator_into_led_team(auth0_app):
 
     assert result["status"] == 200
     MockPending.create.assert_called_once()
-    inv_call = next(
-        c for c in hreq.post.call_args_list if "/invitations" in c.args[0]
-    )
+    inv_call = next(c for c in hreq.post.call_args_list if "/invitations" in c.args[0])
     assert inv_call.kwargs["json"]["roles"] == ["rol_validator"]
 
 

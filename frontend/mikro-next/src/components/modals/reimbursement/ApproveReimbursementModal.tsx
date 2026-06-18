@@ -6,7 +6,7 @@ import { useApproveReimbursementRequest } from "@/hooks";
 import type { ReimbursementRequest } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 
-export interface ApproveReimbursementModalProps {
+interface ApproveReimbursementModalProps {
   request: ReimbursementRequest;
   isOpen: boolean;
   onClose: () => void;
