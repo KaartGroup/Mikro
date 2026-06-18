@@ -50,6 +50,7 @@ class NotificationType:
     BANK_INFO_CHANGED: Final[str] = "bank_info_changed"
     ANNOUNCEMENT: Final[str] = "announcement"
     MESSAGE_RECEIVED: Final[str] = "message_received"
+    PROJECT_REACTIVATION_REQUESTED: Final[str] = "project_reactivation_requested"
 
 
 class CommsError(Exception):

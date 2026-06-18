@@ -7,21 +7,29 @@ import {
   CardHeader,
   CardTitle,
   Badge,
+  Button,
   Val,
   useToastActions,
 } from "@/components/ui";
 import { TablePaginator } from "@/components/tables/TablePaginator";
-import { useUserProjectsPaged, useFetchFilterOptions } from "@/hooks";
+import {
+  useUserProjectsPaged,
+  useFetchFilterOptions,
+  useFetchMyArchivedProjects,
+} from "@/hooks";
+import type { MyArchivedProject } from "@/hooks";
 import { useRole } from "@/contexts/RoleContext";
 import {
   getProjectExternalUrl,
   formatNumber,
   formatCurrency,
+  formatDate,
 } from "@/lib/utils";
 import type { Project, UserProjectsPagedResponse } from "@/types";
 import { projectDisplayName } from "@/lib/sortProjects";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
+import { RequestReactivationModal } from "@/components/modals/project/RequestReactivationModal";
 
 function ProjectCard({
   project,
@@ -158,6 +166,8 @@ export function UserProjects() {
   const { paymentsVisible } = useRole();
   const toast = useToastActions();
 
+  const [tab, setTab] = useState<"active" | "archived">("active");
+
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
   // Debounced search → one server request after typing settles.
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -235,6 +245,35 @@ export function UserProjects() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+      <div className="flex gap-2 border-b border-border">
+        <button
+          type="button"
+          onClick={() => setTab("active")}
+          className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+            tab === "active"
+              ? "border-kaart-orange text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Active
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("archived")}
+          className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+            tab === "archived"
+              ? "border-kaart-orange text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Archived
+        </button>
+      </div>
+
+      {tab === "archived" ? (
+        <ArchivedProjects />
+      ) : (
+        <>
       <ProjectFilters
         filterOptions={filterOptions ?? null}
         onChange={setFilters}
@@ -267,7 +306,112 @@ export function UserProjects() {
       ) : (
         <EmptyUserProjectsPage />
       )}
+        </>
+      )}
     </div>
+  );
+}
+
+/**
+ * Read-only list of the current user's archived (soft-deleted) assigned
+ * projects. Each row offers a "Request reactivation" action; once a request
+ * exists the button is replaced with a "Reactivation requested" badge.
+ */
+function ArchivedProjects() {
+  const { mutate: fetchArchived, loading: fetching } =
+    useFetchMyArchivedProjects();
+  const [projects, setProjects] = useState<MyArchivedProject[] | null>(null);
+  const [reactivateTarget, setReactivateTarget] =
+    useState<MyArchivedProject | null>(null);
+
+  const loadList = useCallback(async () => {
+    try {
+      const resp = await fetchArchived({});
+      setProjects(resp?.projects ?? []);
+    } catch {
+      setProjects([]);
+      /* errors surfaced by the mutation hook */
+    }
+  }, [fetchArchived]);
+
+  // Fetch when the Archived section opens.
+  useEffect(() => {
+    loadList();
+  }, [loadList]);
+
+  const isEmpty = !fetching && projects !== null && projects.length === 0;
+
+  if (fetching && projects === null) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-kaart-orange" />
+      </div>
+    );
+  }
+
+  if (isEmpty) {
+    return (
+      <Card>
+        <CardContent style={{ padding: "48px 24px", textAlign: "center" }}>
+          <p style={{ color: "#6b7280" }}>No archived projects.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {(projects ?? []).map((project) => (
+          <Card key={project.id} className="cursor-default">
+            <CardHeader>
+              <div className="flex justify-end gap-1.5 mb-2">
+                {project.source === "mr" ? (
+                  <Badge variant="default" className="bg-blue-500">
+                    MapRoulette
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary">Tasking Manager</Badge>
+                )}
+                {project.reactivation_requested && (
+                  <Badge variant="warning">Reactivation requested</Badge>
+                )}
+              </div>
+              <div>
+                <CardTitle className="text-lg truncate" title={project.name}>
+                  {projectDisplayName(project)}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Archived {formatDate(project.deleted_date)}
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {project.reactivation_requested ? (
+                <Button variant="outline" size="sm" disabled>
+                  Reactivation requested
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setReactivateTarget(project)}
+                >
+                  Request reactivation
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <RequestReactivationModal
+        isOpen={reactivateTarget !== null}
+        project={reactivateTarget}
+        onClose={() => setReactivateTarget(null)}
+        onRequested={loadList}
+      />
+    </>
   );
 }
 

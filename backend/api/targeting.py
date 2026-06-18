@@ -101,3 +101,22 @@ def org_admin_users(
     if exclude_user_id:
         q = q.filter(User.id != exclude_user_id)
     return q.all()
+
+
+def org_admins_incl_team_admins(
+    org_id: str,
+    *,
+    exclude_user_id: Optional[str] = None,
+) -> list:
+    """Every team-admin-or-above user in the given org.
+
+    Like :func:`org_admin_users` but also includes ``team_admin`` — role in
+    {``team_admin``, ``admin``, ``super_admin``}. Used by triggers (e.g.
+    project reactivation requests) that any admin tier should be able to act
+    on, since any team admin can restore an archived project in their org.
+    """
+    admin_roles = ("team_admin", "admin", "super_admin")
+    q = User.query.filter(User.org_id == org_id, User.role.in_(admin_roles))
+    if exclude_user_id:
+        q = q.filter(User.id != exclude_user_id)
+    return q.all()

@@ -8,12 +8,16 @@ Extracted from ``api/views/Projects.py``. Accepts plain Python arguments
 
 import logging
 import re
+from datetime import datetime
 
 import requests
 from ..database import Team, TeamLead, TeamUser
 from sqlalchemy import func, cast, String, or_, case
 from ..auth.team_scoping import is_org_admin_or_above
 from ..database.core import ProjectTeam, ProjectUser
+from .. import comms_client
+from ..comms_client import NotificationType
+from ..targeting import org_admins_incl_team_admins
 from ..stats import (
     count_tasks_split_aware,
     get_batch_project_stats_fast,
@@ -384,17 +388,16 @@ class ProjectService:
 
     @staticmethod
     def fetch_deleted_projects(user) -> dict:
-        """Return soft-deleted projects for the user's org.
+        """Return all soft-deleted (archived) projects for the user's org.
 
-        Org admins see all soft-deleted projects in the org; team admins
-        (not org admin) see only the ones they created.
+        Gated to team-admin-or-above at the view. Any admin role sees every
+        archived project in the org (matching the broadened reactivate /
+        permanently-delete permissions) — not just the ones they created.
         """
         query = Project.query.with_deleted().filter(
             Project.org_id == user.org_id,
             Project.deleted_date.isnot(None),
         )
-        if not is_org_admin_or_above(user):
-            query = query.filter(Project.created_by == user.id)
 
         projects = query.all()
         return {
@@ -409,6 +412,13 @@ class ProjectService:
                     "deleted_date": (
                         p.deleted_date.isoformat() if p.deleted_date else None
                     ),
+                    "reactivation_requested_at": (
+                        p.reactivation_requested_at.isoformat()
+                        if p.reactivation_requested_at
+                        else None
+                    ),
+                    "reactivation_requested_by": p.reactivation_requested_by,
+                    "reactivation_reason": p.reactivation_reason,
                 }
                 for p in projects
             ],
@@ -429,13 +439,14 @@ class ProjectService:
                 "status": 400,
             }
 
-        if not is_org_admin_or_above(user) and target_project.created_by != user.id:
-            return {
-                "message": "Team admins can only restore projects they created",
-                "status": 403,
-            }
-
-        target_project.update(deleted_date=None)
+        # Any team-admin-or-above may restore any archived project in their
+        # org. Restoring also clears any pending reactivation request.
+        target_project.update(
+            deleted_date=None,
+            reactivation_requested_at=None,
+            reactivation_requested_by=None,
+            reactivation_reason=None,
+        )
         return {
             "message": f"Project {project_id} restored",
             "status": 200,
@@ -445,14 +456,9 @@ class ProjectService:
     def purge_project(project_id, user) -> dict:
         """Permanently (hard) delete an already soft-deleted project.
 
-        Org admin only — purge is destructive and irreversible.
+        Any team-admin-or-above may purge any archived project in their org
+        (gated at the view layer via @requires_team_admin_or_above).
         """
-        if not is_org_admin_or_above(user):
-            return {
-                "message": "Org admin access required to purge projects",
-                "status": 403,
-            }
-
         # MUST use with_deleted() — the default query hides soft-deleted rows.
         target_project = (
             Project.query.with_deleted()
@@ -468,6 +474,141 @@ class ProjectService:
         target_project.delete(soft=False)
         return {
             "message": f"Project {project_id} permanently deleted",
+            "status": 200,
+        }
+
+    @staticmethod
+    def request_reactivation(project_id, reason, user) -> dict:
+        """Let an assigned mapper request reactivation of an archived project.
+
+        The requester must be a ``ProjectUser`` of the (soft-deleted) project.
+        Stamps the three reactivation columns and fan-out notifies every
+        team-admin-or-above in the org (bell-only — no email).
+        """
+        reason = (reason or "").strip()
+        if not reason:
+            return {"message": "reason required", "status": 400}
+
+        # MUST use with_deleted() — the default query hides soft-deleted rows.
+        target_project = (
+            Project.query.with_deleted()
+            .filter_by(org_id=user.org_id, id=project_id)
+            .first()
+        )
+        if not target_project or target_project.deleted_date is None:
+            return {
+                "message": f"Archived project {project_id} not found",
+                "status": 400,
+            }
+
+        # Only a user assigned to the project may request its reactivation.
+        assignment = ProjectUser.query.filter_by(
+            project_id=project_id, user_id=user.id
+        ).first()
+        if not assignment:
+            return {
+                "message": "You are not assigned to this project",
+                "status": 403,
+            }
+
+        target_project.update(
+            reactivation_requested_at=datetime.utcnow(),
+            reactivation_requested_by=user.id,
+            reactivation_reason=reason,
+        )
+
+        # Fire-and-forget notification — never let comms break the request.
+        try:
+            requester_name = user.full_name or user.email or "A user"
+            display = target_project.short_name or target_project.name
+            admins = org_admins_incl_team_admins(
+                user.org_id, exclude_user_id=user.id
+            )
+            comms_client.emit_batch(
+                user_ids=[a.id for a in admins],
+                org_id=user.org_id,
+                type=NotificationType.PROJECT_REACTIVATION_REQUESTED,
+                message=(
+                    f"{requester_name} requested reactivation of "
+                    f"\"{display}\": {reason}"
+                ),
+                link="/admin/projects",
+                actor_id=user.id,
+                entity_type="project",
+                entity_id=project_id,
+                send_email=False,
+            )
+        except Exception:
+            pass
+
+        return {
+            "message": "Reactivation requested",
+            "status": 200,
+        }
+
+    @staticmethod
+    def fetch_my_archived_projects(user) -> dict:
+        """Return archived projects the current user is assigned to."""
+        projects = (
+            Project.query.with_deleted()
+            .join(ProjectUser, ProjectUser.project_id == Project.id)
+            .filter(
+                ProjectUser.user_id == user.id,
+                Project.org_id == user.org_id,
+                Project.deleted_date.isnot(None),
+            )
+            .all()
+        )
+        return {
+            "status": 200,
+            "projects": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "short_name": p.short_name or "",
+                    "source": p.source,
+                    "deleted_date": (
+                        p.deleted_date.isoformat() if p.deleted_date else None
+                    ),
+                    "reactivation_requested": (
+                        p.reactivation_requested_at is not None
+                    ),
+                }
+                for p in projects
+            ],
+        }
+
+    @staticmethod
+    def dismiss_reactivation_request(project_id, user) -> dict:
+        """Clear a pending reactivation request without reactivating.
+
+        The project stays archived; only the three reactivation columns are
+        cleared. 400 if the project isn't archived or has no pending request.
+        """
+        # MUST use with_deleted() — the default query hides soft-deleted rows.
+        target_project = (
+            Project.query.with_deleted()
+            .filter_by(org_id=user.org_id, id=project_id)
+            .first()
+        )
+        if not target_project or target_project.deleted_date is None:
+            return {
+                "message": f"Archived project {project_id} not found",
+                "status": 400,
+            }
+        if target_project.reactivation_requested_at is None:
+            return {
+                "message": "No pending reactivation request",
+                "status": 400,
+            }
+
+        target_project.update(
+            reactivation_requested_at=None,
+            reactivation_requested_by=None,
+            reactivation_reason=None,
+        )
+        return {
+            "message": "Reactivation request dismissed",
             "status": 200,
         }
 
