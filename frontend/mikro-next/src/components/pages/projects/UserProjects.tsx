@@ -30,6 +30,12 @@ import { projectDisplayName } from "@/lib/sortProjects";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
 import { RequestReactivationModal } from "@/components/modals/project/RequestReactivationModal";
+import { ProposeProjectModal } from "@/components/modals/project/ProposeProjectModal";
+import {
+  useMyProjectProposals,
+  useWithdrawProjectProposal,
+} from "@/hooks";
+import type { ProjectProposal, ProjectProposalStatus } from "@/types";
 
 function ProjectCard({
   project,
@@ -168,6 +174,9 @@ export function UserProjects() {
 
   const [tab, setTab] = useState<"active" | "archived">("active");
 
+  const [proposeOpen, setProposeOpen] = useState(false);
+  const [proposalsKey, setProposalsKey] = useState(0);
+
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
   // Debounced search → one server request after typing settles.
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -245,30 +254,46 @@ export function UserProjects() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-      <div className="flex gap-2 border-b border-border">
-        <button
-          type="button"
-          onClick={() => setTab("active")}
-          className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-            tab === "active"
-              ? "border-kaart-orange text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
+      <div className="flex items-center justify-between border-b border-border">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setTab("active")}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              tab === "active"
+                ? "border-kaart-orange text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("archived")}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              tab === "archived"
+                ? "border-kaart-orange text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Archived
+          </button>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          className="mb-0.5"
+          onClick={() => setProposeOpen(true)}
         >
-          Active
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("archived")}
-          className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-            tab === "archived"
-              ? "border-kaart-orange text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Archived
-        </button>
+          Propose a Project
+        </Button>
       </div>
+
+      <ProposeProjectModal
+        open={proposeOpen}
+        onClose={() => setProposeOpen(false)}
+        onSuccess={() => setProposalsKey((k) => k + 1)}
+      />
 
       {tab === "archived" ? (
         <ArchivedProjects />
@@ -308,6 +333,8 @@ export function UserProjects() {
       )}
         </>
       )}
+
+      <MyProposals key={proposalsKey} onProposalChanged={() => setProposalsKey((k) => k + 1)} />
     </div>
   );
 }
@@ -410,6 +437,281 @@ function ArchivedProjects() {
         project={reactivateTarget}
         onClose={() => setReactivateTarget(null)}
         onRequested={loadList}
+      />
+    </>
+  );
+}
+
+// ── Status badge helper ──────────────────────────────────────────────────────
+
+function ProposalStatusBadge({ status }: { status: ProjectProposalStatus }) {
+  const config: Record<
+    ProjectProposalStatus,
+    { label: string; className: string }
+  > = {
+    pending: {
+      label: "Pending",
+      className:
+        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+    },
+    changes_requested: {
+      label: "Changes requested",
+      className:
+        "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
+    },
+    approved: {
+      label: "Approved",
+      className:
+        "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+    },
+    provisioned: {
+      label: "Provisioned",
+      className:
+        "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+    },
+    denied: {
+      label: "Denied",
+      className: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+    },
+    deferred: {
+      label: "Deferred",
+      className:
+        "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+    },
+    withdrawn: {
+      label: "Withdrawn",
+      className:
+        "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+    },
+  };
+
+  const { label, className } = config[status] ?? {
+    label: status,
+    className: "bg-gray-100 text-gray-700",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+// ── My Proposals section ─────────────────────────────────────────────────────
+
+function MyProposals({ onProposalChanged }: { onProposalChanged: () => void }) {
+  const toast = useToastActions();
+  const { mutate: fetchMyProposals, loading: fetching } =
+    useMyProjectProposals();
+  const { mutate: withdrawProposal } = useWithdrawProjectProposal();
+
+  const [proposals, setProposals] = useState<ProjectProposal[] | null>(null);
+  const [sectionOpen, setSectionOpen] = useState(true);
+  const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
+  const [confirmWithdrawId, setConfirmWithdrawId] = useState<number | null>(
+    null,
+  );
+  const [resubmitTarget, setResubmitTarget] = useState<ProjectProposal | null>(
+    null,
+  );
+
+  const loadProposals = useCallback(async () => {
+    try {
+      const resp = await fetchMyProposals({});
+      setProposals(resp?.proposals ?? []);
+    } catch {
+      setProposals([]);
+    }
+  }, [fetchMyProposals]);
+
+  useEffect(() => {
+    loadProposals();
+  }, [loadProposals]);
+
+  // Hide entire section if user has no proposals
+  if (!fetching && proposals !== null && proposals.length === 0) return null;
+
+  const handleWithdraw = async (proposalId: number) => {
+    setWithdrawingId(proposalId);
+    try {
+      await withdrawProposal({ proposal_id: proposalId });
+      toast.success("Proposal withdrawn.");
+      onProposalChanged();
+      await loadProposals();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to withdraw proposal",
+      );
+    } finally {
+      setWithdrawingId(null);
+      setConfirmWithdrawId(null);
+    }
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between"
+            onClick={() => setSectionOpen((v) => !v)}
+          >
+            <CardTitle className="text-base">My Project Proposals</CardTitle>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-transform ${sectionOpen ? "rotate-180" : ""}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </CardHeader>
+
+        {sectionOpen && (
+          <CardContent>
+            {fetching && proposals === null ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted border-t-kaart-orange" />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="pb-2 pr-4 font-medium text-muted-foreground">
+                        Name / Area
+                      </th>
+                      <th className="pb-2 pr-4 font-medium text-muted-foreground">
+                        Status
+                      </th>
+                      <th className="pb-2 pr-4 font-medium text-muted-foreground">
+                        Submitted
+                      </th>
+                      <th className="pb-2 pr-4 font-medium text-muted-foreground">
+                        Reviewer note
+                      </th>
+                      <th className="pb-2 font-medium text-muted-foreground">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(proposals ?? []).map((proposal) => (
+                      <tr
+                        key={proposal.id}
+                        className="border-b border-border last:border-0"
+                      >
+                        <td className="py-3 pr-4">
+                          <p className="font-medium">
+                            {proposal.proposed_name ||
+                              proposal.area_description?.slice(0, 60) ||
+                              `Proposal #${proposal.id}`}
+                          </p>
+                          {proposal.url && (
+                            <a
+                              href={proposal.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-kaart-orange hover:underline truncate block max-w-xs"
+                            >
+                              {proposal.url}
+                            </a>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <ProposalStatusBadge status={proposal.status} />
+                        </td>
+                        <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
+                          {formatDate(proposal.submitted_at)}
+                        </td>
+                        <td className="py-3 pr-4 text-muted-foreground max-w-xs">
+                          {proposal.reviewer_note ? (
+                            <span className="italic">
+                              {proposal.reviewer_note}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </td>
+                        <td className="py-3">
+                          <div className="flex gap-2">
+                            {proposal.status === "pending" && (
+                              <>
+                                {confirmWithdrawId === proposal.id ? (
+                                  <>
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      isLoading={withdrawingId === proposal.id}
+                                      onClick={() =>
+                                        handleWithdraw(proposal.id)
+                                      }
+                                    >
+                                      Confirm
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        setConfirmWithdrawId(null)
+                                      }
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      setConfirmWithdrawId(proposal.id)
+                                    }
+                                  >
+                                    Withdraw
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            {proposal.status === "changes_requested" && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => setResubmitTarget(proposal)}
+                              >
+                                Edit &amp; Resubmit
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      <ProposeProjectModal
+        open={resubmitTarget !== null}
+        onClose={() => setResubmitTarget(null)}
+        onSuccess={async () => {
+          setResubmitTarget(null);
+          onProposalChanged();
+          await loadProposals();
+        }}
+        resubmitProposal={resubmitTarget ?? undefined}
       />
     </>
   );

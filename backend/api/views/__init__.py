@@ -23,6 +23,7 @@ from .HourlyRates import HourlyRatesAPI
 from .Comms import CommsAPI
 from .Events import EventsAPI
 from .Feedback import FeedbackAPI
+from .ProjectProposals import ProjectProposalsAPI
 
 __all__ = {
     "UserAPI",
@@ -48,4 +49,5 @@ __all__ = {
     "CommsAPI",
     "EventsAPI",
     "FeedbackAPI",
+    "ProjectProposalsAPI",
 }

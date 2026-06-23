@@ -46,6 +46,7 @@ from .core import (
     ChannelPost,
     Organization,
     EventProposal,
+    ProjectProposal,
 )
 
 __all__ = [
@@ -95,4 +96,5 @@ __all__ = [
     "ChannelPost",
     "Organization",
     "EventProposal",
+    "ProjectProposal",
 ]
