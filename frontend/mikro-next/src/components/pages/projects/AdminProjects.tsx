@@ -35,6 +35,7 @@ import {
 import { AddProjectModal } from "@/components/modals/project/AddProjectModal";
 import { EditProjectModal } from "@/components/modals/project/EditProjectModal";
 import { ArchivedProjectsTab } from "@/components/modals/project/ArchivedProjectsTab";
+import { ProposalsTab } from "@/components/modals/project/ProposalsTab";
 import { ProjectFilters, DEFAULT_FILTERS } from "./ProjectFilters";
 import type { ProjectFiltersValue } from "./ProjectFilters";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
@@ -85,7 +86,7 @@ export function AdminProjects() {
   // after typing settles, not per keystroke).
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeTab, setActiveTab] = useState<
-    "active" | "inactive" | "archived"
+    "active" | "inactive" | "archived" | "proposals"
   >("active");
   const [activePageNum, setActivePageNum] = useState(1);
   const [inactivePageNum, setInactivePageNum] = useState(1);
@@ -136,7 +137,7 @@ export function AdminProjects() {
   // Fetch one page of the active tab (status + sort + page). The Archived tab
   // loads its own list (useFetchDeletedProjects), so skip the main query there.
   const fetchList = useCallback(async () => {
-    if (activeTab === "archived") return;
+    if (activeTab === "archived" || activeTab === "proposals") return;
     setListLoading(true);
     try {
       const resp = await fetchProjectsPage({
@@ -783,7 +784,7 @@ export function AdminProjects() {
         defaultValue="active"
         value={activeTab}
         onValueChange={(v) =>
-          setActiveTab(v as "active" | "inactive" | "archived")
+          setActiveTab(v as "active" | "inactive" | "archived" | "proposals")
         }
       >
         <TabsList>
@@ -794,6 +795,7 @@ export function AdminProjects() {
             Inactive ({formatNumber(stats?.inactive_count ?? 0).text})
           </TabsTrigger>
           <TabsTrigger value="archived">Archived</TabsTrigger>
+          <TabsTrigger value="proposals">Proposals</TabsTrigger>
         </TabsList>
         <TabsContent value="active">
           <Card>
@@ -816,6 +818,13 @@ export function AdminProjects() {
                 isActive={activeTab === "archived"}
                 onChanged={() => refreshAll()}
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="proposals">
+          <Card>
+            <CardContent className="p-0">
+              <ProposalsTab isActive={activeTab === "proposals"} />
             </CardContent>
           </Card>
         </TabsContent>

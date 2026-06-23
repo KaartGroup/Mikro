@@ -51,6 +51,7 @@ class NotificationType:
     ANNOUNCEMENT: Final[str] = "announcement"
     MESSAGE_RECEIVED: Final[str] = "message_received"
     PROJECT_REACTIVATION_REQUESTED: Final[str] = "project_reactivation_requested"
+    PROJECT_PROPOSAL_SUBMITTED: Final[str] = "project_proposal_submitted"
 
 
 class CommsError(Exception):

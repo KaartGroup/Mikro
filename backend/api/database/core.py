@@ -1413,3 +1413,72 @@ class EventProposal(CRUDMixin, SurrogatePK, db.Model):
             f"<EventProposal {self.id} user={self.user_id} "
             f"title={self.title!r} status={self.status}>"
         )
+
+
+class ProjectProposal(CRUDMixin, SurrogatePK, db.Model):
+    """User-submitted proposal for a new TM4 / MapRoulette project.
+
+    Two paths:
+    - With URL: approve → auto-provision immediately → ``provisioned``.
+    - Without URL: approve → ``approved`` (awaiting TM4/MR setup), then admin
+      calls Provision with the new URL → ``provisioned``.
+
+    Status flow:
+      pending → changes_requested | deferred | denied | approved | provisioned
+      changes_requested → pending  (requester edits + resubmits)
+      approved → provisioned       (admin supplies URL + provisions)
+      pending → withdrawn          (requester cancels)
+    """
+
+    __tablename__ = "project_proposals"
+
+    user_id = db.Column(
+        db.String(255),
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    org_id = db.Column(db.String(255), nullable=True, index=True)
+    # Optional TM4/MR link. Null = requester describes area; admin provisions later.
+    url = db.Column(db.String(500), nullable=True)
+    # 'tm4' | 'mr' derived from url at submit time; null when no url.
+    source = db.Column(db.String(20), nullable=True)
+    proposed_name = db.Column(db.String(255), nullable=True)
+    short_name = db.Column(db.String(100), nullable=True)
+    area_description = db.Column(db.Text, nullable=True)
+    mapping_rate = db.Column(db.Float, nullable=True)
+    validation_rate = db.Column(db.Float, nullable=True)
+    visibility = db.Column(db.Boolean, nullable=False, default=True, server_default="true")
+    community = db.Column(db.Boolean, nullable=False, default=False, server_default="false")
+    payments_enabled = db.Column(
+        db.Boolean, nullable=False, default=False, server_default="false"
+    )
+    priority = db.Column(db.String(50), nullable=False, default="Medium")
+    # pending | changes_requested | deferred | denied | approved | provisioned | withdrawn
+    status = db.Column(
+        db.String(20), nullable=False, default="pending", server_default="pending"
+    )
+    submitted_at = db.Column(
+        db.DateTime, nullable=False, default=func.now(), server_default=func.now()
+    )
+    reviewed_by = db.Column(db.String(255), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewer_note = db.Column(db.Text, nullable=True)
+    # Set to the created Project.id once provisioned.
+    created_project_id = db.Column(db.Integer, nullable=True)
+
+    user = db.relationship(
+        "User",
+        backref=db.backref("project_proposals", passive_deletes=True),
+    )
+
+    __table_args__ = (
+        db.Index("ix_project_proposals_org_status", "org_id", "status"),
+        db.Index("ix_project_proposals_user_submitted", "user_id", "submitted_at"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<ProjectProposal {self.id} user={self.user_id} "
+            f"status={self.status}>"
+        )

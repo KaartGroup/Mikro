@@ -1842,3 +1842,85 @@ export interface MessagesUnreadCountResponse {
   status: number;
   unread_count: number;
 }
+
+// ── Project Proposal & Provisioning Queue (Trello 6a01e3edeb7aa868ada2dd12) ──
+// Routes under /project-proposals/*. SSOT — never duplicate these shapes.
+
+export type ProjectProposalStatus =
+  | "pending"
+  | "changes_requested"
+  | "deferred"
+  | "denied"
+  | "approved"
+  | "provisioned"
+  | "withdrawn";
+
+export interface ProjectProposal {
+  id: number;
+  user_id: string;
+  org_id: string | null;
+  url: string | null;
+  source: "tm4" | "mr" | null;
+  proposed_name: string | null;
+  short_name: string | null;
+  area_description: string | null;
+  mapping_rate: number | null;
+  validation_rate: number | null;
+  visibility: boolean;
+  community: boolean;
+  payments_enabled: boolean;
+  priority: string;
+  status: ProjectProposalStatus;
+  submitted_at: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  reviewer_note: string | null;
+  created_project_id: number | null;
+  /** Present on admin queue responses — user's display name. */
+  user_name?: string;
+}
+
+export interface ProjectProposalListResponse {
+  status: number;
+  proposals: ProjectProposal[];
+}
+
+export interface ProjectProposalMutationResponse {
+  status: number;
+  proposal?: ProjectProposal;
+  message?: string;
+}
+
+/** Body sent by user to submit a new proposal. */
+export interface SubmitProposalBody {
+  url?: string;
+  proposed_name?: string;
+  short_name?: string;
+  area_description?: string;
+  mapping_rate?: number;
+  validation_rate?: number;
+  visibility?: boolean;
+  community?: boolean;
+  payments_enabled?: boolean;
+  priority?: string;
+}
+
+/** Body sent by admin for actions that take a reviewer note. */
+export interface ProposalAdminActionBody {
+  proposal_id: number;
+  reviewer_note?: string;
+}
+
+/** Body sent by admin for the Provision action (supplies or confirms the URL). */
+export interface ProvisionProposalBody {
+  proposal_id: number;
+  url: string;
+  proposed_name?: string;
+  short_name?: string;
+  mapping_rate?: number;
+  validation_rate?: number;
+  visibility?: boolean;
+  community?: boolean;
+  payments_enabled?: boolean;
+  priority?: string;
+}

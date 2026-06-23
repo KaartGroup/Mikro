@@ -97,7 +97,13 @@ export function ContributorDetailPanel({
       ...(filters ? { filters } : {}),
     })
       .then((res) => setDetail(res))
-      .catch(() => console.error("Failed to load contributor detail"));
+      .catch((err) =>
+        toast.error(
+          err instanceof Error
+            ? `Failed to load contributor detail: ${err.message}`
+            : "Failed to load contributor detail",
+        ),
+      );
   };
 
   useEffect(() => {
@@ -106,7 +112,7 @@ export function ContributorDetailPanel({
       return;
     }
     loadDetail(row.user_id);
-    // `fetchContributor` is non-stable so excluded from deps.
+    // `fetchContributor` and `toast` are non-stable so excluded from deps.
   }, [row?.user_id, cycleStart, cycleEnd, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Empty state — no row selected
