@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Val } from "@/components/ui";
+import { Button, Val, useToastActions } from "@/components/ui";
 import { formatCurrency, formatNumber, formatDateTime } from "@/lib/utils";
 import { formatDurationHuman } from "@/lib/timeTracking";
 import {
   useFetchPaymentContributor,
 } from "@/hooks/useApi";
 import { DirectAddReimbursementModal } from "@/components/modals/reimbursement/DirectAddReimbursementModal";
-import { toast } from "sonner";
 import type {
   PaymentContributorDetailResponse,
   PaymentContributorReimbursement,
@@ -82,6 +81,7 @@ export function ContributorDetailPanel({
   onMarkPaid,
   onResetPending,
 }: ContributorDetailPanelProps) {
+  const toast = useToastActions();
   const { mutate: fetchContributor, loading: fetching } =
     useFetchPaymentContributor();
 
