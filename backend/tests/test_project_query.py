@@ -7,7 +7,7 @@ An org_admin viewer is used throughout so role scoping returns the whole
 org and the tests isolate the search/sort/pagination behavior.
 """
 
-from api.database import Project
+from api.database import Project, Country, Team, ProjectCountry, ProjectTeam
 from api.services.project_service import ProjectService
 
 ORG = "pq-test-org"
@@ -146,6 +146,95 @@ def test_search_and_priority_compose(db_session):
 
     assert total == 1
     assert [p.id for p in items] == [205]
+
+
+# ── missing_assignment filter ───────────────────────────────────────────────
+
+
+def _link_country(db_session, project_id):
+    country = Country(name=f"Country {project_id}", org_id=ORG)
+    db_session.add(country)
+    db_session.flush()
+    db_session.add(ProjectCountry(project_id=project_id, country_id=country.id))
+    db_session.flush()
+
+
+def _link_team(db_session, project_id):
+    team = Team(name=f"Team {project_id}", org_id=ORG)
+    db_session.add(team)
+    db_session.flush()
+    db_session.add(ProjectTeam(project_id=project_id, team_id=team.id))
+    db_session.flush()
+
+
+def test_missing_assignment_location(db_session):
+    # 701 has a location; 702 has none.
+    db_session.add_all([_project(701), _project(702)])
+    db_session.flush()
+    _link_country(db_session, 701)
+
+    items, total = svc.get_page(ORG, ADMIN, {"missing_assignment": "location"})
+
+    assert [p.id for p in items] == [702]
+    assert total == 1
+
+
+def test_missing_assignment_team(db_session):
+    # 703 has a team; 704 has none.
+    db_session.add_all([_project(703), _project(704)])
+    db_session.flush()
+    _link_team(db_session, 703)
+
+    items, total = svc.get_page(ORG, ADMIN, {"missing_assignment": "team"})
+
+    assert [p.id for p in items] == [704]
+    assert total == 1
+
+
+def test_missing_assignment_any_returns_missing_either(db_session):
+    # 705: fully set up (location + team) → excluded.
+    # 706: location only (no team) → included.
+    # 707: team only (no location) → included.
+    # 708: neither → included.
+    db_session.add_all([_project(705), _project(706), _project(707), _project(708)])
+    db_session.flush()
+    _link_country(db_session, 705)
+    _link_team(db_session, 705)
+    _link_country(db_session, 706)
+    _link_team(db_session, 707)
+
+    items, total = svc.get_page(ORG, ADMIN, {"missing_assignment": "any"})
+
+    assert {p.id for p in items} == {706, 707, 708}
+    assert total == 3
+
+
+def test_missing_assignment_composes_with_other_filters(db_session):
+    db_session.add_all(
+        [
+            _project(709, priority="High"),
+            _project(710, priority="Low"),
+        ]
+    )
+    db_session.flush()
+    # Both lack a team; priority narrows the missing set to one.
+    items, total = svc.get_page(
+        ORG, ADMIN, {"missing_assignment": "team", "priority": "High"}
+    )
+
+    assert [p.id for p in items] == [709]
+    assert total == 1
+
+
+def test_team_counts_helper(db_session):
+    db_session.add_all([_project(711), _project(712)])
+    db_session.flush()
+    _link_team(db_session, 711)
+
+    counts = svc.get_team_counts([711, 712])
+
+    assert counts.get(711) == 1
+    assert 712 not in counts
 
 
 # ── sorting ─────────────────────────────────────────────────────────────────

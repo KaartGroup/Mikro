@@ -512,6 +512,7 @@ class ProjectAPI(MethodView):
         project_ids = [p.id for p in projects]
         loc_counts = svc.get_location_counts(project_ids)
         trn_counts = svc.get_training_counts(project_ids)
+        team_counts = svc.get_team_counts(project_ids)
         batch_task_stats = get_batch_project_stats_fast(project_ids)
 
         def _serialize(project):
@@ -549,6 +550,7 @@ class ProjectAPI(MethodView):
                 "payments_enabled": project.payments_enabled,
                 "assigned_locations": loc_counts.get(project.id, 0),
                 "assigned_trainings": trn_counts.get(project.id, 0),
+                "assigned_teams": team_counts.get(project.id, 0),
                 "last_synced": (
                     project.last_sync_cursor.isoformat()
                     if project.last_sync_cursor
@@ -649,6 +651,7 @@ class ProjectAPI(MethodView):
             "country_id": self._int_or_none(req_body.get("country_id")),
             "region_id": self._int_or_none(req_body.get("region_id")),
             "team_id": self._int_or_none(req_body.get("team_id")),
+            "missing_assignment": req_body.get("missing_assignment"),
             "created_by_me": req_body.get("created_by_me", False),
             "user_ids": resolve_filtered_user_ids(
                 req_body.get("filters"), g.user.org_id

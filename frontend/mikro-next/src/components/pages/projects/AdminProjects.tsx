@@ -64,7 +64,6 @@ export function AdminProjects() {
   const [syncingProjectId, setSyncingProjectId] = useState<number | null>(null);
   const toast = useToastActions();
 
-
   // Role-aware UI (F3 Phase 3.4):
   // - team_admin: list is server-scoped to managed teams' projects.
   //   No create/delete buttons.
@@ -122,6 +121,8 @@ export function AdminProjects() {
     if (filters.communityFilter)
       body.community = filters.communityFilter === "community";
     if (filters.priorityFilter) body.priority = filters.priorityFilter;
+    if (filters.missingAssignment)
+      body.missing_assignment = filters.missingAssignment;
     return body;
   }, [
     debouncedSearch,
@@ -131,6 +132,7 @@ export function AdminProjects() {
     filters.teamId,
     filters.communityFilter,
     filters.priorityFilter,
+    filters.missingAssignment,
   ]);
 
   // Fetch one page of the active tab (status + sort + page). The Archived tab
@@ -194,6 +196,7 @@ export function AdminProjects() {
     filters.teamId,
     filters.communityFilter,
     filters.priorityFilter,
+    filters.missingAssignment,
     projSortKey,
     projSortDir,
   ]);
@@ -582,24 +585,35 @@ export function AdminProjects() {
                     {project.community && (
                       <Badge variant="secondary">Community</Badge>
                     )}
-                    {(project as Project & { assigned_locations?: number })
-                      .assigned_locations ? (
+                    {project.assigned_locations ? (
                       <Badge variant="secondary" className="text-[10px]">
-                        {
-                          (project as Project & { assigned_locations?: number })
-                            .assigned_locations
-                        }{" "}
-                        loc
+                        {project.assigned_locations} loc
                       </Badge>
-                    ) : null}
-                    {(project as Project & { assigned_trainings?: number })
-                      .assigned_trainings ? (
+                    ) : (
+                      <Badge
+                        variant="warning"
+                        className="text-[10px]"
+                        title="No location assigned"
+                      >
+                        No location
+                      </Badge>
+                    )}
+                    {project.assigned_teams ? (
                       <Badge variant="secondary" className="text-[10px]">
-                        {
-                          (project as Project & { assigned_trainings?: number })
-                            .assigned_trainings
-                        }{" "}
-                        trn
+                        {project.assigned_teams} team
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="warning"
+                        className="text-[10px]"
+                        title="No team assigned"
+                      >
+                        No team
+                      </Badge>
+                    )}
+                    {project.assigned_trainings ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {project.assigned_trainings} trn
                       </Badge>
                     ) : null}
                   </div>
@@ -774,6 +788,7 @@ export function AdminProjects() {
         onChange={setFilters}
         withTeam
         withMyProjects
+        withMissingAssignment
       />
 
       {/* Projects Tabs — controlled so the active tab drives the server query.

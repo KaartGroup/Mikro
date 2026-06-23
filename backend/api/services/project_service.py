@@ -699,6 +699,30 @@ class ProjectService:
         return query.filter(Project.id.in_(project_ids))
 
     @staticmethod
+    def get_project_by_missing_assignment(query, mode: str):
+        """Restrict to projects that are missing a location and/or team link.
+
+        ``mode`` selects which gap to surface:
+          - ``"location"`` → no ``ProjectCountry`` row
+          - ``"team"``     → no ``ProjectTeam`` row
+          - ``"any"``      → missing a location OR a team (default fallback)
+
+        Implemented with NOT IN against the association tables so it composes
+        with the other filters in ``_build_query``.
+        """
+        located_ids = db.select(ProjectCountry.project_id).scalar_subquery()
+        teamed_ids = db.select(ProjectTeam.project_id).scalar_subquery()
+
+        no_location = Project.id.notin_(located_ids)
+        no_team = Project.id.notin_(teamed_ids)
+
+        if mode == "location":
+            return query.filter(no_location)
+        if mode == "team":
+            return query.filter(no_team)
+        return query.filter(or_(no_location, no_team))
+
+    @staticmethod
     def get_project_by_created_by(query, user_id: str):
         return query.filter(Project.created_by == user_id)
 
@@ -811,6 +835,17 @@ class ProjectService:
             .all()
         )
 
+    @staticmethod
+    def get_team_counts(project_ids: list) -> dict:
+        if not project_ids:
+            return {}
+        return dict(
+            db.session.query(ProjectTeam.project_id, func.count())
+            .filter(ProjectTeam.project_id.in_(project_ids))
+            .group_by(ProjectTeam.project_id)
+            .all()
+        )
+
     def _build_query(self, org_id: str, user, filters: dict | None = None):
         """Assemble the scoped, filtered Project query (without executing it).
 
@@ -838,6 +873,11 @@ class ProjectService:
 
         if filters.get("team_id") is not None:
             query = self.get_project_by_team(query, filters["team_id"])
+
+        if filters.get("missing_assignment"):
+            query = self.get_project_by_missing_assignment(
+                query, filters["missing_assignment"]
+            )
 
         if filters.get("created_by_me"):
             query = self.get_project_by_created_by(query, user.id)

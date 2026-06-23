@@ -113,6 +113,11 @@ export interface Project {
   priority?: "Low" | "Medium" | "High";
   // MR status breakdown: {status_code: count} for MR projects
   mr_status_breakdown?: Record<string, number>;
+  // Setup counts — how many locations / teams / trainings are linked.
+  // 0 flags a project that still needs that assignment.
+  assigned_locations?: number;
+  assigned_teams?: number;
+  assigned_trainings?: number;
   // Last sync timestamp — null means never synced
   last_synced?: string | null;
   // User-specific stats (for user/validator dashboards)

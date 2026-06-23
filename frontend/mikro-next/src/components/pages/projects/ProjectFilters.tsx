@@ -5,9 +5,15 @@ import { Button } from "@/components/ui";
 import { StandaloneFilter } from "@/components/admin/StandaloneFilter";
 import type { FilterOptionsResponse } from "@/types";
 
-export type CompletionFilter = "not-started" | "in-progress" | "almost-done" | "complete";
+export type CompletionFilter =
+  | "not-started"
+  | "in-progress"
+  | "almost-done"
+  | "complete";
 export type CommunityFilter = "community" | "internal";
 export type PriorityFilter = "High" | "Medium" | "Low";
+// Projects still missing a setup link: a location, a team, or either.
+export type MissingAssignmentFilter = "location" | "team" | "any";
 
 export interface ProjectFiltersValue {
   search: string;
@@ -18,6 +24,7 @@ export interface ProjectFiltersValue {
   completionFilter: CompletionFilter | null;
   communityFilter: CommunityFilter | null;
   priorityFilter: PriorityFilter | null;
+  missingAssignment: MissingAssignmentFilter | null;
 }
 
 export const DEFAULT_FILTERS: ProjectFiltersValue = {
@@ -29,6 +36,7 @@ export const DEFAULT_FILTERS: ProjectFiltersValue = {
   completionFilter: null,
   communityFilter: null,
   priorityFilter: null,
+  missingAssignment: null,
 };
 
 const PRIORITY_OPTIONS: { value: PriorityFilter; label: string }[] = [
@@ -49,12 +57,22 @@ const COMPLETION_OPTIONS: { value: CompletionFilter; label: string }[] = [
   { value: "complete", label: "Complete (100%)" },
 ];
 
+const MISSING_ASSIGNMENT_OPTIONS: {
+  value: MissingAssignmentFilter;
+  label: string;
+}[] = [
+  { value: "any", label: "Missing location or team" },
+  { value: "location", label: "Missing location" },
+  { value: "team", label: "Missing team" },
+];
+
 interface ProjectFiltersProps {
   filterOptions: FilterOptionsResponse | null;
   onChange: (filters: ProjectFiltersValue) => void;
   withTeam?: boolean;
   withMyProjects?: boolean;
   withCompletion?: boolean;
+  withMissingAssignment?: boolean;
 }
 
 export function ProjectFilters({
@@ -63,6 +81,7 @@ export function ProjectFilters({
   withTeam,
   withMyProjects,
   withCompletion,
+  withMissingAssignment,
 }: ProjectFiltersProps) {
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
 
@@ -118,7 +137,9 @@ export function ProjectFilters({
           allLabel="All types"
           options={COMMUNITY_OPTIONS}
           value={filters.communityFilter}
-          onChange={(v) => update({ communityFilter: v as CommunityFilter | null })}
+          onChange={(v) =>
+            update({ communityFilter: v as CommunityFilter | null })
+          }
         />
       </div>
       <div className="w-36">
@@ -127,7 +148,9 @@ export function ProjectFilters({
           allLabel="All priorities"
           options={PRIORITY_OPTIONS}
           value={filters.priorityFilter}
-          onChange={(v) => update({ priorityFilter: v as PriorityFilter | null })}
+          onChange={(v) =>
+            update({ priorityFilter: v as PriorityFilter | null })
+          }
         />
       </div>
       {withCompletion && (
@@ -137,7 +160,9 @@ export function ProjectFilters({
             allLabel="All completions"
             options={COMPLETION_OPTIONS}
             value={filters.completionFilter}
-            onChange={(v) => update({ completionFilter: v as CompletionFilter | null })}
+            onChange={(v) =>
+              update({ completionFilter: v as CompletionFilter | null })
+            }
           />
         </div>
       )}
@@ -153,6 +178,21 @@ export function ProjectFilters({
             )}
             value={filters.teamId}
             onChange={(v) => update({ teamId: v })}
+          />
+        </div>
+      )}
+      {withMissingAssignment && (
+        <div className="w-52">
+          <StandaloneFilter
+            label="Needs setup"
+            allLabel="All projects"
+            options={MISSING_ASSIGNMENT_OPTIONS}
+            value={filters.missingAssignment}
+            onChange={(v) =>
+              update({
+                missingAssignment: v as MissingAssignmentFilter | null,
+              })
+            }
           />
         </div>
       )}
