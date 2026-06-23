@@ -5,7 +5,7 @@ import {
   Modal,
   Button,
   Input,
-  Select,
+  // Select, // advanced options hidden — re-enable when advanced section is restored
   useToastActions,
 } from "@/components/ui";
 import {
@@ -14,12 +14,12 @@ import {
 } from "@/hooks";
 import type { ProjectProposal, SubmitProposalBody } from "@/types";
 
-const PRIORITY_OPTIONS = [
-  { value: "Low", label: "Low" },
-  { value: "Medium", label: "Medium" },
-  { value: "High", label: "High" },
-  { value: "Critical", label: "Critical" },
-];
+// const PRIORITY_OPTIONS = [
+//   { value: "Low", label: "Low" },
+//   { value: "Medium", label: "Medium" },
+//   { value: "High", label: "High" },
+//   { value: "Critical", label: "Critical" },
+// ];
 
 interface ProposeProjectModalProps {
   open: boolean;
@@ -43,13 +43,14 @@ export function ProposeProjectModal({
   const [url, setUrl] = useState("");
   const [proposedName, setProposedName] = useState("");
   const [areaDescription, setAreaDescription] = useState("");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [mappingRate, setMappingRate] = useState("");
-  const [validationRate, setValidationRate] = useState("");
-  const [visibility, setVisibility] = useState(true);
-  const [community, setCommunity] = useState(false);
-  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
-  const [priority, setPriority] = useState("Medium");
+  // Advanced options hidden — payment/config fields are admin-only:
+  // const [advancedOpen, setAdvancedOpen] = useState(false);
+  // const [mappingRate, setMappingRate] = useState("");
+  // const [validationRate, setValidationRate] = useState("");
+  // const [visibility, setVisibility] = useState(true);
+  // const [community, setCommunity] = useState(false);
+  // const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  // const [priority, setPriority] = useState("Medium");
 
   const [areaError, setAreaError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -62,33 +63,12 @@ export function ProposeProjectModal({
       setUrl(resubmitProposal.url ?? "");
       setProposedName(resubmitProposal.proposed_name ?? "");
       setAreaDescription(resubmitProposal.area_description ?? "");
-      setMappingRate(
-        resubmitProposal.mapping_rate != null
-          ? String(resubmitProposal.mapping_rate)
-          : "",
-      );
-      setValidationRate(
-        resubmitProposal.validation_rate != null
-          ? String(resubmitProposal.validation_rate)
-          : "",
-      );
-      setVisibility(resubmitProposal.visibility);
-      setCommunity(resubmitProposal.community);
-      setPaymentsEnabled(resubmitProposal.payments_enabled);
-      setPriority(resubmitProposal.priority ?? "Medium");
-      setAdvancedOpen(false);
+      // advanced fields omitted — restored by admin on review
     } else if (open && !resubmitProposal) {
       // Reset for a fresh submission
       setUrl("");
       setProposedName("");
       setAreaDescription("");
-      setMappingRate("");
-      setValidationRate("");
-      setVisibility(true);
-      setCommunity(false);
-      setPaymentsEnabled(false);
-      setPriority("Medium");
-      setAdvancedOpen(false);
     }
     setAreaError("");
   }, [open, resubmitProposal]);
@@ -109,14 +89,9 @@ export function ProposeProjectModal({
     if (url.trim()) body.url = url.trim();
     if (proposedName.trim()) body.proposed_name = proposedName.trim();
     if (areaDescription.trim()) body.area_description = areaDescription.trim();
-    const mr = parseFloat(mappingRate);
-    if (!isNaN(mr)) body.mapping_rate = mr;
-    const vr = parseFloat(validationRate);
-    if (!isNaN(vr)) body.validation_rate = vr;
-    body.visibility = visibility;
-    body.community = community;
-    body.payments_enabled = paymentsEnabled;
-    body.priority = priority;
+    // Advanced fields omitted — set by admins during review:
+    // body.mapping_rate, body.validation_rate, body.visibility,
+    // body.community, body.payments_enabled, body.priority
     return body;
   };
 
@@ -235,131 +210,17 @@ export function ProposeProjectModal({
           )}
         </div>
 
-        {/* Advanced section */}
+        {/* Advanced options section hidden — payment/config fields are admin-only.
+            Restore when user-facing advanced options are approved.
         <div className="border border-border rounded-md">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-foreground hover:bg-accent/50 transition-colors rounded-md"
-            onClick={() => setAdvancedOpen((prev) => !prev)}
-          >
-            <span>Advanced options</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={`transition-transform ${advancedOpen ? "rotate-180" : ""}`}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-
-          {advancedOpen && (
-            <div className="px-4 pb-4 pt-1 space-y-4 border-t border-border">
-              {/* Rates */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Mapping rate ($/task)
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.001"
-                    placeholder="e.g. 0.025"
-                    value={mappingRate}
-                    onChange={(e) => setMappingRate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Validation rate ($/task)
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.001"
-                    placeholder="e.g. 0.015"
-                    value={validationRate}
-                    onChange={(e) => setValidationRate(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Priority */}
-              <Select
-                label="Priority"
-                options={PRIORITY_OPTIONS}
-                value={priority}
-                onChange={setPriority}
-              />
-
-              {/* Toggles */}
-              <div className="space-y-3">
-                <ToggleRow
-                  label="Visible to mappers"
-                  description="Project appears in mapper project lists."
-                  checked={visibility}
-                  onChange={setVisibility}
-                />
-                <ToggleRow
-                  label="Community project"
-                  description="Visible to community (non-Kaart) mappers."
-                  checked={community}
-                  onChange={setCommunity}
-                />
-                <ToggleRow
-                  label="Payments enabled"
-                  description="Mappers earn compensation for tasks on this project."
-                  checked={paymentsEnabled}
-                  onChange={setPaymentsEnabled}
-                />
-              </div>
-            </div>
-          )}
-        </div>
+          ...
+        </div> */}
       </div>
     </Modal>
   );
 }
 
-function ToggleRow({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div>
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
-          checked ? "bg-kaart-orange" : "bg-muted"
-        }`}
-      >
-        <span
-          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${
-            checked ? "translate-x-5" : "translate-x-0"
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
+// ToggleRow hidden with advanced section — restore when advanced options are re-enabled.
+// function ToggleRow({ label, description, checked, onChange }: {
+//   label: string; description: string; checked: boolean; onChange: (v: boolean) => void;
+// }) { ... }
