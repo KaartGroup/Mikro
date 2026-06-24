@@ -16,6 +16,7 @@ export const TOPIC_OPTIONS = [
   { value: "documentation", label: "Documentation" },
   { value: "imagery_capture", label: "Imagery Capture" },
   { value: "project_creation", label: "Project Creation" },
+  { value: "engineering", label: "Engineering" },
   { value: "community_event", label: "Community Event" },
   { value: "other", label: "Other" },
 ] as const;
@@ -99,6 +100,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   documentation: "Documentation",
   imagery_capture: "Imagery Capture",
   project_creation: "Project Creation",
+  engineering: "Engineering",
   other: "Other",
   community_event: "Community Event",
   // Retired activities — display-only, for historical row labels.

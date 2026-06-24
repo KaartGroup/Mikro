@@ -319,6 +319,9 @@ def _categorize_activity(activity=None, subcategory_name=None) -> str:
     if activity == "project_creation":
         return "project_creation"
 
+    if activity == "engineering":
+        return "engineering"
+
     if activity == "training":
         if subcategory_name == "community":
             return "community_training"

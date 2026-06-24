@@ -51,6 +51,7 @@ export const TIMEKEEPING_CATEGORY_COLORS: Record<string, string> = {
   qc: "#d1d5db",
   imagery_capture: "#9ca3af",
   project_creation: "#3b82f6",
+  engineering: "#6366f1",
   community_qc: "#111827",
   community_documentation: "#ec4899",
   community_meeting: "#a855f7",

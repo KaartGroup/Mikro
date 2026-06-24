@@ -157,6 +157,11 @@ def test_documentation_non_wiki_maps_to_documentation():
     assert _categorize_activity(row.activity, row.subcategory_name) == "documentation"
 
 
+def test_engineering_maps_to_engineering():
+    row = make_activity_row(activity="engineering", subcategory_name=None)
+    assert _categorize_activity(row.activity, row.subcategory_name) == "engineering"
+
+
 def test_other_community_typo_maps_to_community_outreach():
     row = make_activity_row(activity="other", subcategory_name="Communiry Event")
     assert (

@@ -38,6 +38,7 @@ ACTIVITY_SLUGS = {
     "documentation",
     "imagery_capture",
     "project_creation",
+    "engineering",
     "other",
     "community_event",
     # Legacy values still accepted for backward compat (clock-in payloads
@@ -60,6 +61,7 @@ ACTIVITY_DISPLAY_MAP = {
     "documentation": "Documentation",
     "imagery_capture": "Imagery Capture",
     "project_creation": "Project Creation",
+    "engineering": "Engineering",
     "other": "Other",
     "community_event": "Community Event",
     # Retired activities — kept for display continuity on historical rows.
