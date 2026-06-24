@@ -849,6 +849,8 @@ class TimeTrackingAPI(MethodView):
             )
 
         entry.notes = f"[ADJUSTMENT REQUESTED] {reason}"
+        if not entry.org_id:
+            entry.org_id = g.user.org_id
         entry.save()
 
         # Notify every org admin that a review was requested.
