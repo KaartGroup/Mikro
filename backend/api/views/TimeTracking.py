@@ -616,6 +616,7 @@ class TimeTrackingAPI(MethodView):
         # forces userId to the viewer.
         query = UserHistoryQuery(g.user.org_id, data, viewer=g.user)
         page, next_cursor = query.fetch_page()
+        stats = query.fetch_stats()
 
         return (
             jsonify(
@@ -623,6 +624,7 @@ class TimeTrackingAPI(MethodView):
                     "status": 200,
                     "entries": [TimeTrackingHelpers._format_entry(e) for e in page],
                     "nextCursor": next_cursor,
+                    "stats": stats,
                 }
             ),
             200,

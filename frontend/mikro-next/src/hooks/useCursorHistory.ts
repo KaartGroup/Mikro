@@ -6,11 +6,18 @@ import type { TimeEntry, TimeTrackingHistoryResponse } from "@/types";
 
 type Cursor = { clockIn: string; id: number };
 
+interface HistoryStats {
+  totalHours: number;
+  pendingAdjustments: number;
+  voidedEntries: number;
+}
+
 interface CursorHistoryResult {
   entries: TimeEntry[];
   nextCursor: Cursor | null;
   loading: boolean;
   loadingMore: boolean;
+  stats: HistoryStats | null;
   /** Fetch page 1 with the given filters. Resets accumulated entries + cursor. */
   fetchPage: (filters?: Record<string, unknown>) => Promise<void>;
   /** Append the next server page using the stored cursor + last filters. */
@@ -32,6 +39,7 @@ export function useCursorHistory(endpoint: string): CursorHistoryResult {
   const [nextCursor, setNextCursor] = useState<Cursor | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [stats, setStats] = useState<HistoryStats | null>(null);
   const lastFiltersRef = useRef<Record<string, unknown>>({});
 
   const fetchPage = useCallback(
@@ -42,6 +50,7 @@ export function useCursorHistory(endpoint: string): CursorHistoryResult {
         const result = await fetchHistoryPage(filters);
         setEntries(result?.entries ?? []);
         setNextCursor(result?.nextCursor ?? null);
+        if (result?.stats) setStats(result.stats);
       } catch {
         /* surfaced by mutation */
       } finally {
@@ -68,5 +77,5 @@ export function useCursorHistory(endpoint: string): CursorHistoryResult {
     }
   }, [fetchHistoryPage, nextCursor]);
 
-  return { entries, nextCursor, loading, loadingMore, fetchPage, loadMore };
+  return { entries, nextCursor, loading, loadingMore, stats, fetchPage, loadMore };
 }

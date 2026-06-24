@@ -366,6 +366,11 @@ export interface TimeTrackingHistoryResponse {
   entries: TimeEntry[];
   nextCursor?: { clockIn: string; id: number } | null;
   total?: number;
+  stats?: {
+    totalHours: number;
+    pendingAdjustments: number;
+    voidedEntries: number;
+  };
 }
 
 export interface TimeHistoryFilterParams {

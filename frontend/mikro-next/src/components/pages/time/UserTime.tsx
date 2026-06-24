@@ -77,10 +77,6 @@ function getDateRange(preset: DatePreset): {
   }
 }
 
-function secondsToHours(seconds: number): number {
-  return Math.round((seconds / 3600) * 10) / 10;
-}
-
 const PAGE_SIZE = 20;
 
 
@@ -133,7 +129,18 @@ export function UserDashboard() {
       setTimeout(() => fetchWithFilters(), 500);
     };
     window.addEventListener("clock-state-changed", handler);
-    return () => window.removeEventListener("clock-state-changed", handler);
+    window.addEventListener("time-entry-updated", handler);
+    return () => {
+      window.removeEventListener("clock-state-changed", handler);
+      window.removeEventListener("time-entry-updated", handler);
+    };
+  }, [fetchWithFilters]);
+
+  // Periodic refresh so the hours total stays reasonably current during
+  // an active session without waiting for clock-out.
+  useEffect(() => {
+    const interval = setInterval(() => fetchWithFilters(), 30 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [fetchWithFilters]);
 
   useEffect(() => {
@@ -172,19 +179,10 @@ export function UserDashboard() {
     return entries;
   }, [history.entries, datePreset, category]);
 
-  const stats = useMemo(() => {
-    const totalSeconds = history.entries.reduce(
-      (sum, e) => sum + (e.durationSeconds ?? 0),
-      0,
-    );
-    const pendingAdjustments = history.entries.filter((e) =>
-      e.notes?.startsWith("[ADJUSTMENT REQUESTED]"),
-    ).length;
-    return {
-      totalHours: secondsToHours(totalSeconds),
-      pendingAdjustments,
-    };
-  }, [history.entries]);
+  const stats = {
+    totalHours: history.stats?.totalHours ?? 0,
+    pendingAdjustments: history.stats?.pendingAdjustments ?? 0,
+  };
 
   const totalEntries = filteredEntries.length;
   const totalPages = Math.max(1, Math.ceil(totalEntries / PAGE_SIZE));
