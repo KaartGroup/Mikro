@@ -22,7 +22,7 @@ import {
 } from "@/hooks";
 import { ReimbursementSubmitModal } from "@/components/modals/reimbursement/RequestReimbursementModal";
 import { AdjustmentRequestModal } from "@/components/modals/AdjustmentRequestModal";
-import { useFetchMyChangesetHeatmap } from "@/hooks/useApi";
+import { useFetchMyChangesetHeatmap, useActiveTimeSession } from "@/hooks/useApi";
 import { ChangesetHeatmapCard } from "@/components/compounds/ChangesetHeatmapCard";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import {
@@ -91,6 +91,8 @@ export function UserDashboard() {
   const [pendingReimbursements, setPendingReimbursements] = useState(0);
 
   const history = useCursorHistory("/timetracking/my_history");
+  const { data: activeSessionData, refetch: refetchActiveSession } = useActiveTimeSession();
+  const [tick, setTick] = useState(0);
   const { mutate: fetchHeatmap } = useFetchMyChangesetHeatmap();
   const { mutate: updateMyNotes } = useUpdateMyNotes();
   const { mutate: fetchMyReimbursements } = useMyReimbursementRequests();
@@ -126,7 +128,10 @@ export function UserDashboard() {
 
   useEffect(() => {
     const handler = () => {
-      setTimeout(() => fetchWithFilters(), 500);
+      setTimeout(() => {
+        fetchWithFilters();
+        refetchActiveSession();
+      }, 500);
     };
     window.addEventListener("clock-state-changed", handler);
     window.addEventListener("time-entry-updated", handler);
@@ -134,14 +139,13 @@ export function UserDashboard() {
       window.removeEventListener("clock-state-changed", handler);
       window.removeEventListener("time-entry-updated", handler);
     };
-  }, [fetchWithFilters]);
+  }, [fetchWithFilters, refetchActiveSession]);
 
-  // Periodic refresh so the hours total stays reasonably current during
-  // an active session without waiting for clock-out.
+  // Tick every 30 s so the running-clock contribution to total hours stays live.
   useEffect(() => {
-    const interval = setInterval(() => fetchWithFilters(), 30 * 60 * 1000);
+    const interval = setInterval(() => setTick((t) => t + 1), 30_000);
     return () => clearInterval(interval);
-  }, [fetchWithFilters]);
+  }, []);
 
   useEffect(() => {
     setPage(0);
@@ -179,8 +183,23 @@ export function UserDashboard() {
     return entries;
   }, [history.entries, datePreset, category]);
 
+  // Add elapsed time from any active (in-progress) session on top of the
+  // server-computed completed-entries total. tick forces re-evaluation every 30 s.
+  const activeClockIn = activeSessionData?.session?.clockIn;
+  const { startDate, endDate } = getDateRange(datePreset);
+  const activeInRange =
+    activeClockIn != null &&
+    (!startDate || new Date(activeClockIn) >= new Date(startDate)) &&
+    (!endDate || new Date(activeClockIn) < new Date(endDate));
+  const activeElapsedHours =
+    activeInRange && activeClockIn
+      ? Math.max(0, (Date.now() - new Date(activeClockIn).getTime()) / 3_600_000)
+      : 0;
+  void tick; // consumed to trigger re-render on 30-s interval
+
   const stats = {
-    totalHours: history.stats?.totalHours ?? 0,
+    totalHours:
+      Math.round(((history.stats?.totalHours ?? 0) + activeElapsedHours) * 10) / 10,
     pendingAdjustments: history.stats?.pendingAdjustments ?? 0,
   };
 
