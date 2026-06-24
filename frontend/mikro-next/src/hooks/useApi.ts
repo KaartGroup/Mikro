@@ -66,6 +66,8 @@ import type {
   MessagesThreadResponse,
   MessagesSendResponse,
   MessagesUnreadCountResponse,
+  ProjectProposalListResponse,
+  ProjectProposalMutationResponse,
 } from "@/types";
 
 /**
@@ -1495,5 +1497,78 @@ export function useDeleteConversation() {
   return useApiMutation<{ status: number }>(
     "/messages/delete_conversation",
     COMMS_BASE,
+  );
+}
+
+// ── Project Proposal & Provisioning Queue (Trello 6a01e3edeb7aa868ada2dd12) ──
+// All routes POST /project-proposals/<action>. SSOT — import from here only.
+
+/** Submit a new project proposal (any authenticated user). */
+export function useSubmitProjectProposal() {
+  return useApiMutation<ProjectProposalMutationResponse>(
+    "/project-proposals/submit",
+  );
+}
+
+/** List the calling user's own proposals (any authenticated user). */
+export function useMyProjectProposals() {
+  return useApiMutation<ProjectProposalListResponse>(
+    "/project-proposals/my",
+  );
+}
+
+/** Edit + resubmit a changes_requested proposal (owner only). */
+export function useResubmitProjectProposal() {
+  return useApiMutation<ProjectProposalMutationResponse>(
+    "/project-proposals/resubmit",
+  );
+}
+
+/** Withdraw a pending proposal (owner only). */
+export function useWithdrawProjectProposal() {
+  return useApiMutation<ProjectProposalMutationResponse>(
+    "/project-proposals/withdraw",
+  );
+}
+
+/** Admin: list queue (default pending, filterable by status). */
+export function useProjectProposalsQueue() {
+  return useApiMutation<ProjectProposalListResponse>(
+    "/project-proposals/queue",
+  );
+}
+
+/** Admin: approve (auto-provisions if proposal has a URL; else → approved state). */
+export function useApproveProjectProposal() {
+  return useApiMutation<ProjectProposalMutationResponse>(
+    "/project-proposals/approve",
+  );
+}
+
+/** Admin: provision an approved no-link proposal by supplying the TM4/MR URL. */
+export function useProvisionProjectProposal() {
+  return useApiMutation<ProjectProposalMutationResponse>(
+    "/project-proposals/provision",
+  );
+}
+
+/** Admin: request changes (requires reviewer_note; emails requester). */
+export function useRequestChangesProjectProposal() {
+  return useApiMutation<ProjectProposalMutationResponse>(
+    "/project-proposals/request_changes",
+  );
+}
+
+/** Admin: defer a proposal. */
+export function useDeferProjectProposal() {
+  return useApiMutation<ProjectProposalMutationResponse>(
+    "/project-proposals/defer",
+  );
+}
+
+/** Admin: deny a proposal (requires reviewer_note). */
+export function useDenyProjectProposal() {
+  return useApiMutation<ProjectProposalMutationResponse>(
+    "/project-proposals/deny",
   );
 }

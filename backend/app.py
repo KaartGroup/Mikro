@@ -136,6 +136,7 @@ def _register_views(app):
         CommsAPI,
         EventsAPI,
         FeedbackAPI,
+        ProjectProposalsAPI,
     )
 
     # Authentication
@@ -237,6 +238,13 @@ def _register_views(app):
     app.add_url_rule(
         "/api/feedback/<path>",
         view_func=FeedbackAPI.as_view("feedback"),
+        methods=["POST"],
+    )
+
+    # Project proposals & provisioning queue
+    app.add_url_rule(
+        "/api/project-proposals/<path:path>",
+        view_func=ProjectProposalsAPI.as_view("project_proposals"),
         methods=["POST"],
     )
 
