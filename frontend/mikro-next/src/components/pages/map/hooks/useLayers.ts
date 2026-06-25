@@ -19,7 +19,6 @@ export function useLayers(
   );
   const [layers, setLayers] = useState<Layer[]>([]);
   const [uploading, setUploading] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const assignColor = useCallback((id: number) => {
     if (!colorMap.current.has(id)) {
@@ -79,9 +78,12 @@ export function useLayers(
       syncMapLayers(map.current, layers, geojsonCache.current);
   }, [layers, mapReady, map]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Returns true when the upload succeeded so callers (e.g. the modal) can react.
+  const handleUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ): Promise<boolean> => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) return false;
     setUploading(true);
     const name = file.name.replace(/\.(geojson|json)$/i, "");
     const form = new FormData();
@@ -97,7 +99,7 @@ export function useLayers(
       if (!res.ok) {
         const err = await res.json();
         alert(err.message ?? "Upload failed");
-        return;
+        return false;
       }
       const created = await res.json();
       await fetchLayerGeoJSON(created.id);
@@ -105,11 +107,13 @@ export function useLayers(
       supabase
         .channel("db-layers")
         .send({ type: "broadcast", event: "layer-changed", payload: {} });
+      return true;
     } catch {
       alert("Upload failed – is the backend running?");
+      return false;
     } finally {
       setUploading(false);
-      if (fileInput.current) fileInput.current.value = "";
+      e.target.value = ""; // allow re-uploading the same file
     }
   };
 
@@ -130,7 +134,6 @@ export function useLayers(
   return {
     layers,
     uploading,
-    fileInput,
     refetchLayers,
     handleUpload,
     toggleLayer,

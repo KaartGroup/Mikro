@@ -155,6 +155,7 @@ class LayersAPI(MethodView):
         if not layer or layer.org_id != g.user.org_id:
             return jsonify({"message": "not found", "status": 404}), 404
 
-        layer.delete()
-        db.session.commit()
+        # Hard-delete: geo_features cascade via ON DELETE CASCADE. This frees
+        # the (name, org_id) slot so a layer of the same name can be re-uploaded.
+        layer.delete(soft=False)
         return jsonify({"message": "deleted", "id": layer_id, "status": 200}), 200
