@@ -20,6 +20,11 @@ depends_on = None
 
 def upgrade():
     bind = op.get_bind()
+
+    # PostGIS provides the `geometry` type used by geo_features.geom.
+    # It must be enabled before any geometry column is created.
+    op.execute('CREATE EXTENSION IF NOT EXISTS postgis')
+
     from sqlalchemy import inspect
     inspector = inspect(bind)
     existing = inspector.get_table_names()
