@@ -1538,3 +1538,54 @@ class ProjectProposal(CRUDMixin, SurrogatePK, db.Model):
             f"<ProjectProposal {self.id} user={self.user_id} "
             f"status={self.status}>"
         )
+
+
+# ── Geo layers (GeoJSON upload + map viewer) ───────────────────────────────
+
+from geoalchemy2 import Geometry
+from sqlalchemy.dialects.postgresql import JSONB
+
+
+class GeoLayer(ModelWithSoftDeleteAndCRUD, SurrogatePK):
+    __tablename__ = "geo_layers"
+
+    name = Column(String(255), nullable=False)
+    org_id = Column(String(255), nullable=True, index=True)
+    created_by = Column(
+        String(255), db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    feature_count = Column(Integer, nullable=False, default=0, server_default="0")
+    create_time = Column(DateTime, nullable=False, default=func.now(), server_default=func.now())
+
+    creator = db.relationship("User", backref=db.backref("geo_layers", passive_deletes=True))
+
+    __table_args__ = (
+        db.UniqueConstraint("name", "org_id", name="uq_geo_layers_name_org"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "org_id": self.org_id,
+            "created_by": self.created_by,
+            "feature_count": self.feature_count,
+            "created_at": self.create_time.isoformat() if self.create_time else None,
+        }
+
+
+class GeoFeature(db.Model, SurrogatePK):
+    __tablename__ = "geo_features"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    layer_id = Column(
+        Integer, db.ForeignKey("geo_layers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    properties = Column(JSONB, nullable=False, server_default="{}")
+    geom = Column(Geometry("GEOMETRY", srid=4326, spatial_index=False), nullable=False)
+
+    layer = db.relationship("GeoLayer", backref=db.backref("features", passive_deletes=True))
+
+    __table_args__ = (
+        db.Index("ix_geo_features_geom", "geom", postgresql_using="gist"),
+    )

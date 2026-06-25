@@ -67,10 +67,7 @@ export function Header({ displayName }: HeaderProps) {
         {/* User Menu */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span
-              className="hide-mobile"
-              style={{ fontSize: 14, color: "var(--muted-foreground)" }}
-            >
+            <span style={{ fontSize: 14, color: "var(--muted-foreground)" }}>
               {name}
             </span>
             <MessengerIcon />

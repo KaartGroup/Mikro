@@ -389,7 +389,6 @@ export function Sidebar() {
 
   return (
     <aside
-      className="hide-mobile"
       style={{
         position: "fixed",
         left: 0,

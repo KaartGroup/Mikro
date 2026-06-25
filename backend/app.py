@@ -137,6 +137,7 @@ def _register_views(app):
         EventsAPI,
         FeedbackAPI,
         ProjectProposalsAPI,
+        LayersAPI,
     )
 
     # Authentication
@@ -239,6 +240,12 @@ def _register_views(app):
         "/api/feedback/<path>",
         view_func=FeedbackAPI.as_view("feedback"),
         methods=["POST"],
+    )
+
+    # Geo layers (GeoJSON upload + map viewer)
+    app.add_url_rule(
+        "/api/layers/<path:path>",
+        view_func=LayersAPI.as_view("layers"),
     )
 
     # Project proposals & provisioning queue

@@ -225,28 +225,6 @@ section {
   }
 }
 
-/* Hide on mobile */
-.hide-mobile {
-  display: none;
-}
-
-@media (min-width: 768px) {
-  .hide-mobile {
-    display: flex;
-  }
-}
-
-/* Show only on mobile */
-.show-mobile {
-  display: block;
-}
-
-@media (min-width: 768px) {
-  .show-mobile {
-    display: none;
-  }
-}
-
 /* Footer grid */
 .footer-grid {
   display: grid;
@@ -275,13 +253,25 @@ section {
     0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
-/* Main content responsive - hide sidebar margin on mobile */
-.main-content {
-  margin-left: 0;
+/* Sidebar width — single source of truth for the layout offset. The app is
+   desktop-only, so the sidebar is always present and content is always offset. */
+:root {
+  --app-sidebar-width: 180px;
 }
 
-@media (min-width: 768px) {
-  .main-content {
-    margin-left: 180px;
-  }
+/* All content sits to the right of the sidebar. */
+.main-content {
+  margin-left: var(--app-sidebar-width);
+}
+
+/* Full-bleed content (e.g. the map) fills the area below the header and to the
+   right of the sidebar. The layout owns the offset so the page itself doesn't
+   need to know the sidebar width or breakpoint. */
+.fullbleed-content {
+  position: fixed;
+  top: 64px;
+  right: 0;
+  bottom: 0;
+  left: var(--app-sidebar-width);
+  overflow: hidden;
 }
