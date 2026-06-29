@@ -805,13 +805,22 @@ class ProjectService:
 
     @staticmethod
     def filter_by_assigned_user(query, user_id: str):
-        """Restrict a Project query to projects the user is directly assigned to."""
+        """Restrict a Project query to projects the user is directly assigned to,
+        plus any org-wide visible projects (visibility=True).
+
+        visibility=True is the admin's signal that a project is open to all
+        org members without explicit assignment — it surfaces in the clock-in
+        for everyone, resolving the 'invisible project' problem for projects
+        that haven't been linked to a team yet.
+        """
         project_ids = (
             db.select(ProjectUser.project_id)
             .where(ProjectUser.user_id == user_id)
             .scalar_subquery()
         )
-        return query.filter(Project.id.in_(project_ids))
+        return query.filter(
+            db.or_(Project.id.in_(project_ids), Project.visibility == True)  # noqa: E712
+        )
 
     @staticmethod
     def get_location_counts(project_ids: list) -> dict:

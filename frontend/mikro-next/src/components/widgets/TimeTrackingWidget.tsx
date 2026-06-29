@@ -461,6 +461,9 @@ export function TimeTrackingWidget() {
       return {
         value: p.id.toString(),
         label: isComplete ? `✓ ${displayName}` : displayName,
+        className: isComplete
+          ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40"
+          : undefined,
       };
     },
   );

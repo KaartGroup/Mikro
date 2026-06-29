@@ -7,6 +7,7 @@ export interface SelectOption {
   value: string;
   label: string;
   disabled?: boolean;
+  className?: string;
 }
 
 interface SelectProps {
@@ -140,6 +141,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
                         "hover:bg-accent hover:text-accent-foreground",
                         "disabled:cursor-not-allowed disabled:opacity-50",
                         option.value === value && "bg-accent",
+                        option.className,
                       )}
                     >
                       {option.label}

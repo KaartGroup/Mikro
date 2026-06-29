@@ -143,6 +143,37 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
 
   const handleSave = async () => {
     if (!project) return;
+
+    if (!formData.visibility && !formData.community) {
+      let teams = projectTeams;
+      let users = projectUsers;
+      if (!teamsLoaded) {
+        try {
+          const r = await fetchProjectTeams({ projectId: project.id });
+          teams = r?.teams ?? [];
+          setProjectTeams(teams);
+          setTeamsLoaded(true);
+        } catch { /* guard below catches it */ }
+      }
+      if (!usersLoaded) {
+        try {
+          const r = await fetchProjectUsers({ project_id: project.id });
+          users = r?.users ?? [];
+          setProjectUsers(users);
+          setUsersLoaded(true);
+        } catch { /* guard below catches it */ }
+      }
+      const hasAudience =
+        teams.some((t) => t.assigned === "Assigned") ||
+        users.some((u) => u.assigned === "Yes");
+      if (!hasAudience) {
+        toast.error(
+          'This project has no assigned teams or users. Enable "Publicly visible" or assign at least one team or user before saving.',
+        );
+        return;
+      }
+    }
+
     try {
       await updateProject({
         project_id: project.id,
@@ -394,6 +425,14 @@ export function EditProjectModal({ isOpen, project, onClose, onSaved }: Props) {
                       ? "Community projects are always publicly visible."
                       : "If checked, anyone in the org can see this project. If unchecked, only assigned users and teams can see it."}
                   </p>
+                  {!formData.visibility && !formData.community && (
+                    <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                      Not publicly visible. Only users and teams assigned on the{" "}
+                      <strong>Users</strong> and <strong>Teams</strong> tabs can
+                      see this project. If nobody is assigned, the project will
+                      be completely invisible in the clock-in.
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <input

@@ -142,6 +142,14 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
   const isFirstStep = currentStepIndex === 0;
   const isReviewStep = addTab === "review";
 
+  // Computed at component level so the footer button can read it.
+  const draftReview = reviewProjectDraft({
+    teamCount: preSelectedTeamIds.size,
+    countryCount: preSelectedCountryIds.size,
+    userCount: preSelectedUserIds.size,
+    isVisible: formData.visibility || formData.community,
+  });
+
   const goBack = () => {
     if (currentStepIndex > 0) {
       setAddTab(STEPS[currentStepIndex - 1].key);
@@ -244,6 +252,12 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
       toast.error("Please enter a project URL");
       return;
     }
+    if (draftReview.invisible) {
+      toast.error(
+        "This project has no audience — mark it as Publicly Visible or assign at least one team or user.",
+      );
+      return;
+    }
     try {
       const result = await createProject({
         url: formData.url,
@@ -344,7 +358,7 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
             <Button
               onClick={handleCreate}
               isLoading={creating}
-              disabled={creating || addPreflight.state === "dupe-here"}
+              disabled={creating || addPreflight.state === "dupe-here" || draftReview.invisible}
             >
               Create Project
             </Button>
@@ -833,10 +847,6 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
 
         <TabsContent value="review">
           {(() => {
-            const draftReview = reviewProjectDraft({
-              teamCount: preSelectedTeamIds.size,
-              countryCount: preSelectedCountryIds.size,
-            });
             // Resolve selected ids to names for the on-hover tooltips.
             const locationNames = (countriesData?.countries ?? [])
               .filter((c) => preSelectedCountryIds.has(c.id))
@@ -945,7 +955,21 @@ export function AddProjectModal({ isOpen, onClose, onCreated }: Props) {
                     </div>
                   ))}
                 </dl>
-                {draftReview.missing.length > 0 && (
+                {draftReview.invisible && (
+                  <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm">
+                    <p className="font-semibold text-destructive">
+                      This project will be invisible — no one can clock into it.
+                    </p>
+                    <p className="mt-1 text-destructive/80">
+                      Go back and either mark it as{" "}
+                      <strong>Publicly Visible</strong> (Settings tab), or
+                      assign at least one <strong>team</strong> or{" "}
+                      <strong>user</strong>. Creation is blocked until an
+                      audience is set.
+                    </p>
+                  </div>
+                )}
+                {!draftReview.invisible && draftReview.missing.length > 0 && (
                   <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
                     <p className="font-medium text-amber-700 dark:text-amber-300">
                       Heads up — this project has no{" "}
