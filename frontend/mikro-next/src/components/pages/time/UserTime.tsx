@@ -22,6 +22,7 @@ import {
 } from "@/hooks";
 import { ReimbursementSubmitModal } from "@/components/modals/reimbursement/RequestReimbursementModal";
 import { AdjustmentRequestModal } from "@/components/modals/AdjustmentRequestModal";
+import { NewEntryRequestModal } from "@/components/modals/NewEntryRequestModal";
 import { useFetchMyChangesetHeatmap, useActiveTimeSession } from "@/hooks/useApi";
 import { ChangesetHeatmapCard } from "@/components/compounds/ChangesetHeatmapCard";
 import { NotesButton } from "@/components/widgets/NotesButton";
@@ -85,6 +86,7 @@ export function UserDashboard() {
   const [category, setCategory] = useState<string>("All");
   const [page, setPage] = useState(0);
   const [adjustmentEntryId, setAdjustmentEntryId] = useState<number | null>(null);
+  const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [heatmapPoints, setHeatmapPoints] = useState<[number, number, number][]>([]);
   const [heatmapLoading, setHeatmapLoading] = useState(false);
   const [showReimbursementModal, setShowReimbursementModal] = useState(false);
@@ -305,6 +307,16 @@ export function UserDashboard() {
               {stats.pendingAdjustments > 0 ? "Awaiting review" : "No pending requests"}
             </p>
           </div>
+          <div className="px-4 pb-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setShowNewEntryModal(true)}
+            >
+              Request New Entry
+            </Button>
+          </div>
         </Card>
       </div>
 
@@ -505,6 +517,13 @@ export function UserDashboard() {
         isOpen={adjustmentEntryId !== null}
         entryId={adjustmentEntryId}
         onClose={closeAdjustmentModal}
+        onSubmitted={fetchWithFilters}
+      />
+
+      {/* New Entry Request Modal */}
+      <NewEntryRequestModal
+        isOpen={showNewEntryModal}
+        onClose={() => setShowNewEntryModal(false)}
         onSubmitted={fetchWithFilters}
       />
 

@@ -189,15 +189,23 @@ class TimeEntryQuery:
         """Aggregate stats matching the current filter set (no cursor, no limit)."""
         completed_q = self._agg_query.filter(TimeEntry.status == "completed")
 
+        # Exclude pending new-entry requests from the hours total — these are
+        # unreviewed and may be denied, so counting them would inflate the total.
+        confirmed_q = completed_q.filter(
+            ~TimeEntry.notes.like("[NEW ENTRY REQUESTED]%")
+        )
         total_seconds = (
-            completed_q.with_entities(
+            confirmed_q.with_entities(
                 func.coalesce(func.sum(TimeEntry.duration_seconds), 0)
             ).scalar()
             or 0
         )
 
         pending_adjustments = completed_q.filter(
-            TimeEntry.notes.like("[ADJUSTMENT REQUESTED]%")
+            or_(
+                TimeEntry.notes.like("[ADJUSTMENT REQUESTED]%"),
+                TimeEntry.notes.like("[NEW ENTRY REQUESTED]%"),
+            )
         ).count()
 
         voided_count = self._agg_query.filter(TimeEntry.status == "voided").count()

@@ -739,6 +739,13 @@ export function useRequestTimeAdjustment() {
   );
 }
 
+// User: request a brand-new time entry (no existing entry to modify)
+export function useRequestNewTimeEntry() {
+  return useApiMutation<{ message: string; status: number }>(
+    "/timetracking/request_new_entry",
+  );
+}
+
 // User: update user_notes on one of their own entries (owner-scoped)
 export function useUpdateMyNotes() {
   return useApiMutation<TimeTrackingSessionResponse>(

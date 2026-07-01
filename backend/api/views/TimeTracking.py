@@ -42,6 +42,7 @@ from ..database import (
     TimeEntry,
     User,
     Project,
+    ProjectUser,
     Task,
     Team,
     TeamUser,
@@ -341,6 +342,8 @@ class TimeTrackingAPI(MethodView):
             return self.admin_add_entry()
         elif path == "request_adjustment":
             return self.request_adjustment()
+        elif path == "request_new_entry":
+            return self.request_new_entry()
         elif path == "pending_adjustments":
             return self.admin_pending_adjustments()
         elif path == "update_my_notes":
@@ -767,7 +770,10 @@ class TimeTrackingAPI(MethodView):
 
         query = TimeEntry.query.filter(
             TimeEntry.org_id == g.user.org_id,
-            TimeEntry.notes.like("[ADJUSTMENT REQUESTED]%"),
+            or_(
+                TimeEntry.notes.like("[ADJUSTMENT REQUESTED]%"),
+                TimeEntry.notes.like("[NEW ENTRY REQUESTED]%"),
+            ),
             TimeEntry.status != "voided",
         )
 
@@ -879,6 +885,102 @@ class TimeTrackingAPI(MethodView):
             jsonify(
                 {
                     "message": "Adjustment request submitted",
+                    "status": 200,
+                }
+            ),
+            200,
+        )
+
+    def request_new_entry(self):
+        """Request a brand-new time entry (not a correction to an existing one).
+
+        The user provides the date, start time, duration (max 120 min), project,
+        and a reason. A completed TimeEntry is created with status "completed" and
+        notes prefixed with [NEW ENTRY REQUESTED] so it surfaces in the admin's
+        pending-adjustments strip for review.
+        """
+        if not hasattr(g, "user") or not g.user:
+            return jsonify({"message": "Unauthorized", "status": 401}), 401
+
+        data = request.get_json() or {}
+        clock_in_str = data.get("clockIn", "").strip()
+        clock_out_str = data.get("clockOut", "").strip()
+        project_id = data.get("projectId")
+        reason = data.get("reason", "").strip()
+
+        if not clock_in_str or not clock_out_str:
+            return jsonify({"message": "clockIn and clockOut are required", "status": 400}), 400
+
+        if not reason:
+            return jsonify({"message": "reason is required", "status": 400}), 400
+
+        try:
+            clock_in = datetime.fromisoformat(
+                clock_in_str.replace("Z", "+00:00")
+            ).replace(tzinfo=None)
+            clock_out = datetime.fromisoformat(
+                clock_out_str.replace("Z", "+00:00")
+            ).replace(tzinfo=None)
+        except (ValueError, AttributeError):
+            return jsonify({"message": "Invalid clockIn or clockOut format. Use ISO 8601.", "status": 400}), 400
+
+        duration_seconds = int((clock_out - clock_in).total_seconds())
+
+        if not (60 <= duration_seconds <= 7200):
+            return jsonify({"message": "Duration must be between 1 and 120 minutes", "status": 400}), 400
+
+        if clock_in >= datetime.utcnow():
+            return jsonify({"message": "Cannot request an entry in the future", "status": 400}), 400
+
+        if project_id:
+            project = Project.query.get(project_id)
+            if not project or project.org_id != g.user.org_id:
+                return jsonify({"message": "Project not found", "status": 404}), 404
+            # For private projects (visibility=False), verify the user is directly assigned.
+            if not project.visibility:
+                user_assigned = ProjectUser.query.filter_by(
+                    project_id=project_id, user_id=g.user.id
+                ).first()
+                if not user_assigned:
+                    return jsonify({"message": "Project not found", "status": 404}), 404
+
+        entry = TimeEntry(
+            user_id=g.user.id,
+            org_id=g.user.org_id,
+            project_id=project_id,
+            clock_in=clock_in,
+            clock_out=clock_out,
+            duration_seconds=duration_seconds,
+            status="completed",
+            activity="editing",
+            notes=f"[NEW ENTRY REQUESTED] {reason}",
+        )
+        db.session.add(entry)
+        db.session.commit()
+
+        try:
+            admins = org_admin_users(g.user.org_id, exclude_user_id=g.user.id)
+            requester_name = g.user.full_name or g.user.email or "A user"
+            snippet = reason[:120] + ("…" if len(reason) > 120 else "")
+            comms_client.emit_batch(
+                user_ids=[a.id for a in admins],
+                org_id=g.user.org_id,
+                type=NotificationType.ADJUSTMENT_REQUESTED,
+                message=(
+                    f"{requester_name} requested a new time entry be added: {snippet}"
+                ),
+                link="/admin/time",
+                actor_id=g.user.id,
+                entity_type="time_entry",
+                entity_id=entry.id,
+            )
+        except Exception:
+            pass
+
+        return (
+            jsonify(
+                {
+                    "message": "New entry request submitted",
                     "status": 200,
                 }
             ),
@@ -1668,6 +1770,8 @@ class TimeTrackingAPI(MethodView):
         # Mark adjustment requests as fulfilled
         if entry.notes and entry.notes.startswith("[ADJUSTMENT REQUESTED]"):
             entry.notes = entry.notes.replace("[ADJUSTMENT REQUESTED]", "[ADJUSTED]", 1)
+        elif entry.notes and entry.notes.startswith("[NEW ENTRY REQUESTED]"):
+            entry.notes = entry.notes.replace("[NEW ENTRY REQUESTED]", "[ADJUSTED]", 1)
 
         entry.edited_by = g.user.id
         entry.edited_at = datetime.utcnow()

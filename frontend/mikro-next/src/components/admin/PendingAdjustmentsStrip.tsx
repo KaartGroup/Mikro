@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/utils";
 import type { TimeEntry } from "@/types";
 
 const ADJUSTMENT_PREFIX = "[ADJUSTMENT REQUESTED] ";
+const NEW_ENTRY_PREFIX = "[NEW ENTRY REQUESTED] ";
 
 interface PendingAdjustmentsStripProps {
   /** Optional team scope — passed through to the backend so this strip
@@ -79,7 +80,7 @@ export function PendingAdjustmentsStrip({
             <span className="absolute inset-0 rounded-full bg-red-500 opacity-75 animate-ping" />
             <span className="relative rounded-full bg-red-600 h-2.5 w-2.5" />
           </span>
-          <h2 className="text-sm font-semibold">Pending adjustment requests</h2>
+          <h2 className="text-sm font-semibold">Pending time requests</h2>
           <Badge variant="destructive" className="text-xs">
             {entries.length}
           </Badge>
@@ -87,9 +88,12 @@ export function PendingAdjustmentsStrip({
 
         <div className="space-y-2">
           {entries.map((entry) => {
-            const reason = entry.notes?.startsWith(ADJUSTMENT_PREFIX)
-              ? entry.notes.slice(ADJUSTMENT_PREFIX.length).trim()
-              : "(no reason given)";
+            const isNewEntry = entry.notes?.startsWith(NEW_ENTRY_PREFIX);
+            const reason = isNewEntry
+              ? entry.notes!.slice(NEW_ENTRY_PREFIX.length).trim()
+              : entry.notes?.startsWith(ADJUSTMENT_PREFIX)
+                ? entry.notes.slice(ADJUSTMENT_PREFIX.length).trim()
+                : "(no reason given)";
             return (
               <div
                 key={entry.id}
@@ -110,6 +114,11 @@ export function PendingAdjustmentsStrip({
                 <div className="text-xs font-mono">
                   {formatDuration(entry.durationSeconds)}
                 </div>
+                {isNewEntry && (
+                  <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                    New Entry
+                  </Badge>
+                )}
                 <div className="flex-1 min-w-[200px] max-w-[480px] text-xs italic text-muted-foreground">
                   &ldquo;{reason}&rdquo;
                 </div>
