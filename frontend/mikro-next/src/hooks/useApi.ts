@@ -637,6 +637,16 @@ export function useClockOut() {
   return useApiMutation<TimeTrackingSessionResponse>("/timetracking/clock_out");
 }
 
+// User: switch task — atomically closes the active session and opens a new
+// pending (metadata-less) one at the same instant (no tracked-time gap). If
+// the outgoing session is itself pending, send its now-required finalize
+// fields ({ category, subcategoryId, project_id, task_name, userNotes }).
+export function useSwitchTask() {
+  return useApiMutation<TimeTrackingSessionResponse>(
+    "/timetracking/switch_task",
+  );
+}
+
 // User: get active session (fires on mount)
 export function useActiveTimeSession() {
   return useApiCall<TimeTrackingSessionResponse>(

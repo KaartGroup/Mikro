@@ -22,6 +22,10 @@ import {
 import type { Subcategory } from "@/types";
 import { NotesButton } from "@/components/widgets/NotesButton";
 import {
+  TaskMetadataModal,
+  TaskMetadataPayload,
+} from "@/components/widgets/TaskMetadataModal";
+import {
   sortProjectsRecentPinned,
   projectDisplayName,
 } from "@/lib/sortProjects";
@@ -84,6 +88,11 @@ export function SidebarClock() {
   const [activeSessionUserNotes, setActiveSessionUserNotes] = useState<
     string | null
   >(null);
+  // True when the active session was started via "Switch Task" without its
+  // details yet — forces the metadata modal before clock-out.
+  const [activeSessionNeedsMetadata, setActiveSessionNeedsMetadata] =
+    useState(false);
+  const [clockOutModalOpen, setClockOutModalOpen] = useState(false);
   const [todaySeconds, setTodaySeconds] = useState(0);
   const [weekSeconds, setWeekSeconds] = useState(0);
   const { mutate: fetchHistory } = useFetchMyTimeHistory();
@@ -149,6 +158,7 @@ export function SidebarClock() {
       setShowConfirmation(false);
       setActiveSessionId(activeSession.session.id);
       setActiveSessionUserNotes(activeSession.session.userNotes ?? null);
+      setActiveSessionNeedsMetadata(!!activeSession.session.needsMetadata);
     } else if (activeSession && !activeSession.session) {
       setIsClockedIn(false);
       setTimerStartedAt(null);
@@ -156,6 +166,7 @@ export function SidebarClock() {
       setElapsedSeconds(0);
       setActiveSessionId(null);
       setActiveSessionUserNotes(null);
+      setActiveSessionNeedsMetadata(false);
     }
   }, [activeSession]);
 
@@ -286,22 +297,48 @@ export function SidebarClock() {
     }
   }, [discardActive, refetch, activeSessionId, toast, openReport]);
 
+  const finishClockOutUi = useCallback(() => {
+    setIsClockedIn(false);
+    setShowConfirmation(true);
+    setActiveSessionNeedsMetadata(false);
+    window.dispatchEvent(new Event("clock-state-changed"));
+    setTimeout(() => {
+      setShowConfirmation(false);
+      setTimerStartedAt(null);
+      setInitialElapsed(0);
+      setElapsedSeconds(0);
+    }, 3000);
+  }, []);
+
   const handleClockOut = useCallback(async () => {
+    // A pending ("Switch Task" deferred-metadata) session must collect its
+    // details before it can be closed — open the modal.
+    if (activeSessionNeedsMetadata) {
+      setClockOutModalOpen(true);
+      return;
+    }
     try {
       await clockOut({});
-      setIsClockedIn(false);
-      setShowConfirmation(true);
-      window.dispatchEvent(new Event("clock-state-changed"));
-      setTimeout(() => {
-        setShowConfirmation(false);
-        setTimerStartedAt(null);
-        setInitialElapsed(0);
-        setElapsedSeconds(0);
-      }, 3000);
+      finishClockOutUi();
     } catch {
       // Silently handle
     }
-  }, [clockOut]);
+  }, [clockOut, activeSessionNeedsMetadata, finishClockOutUi]);
+
+  const handleClockOutWithMetadata = useCallback(
+    async (payload: TaskMetadataPayload) => {
+      await clockOut({
+        category: payload.category,
+        subcategoryId: payload.subcategoryId,
+        project_id: payload.project_id,
+        task_name: payload.task_name,
+        userNotes: payload.userNotes,
+      });
+      setClockOutModalOpen(false);
+      finishClockOutUi();
+    },
+    [clockOut, finishClockOutUi],
+  );
 
   // Topic-change effect: reset sub picker + fetch the subs visible to
   // this user for the new activity. Also clear project/description as
@@ -466,6 +503,23 @@ export function SidebarClock() {
             size="xs"
           />
         </div>
+        {activeSessionNeedsMetadata && (
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: "#b45309",
+              backgroundColor: "rgba(245, 158, 11, 0.12)",
+              border: "1px solid rgba(245, 158, 11, 0.4)",
+              borderRadius: 5,
+              padding: "4px 6px",
+              marginBottom: 4,
+              textAlign: "center",
+            }}
+          >
+            Add task details on clock-out
+          </div>
+        )}
         {discardError && (
           <div
             style={{
@@ -533,6 +587,15 @@ export function SidebarClock() {
           cancelText="Cancel"
           variant="destructive"
           isLoading={discarding}
+        />
+        <TaskMetadataModal
+          isOpen={clockOutModalOpen}
+          onClose={() => setClockOutModalOpen(false)}
+          onSubmit={handleClockOutWithMetadata}
+          title="Add details before clocking out"
+          description="Enter what you were working on to finish this session."
+          submitLabel="Save & clock out"
+          loading={clockingOut}
         />
       </div>
     );

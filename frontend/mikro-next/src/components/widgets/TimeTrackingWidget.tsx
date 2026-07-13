@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select, SelectOption } from "@/components/ui/Select";
 import {
   useClockIn,
   useClockOut,
+  useSwitchTask,
   useActiveTimeSession,
   useApiCall,
   useCustomTopics,
@@ -16,6 +17,7 @@ import {
   useUserProjects,
 } from "@/hooks";
 import { NotesButton } from "./NotesButton";
+import { TaskMetadataModal, TaskMetadataPayload } from "./TaskMetadataModal";
 import {
   sortProjectsRecentPinned,
   projectDisplayName,
@@ -95,7 +97,13 @@ export function TimeTrackingWidget() {
   const [pendingUserNotes, setPendingUserNotes] = useState<string | null>(null);
   const [todaySeconds, setTodaySeconds] = useState(0);
   const [weekSeconds, setWeekSeconds] = useState(0);
-  const [switchMode, setSwitchMode] = useState(false);
+  // True when the active session was started via "Switch Task" without its
+  // category/details yet — the metadata modal is forced before the next
+  // switch or clock-out.
+  const [activeSessionNeedsMetadata, setActiveSessionNeedsMetadata] =
+    useState(false);
+  const [switchModalOpen, setSwitchModalOpen] = useState(false);
+  const [clockOutModalOpen, setClockOutModalOpen] = useState(false);
 
   const {
     data: activeSession,
@@ -104,6 +112,7 @@ export function TimeTrackingWidget() {
   } = useActiveTimeSession();
   const { mutate: clockIn, loading: clockingIn } = useClockIn();
   const { mutate: clockOut, loading: clockingOut } = useClockOut();
+  const { mutate: switchTask, loading: switching } = useSwitchTask();
   const { mutate: updateMyNotes } = useUpdateMyNotes();
   const { mutate: discardActive, loading: discarding } =
     useDiscardActiveSession();
@@ -146,6 +155,7 @@ export function TimeTrackingWidget() {
       setActiveSessionTaskName(session.taskName || "");
       setActiveSessionId(session.id);
       setActiveSessionUserNotes(session.userNotes ?? null);
+      setActiveSessionNeedsMetadata(!!session.needsMetadata);
       if (session.projectId) {
         setSelectedProject(session.projectId.toString());
       }
@@ -160,6 +170,7 @@ export function TimeTrackingWidget() {
       setActiveSessionTaskName("");
       setActiveSessionId(null);
       setActiveSessionUserNotes(null);
+      setActiveSessionNeedsMetadata(false);
     }
   }, [activeSession]);
 
@@ -289,7 +300,6 @@ export function TimeTrackingWidget() {
       setActiveSessionUserNotes(pendingUserNotes);
       setPendingUserNotes(null);
       window.dispatchEvent(new Event("clock-state-changed"));
-      setSwitchMode(false);
       fetchTotals();
       // Pull the new server-side session so we get the entry id for later note edits
       refetchSession().catch(() => {});
@@ -347,72 +357,102 @@ export function TimeTrackingWidget() {
     }
   }, [discardActive, refetchSession, activeSessionId, toast, openReport]);
 
+  // Transition the UI into the post-clock-out confirmation state. Shared by
+  // the direct clock-out and the deferred-metadata (modal) clock-out paths.
+  const finishClockOutUi = useCallback(() => {
+    setIsClockedIn(false);
+    setShowConfirmation(true);
+    setActiveSessionNeedsMetadata(false);
+    window.dispatchEvent(new Event("clock-state-changed"));
+    setTimeout(() => {
+      setShowConfirmation(false);
+      setTimerStartedAt(null);
+      setInitialElapsed(0);
+      setElapsedSeconds(0);
+    }, 3000);
+  }, []);
+
   const handleClockOut = useCallback(async () => {
     setApiError(null);
-
+    // A pending ("Switch Task" deferred-metadata) session must collect its
+    // details before it can be closed — open the modal instead of clocking
+    // out directly.
+    if (activeSessionNeedsMetadata) {
+      setClockOutModalOpen(true);
+      return;
+    }
     try {
       await clockOut({});
-
-      setIsClockedIn(false);
-      setShowConfirmation(true);
-      window.dispatchEvent(new Event("clock-state-changed"));
-
-      // Hide confirmation after 3 seconds
-      setTimeout(() => {
-        setShowConfirmation(false);
-        setTimerStartedAt(null);
-        setInitialElapsed(0);
-        setElapsedSeconds(0);
-      }, 3000);
+      finishClockOutUi();
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Failed to clock out");
     }
-  }, [clockOut]);
+  }, [clockOut, activeSessionNeedsMetadata, finishClockOutUi]);
+
+  // Finalize a pending session's metadata as part of clocking out.
+  const handleClockOutWithMetadata = useCallback(
+    async (payload: TaskMetadataPayload) => {
+      await clockOut({
+        category: payload.category,
+        subcategoryId: payload.subcategoryId,
+        project_id: payload.project_id,
+        task_name: payload.task_name,
+        userNotes: payload.userNotes,
+      });
+      setClockOutModalOpen(false);
+      finishClockOutUi();
+    },
+    [clockOut, finishClockOutUi],
+  );
+
+  // Atomically close the current session and open a new pending one (no
+  // tracked-time gap). ``finalize`` supplies the outgoing session's metadata
+  // when it was itself pending.
+  const doSwitch = useCallback(
+    async (finalize?: TaskMetadataPayload | null) => {
+      const body = finalize
+        ? {
+            category: finalize.category,
+            subcategoryId: finalize.subcategoryId,
+            project_id: finalize.project_id,
+            task_name: finalize.task_name,
+            userNotes: finalize.userNotes,
+          }
+        : {};
+      await switchTask(body);
+      // The new session is pending — sync from the server so state/needsMetadata
+      // reflect it, and refresh totals for the just-closed session.
+      window.dispatchEvent(new Event("clock-state-changed"));
+      fetchTotals();
+      await refetchSession();
+    },
+    [switchTask, fetchTotals, refetchSession],
+  );
 
   const handleSwitchTasks = useCallback(async () => {
     setApiError(null);
+    // If the current session is still pending, its details are required
+    // before switching away — open the modal.
+    if (activeSessionNeedsMetadata) {
+      setSwitchModalOpen(true);
+      return;
+    }
     try {
-      await clockOut({});
-      // Don't show confirmation — go straight to clock-in form
-      // Clear all selections so user must pick a new topic
-      setIsClockedIn(false);
-      setSwitchMode(true);
-      setSelectedTopic("");
-      setSelectedProject("");
-      setTaskName("");
-      setTaskRefType(null);
-      setTaskRefId(null);
-      window.dispatchEvent(new Event("clock-state-changed"));
-      // Refresh totals for the new form
-      fetchTotals();
+      await doSwitch();
     } catch (err) {
       setApiError(
         err instanceof Error ? err.message : "Failed to switch tasks",
       );
     }
-  }, [clockOut, fetchTotals]);
+  }, [activeSessionNeedsMetadata, doSwitch]);
 
-  // Auto-clock-in when switching tasks: once topic is set and project is
-  // selected (or topic doesn't need a project), clock in automatically
-  const switchAutoClockRef = useRef(false);
-  useEffect(() => {
-    if (!switchMode || !selectedTopic || isClockedIn || clockingIn) return;
-    const needsProject = requiresProjectFor(selectedTopic, selectedSub);
-    if (needsProject && !selectedProject) return;
-    // Prevent double-fire
-    if (switchAutoClockRef.current) return;
-    switchAutoClockRef.current = true;
-    handleClockIn().finally(() => {
-      switchAutoClockRef.current = false;
-    });
-  }, [
-    switchMode,
-    selectedTopic,
-    selectedProject,
-    isClockedIn,
-    clockingIn,
-    handleClockIn,
-  ]);
+  const handleSwitchWithMetadata = useCallback(
+    async (payload: TaskMetadataPayload) => {
+      await doSwitch(payload);
+      setSwitchModalOpen(false);
+    },
+    [doSwitch],
+  );
 
   // Handle task selection for training
   const handleTrainingSelect = useCallback(
@@ -651,16 +691,26 @@ export function TimeTrackingWidget() {
             <div className="text-4xl font-mono font-bold text-green-600 dark:text-green-400 mb-2">
               {formatDuration(elapsedSeconds)}
             </div>
-            <p className="text-sm font-medium mb-1">
-              {activeSessionProjectName}
-            </p>
-            <p className="text-xs text-muted-foreground mb-1">
-              {activeSessionTopic}
-            </p>
-            {activeSessionTaskName && (
-              <p className="text-xs text-muted-foreground mb-2">
-                {activeSessionTaskName}
-              </p>
+            {activeSessionNeedsMetadata ? (
+              <div className="mb-2 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 px-2 py-1.5">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                  Add task details before switching or clocking out
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm font-medium mb-1">
+                  {activeSessionProjectName}
+                </p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  {activeSessionTopic}
+                </p>
+                {activeSessionTaskName && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {activeSessionTaskName}
+                  </p>
+                )}
+              </>
             )}
             <div className="flex justify-center gap-3 text-xs text-muted-foreground mb-3">
               <span>
@@ -686,15 +736,15 @@ export function TimeTrackingWidget() {
               <Button
                 variant="outline"
                 onClick={handleSwitchTasks}
-                disabled={clockingOut}
+                disabled={clockingOut || switching}
                 className="flex-1"
               >
-                Switch Tasks
+                {switching ? "..." : "Switch Tasks"}
               </Button>
               <Button
                 variant="destructive"
                 onClick={handleClockOut}
-                disabled={clockingOut}
+                disabled={clockingOut || switching}
                 className="flex-1"
               >
                 <svg
@@ -746,6 +796,24 @@ export function TimeTrackingWidget() {
           cancelText="Cancel"
           variant="destructive"
           isLoading={discarding}
+        />
+        <TaskMetadataModal
+          isOpen={switchModalOpen}
+          onClose={() => setSwitchModalOpen(false)}
+          onSubmit={handleSwitchWithMetadata}
+          title="Add details for the task you just finished"
+          description="Enter what you were working on, then we'll start your next task."
+          submitLabel="Save & switch"
+          loading={switching}
+        />
+        <TaskMetadataModal
+          isOpen={clockOutModalOpen}
+          onClose={() => setClockOutModalOpen(false)}
+          onSubmit={handleClockOutWithMetadata}
+          title="Add details before clocking out"
+          description="Enter what you were working on to finish this session."
+          submitLabel="Save & clock out"
+          loading={clockingOut}
         />
       </Card>
     );
@@ -811,13 +879,6 @@ export function TimeTrackingWidget() {
       <CardContent>
         <div className="space-y-3">
           {apiError && <p className="text-xs text-red-600">{apiError}</p>}
-          {switchMode && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 text-center">
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                Previous task saved — select your new task below
-              </p>
-            </div>
-          )}
           <Select
             label="Task"
             options={TOPIC_OPTIONS}

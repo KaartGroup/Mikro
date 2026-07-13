@@ -351,6 +351,10 @@ export interface TimeEntry {
    *  queue. Audit-only — it never changes the underlying time data. */
   longSessionReviewedBy?: string | null;
   longSessionReviewedAt?: string | null;
+  /** True while a "Switch Task" session is running without its category/
+   *  details yet. The UI forces the metadata modal before the next
+   *  switch/clock-out while this is set. */
+  needsMetadata?: boolean;
 }
 
 export interface TimeTrackingSessionResponse {
