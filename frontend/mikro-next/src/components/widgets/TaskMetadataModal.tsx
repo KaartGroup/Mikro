@@ -3,20 +3,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { Select, SelectOption } from "@/components/ui/Select";
 import { NotesButton } from "./NotesButton";
 import {
   sortProjectsRecentPinned,
   projectDisplayName,
 } from "@/lib/sortProjects";
 import { useFetchSubcategories, useUserProjects } from "@/hooks";
-import { TOPIC_OPTIONS as _TOPIC_OPTIONS, requiresProjectFor } from "@/lib/timeTracking";
+import { TOPIC_OPTIONS, requiresProjectFor } from "@/lib/timeTracking";
 import type { Subcategory } from "@/types";
 
-const TOPIC_OPTIONS: SelectOption[] = _TOPIC_OPTIONS.map((t) => ({
-  value: t.value,
-  label: t.label,
-}));
+// Native <select>/<input> styling. We intentionally use native form controls
+// here (not the custom Select) so their dropdowns render as OS overlays —
+// inside a scrollable modal body the custom Select's absolute dropdown gets
+// clipped, producing a cramped "scroll-to-find-another-scroll" experience.
+const fieldClass =
+  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 
 type UserProject = {
   id: number;
@@ -70,6 +71,7 @@ export function TaskMetadataModal({
   const [selectedSub, setSelectedSub] = useState<Subcategory | null>(null);
   const [subOptions, setSubOptions] = useState<Subcategory[]>([]);
   const [selectedProject, setSelectedProject] = useState("");
+  const [projectSearch, setProjectSearch] = useState("");
   const [taskName, setTaskName] = useState("");
   const [notes, setNotes] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,16 +80,17 @@ export function TaskMetadataModal({
   const { mutate: fetchSubcategories } = useFetchSubcategories();
   const { data: unFormattedProjects } = useUserProjects();
 
-  const projects =
+  const projects = sortProjectsRecentPinned(
     unFormattedProjects?.user_projects?.map((p: UserProject) => ({
       id: p.id,
       name: p.name,
-      short_name: p.short_name,
+      short_name: p.short_name ?? null,
       last_worked_on: p.last_worked_on ?? null,
       total_mapped: p.total_mapped ?? 0,
       total_tasks: p.total_tasks ?? 0,
       in_user_country: p.in_user_country ?? false,
-    })) ?? [];
+    })) ?? [],
+  );
 
   // Reset all fields whenever the modal (re)opens.
   useEffect(() => {
@@ -96,6 +99,7 @@ export function TaskMetadataModal({
       setSelectedSub(null);
       setSubOptions([]);
       setSelectedProject("");
+      setProjectSearch("");
       setTaskName("");
       setNotes(null);
       setError(null);
@@ -106,6 +110,7 @@ export function TaskMetadataModal({
   useEffect(() => {
     setSelectedSub(null);
     setSelectedProject("");
+    setProjectSearch("");
     setTaskName("");
     if (!selectedTopic) {
       setSubOptions([]);
@@ -128,16 +133,15 @@ export function TaskMetadataModal({
 
   const needsProject = requiresProjectFor(selectedTopic, selectedSub);
 
-  const projectOptions: SelectOption[] = sortProjectsRecentPinned(projects).map(
-    (p) => {
-      const isComplete = p.total_tasks > 0 && p.total_mapped >= p.total_tasks;
-      const displayName = projectDisplayName(p);
-      return {
-        value: p.id.toString(),
-        label: isComplete ? `✓ ${displayName}` : displayName,
-      };
-    },
-  );
+  const filteredProjects = projectSearch.trim()
+    ? projects.filter((p) => {
+        const q = projectSearch.toLowerCase();
+        if (p.name.toLowerCase().includes(q)) return true;
+        if (p.short_name && p.short_name.toLowerCase().includes(q)) return true;
+        if (selectedProject && p.id.toString() === selectedProject) return true;
+        return false;
+      })
+    : projects;
 
   const handleSubmit = useCallback(async () => {
     setError(null);
@@ -181,7 +185,7 @@ export function TaskMetadataModal({
       onClose={busy ? () => {} : onClose}
       title={title}
       description={description}
-      size="md"
+      size="lg"
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose} disabled={busy}>
@@ -199,44 +203,97 @@ export function TaskMetadataModal({
         </div>
       }
     >
-      <div className="space-y-3">
-        {error && <p className="text-xs text-red-600">{error}</p>}
-        <Select
-          label="Task"
-          options={TOPIC_OPTIONS}
-          value={selectedTopic}
-          onChange={setSelectedTopic}
-          placeholder="Select task"
-        />
-        {subOptions.length > 0 ? (
-          <Select
-            label="Subcategory"
-            options={subOptions.map((s) => ({
-              value: String(s.id),
-              label: s.name,
-            }))}
-            value={selectedSub ? String(selectedSub.id) : ""}
-            onChange={(v) => {
-              const id = v ? parseInt(v, 10) : null;
-              setSelectedSub(
-                id == null
-                  ? null
-                  : (subOptions.find((s) => s.id === id) ?? null),
-              );
-            }}
-            placeholder="Select subcategory"
-          />
-        ) : null}
-        {selectedTopic && needsProject && (
-          <Select
-            label="Project"
-            options={projectOptions}
-            value={selectedProject}
-            onChange={setSelectedProject}
-            placeholder="Select a project"
-            searchable
-          />
+      <div className="space-y-4">
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         )}
+
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">
+            Task <span className="text-red-500">*</span>
+          </label>
+          <select
+            className={fieldClass}
+            value={selectedTopic}
+            onChange={(e) => setSelectedTopic(e.target.value)}
+          >
+            <option value="">Select task...</option>
+            {TOPIC_OPTIONS.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {subOptions.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Subcategory
+            </label>
+            <select
+              className={fieldClass}
+              value={selectedSub?.id ?? ""}
+              onChange={(e) => {
+                const id = e.target.value ? parseInt(e.target.value, 10) : null;
+                setSelectedSub(
+                  id == null
+                    ? null
+                    : (subOptions.find((s) => s.id === id) ?? null),
+                );
+              }}
+            >
+              <option value="">Select subcategory (optional)...</option>
+              {subOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {selectedTopic && needsProject && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Project <span className="text-red-500">*</span>
+            </label>
+            {projects.length > 6 && (
+              <input
+                type="text"
+                className={`${fieldClass} mb-2`}
+                value={projectSearch}
+                onChange={(e) => setProjectSearch(e.target.value)}
+                placeholder={`Search ${projects.length} projects...`}
+                aria-label="Search projects"
+              />
+            )}
+            <select
+              className={fieldClass}
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+              size={1}
+            >
+              <option value="">
+                {filteredProjects.length === 0
+                  ? "No matching projects"
+                  : "Select a project..."}
+              </option>
+              {filteredProjects.map((p) => {
+                const isComplete =
+                  p.total_tasks > 0 && p.total_mapped >= p.total_tasks;
+                return (
+                  <option key={p.id} value={p.id.toString()}>
+                    {isComplete
+                      ? `✓ ${projectDisplayName(p)}`
+                      : projectDisplayName(p)}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+
         {selectedTopic && !needsProject && (
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
@@ -247,19 +304,25 @@ export function TaskMetadataModal({
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
               placeholder="Describe the task (optional)"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className={fieldClass}
             />
           </div>
         )}
+
         {selectedTopic && (
-          <NotesButton
-            notes={notes}
-            editable={true}
-            onSave={(v) => {
-              setNotes(v);
-              return Promise.resolve();
-            }}
-          />
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Notes
+            </label>
+            <NotesButton
+              notes={notes}
+              editable={true}
+              onSave={(v) => {
+                setNotes(v);
+                return Promise.resolve();
+              }}
+            />
+          </div>
         )}
       </div>
     </Modal>
