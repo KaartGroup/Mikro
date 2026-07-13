@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { Puck, Render, type Data } from "@measured/puck";
 import "@measured/puck/puck.css";
 import { Button } from "@/components/ui/Button";
+import { useFetchReportLayout, useSaveReportLayout } from "@/hooks/useApi";
 import { useReportsData } from "./useReportsData";
 import { ReportsDataProvider } from "./ReportsDataContext";
 import { reportsConfig, defaultReportsLayout } from "./blocks/registry";
-import { loadLayout, saveLayout } from "./layoutStorage";
 
 /**
  * Reports v2 — configurable/builder reports page.
@@ -16,35 +16,59 @@ import { loadLayout, saveLayout } from "./layoutStorage";
  * remains the live page until v2 is validated by both teams
  * (see .claude/reports-v2-configurable-ui-plan.md).
  *
- * Phase 2: a team lead can toggle into an edit mode (Puck drag-and-drop
- * builder), arrange blocks, and publish — the layout is persisted to
- * localStorage. Read mode renders the saved layout via <Render>.
- * Per-team server persistence and edit-rights scoping arrive in Phase 3;
- * for now any admin who can reach the page may edit (the page is already
- * gated to admins by RoleGate).
+ * Phase 3: layouts persist server-side, per team. The backend resolves which
+ * team's layout applies from the viewer (team lead → their team; org admin →
+ * org-level default); a team picker for org admins is a later refinement.
  */
 export function ReportsV2() {
   const reportsData = useReportsData();
   const { granularity, setGranularity, loading } = reportsData;
 
+  const { mutate: fetchLayout } = useFetchReportLayout();
+  const { mutate: saveLayout, loading: saving } = useSaveReportLayout();
+
   const [editing, setEditing] = useState(false);
   const [layout, setLayout] = useState<Data>(defaultReportsLayout);
   const [hydrated, setHydrated] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Load any saved layout after mount. localStorage is client-only, so
-  // hydration must happen after first render (matches the app's existing
-  // AdminDashboard pattern); the setState-in-effect here is intentional.
+  // Load the saved layout for this viewer's team (falls back to the starter
+  // layout when none is saved yet). setState happens in the async callback,
+  // not synchronously in the effect body.
   useEffect(() => {
-    const saved = loadLayout();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (saved) setLayout(saved);
-    setHydrated(true);
+    let cancelled = false;
+    fetchLayout({})
+      .then((res) => {
+        if (cancelled) return;
+        const cfg = res?.layout?.config;
+        if (cfg && typeof cfg === "object" && "content" in cfg) {
+          setLayout(cfg as unknown as Data);
+        }
+      })
+      .catch(() => {
+        // Non-fatal — the starter layout is shown.
+      })
+      .finally(() => {
+        if (!cancelled) setHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // fetchLayout is a non-stable mutation hook; run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handlePublish = (data: Data) => {
-    saveLayout(data);
-    setLayout(data);
-    setEditing(false);
+  const handlePublish = async (data: Data) => {
+    setSaveError(null);
+    try {
+      await saveLayout({ config: data });
+      setLayout(data);
+      setEditing(false);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Failed to save layout",
+      );
+    }
   };
 
   // Edit mode: the Puck builder. iframe disabled so the preview inherits our
@@ -76,11 +100,13 @@ export function ReportsV2() {
         <Button
           variant="primary"
           onClick={() => setEditing(true)}
-          disabled={!hydrated}
+          disabled={!hydrated || saving}
         >
-          Edit layout
+          {saving ? "Saving…" : "Edit layout"}
         </Button>
       </div>
+
+      {saveError && <p className="text-sm text-red-600">{saveError}</p>}
 
       <div className="flex items-center gap-2">
         <span className="text-sm text-muted-foreground">View:</span>

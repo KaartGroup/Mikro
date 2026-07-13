@@ -1066,6 +1066,41 @@ export function useFetchMyChangesetHeatmap() {
   );
 }
 
+// ─── Reports v2 layout persistence ──────────────────────────
+
+export interface ReportLayoutRow {
+  id: number;
+  teamId: number | null;
+  name: string;
+  config: Record<string, unknown>;
+  version: number;
+  updatedBy?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface FetchReportLayoutResponse {
+  status: number;
+  layout: ReportLayoutRow | null;
+}
+
+export interface SaveReportLayoutResponse {
+  status: number;
+  message?: string;
+  layout_id?: number;
+}
+
+export function useFetchReportLayout() {
+  return useApiMutation<FetchReportLayoutResponse>(
+    "/report_layouts/fetch_layout",
+  );
+}
+
+export function useSaveReportLayout() {
+  return useApiMutation<SaveReportLayoutResponse>(
+    "/report_layouts/save_layout",
+  );
+}
+
 // ─── Region & Filter hooks ──────────────────────────────────
 
 export function useFetchFilterOptions() {
