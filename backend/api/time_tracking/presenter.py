@@ -105,6 +105,10 @@ class TimeTrackingHelpers:
             "durationSeconds": entry.duration_seconds,
             "effectiveDurationSeconds": effective_duration_seconds,
             "status": entry.status,
+            # True while a "Switch Task" session is running without its
+            # category/details yet — the client uses this to force the
+            # metadata modal before the next switch/clock-out.
+            "needsMetadata": bool(getattr(entry, "needs_metadata", False)),
             "changesetCount": entry.changeset_count or 0,
             "changesCount": entry.changes_count or 0,
             "notes": entry.notes,

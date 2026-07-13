@@ -792,7 +792,12 @@ class TimeEntry(CRUDMixin, db.Model):
     # api/views/TimeTracking.py and TOPIC_OPTIONS in lib/timeTracking.ts.
     # (Renamed from `category` in migration c4f8a9b0d1e2; old `category`
     # values map 1:1 to the new activity slugs without backfill.)
-    activity = db.Column(db.String(50), nullable=False)
+    # Nullable since migration d1e2f3a4b5c6: a "Switch Task — deferred
+    # metadata" session starts with activity=NULL + needs_metadata=True
+    # and gets its category filled in before it is closed / switched away
+    # from. Every reporting read is completed-only, so a NULL never reaches
+    # an aggregation.
+    activity = db.Column(db.String(50), nullable=True)
     # Tier 2 (configurable, optional): the chosen ActivitySubcategory row.
     # NULL on legacy entries (pre-rework) and on any activity that has no
     # subs configured for the user's scope. Displayed as "—" in tables
@@ -841,6 +846,13 @@ class TimeEntry(CRUDMixin, db.Model):
     # entry from the long_sessions endpoint.
     long_session_reviewed_by = db.Column(db.String(255), nullable=True)
     long_session_reviewed_at = db.Column(DateTime, nullable=True)
+    # "Switch Task — deferred metadata": True while a session is running
+    # without its category/details yet (see migration d1e2f3a4b5c6). Cleared
+    # to False when the deferred metadata is supplied — which the frontend
+    # forces before the session is closed or the user switches tasks again.
+    needs_metadata = db.Column(
+        db.Boolean, nullable=False, default=False, server_default="false"
+    )
     notes = db.Column(db.Text, nullable=True)
     user_notes = db.Column(db.Text, nullable=True)
 

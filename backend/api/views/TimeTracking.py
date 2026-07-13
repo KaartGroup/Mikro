@@ -308,6 +308,51 @@ def _resolve_subcategory_for_write(
     }
 
 
+def _build_finalize_payload(user, data):
+    """Validate a deferred-metadata finalize payload for a pending session.
+
+    Same rules as ``clock_in``: ``category`` (tier-1 activity) must be a valid
+    slug, the subcategory (if any) must be visible + activity-matched, and a
+    subcategory with ``requires_project`` forces a project. Returns a dict for
+    ``TimeEntryService._apply_finalize``. Raises ``ValueError`` (→ 400) on any
+    rejection. The absence of ``category`` is treated separately by callers as
+    a 409 ``metadata_required`` (the client must open the metadata modal), so
+    this helper assumes a category is present.
+    """
+    activity = (data.get("category") or "").lower()
+    if activity not in ACTIVITY_SLUGS:
+        raise ValueError(
+            f"Invalid category. Must be one of: {', '.join(ACTIVITY_SLUGS)}"
+        )
+
+    sub_fields = _resolve_subcategory_for_write(
+        user, activity, data.get("subcategoryId"), None, None
+    )
+
+    project_id = data.get("project_id")
+    if sub_fields["subcategory_id"] is not None:
+        sub_row = ActivitySubcategory.query.get(sub_fields["subcategory_id"])
+        if sub_row and sub_row.requires_project and not project_id:
+            raise ValueError(
+                f"Subcategory '{sub_row.name}' requires a project — "
+                f"please pick a project before finalizing this task."
+            )
+    if project_id and not Project.query.get(project_id):
+        raise ValueError("Project not found")
+
+    user_notes = TimeTrackingHelpers._normalize_user_notes(data.get("userNotes"))
+
+    return {
+        "activity": activity,
+        "sub_fields": sub_fields,
+        "project_id": project_id,
+        "task_name": data.get("task_name"),
+        "task_ref_type": data.get("task_ref_type"),
+        "task_ref_id": data.get("task_ref_id"),
+        "user_notes": user_notes,
+    }
+
+
 class TimeTrackingAPI(MethodView):
     """Time tracking management API endpoints."""
 
@@ -317,6 +362,8 @@ class TimeTrackingAPI(MethodView):
             return self.clock_in()
         elif path == "clock_out":
             return self.clock_out()
+        elif path == "switch_task":
+            return self.switch_task()
         elif path == "my_active_session":
             return self.my_active_session()
         elif path == "my_history":
@@ -523,6 +570,35 @@ class TimeTrackingAPI(MethodView):
             f"({g.user.osm_username or g.user.email}) session_id={session_id}"
         )
 
+        # If the session being closed is a pending ("Switch Task" deferred-
+        # metadata) session, the category is now required. Without it we tell
+        # the client to open the metadata modal (409); with it we finalize the
+        # session's details as part of the same clock-out.
+        peek = TimeEntry.query.filter_by(user_id=g.user.id, status="active")
+        if session_id is not None:
+            peek = peek.filter_by(id=session_id)
+        active = peek.first()
+        finalize = None
+        if active is not None and active.needs_metadata:
+            if not (data.get("category") or "").strip():
+                return (
+                    jsonify(
+                        {
+                            "message": (
+                                "This task still needs its details. Add a "
+                                "category before clocking out."
+                            ),
+                            "status": 409,
+                            "code": "metadata_required",
+                        }
+                    ),
+                    409,
+                )
+            try:
+                finalize = _build_finalize_payload(g.user, data)
+            except ValueError as e:
+                return jsonify({"message": str(e), "status": 400}), 400
+
         update_notes = "userNotes" in data
         try:
             entry = TimeEntryService().clock_out(
@@ -530,6 +606,7 @@ class TimeTrackingAPI(MethodView):
                 g.user.id,
                 user_notes=data.get("userNotes"),
                 update_notes=update_notes,
+                finalize=finalize,
             )
         except ValueError as e:
             return jsonify({"message": str(e), "status": 400}), 400
@@ -562,6 +639,85 @@ class TimeTrackingAPI(MethodView):
                     "status": 200,
                     "duration_seconds": entry.duration_seconds,
                     "session": TimeTrackingHelpers._format_entry(entry),
+                }
+            ),
+            200,
+        )
+
+    def switch_task(self):
+        """Atomically switch the current user to a new task.
+
+        Closes the caller's active session and immediately opens a fresh
+        session at the same instant, so no tracked time is lost. The new
+        session starts *pending* (no category yet) — its details are collected
+        on the next exit (another switch or a clock-out).
+
+        If the OUTGOING session is itself pending (the user switched into it
+        earlier without entering details), the category is now required: a
+        payload without one gets a 409 ``metadata_required`` so the client
+        opens the metadata modal; a payload with one finalizes the outgoing
+        session's details as part of the switch.
+        """
+        if not hasattr(g, "user") or not g.user:
+            return jsonify({"message": "Unauthorized", "status": 401}), 401
+
+        data = request.get_json() or {}
+
+        active = TimeEntry.query.filter_by(user_id=g.user.id, status="active").first()
+        if not active:
+            return (
+                jsonify({"message": "No active session to switch from", "status": 404}),
+                404,
+            )
+
+        finalize = None
+        if active.needs_metadata:
+            if not (data.get("category") or "").strip():
+                return (
+                    jsonify(
+                        {
+                            "message": (
+                                "Your current task still needs its details. "
+                                "Add a category before switching tasks."
+                            ),
+                            "status": 409,
+                            "code": "metadata_required",
+                        }
+                    ),
+                    409,
+                )
+            try:
+                finalize = _build_finalize_payload(g.user, data)
+            except ValueError as e:
+                return jsonify({"message": str(e), "status": 400}), 400
+
+        closed, new_entry = TimeEntryService().switch_task(
+            user_id=g.user.id,
+            org_id=g.user.org_id,
+            finalize=finalize,
+        )
+        if new_entry is None:
+            return (
+                jsonify({"message": "No active session to switch from", "status": 404}),
+                404,
+            )
+
+        logger.info(
+            f"[CLOCK] switch_task — user={g.user.id} closed_session={closed.id} "
+            f"new_pending_session={new_entry.id} clock_in={new_entry.clock_in}"
+        )
+
+        new_session = TimeTrackingHelpers._format_entry(new_entry)
+        new_session["elapsedSeconds"] = 0
+
+        return (
+            jsonify(
+                {
+                    "message": "Switched tasks successfully",
+                    "status": 200,
+                    "session_id": new_entry.id,
+                    "session": new_session,
+                    "closed_session": TimeTrackingHelpers._format_entry(closed),
                 }
             ),
             200,

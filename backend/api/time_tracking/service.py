@@ -131,6 +131,7 @@ class TimeEntryService:
         user_notes=None,
         update_notes: bool = False,
         force_clocked_out_by: str = None,
+        finalize=None,
     ):
         # session_id is optional for self clock-out: when omitted, close the
         # caller's single active session. Admin force-clock-out always pins a
@@ -142,6 +143,14 @@ class TimeEntryService:
 
         if not entry:
             return None
+
+        # Deferred-metadata finalize: a "Switch Task" session started without
+        # a category. Apply the now-required metadata before closing so the
+        # completed row is never left uncategorized. ``finalize`` is validated
+        # by the view (activity in ACTIVITY_SLUGS, subcategory + requires_project
+        # gates) before it reaches here.
+        if finalize is not None:
+            self._apply_finalize(entry, finalize)
 
         now = datetime.utcnow()
         entry.clock_out = now
@@ -161,6 +170,86 @@ class TimeEntryService:
 
         entry.save()
         return entry
+
+    def switch_task(self, user_id: str, org_id: str, finalize=None):
+        """Atomically close the caller's active session and open a fresh
+        pending (metadata-less) one at the SAME instant — so no tracked time
+        is lost in the gap between tasks.
+
+        The new session starts with ``activity=NULL`` and
+        ``needs_metadata=True``; its details are collected on the next exit
+        (another switch, or clock-out).
+
+        ``finalize`` (a validated dict, same shape as :meth:`_apply_finalize`
+        accepts) supplies the outgoing session's deferred metadata and is
+        REQUIRED when the outgoing session itself is still pending. When the
+        outgoing session already has its metadata, pass ``finalize=None``.
+
+        Returns ``(closed_entry, new_entry)`` or ``(None, None)`` when the
+        caller has no active session to switch from.
+        """
+        outgoing = TimeEntry.query.filter_by(user_id=user_id, status="active").first()
+        if not outgoing:
+            return None, None
+
+        now = datetime.utcnow()
+
+        if finalize is not None:
+            self._apply_finalize(outgoing, finalize)
+
+        # Close the outgoing session.
+        outgoing.clock_out = now
+        outgoing.duration_seconds = int((now - outgoing.clock_in).total_seconds())
+        outgoing.status = "completed"
+        user = users_repo.by_id(outgoing.user_id)
+        if user and user.osm_username:
+            outgoing.changeset_count, outgoing.changes_count = self._count_changesets(
+                user.osm_username, outgoing.clock_in, now
+            )
+
+        # Open the new pending session at the exact close instant (no gap).
+        new_entry = TimeEntry()
+        new_entry.user_id = user_id
+        new_entry.org_id = org_id
+        new_entry.activity = None
+        new_entry.needs_metadata = True
+        new_entry.clock_in = now
+        new_entry.status = "active"
+
+        # Single transaction: flush the close + insert together.
+        db.session.add(new_entry)
+        db.session.commit()
+        return outgoing, new_entry
+
+    def _apply_finalize(self, entry, finalize: dict):
+        """Write deferred metadata onto a pending session and clear the flag.
+
+        ``finalize`` keys: ``activity`` (required), ``sub_fields`` (dict from
+        ``_resolve_subcategory_for_write``), ``project_id``, ``task_name``,
+        ``task_ref_type``, ``task_ref_id``, ``user_notes``.
+        """
+        entry.activity = finalize["activity"]
+        sub_fields = finalize.get("sub_fields") or {
+            "subcategory_id": None,
+            "subcategory_name": None,
+            "retained_participants": None,
+            "new_participants": None,
+        }
+        entry.subcategory_id = sub_fields["subcategory_id"]
+        entry.subcategory_name = sub_fields["subcategory_name"]
+        entry.retained_participants = sub_fields["retained_participants"]
+        entry.new_participants = sub_fields["new_participants"]
+        entry.project_id = finalize.get("project_id")
+        entry.task_name = finalize.get("task_name")
+        entry.task_ref_type = finalize.get("task_ref_type")
+        entry.task_ref_id = finalize.get("task_ref_id")
+        if finalize.get("user_notes") is not None:
+            entry.user_notes = finalize["user_notes"]
+        entry.needs_metadata = False
+
+        self._maybe_upsert_custom_topic(
+            entry.activity, entry.task_name, sub_fields, entry.org_id, entry.user_id
+        )
 
     def _count_changesets(self, osm_username, since, until):
         """Best-effort OSM changeset tally for the [since, until] window.
