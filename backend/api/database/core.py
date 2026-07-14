@@ -19,7 +19,7 @@ from sqlalchemy import (
     Integer,
     Boolean,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.mutable import MutableList
 
 from .common import ModelWithSoftDeleteAndCRUD, SurrogatePK, CRUDMixin, db
@@ -1154,6 +1154,46 @@ class PayrollConfig(CRUDMixin, db.Model):
 
     def __repr__(self):
         return f"<PayrollConfig org={self.org_id} cadence={self.cadence}>"
+
+
+class ReportLayout(CRUDMixin, db.Model):
+    """A saved Reports v2 (configurable reports) layout.
+
+    One row per (org_id, team_id, name). ``team_id`` NULL is the org-level
+    default layout (what org admins edit / what teams fall back to). ``config``
+    is the Puck ``Data`` JSON the builder produces; ``version`` lets us migrate
+    the config shape forward on schema changes without breaking saved reports.
+    """
+
+    __tablename__ = "report_layouts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    org_id = Column(String(255), nullable=False, index=True)
+    team_id = Column(
+        Integer,
+        db.ForeignKey("teams.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    name = Column(String(120), nullable=False, default="default")
+    config = Column(JSONB, nullable=False, server_default="{}")
+    version = Column(Integer, nullable=False, default=1, server_default="1")
+    created_by = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_by = Column(String(255), nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "org_id", "team_id", "name", name="uq_report_layout_org_team_name"
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<ReportLayout org={self.org_id} team={self.team_id} "
+            f"name={self.name}>"
+        )
 
 
 class Punk(ModelWithSoftDeleteAndCRUD, SurrogatePK):

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.14.0",
+    "@measured/puck": "0.20.2",
     "@supabase/supabase-js": "^2.108.2",
     "clsx": "^2.1.1",
     "docx": "^9.6.1",

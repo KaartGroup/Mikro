@@ -138,6 +138,7 @@ def _register_views(app):
         FeedbackAPI,
         ProjectProposalsAPI,
         LayersAPI,
+        ReportLayoutsAPI,
     )
 
     # Authentication
@@ -195,6 +196,12 @@ def _register_views(app):
 
     # Reports
     app.add_url_rule("/api/reports/<path>", view_func=ReportsAPI.as_view("reports"))
+
+    # Reports v2 configurable-layout persistence
+    app.add_url_rule(
+        "/api/report_layouts/<path>",
+        view_func=ReportLayoutsAPI.as_view("report_layouts"),
+    )
 
     # Regions & Countries
     app.add_url_rule("/api/region/<path>", view_func=RegionAPI.as_view("region"))

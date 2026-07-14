@@ -25,6 +25,7 @@ from .Events import EventsAPI
 from .Feedback import FeedbackAPI
 from .ProjectProposals import ProjectProposalsAPI
 from .Layers import LayersAPI
+from .ReportLayouts import ReportLayoutsAPI
 
 __all__ = {
     "UserAPI",
@@ -52,4 +53,5 @@ __all__ = {
     "FeedbackAPI",
     "ProjectProposalsAPI",
     "LayersAPI",
+    "ReportLayoutsAPI",
 }
