@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useErrorReporter } from "@/contexts/ErrorReporterContext";
+import { beginLogout, isLoggingOut } from "@/lib/logout";
 import type {
   AdminDashboardStats,
   UsersResponse,
@@ -123,13 +124,9 @@ export function useApiCall<T>(
               endpoint,
               "— logging out",
             );
-            try {
-              localStorage.clear();
-            } catch {}
-            try {
-              sessionStorage.clear();
-            } catch {}
-            window.location.href = "/auth/logout";
+            // Route through the shared guarded helper so a 401 here can't
+            // race AuthGuard / a manual click into a duplicate logout.
+            beginLogout();
             return undefined as unknown as T;
           }
           // Retry succeeded — use its response instead of the original 401
@@ -302,7 +299,8 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
           });
           if (retryResponse.status === 401) {
             console.warn("[useApi] mutation 401 after retry on", endpoint);
-            window.location.href = "/auth/login";
+            // Don't stomp an in-flight logout with a login redirect.
+            if (!isLoggingOut()) window.location.href = "/auth/login";
             return undefined as unknown as TResponse;
           }
           const retryResult = await retryResponse.json();
@@ -872,7 +870,8 @@ export function useExportTimeEntries() {
           });
           if (response.status === 401) {
             console.warn("[useApi] export 401 after retry");
-            window.location.href = "/auth/login";
+            // Don't stomp an in-flight logout with a login redirect.
+            if (!isLoggingOut()) window.location.href = "/auth/login";
             return;
           }
         }

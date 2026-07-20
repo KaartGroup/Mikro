@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useSessionHeartbeat } from "@/hooks/useSessionHeartbeat";
+import { beginLogout, isLoggingOut } from "@/lib/logout";
 
 /**
  * AuthGuard — aggressive session integrity checker.
@@ -15,24 +16,12 @@ import { useSessionHeartbeat } from "@/hooks/useSessionHeartbeat";
  *   - On mount (lightweight API ping)
  *   - On tab/window refocus
  *   - When useUser() reports no user after loading completes
+ *
+ * All logout navigation goes through the shared `beginLogout()` helper
+ * (see lib/logout.ts) so these three triggers — plus a manual Logout
+ * click and the API-layer 401 handler — can't race each other into
+ * duplicate/half-completed logouts.
  */
-
-function nukeAndLogout() {
-  // Prevent multiple redirects
-  if (sessionStorage.getItem("__mikro_logging_out")) return;
-  sessionStorage.setItem("__mikro_logging_out", "1");
-
-  // Wipe everything client-side
-  try {
-    localStorage.clear();
-  } catch {}
-  try {
-    sessionStorage.clear();
-  } catch {}
-
-  // Kill server session via Auth0 logout (not just /auth/login)
-  window.location.href = "/auth/logout";
-}
 
 async function verifySession(): Promise<boolean> {
   try {
@@ -63,23 +52,25 @@ export function AuthGuard() {
 
   // If useUser() finishes loading and there's no user, nuke it
   useEffect(() => {
-    if (!isLoading && !user) {
-      nukeAndLogout();
+    if (!isLoading && !user && !isLoggingOut()) {
+      beginLogout();
     }
   }, [isLoading, user]);
 
   // Verify session on mount
   useEffect(() => {
+    if (isLoggingOut()) return;
     verifySession().then((valid) => {
-      if (!valid) nukeAndLogout();
+      if (!valid) beginLogout();
     });
   }, []);
 
   // Re-verify on tab focus / visibility change
   useEffect(() => {
     const handleFocus = () => {
+      if (isLoggingOut()) return;
       verifySession().then((valid) => {
-        if (!valid) nukeAndLogout();
+        if (!valid) beginLogout();
       });
     };
 
