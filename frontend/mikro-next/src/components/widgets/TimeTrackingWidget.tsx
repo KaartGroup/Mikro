@@ -676,7 +676,7 @@ export function TimeTrackingWidget() {
   // Clocked in state - show timer
   if (isClockedIn) {
     return (
-      <Card className="border-green-500 border-2 h-[300px]">
+      <Card className="border-green-500 border-2 min-h-[300px]">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <span className="relative flex h-3 w-3">
