@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
 import { ROUTES } from "@/lib/routes";
+import { markLoggingOut } from "@/lib/logout";
 import { roleLabel } from "@/types";
 import { PayRateCard } from "@/components/user/PayRateCard";
 import { MonthlyPaySummaryCard } from "@/components/user/MonthlyPaySummaryCard";
@@ -1065,6 +1066,7 @@ export default function AccountPage() {
           </p>
           <a
             href={ROUTES.authLogout}
+            onClick={() => markLoggingOut()}
             style={{
               display: "inline-flex",
               alignItems: "center",

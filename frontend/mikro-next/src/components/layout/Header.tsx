@@ -8,6 +8,7 @@ import { RolePreviewSwitcher } from "./RolePreviewSwitcher";
 import { MessengerIcon } from "@/components/comms/MessengerIcon";
 import { NotificationBell } from "@/components/comms/NotificationBell";
 import { ROUTES } from "@/lib/routes";
+import { markLoggingOut } from "@/lib/logout";
 
 interface HeaderProps {
   displayName?: string;
@@ -105,6 +106,7 @@ export function Header({ displayName }: HeaderProps) {
             </Link>
             <a
               href={ROUTES.authLogout}
+              onClick={() => markLoggingOut()}
               style={{
                 fontSize: 14,
                 fontWeight: 500,
