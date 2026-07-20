@@ -191,8 +191,12 @@ class TimeEntryQuery:
 
         # Exclude pending new-entry requests from the hours total — these are
         # unreviewed and may be denied, so counting them would inflate the total.
+        # coalesce(notes, "") is required: notes is NULL for every normal
+        # clock-in/out entry, and `NOT (NULL LIKE ...)` is NULL (not TRUE) in
+        # SQL, which would silently drop all NULL-notes rows from the sum and
+        # show "0h". Treating NULL as "" keeps those rows counted.
         confirmed_q = completed_q.filter(
-            ~TimeEntry.notes.like("[NEW ENTRY REQUESTED]%")
+            func.coalesce(TimeEntry.notes, "").notlike("[NEW ENTRY REQUESTED]%")
         )
         total_seconds = (
             confirmed_q.with_entities(
