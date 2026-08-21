@@ -18,6 +18,7 @@ const userNavItems: NavItem[] = [
   { label: "Projects", href: "/projects", icon: "folder" },
   // { label: "Time", href: "/time", icon: "clock" },
   { label: "Training", href: "/training", icon: "book" },
+  { label: "Schedule", href: "/schedule", icon: "calendar" },
   // { label: "Teams", href: "/teams", icon: "team" },
 ];
 
@@ -26,6 +27,7 @@ const validatorNavItems: NavItem[] = [
   { label: "Projects", href: "/projects", icon: "folder" },
   { label: "Training", href: "/training", icon: "book" },
   { label: "Teams", href: "/teams", icon: "team" },
+  { label: "Schedule", href: "/schedule", icon: "calendar" },
 ];
 
 const adminNavItems: NavItem[] = [
@@ -36,6 +38,7 @@ const adminNavItems: NavItem[] = [
   { label: "Training", href: "/training", icon: "book" },
   { label: "Users", href: "/users", icon: "users" },
   { label: "Teams", href: "/teams", icon: "team" },
+  { label: "Schedule", href: "/schedule", icon: "calendar" },
   { label: "Payments", href: "/admin/payments", icon: "dollar" },
   { label: "Reports", href: "/reports", icon: "chart" },
   { label: "Reports v2", href: "/reports/v2", icon: "chart" },
@@ -59,6 +62,7 @@ const teamAdminNavItems: NavItem[] = [
   { label: "Training", href: "/training", icon: "book" },
   { label: "Users", href: "/users", icon: "users" },
   { label: "Teams", href: "/teams", icon: "team" },
+  { label: "Schedule", href: "/schedule", icon: "calendar" },
   { label: "Payments", href: "/admin/payments", icon: "dollar" },
   { label: "Reports", href: "/reports", icon: "chart" },
   { label: "Reports v2", href: "/reports/v2", icon: "chart" },
@@ -101,6 +105,21 @@ const iconMap: Record<string, React.ReactNode> = {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    </svg>
+  ),
+  calendar: (
+    <svg
+      style={{ width: 20, height: 20 }}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
       />
     </svg>
   ),

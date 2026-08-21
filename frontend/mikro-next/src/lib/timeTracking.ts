@@ -418,8 +418,12 @@ export function isValidTimeZone(tz: string | null | undefined): tz is string {
   }
 }
 
-/** Numeric wall-clock components of `date` as observed in `timeZone`. */
-function zonedParts(date: Date, timeZone: string) {
+/** Numeric wall-clock components of `date` as observed in `timeZone`.
+ *
+ * Exported for `lib/availability.ts`, which renders server-computed UTC
+ * windows on a per-day axis in the viewer's zone. Keep the two on one
+ * implementation rather than growing a second copy of this logic. */
+export function zonedParts(date: Date, timeZone: string) {
   const dtf = new Intl.DateTimeFormat("en-US", {
     timeZone,
     hourCycle: "h23", // 00–23; avoids the "24" some engines emit at midnight

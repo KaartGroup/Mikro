@@ -21,10 +21,28 @@ ORG = "test-org"
 
 
 def _test_db_url():
-    pg_user = os.getenv("POSTGRES_USER", "postgres")
-    pg_password = os.getenv("POSTGRES_PASSWORD", "")
-    pg_host = os.getenv("POSTGRES_ENDPOINT", "localhost")
-    pg_port = os.getenv("POSTGRES_PORT", "5432")
+    """Connection URL for the test database.
+
+    The POSTGRES_* vars are shared with the dev app, and importing ``app``
+    runs ``load_dotenv(".env.local", override=True)`` before this module's
+    class body executes — so an inline ``POSTGRES_PORT=... pytest`` is
+    silently overwritten. The TESTING_DB_* vars are test-only and appear in
+    no .env file, so they always win. Use them to point the suite at a
+    cluster that actually has PostGIS installed (the models declare a
+    ``geometry`` column, so ``create_all`` fails without it), e.g.:
+
+        TESTING_DB_PORT=5433 python -m pytest tests/
+    """
+    pg_user = os.getenv("TESTING_DB_USER") or os.getenv("POSTGRES_USER", "postgres")
+    pg_password = (
+        os.getenv("TESTING_DB_PASSWORD")
+        if os.getenv("TESTING_DB_PASSWORD") is not None
+        else os.getenv("POSTGRES_PASSWORD", "")
+    )
+    pg_host = os.getenv("TESTING_DB_HOST") or os.getenv(
+        "POSTGRES_ENDPOINT", "localhost"
+    )
+    pg_port = os.getenv("TESTING_DB_PORT") or os.getenv("POSTGRES_PORT", "5432")
     pg_db = os.getenv("TESTING_DB", "mikro_test")
     if pg_password:
         return f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_db}"
