@@ -69,6 +69,12 @@ import type {
   MessagesUnreadCountResponse,
   ProjectProposalListResponse,
   ProjectProposalMutationResponse,
+  MyAvailabilityResponse,
+  UserAvailabilityResponse,
+  SetAvailabilityResponse,
+  AddAvailabilityExceptionResponse,
+  TeamAvailabilityResponse,
+  AvailabilityOverlapResponse,
 } from "@/types";
 
 /**
@@ -961,8 +967,13 @@ export function useFetchUserTaskHistory() {
 
 // ─── Teams ─────────────────────────────────────────────────
 
-export function useFetchTeams() {
-  return useApiCall<TeamsResponse>("/team/fetch_teams");
+export function useFetchTeams(enabled = true) {
+  // `enabled` gates the fire-on-mount: this endpoint is admin-only, so a
+  // regular user mounting a component that merely *might* need it would
+  // otherwise fire a guaranteed 403 on every visit.
+  return useApiCall<TeamsResponse>("/team/fetch_teams", {
+    immediate: enabled,
+  });
 }
 
 export function useCreateTeam() {
@@ -1028,8 +1039,10 @@ export function useFetchTeamProfile() {
   return useApiMutation<TeamProfileData>("/team/fetch_team_profile");
 }
 
-export function useFetchUserTeams() {
-  return useApiCall<UserTeamsResponse>("/team/fetch_user_teams");
+export function useFetchUserTeams(enabled = true) {
+  return useApiCall<UserTeamsResponse>("/team/fetch_user_teams", {
+    immediate: enabled,
+  });
 }
 
 export function useFetchUserTeamProfile() {
@@ -1622,4 +1635,63 @@ export function useDenyProjectProposal() {
   return useApiMutation<ProjectProposalMutationResponse>(
     "/project-proposals/deny",
   );
+}
+
+
+// ─── Scheduling & Availability ──────────────────────────────
+
+/**
+ * My weekly grid + exceptions. Imperative rather than fire-on-mount: the
+ * editor re-reads for a specific date range whenever the exceptions window
+ * moves, and `useApiCall`'s object `body` option would re-fire the effect on
+ * every render.
+ */
+export function useMyAvailability() {
+  return useApiMutation<MyAvailabilityResponse>("/availability/my");
+}
+
+/** Replace my whole weekly grid. Body: { blocks: AvailabilityBlockDraft[] }. */
+export function useSetMyAvailability() {
+  return useApiMutation<SetAvailabilityResponse>("/availability/set_my");
+}
+
+/** Body: { date, kind, start_minute?, end_minute?, note? }. */
+export function useAddAvailabilityException() {
+  return useApiMutation<AddAvailabilityExceptionResponse>(
+    "/availability/add_exception",
+  );
+}
+
+/** Body: { exception_id }. */
+export function useDeleteAvailabilityException() {
+  return useApiMutation<{ message: string; status: number }>(
+    "/availability/delete_exception",
+  );
+}
+
+/** One teammate's availability. Body: { user_id, start_date?, end_date? }. */
+export function useUserAvailability() {
+  return useApiMutation<UserAvailabilityResponse>("/availability/for_user");
+}
+
+/** Org admin sets someone else's grid. Body: { user_id, blocks }. */
+export function useSetAvailabilityForUser() {
+  return useApiMutation<SetAvailabilityResponse>("/availability/set_for_user");
+}
+
+/** Every member of a team. Body: { team_id, start_date?, end_date? }. */
+export function useTeamAvailability() {
+  return useApiMutation<TeamAvailabilityResponse>("/availability/for_team");
+}
+
+/**
+ * Server-computed common windows. Body: { user_ids, start_date?, end_date?,
+ * threshold?, preferred_only? }.
+ *
+ * Called with `threshold: 1` this also yields each member's *resolved*
+ * availability (every window lists the `user_ids` free during it), which is
+ * why the team grid never re-does local-wall-clock -> UTC math client-side.
+ */
+export function useAvailabilityOverlap() {
+  return useApiMutation<AvailabilityOverlapResponse>("/availability/overlap");
 }

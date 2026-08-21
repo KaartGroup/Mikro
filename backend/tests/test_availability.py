@@ -992,3 +992,77 @@ def test_overlap_preferred_only_flows_through_the_view(
     assert resp["count"] == 1
     assert resp["windows"][0]["start"].startswith("2026-08-17T10:00")
     assert resp["windows"][0]["end"].startswith("2026-08-17T12:00")
+
+
+# ── add_exception request parsing (regression) ──────────────────────────
+
+
+def test_add_exception_persists_a_real_date(app, db_session, availability_users):
+    """`_parse_date` returns a (value, error) tuple.
+
+    The view used to bind the whole tuple to `day` and pass it through as the
+    exception date, so every real add_exception call reached psycopg2 with an
+    un-adaptable tuple and 500'd. Assert the stored date is a true date.
+    """
+    u1, _ = availability_users
+    body = {"date": "2026-08-20", "kind": EXCEPTION_UNAVAILABLE, "note": "PTO"}
+    with app.test_request_context(json=body):
+        g.user = u1
+        resp = AvailabilityAPI().add_exception()
+
+    assert resp["status"] == 200
+    assert resp["exception"]["date"] == "2026-08-20"
+    assert resp["exception"]["note"] == "PTO"
+
+    stored = AvailabilityService(ORG).get_exceptions(
+        u1.id, date(2026, 8, 20), date(2026, 8, 20)
+    )
+    assert len(stored) == 1
+    assert stored[0].date == date(2026, 8, 20)
+
+
+def test_add_exception_requires_a_date(app, db_session, availability_users):
+    u1, _ = availability_users
+    with app.test_request_context(json={"kind": EXCEPTION_UNAVAILABLE}):
+        g.user = u1
+        resp = AvailabilityAPI().add_exception()
+    assert resp["status"] == 400
+    assert "date" in resp["message"]
+
+
+@pytest.mark.parametrize("bad_date", ["not-a-date", "2026-13-45", 20260820])
+def test_add_exception_rejects_a_malformed_date(
+    app, db_session, availability_users, bad_date
+):
+    """A bad date is a 400 naming the field — never a 500, and never a
+    silent substitution of today."""
+    u1, _ = availability_users
+    body = {"date": bad_date, "kind": EXCEPTION_UNAVAILABLE}
+    with app.test_request_context(json=body):
+        g.user = u1
+        resp = AvailabilityAPI().add_exception()
+    assert resp["status"] == 400
+    assert "date" in resp["message"]
+
+
+def test_add_exception_round_trips_through_delete(app, db_session, availability_users):
+    """The UI's add -> list -> delete loop, end to end through the view."""
+    u1, _ = availability_users
+    with app.test_request_context(
+        json={"date": "2026-09-01", "kind": EXCEPTION_UNAVAILABLE}
+    ):
+        g.user = u1
+        added = AvailabilityAPI().add_exception()
+    assert added["status"] == 200
+
+    with app.test_request_context(json={"exception_id": added["exception"]["id"]}):
+        g.user = u1
+        deleted = AvailabilityAPI().delete_exception()
+    assert deleted["status"] == 200
+
+    assert (
+        AvailabilityService(ORG).get_exceptions(
+            u1.id, date(2026, 9, 1), date(2026, 9, 1)
+        )
+        == []
+    )

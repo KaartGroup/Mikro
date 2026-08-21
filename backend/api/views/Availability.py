@@ -271,7 +271,12 @@ class AvailabilityAPI(MethodView):
         """Add a date-specific override to my availability."""
         body = self._body()
 
-        day = self._parse_date(body.get("date"), None)
+        # _parse_date returns a (value, error) tuple — unpack it. Binding the
+        # tuple itself made `day is None` unreachable and handed a tuple to
+        # the service as the exception date, which 500'd at insert time.
+        day, error_response = self._parse_date(body.get("date"), "date")
+        if error_response:
+            return error_response
         if day is None:
             return {"message": "date required (YYYY-MM-DD)", "status": 400}
 

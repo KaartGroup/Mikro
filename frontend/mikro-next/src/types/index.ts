@@ -1663,3 +1663,121 @@ export interface ProvisionProposalBody {
   payments_enabled?: boolean;
   priority?: string;
 }
+
+// ─── Scheduling & Availability ──────────────────────────────
+
+/** Weekly block kind. `preferred` = core hours, `available` = merely possible. */
+export type AvailabilityKind = "available" | "preferred";
+
+/** Date-exception kind. `unavailable` subtracts (PTO), `available` adds. */
+export type AvailabilityExceptionKind = "unavailable" | "available";
+
+/**
+ * One recurring weekly block. Times are LOCAL WALL-CLOCK minutes from
+ * midnight in the *owner's* timezone — not UTC. `day_of_week` is 0=Monday.
+ */
+export interface AvailabilityBlock {
+  id: number;
+  user_id: string;
+  day_of_week: number;
+  start_minute: number;
+  end_minute: number;
+  kind: AvailabilityKind;
+}
+
+/** A block that has not been saved yet — no server id. */
+export type AvailabilityBlockDraft = Omit<AvailabilityBlock, "id" | "user_id">;
+
+/**
+ * A date-specific override. `start_minute`/`end_minute` are both null for a
+ * whole-day exception. `note` is withheld (null) from everyone but the owner
+ * and org admins.
+ */
+export interface AvailabilityException {
+  id: number;
+  user_id: string;
+  date: string | null;
+  kind: AvailabilityExceptionKind;
+  start_minute: number | null;
+  end_minute: number | null;
+  note: string | null;
+}
+
+/** The per-user payload shared by every availability read endpoint. */
+export interface UserAvailability {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  timezone: string | null;
+  has_timezone: boolean;
+  blocks: AvailabilityBlock[];
+  exceptions: AvailabilityException[];
+}
+
+/** `/availability/my` — adds the untouched-grid suggestion. */
+export interface MyAvailabilityResponse {
+  availability: UserAvailability & {
+    /** True when nothing has been saved yet; `suggested_blocks` is then set. */
+    is_default?: boolean;
+    suggested_blocks?: AvailabilityBlockDraft[];
+  };
+  status: number;
+}
+
+/** `/availability/for_user` */
+export interface UserAvailabilityResponse {
+  availability: UserAvailability;
+  status: number;
+}
+
+/** `/availability/set_my` and `/availability/set_for_user` */
+export interface SetAvailabilityResponse {
+  blocks: AvailabilityBlock[];
+  count: number;
+  message: string;
+  status: number;
+}
+
+/** `/availability/add_exception` */
+export interface AddAvailabilityExceptionResponse {
+  exception: AvailabilityException;
+  message: string;
+  status: number;
+}
+
+/** `/availability/for_team` */
+export interface TeamAvailabilityResponse {
+  team_id: number;
+  team_name: string;
+  start_date: string;
+  end_date: string;
+  members: UserAvailability[];
+  count: number;
+  status: number;
+}
+
+/**
+ * One resolved window from `/availability/overlap`. `start`/`end` are UTC ISO
+ * instants — already DST-correct and exception-applied by the backend, which
+ * is the single source of truth for this math. Render them in the viewer's
+ * zone; never recompute them client-side.
+ */
+export interface AvailabilityWindow {
+  start: string;
+  end: string;
+  count: number;
+  user_ids: string[];
+}
+
+/** `/availability/overlap` */
+export interface AvailabilityOverlapResponse {
+  windows: AvailabilityWindow[];
+  count: number;
+  start_date: string;
+  end_date: string;
+  threshold: number;
+  viewer_timezone: string;
+  users_without_timezone: string[];
+  status: number;
+}

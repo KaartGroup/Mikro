@@ -10,6 +10,7 @@ export const ROUTES = {
   onboarding: "/onboarding",
   projects: "/projects",
   reports: "/reports",
+  schedule: "/schedule",
   teams: "/teams",
   training: "/training",
   users: "/users",
