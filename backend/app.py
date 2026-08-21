@@ -139,6 +139,7 @@ def _register_views(app):
         ProjectProposalsAPI,
         LayersAPI,
         ReportLayoutsAPI,
+        AvailabilityAPI,
     )
 
     # Authentication
@@ -259,6 +260,13 @@ def _register_views(app):
     app.add_url_rule(
         "/api/project-proposals/<path:path>",
         view_func=ProjectProposalsAPI.as_view("project_proposals"),
+        methods=["POST"],
+    )
+
+    # Scheduling & availability (recurring weekly hours + date exceptions)
+    app.add_url_rule(
+        "/api/availability/<path:path>",
+        view_func=AvailabilityAPI.as_view("availability"),
         methods=["POST"],
     )
 

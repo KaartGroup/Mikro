@@ -48,6 +48,8 @@ from .core import (
     Organization,
     EventProposal,
     ProjectProposal,
+    UserAvailability,
+    UserAvailabilityException,
 )
 
 __all__ = [
@@ -99,4 +101,6 @@ __all__ = [
     "Organization",
     "EventProposal",
     "ProjectProposal",
+    "UserAvailability",
+    "UserAvailabilityException",
 ]
