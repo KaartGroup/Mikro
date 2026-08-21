@@ -31,6 +31,7 @@ import {
   useFetchFilterOptions,
   useCurrentUserRole,
   useManagedTeams,
+  useProjectsExport,
 } from "@/hooks";
 import { AddProjectModal } from "@/components/modals/project/AddProjectModal";
 import { EditProjectModal } from "@/components/modals/project/EditProjectModal";
@@ -41,6 +42,7 @@ import type { ProjectFiltersValue } from "./ProjectFilters";
 import { TeamAdminEmptyState } from "@/components/admin/TeamAdminEmptyState";
 import { TablePaginator } from "@/components/tables/TablePaginator";
 import { projectDisplayName } from "@/lib/sortProjects";
+import { downloadProjectsCsv } from "@/lib/projectsExport";
 import Link from "next/link";
 import {
   formatNumber,
@@ -58,6 +60,8 @@ import type {
 export function AdminProjects() {
   const { mutate: fetchProjectsPage } = useOrgProjectsPaged();
   const { mutate: fetchProjectStats } = useOrgProjectStats();
+  const { mutate: fetchProjectsExport, loading: exporting } =
+    useProjectsExport();
   const { data: filterOptions } = useFetchFilterOptions();
   const { mutate: deleteProject, loading: deleting } = useDeleteProject();
   const { mutate: syncProject } = useSyncProject();
@@ -159,6 +163,35 @@ export function AdminProjects() {
     // projSortKey/projSortDir are declared below; included as deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildFilterBody, activeTab, currentPageNum, projSortKey, projSortDir]);
+
+  // Export the CURRENT filtered set (every page of it, not just the visible
+  // one) as CSV. Status is sent only for the two project tabs; on Archived /
+  // Proposals it is omitted so the file covers active and inactive both,
+  // rather than silently exporting whatever tab happens to be open.
+  const handleExport = useCallback(async () => {
+    try {
+      const body: Record<string, unknown> = { ...buildFilterBody() };
+      if (activeTab === "active" || activeTab === "inactive") {
+        body.status = activeTab === "active";
+      }
+      const resp = await fetchProjectsExport(body);
+      const rows = resp?.projects ?? [];
+      if (!rows.length) {
+        toast.info("Nothing to export — no projects match these filters");
+        return;
+      }
+      downloadProjectsCsv(rows);
+      toast.success(
+        resp?.capped
+          ? `Exported the first ${rows.length} projects (capped at ${resp.row_cap})`
+          : `Exported ${rows.length} project${rows.length === 1 ? "" : "s"}`,
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't export projects",
+      );
+    }
+  }, [buildFilterBody, activeTab, fetchProjectsExport, toast]);
 
   // Fetch aggregate counts (status excluded → both tab counts reported).
   // Only depends on the filter set, so it doesn't refire on tab/page/sort.
@@ -711,11 +744,18 @@ export function AdminProjects() {
             Manage TM4 projects and payment rates
           </p>
         </div>
-        {canCreateOrEditOrDelete && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            isLoading={exporting}
+          >
+            Export CSV
+          </Button>
+          {canCreateOrEditOrDelete && (
             <Button onClick={() => setShowAddModal(true)}>Add Project</Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Stats Cards */}

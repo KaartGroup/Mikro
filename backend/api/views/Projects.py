@@ -81,6 +81,8 @@ class ProjectAPI(MethodView):
             return self.fetch_org_projects_paged()
         elif path == "fetch_org_projects_stats":
             return self.fetch_org_projects_stats()
+        elif path == "fetch_projects_export":
+            return self.fetch_projects_export()
         elif path == "fetch_user_projects":
             return self.fetch_user_projects()
         elif path == "fetch_user_projects_paged":
@@ -638,6 +640,84 @@ class ProjectAPI(MethodView):
             filters=self._list_filters(req_body, status=None),
         )
         return {**counts, "status": 200}
+
+    # Guards a runaway export. Well above any real org's project count, and
+    # the response reports when it bites rather than silently truncating.
+    EXPORT_ROW_CAP = 2000
+
+    @requires_team_admin_or_above
+    def fetch_projects_export(self):
+        """Every project the caller can see, name-resolved, for CSV export.
+
+        Scope is NOT reimplemented here: the query runs through
+        ``ProjectService``, so ``role_scope_projects_query`` applies and a
+        team admin gets exactly the projects they created plus those assigned
+        to a team they lead. Org admins get the whole org; the filters below
+        are the same keys the paginated list accepts, so the file matches
+        what the user is looking at on screen.
+
+        Deliberately excludes task/completion counts — this is a register of
+        what a project *is* and who is on it, not a progress report. That also
+        keeps it off the expensive per-project stats path.
+        """
+        if not g:
+            return {"message": "User not found", "status": 304}
+
+        req_body = request.json if request.json else {}
+        svc = ProjectService()
+
+        # `status` is optional here, unlike the tabbed list: an export with no
+        # status filter should cover active AND inactive projects.
+        status = req_body.get("status")
+        projects = svc.get(
+            org_id=g.user.org_id,
+            user=g.user,
+            filters=self._list_filters(
+                req_body, status=status if isinstance(status, bool) else None
+            ),
+        )
+
+        capped = len(projects) > self.EXPORT_ROW_CAP
+        if capped:
+            projects = projects[: self.EXPORT_ROW_CAP]
+
+        project_ids = [p.id for p in projects]
+        locations = svc.get_country_and_region_names(project_ids)
+        teams = svc.get_team_names(project_ids)
+        assignees = svc.get_assigned_user_names(project_ids)
+        creators = svc.get_creator_labels(projects)
+
+        rows = []
+        for project in projects:
+            location = locations.get(project.id, {})
+            creator = creators.get(project.created_by or "", {})
+            rows.append(
+                {
+                    "id": project.id,
+                    "name": project.name or "",
+                    "short_name": project.short_name or "",
+                    "countries": location.get("countries", []),
+                    "regions": location.get("regions", []),
+                    "created_by_name": creator.get("name", ""),
+                    "created_by_email": creator.get("email", ""),
+                    "assigned_teams": teams.get(project.id, []),
+                    "assigned_users": assignees.get(project.id, []),
+                    "url": project.url or "",
+                    "source": project.source or "",
+                    "priority": project.priority or "",
+                    "difficulty": project.difficulty or "",
+                    "community": bool(project.community),
+                    "status": bool(project.status),
+                }
+            )
+
+        return {
+            "projects": rows,
+            "count": len(rows),
+            "capped": capped,
+            "row_cap": self.EXPORT_ROW_CAP,
+            "status": 200,
+        }
 
     def _list_filters(self, req_body, status):
         """Build the ProjectService filter dict shared by the paged + stats

@@ -20,7 +20,16 @@ from ..comms_client import NotificationType
 from ..targeting import org_admins_incl_team_admins
 from flask import current_app
 
-from ..database import db, Country, Project, ProjectCountry, ProjectTraining
+from ..database import (
+    db,
+    Country,
+    Project,
+    ProjectCountry,
+    ProjectTraining,
+    Region,
+    Team,
+    User,
+)
 
 
 class ProjectService:
@@ -819,7 +828,9 @@ class ProjectService:
             .scalar_subquery()
         )
         return query.filter(
-            db.or_(Project.id.in_(project_ids), Project.visibility == True)  # noqa: E712
+            db.or_(
+                Project.id.in_(project_ids), Project.visibility == True
+            )  # noqa: E712
         )
 
     @staticmethod
@@ -854,6 +865,124 @@ class ProjectService:
             .group_by(ProjectTeam.project_id)
             .all()
         )
+
+    # ─── Batch name resolution (export) ───────────────────────────────────
+    #
+    # The list serializer reports locations/teams as COUNTS, which is all the
+    # table needs. An export has to name them, so these four helpers resolve
+    # ids -> display strings in one query each, keyed by project id. Same
+    # batching shape as get_location_counts above: never per-project queries.
+
+    @staticmethod
+    def get_country_and_region_names(project_ids: list) -> dict:
+        """``{project_id: {"countries": [...], "regions": [...]}}``.
+
+        A project may sit in several countries, and each country may or may
+        not belong to a region, so regions are de-duplicated and a country
+        with no region contributes nothing rather than a blank entry.
+        """
+        if not project_ids:
+            return {}
+        rows = (
+            db.session.query(ProjectCountry.project_id, Country.name, Region.name)
+            .join(Country, Country.id == ProjectCountry.country_id)
+            .outerjoin(Region, Region.id == Country.region_id)
+            .filter(ProjectCountry.project_id.in_(project_ids))
+            .order_by(Country.name.asc())
+            .all()
+        )
+        out = {}
+        for project_id, country_name, region_name in rows:
+            entry = out.setdefault(project_id, {"countries": [], "regions": []})
+            if country_name and country_name not in entry["countries"]:
+                entry["countries"].append(country_name)
+            if region_name and region_name not in entry["regions"]:
+                entry["regions"].append(region_name)
+        return out
+
+    @staticmethod
+    def get_team_names(project_ids: list) -> dict:
+        """``{project_id: ["Team A", ...]}`` for assigned teams."""
+        if not project_ids:
+            return {}
+        rows = (
+            db.session.query(ProjectTeam.project_id, Team.name)
+            .join(Team, Team.id == ProjectTeam.team_id)
+            .filter(ProjectTeam.project_id.in_(project_ids))
+            .order_by(Team.name.asc())
+            .all()
+        )
+        out = {}
+        for project_id, team_name in rows:
+            if team_name:
+                out.setdefault(project_id, []).append(team_name)
+        return out
+
+    @staticmethod
+    def _display_name(first, last, email, user_id):
+        """Best available human label, degrading to the raw id.
+
+        Never returns an empty string: a blank cell in a spreadsheet reads as
+        "nobody assigned", which is a different fact from "assigned to a user
+        whose profile has no name".
+        """
+        name = " ".join(part for part in (first, last) if part).strip()
+        return name or email or user_id
+
+    @classmethod
+    def get_assigned_user_names(cls, project_ids: list) -> dict:
+        """``{project_id: ["Ada Lovelace", ...]}`` for individually assigned
+        users. Soft-deleted users are excluded — they are no longer working
+        the project, and listing them overstates staffing."""
+        if not project_ids:
+            return {}
+        rows = (
+            db.session.query(
+                ProjectUser.project_id,
+                User.id,
+                User.first_name,
+                User.last_name,
+                User.email,
+            )
+            .join(User, User.id == ProjectUser.user_id)
+            .filter(
+                ProjectUser.project_id.in_(project_ids),
+                User.deleted_date.is_(None),
+            )
+            .order_by(User.first_name.asc(), User.last_name.asc())
+            .all()
+        )
+        out = {}
+        for project_id, user_id, first, last, email in rows:
+            out.setdefault(project_id, []).append(
+                cls._display_name(first, last, email, user_id)
+            )
+        return out
+
+    @classmethod
+    def get_creator_labels(cls, projects: list) -> dict:
+        """``{auth0_sub: {"name": ..., "email": ...}}`` for the creators of
+        ``projects``.
+
+        ``Project.created_by`` is nullable — rows imported before the column
+        existed carry no creator — and the referenced user may since have been
+        deleted, so callers must tolerate a missing key.
+        """
+        creator_ids = {p.created_by for p in projects if p.created_by}
+        if not creator_ids:
+            return {}
+        rows = (
+            db.session.query(User.id, User.first_name, User.last_name, User.email)
+            .filter(User.id.in_(creator_ids))
+            .all()
+        )
+        return {
+            user_id: {
+                "name": cls._display_name(first, last, email, user_id),
+                "email": email or "",
+            }
+            for user_id, first, last, email in rows
+        }
 
     def _build_query(self, org_id: str, user, filters: dict | None = None):
         """Assemble the scoped, filtered Project query (without executing it).

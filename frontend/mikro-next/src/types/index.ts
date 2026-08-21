@@ -1781,3 +1781,40 @@ export interface AvailabilityOverlapResponse {
   users_without_timezone: string[];
   status: number;
 }
+
+// ─── Projects Export ────────────────────────────────────────
+
+/**
+ * One row of `/project/fetch_projects_export`. Deliberately carries no
+ * task/completion figures — this is a register of what a project is and who
+ * is on it, not a progress report.
+ */
+export interface ProjectExportRow {
+  id: number;
+  name: string;
+  short_name: string;
+  /** A project may span several countries. */
+  countries: string[];
+  /** De-duplicated regions of those countries; empty if none are mapped. */
+  regions: string[];
+  /** Empty for rows imported before `created_by` existed. */
+  created_by_name: string;
+  created_by_email: string;
+  assigned_teams: string[];
+  assigned_users: string[];
+  url: string;
+  source: string;
+  priority: string;
+  difficulty: string;
+  community: boolean;
+  status: boolean;
+}
+
+export interface ProjectsExportResponse {
+  projects: ProjectExportRow[];
+  count: number;
+  /** True when the row cap truncated the result. */
+  capped: boolean;
+  row_cap: number;
+  status: number;
+}
