@@ -69,6 +69,7 @@ import type {
   MessagesUnreadCountResponse,
   ProjectProposalListResponse,
   ProjectProposalMutationResponse,
+  ProjectsExportResponse,
   MyAvailabilityResponse,
   UserAvailabilityResponse,
   SetAvailabilityResponse,
@@ -221,6 +222,15 @@ export function useOrgProjects() {
 export function useOrgProjectsPaged() {
   return useApiMutation<ProjectsPagedResponse>(
     "/project/fetch_org_projects_paged",
+  );
+}
+
+// Admin/team-admin: every project the caller can see, name-resolved, for the
+// CSV export. Takes the same filter keys as the paged list so the file
+// matches what is on screen. Imperative — fires only when Export is clicked.
+export function useProjectsExport() {
+  return useApiMutation<ProjectsExportResponse>(
+    "/project/fetch_projects_export",
   );
 }
 
