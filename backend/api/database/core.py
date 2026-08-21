@@ -1641,3 +1641,118 @@ class GeoFeature(db.Model, SurrogatePK):
     __table_args__ = (
         db.Index("ix_geo_features_geom", "geom", postgresql_using="gist"),
     )
+
+
+class UserAvailability(CRUDMixin, SurrogatePK, db.Model):
+    """One recurring weekly availability block for a user.
+
+    Stored as **local wall-clock** (``day_of_week`` + minute offsets) and
+    interpreted in that user's own ``User.timezone`` — NOT as a UTC instant.
+    This is deliberate: "I work 09:00–17:00" must stay 09:00–17:00 across DST
+    transitions. Storing a UTC instant would silently shift a user's declared
+    hours twice a year.
+
+    Multiple rows per (user, day) express split shifts (e.g. 09:00–12:00 and
+    13:00–17:00). A block may not cross midnight — ``end_minute`` is always
+    greater than ``start_minute``; a night shift is two rows on adjacent days.
+    """
+
+    __tablename__ = "user_availability"
+
+    user_id = db.Column(
+        db.String(255),
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    org_id = db.Column(db.String(255), nullable=True, index=True)
+    # 0 = Monday … 6 = Sunday (matches datetime.weekday()).
+    day_of_week = db.Column(db.SmallInteger, nullable=False)
+    # Minutes from local midnight; 0 <= start < end <= 1440.
+    start_minute = db.Column(db.SmallInteger, nullable=False)
+    end_minute = db.Column(db.SmallInteger, nullable=False)
+    # 'available' (can meet) | 'preferred' (core hours — weighted higher when
+    # scoring poll slots).
+    kind = db.Column(
+        db.String(20), nullable=False, default="available", server_default="available"
+    )
+    created_at = db.Column(
+        db.DateTime, nullable=False, default=func.now(), server_default=func.now()
+    )
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    user = db.relationship(
+        "User",
+        backref=db.backref("availability_blocks", passive_deletes=True),
+    )
+
+    __table_args__ = (
+        db.Index("ix_user_availability_user_day", "user_id", "day_of_week"),
+        db.CheckConstraint(
+            "day_of_week >= 0 AND day_of_week <= 6",
+            name="ck_user_availability_day_of_week",
+        ),
+        db.CheckConstraint(
+            "start_minute >= 0 AND end_minute <= 1440 AND start_minute < end_minute",
+            name="ck_user_availability_minutes",
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<UserAvailability {self.id} user={self.user_id} "
+            f"dow={self.day_of_week} {self.start_minute}-{self.end_minute}>"
+        )
+
+
+class UserAvailabilityException(CRUDMixin, SurrogatePK, db.Model):
+    """A date-specific override of a user's recurring weekly availability.
+
+    ``kind='unavailable'`` subtracts from that date (PTO, travel, holiday);
+    ``kind='available'`` adds to it (working an unusual Saturday). A NULL
+    minute range means the whole day.
+
+    Like :class:`UserAvailability`, the minute offsets are local wall-clock in
+    the user's own timezone.
+    """
+
+    __tablename__ = "user_availability_exceptions"
+
+    user_id = db.Column(
+        db.String(255),
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    org_id = db.Column(db.String(255), nullable=True, index=True)
+    date = db.Column(db.Date, nullable=False)
+    # 'unavailable' | 'available'
+    kind = db.Column(db.String(20), nullable=False)
+    # NULL/NULL = the entire day.
+    start_minute = db.Column(db.SmallInteger, nullable=True)
+    end_minute = db.Column(db.SmallInteger, nullable=True)
+    note = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(
+        db.DateTime, nullable=False, default=func.now(), server_default=func.now()
+    )
+
+    user = db.relationship(
+        "User",
+        backref=db.backref("availability_exceptions", passive_deletes=True),
+    )
+
+    __table_args__ = (
+        db.Index("ix_user_availability_exc_user_date", "user_id", "date"),
+        db.Index("ix_user_availability_exc_org_date", "org_id", "date"),
+        db.CheckConstraint(
+            "(start_minute IS NULL AND end_minute IS NULL) OR "
+            "(start_minute >= 0 AND end_minute <= 1440 AND start_minute < end_minute)",
+            name="ck_user_availability_exc_minutes",
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<UserAvailabilityException {self.id} user={self.user_id} "
+            f"date={self.date} kind={self.kind}>"
+        )
