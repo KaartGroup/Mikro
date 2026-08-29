@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { redirectToLogin as goToLogin } from "@/lib/logout";
 
 // How often to ping the heartbeat endpoint while the tab is visible.
 // 15 minutes is well under the typical Auth0 access token lifetime (24h default).
@@ -26,9 +27,7 @@ export function useSessionHeartbeat() {
   }, []);
 
   const redirectToLogin = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.location.href = "/auth/login";
-    }
+    goToLogin();
   }, []);
 
   const scheduleNext = useCallback(

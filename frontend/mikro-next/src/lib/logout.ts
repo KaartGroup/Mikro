@@ -20,9 +20,36 @@
 
 let loggingOut = false;
 
+/**
+ * The ONLY URL the app should send an expired/rejected session to.
+ *
+ * `prompt=login` is load-bearing, not cosmetic. Clearing our own session
+ * cookie does NOT end the Auth0 SSO session, so a bare `/auth/login` finds
+ * that SSO session still alive and silently signs the user straight back in
+ * as the same account — no prompt, no chance to switch users. That is what
+ * users report as "I logged out but it logged me right back in", and what
+ * makes an expired session look like an unbreakable loop.
+ *
+ * The landing page's Log In link already did this (LandingClient.tsx); the
+ * session-expiry paths did not. Everything routes through here now so they
+ * cannot drift apart again.
+ */
+export const LOGIN_URL = "/auth/login?prompt=login";
+
 /** True once any logout has begun on this page. */
 export function isLoggingOut(): boolean {
   return loggingOut;
+}
+
+/**
+ * Send the user to a fresh Auth0 login prompt. No-op if a logout is already
+ * in flight — a login redirect must never stomp an in-progress logout.
+ */
+export function redirectToLogin(): void {
+  if (loggingOut) return;
+  if (typeof window !== "undefined") {
+    window.location.href = LOGIN_URL;
+  }
 }
 
 /**
