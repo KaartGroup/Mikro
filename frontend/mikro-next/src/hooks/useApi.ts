@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useErrorReporter } from "@/contexts/ErrorReporterContext";
-import { beginLogout, isLoggingOut } from "@/lib/logout";
+import { beginLogout, redirectToLogin } from "@/lib/logout";
 import type {
   AdminDashboardStats,
   UsersResponse,
@@ -315,8 +315,9 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
           });
           if (retryResponse.status === 401) {
             console.warn("[useApi] mutation 401 after retry on", endpoint);
-            // Don't stomp an in-flight logout with a login redirect.
-            if (!isLoggingOut()) window.location.href = "/auth/login";
+            // redirectToLogin() no-ops during an in-flight logout, and
+            // forces a fresh Auth0 prompt instead of a silent SSO re-login.
+            redirectToLogin();
             return undefined as unknown as TResponse;
           }
           const retryResult = await retryResponse.json();
@@ -886,8 +887,9 @@ export function useExportTimeEntries() {
           });
           if (response.status === 401) {
             console.warn("[useApi] export 401 after retry");
-            // Don't stomp an in-flight logout with a login redirect.
-            if (!isLoggingOut()) window.location.href = "/auth/login";
+            // redirectToLogin() no-ops during an in-flight logout, and
+            // forces a fresh Auth0 prompt instead of a silent SSO re-login.
+            redirectToLogin();
             return;
           }
         }

@@ -7,10 +7,29 @@ import { NextResponse } from "next/server";
 // - absoluteDuration 30d: hard cap regardless of activity
 // - offline_access scope issues the refresh token used by getAccessToken()
 // - useSessionHeartbeat (client) pings /auth/heartbeat every 15 min to keep
-//   the access token fresh; fetchWithAuth catches 401s as a safety net
+//   the access token fresh; useApi catches 401s as a safety net
 //   (NOTE: lives under /auth/ — the /api/ prefix is routed to Flask on prod)
-// Requires Auth0 dashboard: Refresh Token Rotation + Reuse Detection enabled,
-// Refresh Token Absolute Lifetime >= 30 days, Inactivity Lifetime >= 7 days.
+//
+// REQUIRED Auth0 dashboard settings:
+//   API (the AUTH0_AUDIENCE one) → "Allow Offline Access"      : ON
+//     ^ Without this Auth0 silently DROPS the offline_access scope below.
+//       Login still succeeds, but no refresh token is ever issued, so every
+//       session dies at the first access-token expiry and the user is thrown
+//       back to the login page. This was off on 2026-08-27 and caused a
+//       multi-day outage of exactly that shape.
+//   Application → "Set Idle Refresh Token Lifetime"    : >= 7 days  (matches inactivityDuration)
+//   Application → "Set Maximum Refresh Token Lifetime" : >= 30 days (matches absoluteDuration)
+//   Application → Grant Types → "Refresh Token"        : checked
+//
+//   Application → "Allow Refresh Token Rotation"       : OFF, for now.
+//     ^ Do NOT enable until token refresh is moved into src/middleware.ts.
+//       page.tsx and (authenticated)/layout.tsx call getAccessToken() from
+//       SERVER COMPONENTS, which cannot set cookies — so a rotated token is
+//       discarded while the cookie keeps the consumed one. With rotation on,
+//       the next refresh replays a spent token and Auth0's reuse detection
+//       revokes the whole family. Middleware is the only place that can
+//       persist a rotated token. See Auth0 SDK v4 docs, "Getting an access
+//       token > On the server (App Router)".
 export const auth0 = new Auth0Client({
   authorizationParameters: {
     audience: process.env.AUTH0_AUDIENCE,
