@@ -8,6 +8,8 @@ mapper/reviewer resolution uses the preloaded caches, that the whole sync
 makes exactly two API calls, and that re-syncing is idempotent.
 """
 
+from datetime import datetime
+
 from api.database import Project, Task, User, UserTasks
 from api.views.MapRoulette import MapRouletteSync
 
@@ -199,3 +201,108 @@ def test_unknown_status_label_is_skipped(db_session, monkeypatch):
     assert {t.task_id for t in Task.query.filter_by(project_id=CHALLENGE_ID).all()} == {
         2001
     }
+
+
+def test_dates_come_from_the_extract_not_the_sync_time(db_session, monkeypatch):
+    """
+    date_mapped / date_validated must reflect the extract's MappedOn and
+    ReviewedAt columns, not the moment the sync happened to run.
+
+    Stamping func.now() dated every historical task to first-sync day, which
+    threw off every date-windowed report and the 30-day unpaid-task check.
+    """
+    project = _seed(db_session)
+    _run_sync(monkeypatch)
+    MapRouletteSync().sync_challenge_tasks(project)
+
+    tasks = _tasks_by_mr_id(project.id)
+
+    # Every fixture row carries MappedOn=2024-01-01.
+    for mr_id, task in tasks.items():
+        assert task.date_mapped == datetime(
+            2024, 1, 1
+        ), f"task {mr_id} was dated {task.date_mapped}, not its MappedOn"
+
+    # 1001 was Approved on 2024-01-02; 1003 was never reviewed.
+    assert tasks[1001].date_validated == datetime(2024, 1, 2)
+    assert tasks[1002].date_validated == datetime(2024, 1, 2)  # Rejected
+    assert tasks[1003].date_validated is None
+
+
+def test_resync_repairs_a_func_now_era_date(db_session, monkeypatch):
+    """
+    A task row written before this fix carries the sync date. The extract is
+    authoritative for MR, so a later sync must adopt its value -- otherwise
+    the update path never repairs itself and those rows stay wrong forever.
+    """
+    project = _seed(db_session)
+    stale = datetime(2026, 9, 8, 22, 48, 54)
+    db_session.add(
+        Task(
+            task_id=1001,
+            project_id=project.id,
+            org_id=ORG,
+            source="mr",
+            mr_status=1,
+            mapped=True,
+            mapped_by="alice",
+            validated_by="",
+            validated=False,
+            paid_out=False,
+            date_mapped=stale,
+        )
+    )
+    db_session.flush()
+
+    _run_sync(monkeypatch)
+    result = MapRouletteSync().sync_challenge_tasks(project)
+
+    repaired = _tasks_by_mr_id(project.id)[1001]
+    assert repaired.date_mapped == datetime(2024, 1, 1)
+    assert result["dates_corrected"] >= 1
+
+
+def test_resync_adopts_a_changed_mr_status(db_session, monkeypatch):
+    """
+    mr_status used to be written only on creation, so a task that changed
+    status in MapRoulette afterwards kept its original value -- and since the
+    Progress and Done columns are computed purely from mr_status, they drifted
+    permanently out of step with the source.
+    """
+    project = _seed(db_session)
+    db_session.add(
+        Task(
+            task_id=1001,
+            project_id=project.id,
+            org_id=ORG,
+            source="mr",
+            mr_status=3,  # Skipped, before the mapper came back and fixed it
+            mapped=True,
+            mapped_by="alice",
+            validated_by="",
+            validated=False,
+            paid_out=False,
+            date_mapped=datetime(2024, 1, 1),
+        )
+    )
+    db_session.flush()
+
+    _run_sync(monkeypatch)
+    result = MapRouletteSync().sync_challenge_tasks(project)
+
+    # The fixture reports 1001 as Fixed (status 1).
+    assert _tasks_by_mr_id(project.id)[1001].mr_status == 1
+    assert result["statuses_updated"] >= 1
+
+
+def test_unchanged_status_is_not_counted_as_an_update(db_session, monkeypatch):
+    """A no-op re-sync must not report churn."""
+    project = _seed(db_session)
+    _run_sync(monkeypatch)
+    MapRouletteSync().sync_challenge_tasks(project)
+
+    _run_sync(monkeypatch)
+    second = MapRouletteSync().sync_challenge_tasks(project)
+
+    assert second.get("statuses_updated", 0) == 0
+    assert second.get("dates_corrected", 0) == 0

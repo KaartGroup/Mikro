@@ -1,19 +1,32 @@
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
-const Table = forwardRef<
-  HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-x-auto">
-    <table
-      ref={ref}
-      className={cn("w-full caption-bottom text-sm", className)}
-      style={{ minWidth: 600 }}
-      {...props}
-    />
-  </div>
-));
+interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
+  /**
+   * Extra classes for the scroll container wrapping the table.
+   *
+   * The wrapper is always `overflow-x-auto`, and CSS resolves the other axis
+   * to `auto` alongside it -- so the wrapper, not the viewport, is what
+   * `position: sticky` on a header cell measures against. A header that
+   * stays put while rows scroll therefore needs a bounded height here
+   * (e.g. `max-h-[70vh] overflow-y-auto`) plus `sticky top-0` on the header
+   * cells. Without the height the wrapper simply grows and nothing sticks.
+   */
+  containerClassName?: string;
+}
+
+const Table = forwardRef<HTMLTableElement, TableProps>(
+  ({ className, containerClassName, ...props }, ref) => (
+    <div className={cn("relative w-full overflow-x-auto", containerClassName)}>
+      <table
+        ref={ref}
+        className={cn("w-full caption-bottom text-sm", className)}
+        style={{ minWidth: 600 }}
+        {...props}
+      />
+    </div>
+  ),
+);
 Table.displayName = "Table";
 
 const TableHeader = forwardRef<
@@ -108,11 +121,4 @@ const TableCaption = forwardRef<
 ));
 TableCaption.displayName = "TableCaption";
 
-export {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell
-};
+export { Table, TableHeader, TableBody, TableHead, TableRow, TableCell };
