@@ -32,6 +32,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/Modal";
 import { useToastActions } from "@/components/ui";
 import { useErrorReporter } from "@/contexts/ErrorReporterContext";
+import { logEvent } from "@/lib/clientLog";
 
 const DISCARD_WINDOW_SECONDS = 300;
 
@@ -63,6 +64,7 @@ export function SidebarClock() {
   const { openReport } = useErrorReporter();
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [discardError, setDiscardError] = useState<string | null>(null);
+  const [clockInError, setClockInError] = useState<string | null>(null);
 
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
@@ -223,6 +225,13 @@ export function SidebarClock() {
   const handleClockIn = useCallback(async () => {
     if (!selectedTopic) return;
     if (needsProject && !selectedProject) return;
+    setClockInError(null);
+    logEvent("info", "clockin.attempt", {
+      category: selectedTopic,
+      subcategoryId: selectedSub?.id ?? null,
+      projectId: selectedProject || null,
+      needsProject,
+    });
     try {
       await clockIn({
         project_id: selectedProject ? parseInt(selectedProject) : null,
@@ -247,9 +256,31 @@ export function SidebarClock() {
       setActiveSessionUserNotes(pendingUserNotes);
       setPendingUserNotes(null);
       window.dispatchEvent(new Event("clock-state-changed"));
+      logEvent("info", "clockin.success", { category: selectedTopic });
       refetch().catch(() => {});
-    } catch {
-      // Silently handle — dashboard/time page will show full errors
+    } catch (err) {
+      // NEVER swallow this. The backend returns actionable messages here —
+      // "You already have an active session. Clock out first." (409),
+      // "Subcategory X requires a project" (400) — and the old bare `catch {}`
+      // threw them away, so a failed clock-in looked like a dead button. Users
+      // reported it as "I can't clock in" with nothing to go on, and it was
+      // undiagnosable without server logs.
+      const msg =
+        err instanceof Error ? err.message : "Couldn't clock in. Try again.";
+      logEvent("error", "clockin.failed", {
+        message: msg,
+        category: selectedTopic,
+        subcategoryId: selectedSub?.id ?? null,
+        projectId: selectedProject || null,
+      });
+      setClockInError(msg);
+      toast.error(msg, {
+        action: { label: "Report", onClick: () => openReport() },
+      });
+      // A 409 means the server thinks a session is already open while the UI
+      // thinks otherwise. Re-sync so the clock-out button appears instead of
+      // leaving the user stuck against a button that can never succeed.
+      refetch().catch(() => {});
     }
   }, [
     selectedTopic,
@@ -260,6 +291,8 @@ export function SidebarClock() {
     clockIn,
     pendingUserNotes,
     refetch,
+    toast,
+    openReport,
   ]);
 
   const handleSaveActiveNotes = useCallback(
@@ -717,6 +750,18 @@ export function SidebarClock() {
               }}
               size="xs"
             />
+          </div>
+        )}
+        {clockInError && (
+          <div
+            style={{
+              fontSize: 10,
+              color: "#dc2626",
+              marginBottom: 4,
+              textAlign: "center",
+            }}
+          >
+            {clockInError}
           </div>
         )}
         <button

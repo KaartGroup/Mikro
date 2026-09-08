@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useSessionHeartbeat } from "@/hooks/useSessionHeartbeat";
 import { beginLogout, isLoggingOut } from "@/lib/logout";
+import { logEvent, installLogGlobals } from "@/lib/clientLog";
 
 /**
  * AuthGuard — aggressive session integrity checker.
@@ -53,15 +54,20 @@ export function AuthGuard() {
   // If useUser() finishes loading and there's no user, nuke it
   useEffect(() => {
     if (!isLoading && !user && !isLoggingOut()) {
+      logEvent("error", "authguard.no_user", { hadUser: hadUser.current });
       beginLogout();
     }
   }, [isLoading, user]);
 
   // Verify session on mount
   useEffect(() => {
+    installLogGlobals();
     if (isLoggingOut()) return;
     verifySession().then((valid) => {
-      if (!valid) beginLogout();
+      if (!valid) {
+        logEvent("error", "authguard.session_invalid", { trigger: "mount" });
+        beginLogout();
+      }
     });
   }, []);
 
@@ -70,18 +76,27 @@ export function AuthGuard() {
     const handleFocus = () => {
       if (isLoggingOut()) return;
       verifySession().then((valid) => {
-        if (!valid) beginLogout();
+        if (!valid) {
+          logEvent("error", "authguard.session_invalid", { trigger: "focus" });
+          beginLogout();
+        }
       });
     };
 
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", () => {
+    // Must be a named reference: the previous version added an inline arrow
+    // here and removed `handleFocus`, so the cleanup silently did nothing and
+    // each remount stacked another listener — multiplying verifySession()
+    // calls (and now log entries) on every tab focus.
+    const handleVisibility = () => {
       if (document.visibilityState === "visible") handleFocus();
-    });
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 

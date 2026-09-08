@@ -18,6 +18,8 @@
  * later caller is a no-op.
  */
 
+import { logEvent, withLogPreserved } from "@/lib/clientLog";
+
 let loggingOut = false;
 
 /**
@@ -47,6 +49,7 @@ export function isLoggingOut(): boolean {
  */
 export function redirectToLogin(): void {
   if (loggingOut) return;
+  logEvent("warn", "auth.redirect_to_login");
   if (typeof window !== "undefined") {
     window.location.href = LOGIN_URL;
   }
@@ -71,12 +74,19 @@ export function beginLogout(): void {
   if (loggingOut) return;
   loggingOut = true;
 
-  try {
-    localStorage.clear();
-  } catch {}
-  try {
-    sessionStorage.clear();
-  } catch {}
+  // Log BEFORE localStorage.clear() wipes the diagnostic buffer, and rely on
+  // the /clientlog POST (keepalive) to survive the navigation — otherwise a
+  // forced logout erases the only evidence of why it happened.
+  logEvent("error", "auth.forced_logout");
+
+  withLogPreserved(() => {
+    try {
+      localStorage.clear();
+    } catch {}
+    try {
+      sessionStorage.clear();
+    } catch {}
+  });
 
   if (typeof window !== "undefined") {
     window.location.href = "/auth/logout";
