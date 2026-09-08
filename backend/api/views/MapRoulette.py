@@ -431,6 +431,27 @@ class MapRouletteSync:
                     stats["dates_corrected"] += 1
                 task_record.date_mapped = mapped_on
 
+            # Adopt the current MR status. Previously mr_status was written
+            # only on creation, so a task that changed status afterwards
+            # (Skipped -> Fixed, say) kept its original value forever -- and
+            # since the Progress and Done columns are computed purely from
+            # mr_status, they drifted away from MapRoulette with no way back.
+            #
+            # NOTE: mapping_rate / validation_rate are deliberately NOT
+            # touched here. They are zeroed at creation for a Skipped task,
+            # so a Skipped -> Fixed transition leaves a task displaying as
+            # Fixed while still carrying a zero rate. Re-rating a task
+            # changes what a mapper is owed, so that is a payments decision
+            # rather than a display fix -- see the rate-drift follow-up.
+            if task_record.mr_status != status:
+                current_app.logger.info(
+                    f"MR task {task_id} status changed: "
+                    f"{task_record.mr_status} -> {status}"
+                )
+                task_record.mr_status = status
+                stats.setdefault("statuses_updated", 0)
+                stats["statuses_updated"] += 1
+
             if mapper_username and task_record.mapped_by in (None, "", "unknown"):
                 task_record.mapped_by = mapper_username
                 mapper = users_by_osm.get(mapper_username)
@@ -554,6 +575,7 @@ class MapRouletteSync:
             f"validated={stats['tasks_validated']}, "
             f"invalidated={stats['tasks_invalidated']}, "
             f"dates_corrected={stats.get('dates_corrected', 0)}, "
+            f"statuses_updated={stats.get('statuses_updated', 0)}, "
             f"errors={stats['errors']}"
         )
         return {"message": "sync complete", **stats}

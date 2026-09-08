@@ -260,3 +260,49 @@ def test_resync_repairs_a_func_now_era_date(db_session, monkeypatch):
     repaired = _tasks_by_mr_id(project.id)[1001]
     assert repaired.date_mapped == datetime(2024, 1, 1)
     assert result["dates_corrected"] >= 1
+
+
+def test_resync_adopts_a_changed_mr_status(db_session, monkeypatch):
+    """
+    mr_status used to be written only on creation, so a task that changed
+    status in MapRoulette afterwards kept its original value -- and since the
+    Progress and Done columns are computed purely from mr_status, they drifted
+    permanently out of step with the source.
+    """
+    project = _seed(db_session)
+    db_session.add(
+        Task(
+            task_id=1001,
+            project_id=project.id,
+            org_id=ORG,
+            source="mr",
+            mr_status=3,  # Skipped, before the mapper came back and fixed it
+            mapped=True,
+            mapped_by="alice",
+            validated_by="",
+            validated=False,
+            paid_out=False,
+            date_mapped=datetime(2024, 1, 1),
+        )
+    )
+    db_session.flush()
+
+    _run_sync(monkeypatch)
+    result = MapRouletteSync().sync_challenge_tasks(project)
+
+    # The fixture reports 1001 as Fixed (status 1).
+    assert _tasks_by_mr_id(project.id)[1001].mr_status == 1
+    assert result["statuses_updated"] >= 1
+
+
+def test_unchanged_status_is_not_counted_as_an_update(db_session, monkeypatch):
+    """A no-op re-sync must not report churn."""
+    project = _seed(db_session)
+    _run_sync(monkeypatch)
+    MapRouletteSync().sync_challenge_tasks(project)
+
+    _run_sync(monkeypatch)
+    second = MapRouletteSync().sync_challenge_tasks(project)
+
+    assert second.get("statuses_updated", 0) == 0
+    assert second.get("dates_corrected", 0) == 0
