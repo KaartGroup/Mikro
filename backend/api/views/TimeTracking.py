@@ -429,6 +429,15 @@ class TimeTrackingAPI(MethodView):
     def clock_in(self):
         """Clock in the current user."""
         if not hasattr(g, "user") or not g.user:
+            # Valid JWT but no matching users row — the user looks logged in
+            # while every clock action 401s. Log the sub so it is traceable.
+            sub = None
+            try:
+                if hasattr(g, "current_user") and g.current_user:
+                    sub = g.current_user.get("sub")
+            except Exception:
+                pass
+            logger.warning(f"[CLOCK] clock_in REJECTED reason=no_g_user sub={sub!r}")
             return jsonify({"message": "Unauthorized", "status": 401}), 401
 
         data = request.get_json() or {}
@@ -444,6 +453,10 @@ class TimeTrackingAPI(MethodView):
 
         # Validate activity (tier 1)
         if activity not in ACTIVITY_SLUGS:
+            logger.warning(
+                f"[CLOCK] clock_in REJECTED reason=invalid_activity "
+                f"user={g.user.id} activity={activity!r}"
+            )
             return (
                 jsonify(
                     {
@@ -464,6 +477,11 @@ class TimeTrackingAPI(MethodView):
                 None,
             )
         except ValueError as e:
+            logger.warning(
+                f"[CLOCK] clock_in REJECTED reason=subcategory_invalid "
+                f"user={g.user.id} activity={activity!r} "
+                f"subcategoryId={data.get('subcategoryId')!r} err={e}"
+            )
             return jsonify({"message": str(e), "status": 400}), 400
 
         # requires_project gating: if the chosen sub demands a project and the
@@ -471,6 +489,11 @@ class TimeTrackingAPI(MethodView):
         if sub_fields["subcategory_id"] is not None:
             sub_row = ActivitySubcategory.query.get(sub_fields["subcategory_id"])
             if sub_row and sub_row.requires_project and not project_id:
+                logger.warning(
+                    f"[CLOCK] clock_in REJECTED reason=project_required "
+                    f"user={g.user.id} subcategory_id={sub_row.id} "
+                    f"subcategory={sub_row.name!r}"
+                )
                 return (
                     jsonify(
                         {
@@ -488,6 +511,10 @@ class TimeTrackingAPI(MethodView):
         if project_id:
             project = Project.query.get(project_id)
             if not project:
+                logger.warning(
+                    f"[CLOCK] clock_in REJECTED reason=project_not_found "
+                    f"user={g.user.id} project_id={project_id!r}"
+                )
                 return (
                     jsonify(
                         {
@@ -503,14 +530,19 @@ class TimeTrackingAPI(MethodView):
                 data.get("userNotes")
             )
         except ValueError as e:
+            logger.warning(
+                f"[CLOCK] clock_in REJECTED reason=bad_user_notes "
+                f"user={g.user.id} err={e}"
+            )
             return jsonify({"message": str(e), "status": 400}), 400
 
         # Check for existing active session
         active = TimeEntry.query.filter_by(user_id=g.user.id, status="active").first()
         if active:
-            logger.info(
-                f"[CLOCK] clock_in REJECTED — user={g.user.id} already has active session "
-                f"id={active.id} clock_in={active.clock_in}"
+            logger.warning(
+                f"[CLOCK] clock_in REJECTED reason=already_active "
+                f"user={g.user.id} session_id={active.id} "
+                f"clock_in={active.clock_in} status={active.status}"
             )
             return (
                 jsonify(
@@ -1065,7 +1097,12 @@ class TimeTrackingAPI(MethodView):
         reason = data.get("reason", "").strip()
 
         if not clock_in_str or not clock_out_str:
-            return jsonify({"message": "clockIn and clockOut are required", "status": 400}), 400
+            return (
+                jsonify(
+                    {"message": "clockIn and clockOut are required", "status": 400}
+                ),
+                400,
+            )
 
         if not reason:
             return jsonify({"message": "reason is required", "status": 400}), 400
@@ -1078,15 +1115,36 @@ class TimeTrackingAPI(MethodView):
                 clock_out_str.replace("Z", "+00:00")
             ).replace(tzinfo=None)
         except (ValueError, AttributeError):
-            return jsonify({"message": "Invalid clockIn or clockOut format. Use ISO 8601.", "status": 400}), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Invalid clockIn or clockOut format. Use ISO 8601.",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         duration_seconds = int((clock_out - clock_in).total_seconds())
 
         if not (60 <= duration_seconds <= 7200):
-            return jsonify({"message": "Duration must be between 1 and 120 minutes", "status": 400}), 400
+            return (
+                jsonify(
+                    {
+                        "message": "Duration must be between 1 and 120 minutes",
+                        "status": 400,
+                    }
+                ),
+                400,
+            )
 
         if clock_in >= datetime.utcnow():
-            return jsonify({"message": "Cannot request an entry in the future", "status": 400}), 400
+            return (
+                jsonify(
+                    {"message": "Cannot request an entry in the future", "status": 400}
+                ),
+                400,
+            )
 
         if project_id:
             project = Project.query.get(project_id)

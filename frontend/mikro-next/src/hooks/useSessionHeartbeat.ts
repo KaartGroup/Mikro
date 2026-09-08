@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { redirectToLogin as goToLogin } from "@/lib/logout";
+import { logEvent } from "@/lib/clientLog";
 
 // How often to ping the heartbeat endpoint while the tab is visible.
 // 15 minutes is well under the typical Auth0 access token lifetime (24h default).
@@ -47,6 +48,9 @@ export function useSessionHeartbeat() {
         console.warn(
           `[heartbeat] ${MAX_CONSECUTIVE_FAILURES} consecutive failures, redirecting to login`,
         );
+        logEvent("error", "heartbeat.giving_up", {
+          consecutiveFailures: MAX_CONSECUTIVE_FAILURES,
+        });
         redirectToLogin();
       } else {
         scheduleNext(RETRY_INTERVAL_MS, doHeartbeat);
@@ -66,12 +70,32 @@ export function useSessionHeartbeat() {
         scheduleNext(HEARTBEAT_INTERVAL_MS, doHeartbeat);
       } else if (response.status === 401) {
         console.warn("[heartbeat] Session expired, redirecting to login");
+        // Persist BEFORE navigating — this is the event that a user
+        // experiences as "it logged me out for no reason".
+        logEvent("error", "heartbeat.session_expired", { status: 401 });
         redirectToLogin();
       } else {
+        // Capture the server's reason ("session_expired" vs "refresh_error")
+        // so a dead refresh is distinguishable from a dead session.
+        let reason = "";
+        try {
+          reason =
+            ((await response.json()) as { reason?: string }).reason ?? "";
+        } catch {
+          /* non-JSON body */
+        }
+        logEvent("warn", "heartbeat.refresh_failed", {
+          status: response.status,
+          reason,
+          consecutive: failureCountRef.current + 1,
+        });
         handleTransientFailure();
       }
     } catch {
       if (!isMountedRef.current) return;
+      logEvent("warn", "heartbeat.network_error", {
+        consecutive: failureCountRef.current + 1,
+      });
       handleTransientFailure();
     }
   }, [redirectToLogin, scheduleNext]);

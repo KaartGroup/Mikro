@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useErrorReporter } from "@/contexts/ErrorReporterContext";
 import { beginLogout, redirectToLogin } from "@/lib/logout";
+import { logEvent } from "@/lib/clientLog";
 import type {
   AdminDashboardStats,
   UsersResponse,
@@ -315,6 +316,7 @@ export function useApiMutation<TResponse = { message: string; status: number }>(
           });
           if (retryResponse.status === 401) {
             console.warn("[useApi] mutation 401 after retry on", endpoint);
+            logEvent("error", "api.401_after_retry", { endpoint });
             // redirectToLogin() no-ops during an in-flight logout, and
             // forces a fresh Auth0 prompt instead of a silent SSO re-login.
             redirectToLogin();
@@ -887,6 +889,7 @@ export function useExportTimeEntries() {
           });
           if (response.status === 401) {
             console.warn("[useApi] export 401 after retry");
+            logEvent("error", "api.401_after_retry", { endpoint: "export" });
             // redirectToLogin() no-ops during an in-flight logout, and
             // forces a fresh Auth0 prompt instead of a silent SSO re-login.
             redirectToLogin();
@@ -1588,9 +1591,7 @@ export function useSubmitProjectProposal() {
 
 /** List the calling user's own proposals (any authenticated user). */
 export function useMyProjectProposals() {
-  return useApiMutation<ProjectProposalListResponse>(
-    "/project-proposals/my",
-  );
+  return useApiMutation<ProjectProposalListResponse>("/project-proposals/my");
 }
 
 /** Edit + resubmit a changes_requested proposal (owner only). */
@@ -1648,7 +1649,6 @@ export function useDenyProjectProposal() {
     "/project-proposals/deny",
   );
 }
-
 
 // ─── Scheduling & Availability ──────────────────────────────
 

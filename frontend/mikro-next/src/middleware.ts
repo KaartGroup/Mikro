@@ -18,6 +18,14 @@ export default async function proxy(request: NextRequest) {
     return authRes;
   }
 
+  // Diagnostic log sink (src/lib/clientLog.ts). Must bypass the session check
+  // below: the events most worth capturing are auth failures, so requiring a
+  // valid session here would discard exactly the ones we need. Lives outside
+  // /api/* because that prefix is served by Flask on prod.
+  if (request.nextUrl.pathname === "/clientlog") {
+    return authRes;
+  }
+
   // Public routes - pass through with auth cookies maintained
   const publicRoutes = [
     "/",
