@@ -57,6 +57,11 @@ class SyncJobQueue:
         return cls.enqueue(org_id, "task_sync")
 
     @classmethod
+    def enqueue_mr_sync(cls, org_id):
+        """Queue a MapRoulette-only sync of every active MR project in the org."""
+        return cls.enqueue(org_id, "mr_sync")
+
+    @classmethod
     def enqueue_element_analysis(cls, org_id):
         return cls.enqueue(org_id, "element_analysis")
 
