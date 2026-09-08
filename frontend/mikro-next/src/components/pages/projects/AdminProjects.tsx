@@ -390,6 +390,14 @@ export function AdminProjects() {
     return "text-red-500";
   };
 
+  // Header cells stick to the top of the table's own scroll container (see
+  // Table's containerClassName note -- the wrapper is the scroll ancestor, not
+  // the viewport). bg-card stops rows showing through, and the inset shadow
+  // stands in for the border-b that a collapsed-border table drops from a
+  // sticky cell.
+  const STICKY_HEAD =
+    "sticky top-0 z-20 bg-card shadow-[inset_0_-1px_0_var(--border)]";
+
   const projSortColumns = [
     { key: "name", label: "Project", width: "w-[20%]" },
     { key: "source_id", label: "Source ID", width: "w-[8%]" },
@@ -410,13 +418,16 @@ export function AdminProjects() {
 
     return (
       <>
-        <Table className="table-fixed">
+        <Table
+          className="table-fixed"
+          containerClassName="max-h-[calc(100vh-12rem)] overflow-y-auto"
+        >
           <TableHeader>
             <TableRow>
               {projSortColumns.map((col) => (
                 <TableHead
                   key={col.label}
-                  className={`${col.width} ${col.key ? "cursor-pointer select-none hover:text-foreground transition-colors" : ""}`}
+                  className={`${col.width} ${STICKY_HEAD} ${col.key ? "cursor-pointer select-none hover:text-foreground transition-colors" : ""}`}
                   onClick={col.key ? () => handleProjSort(col.key) : undefined}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -443,7 +454,9 @@ export function AdminProjects() {
                   </span>
                 </TableHead>
               ))}
-              <TableHead className="w-[13%] text-right">Actions</TableHead>
+              <TableHead className={`w-[13%] text-right ${STICKY_HEAD}`}>
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -743,7 +756,7 @@ export function AdminProjects() {
             {total === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={10}
                   className="text-center py-8 text-muted-foreground"
                 >
                   {listLoading ? "Loading…" : "No projects found"}
