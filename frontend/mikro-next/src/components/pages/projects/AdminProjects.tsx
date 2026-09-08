@@ -47,6 +47,7 @@ import Link from "next/link";
 import {
   formatNumber,
   formatCurrency,
+  formatDateTime,
   getProjectExternalUrl,
 } from "@/lib/utils";
 import { Val } from "@/components/ui";
@@ -340,6 +341,46 @@ export function AdminProjects() {
     }
   };
 
+  /**
+   * Label + colour for a project's last sync.
+   *
+   * `null` means the project has NEVER been synced from its source, which is
+   * visually identical to "synced, but nothing has been completed yet" in the
+   * Progress and Done columns -- both render zeros. Surfacing it here is the
+   * only way to tell an honest 0% from a project the sync has never reached.
+   */
+  const syncAge = (
+    iso: string | null | undefined,
+  ): { label: string; className: string; title: string } => {
+    if (!iso) {
+      return {
+        label: "Never",
+        className: "text-red-500 font-medium",
+        title: "This project has never been synced from its source",
+      };
+    }
+    const then = new Date(iso).getTime();
+    if (Number.isNaN(then)) {
+      return { label: "—", className: "text-muted-foreground", title: "" };
+    }
+    const days = (Date.now() - then) / 86400000;
+    return {
+      label:
+        days < 1
+          ? "Today"
+          : days < 2
+            ? "Yesterday"
+            : `${Math.floor(days)}d ago`,
+      className:
+        days < 2
+          ? "text-green-600"
+          : days < 8
+            ? "text-muted-foreground"
+            : "text-orange-500",
+      title: formatDateTime(iso),
+    };
+  };
+
   /** Return a Tailwind text color class based on completion percentage. */
   const completionColor = (pct: number): string => {
     if (pct >= 80) return "text-green-600";
@@ -350,14 +391,15 @@ export function AdminProjects() {
   };
 
   const projSortColumns = [
-    { key: "name", label: "Project", width: "w-[22%]" },
+    { key: "name", label: "Project", width: "w-[20%]" },
     { key: "source_id", label: "Source ID", width: "w-[8%]" },
     { key: "total_tasks", label: "Tasks", width: "w-[6%]" },
-    { key: "", label: "Progress", width: "w-[14%]" },
+    { key: "", label: "Progress", width: "w-[13%]" },
     { key: "", label: "Done", width: "w-[6%]" },
-    { key: "mapping_rate", label: "Rates", width: "w-[9%]" },
-    { key: "budget", label: "Budget", width: "w-[9%]" },
-    { key: "difficulty", label: "Difficulty", width: "w-[10%]" },
+    { key: "", label: "Last synced", width: "w-[9%]" },
+    { key: "mapping_rate", label: "Rates", width: "w-[8%]" },
+    { key: "budget", label: "Budget", width: "w-[8%]" },
+    { key: "difficulty", label: "Difficulty", width: "w-[9%]" },
   ];
 
   // Renders the current tab's server-fetched page. Reads `projects`, `total`,
@@ -401,7 +443,7 @@ export function AdminProjects() {
                   </span>
                 </TableHead>
               ))}
-              <TableHead className="w-[16%] text-right">Actions</TableHead>
+              <TableHead className="w-[13%] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -560,6 +602,19 @@ export function AdminProjects() {
                         <span className="text-muted-foreground text-sm">—</span>
                       );
                     }
+                  })()}
+                </TableCell>
+                <TableCell>
+                  {(() => {
+                    const s = syncAge(project.last_synced);
+                    return (
+                      <span
+                        className={`text-sm ${s.className}`}
+                        title={s.title}
+                      >
+                        {s.label}
+                      </span>
+                    );
                   })()}
                 </TableCell>
                 <TableCell>

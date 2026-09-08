@@ -7,7 +7,11 @@ from ...views.MapRoulette import MapRouletteSync
 
 logger = logging.getLogger(__name__)
 
-_MAX_SYNC_JOB_DURATION = timedelta(hours=2)
+# This job's own wall-clock budget. Must stay BELOW the worker poller's
+# _STALE_JOB_TIMEOUT (derived from this value in worker/main.py) so that a
+# long run aborts itself with an informative "completed k/N projects"
+# error instead of being killed mid-flight by the stale-job check.
+MAX_SYNC_JOB_DURATION = timedelta(hours=2)
 
 
 def sync_project(project, org_id, target_user_id=None):
@@ -94,9 +98,15 @@ def run_sync_job(job):
     """
     Execute a queued sync job.
 
-    Handles both full-org syncs (job_type="task_sync") and single-project
-    syncs (job_type="project_sync"). MR challenges are fetched once each;
-    TM4 projects are synced per resolved user.
+    Handles full-org syncs (job_type="task_sync"), MapRoulette-only syncs
+    (job_type="mr_sync") and single-project syncs (job_type="project_sync").
+    MR challenges are fetched once each; TM4 projects are synced per resolved
+    user.
+
+    "mr_sync" exists because the two sources have wildly different costs: an
+    MR challenge is one extract request (~340ms), while a TM4 project fans out
+    to one request per assigned user. Sharing a single job meant the cheap MR
+    work sat behind hours of TM4 calls and never ran.
 
     For project_sync jobs, encode an optional user scope as
     job.progress="user:<user_id>" before queuing.
@@ -131,17 +141,28 @@ def run_sync_job(job):
                 return
             projects = [project]
         else:
-            projects = Project.query.filter(
+            q = Project.query.filter(
                 Project.org_id == job.org_id,
                 Project.status == True,
+            )
+            if job.job_type == "mr_sync":
+                q = q.filter(Project.source == "mr")
+            # Least-recently-synced first, never-synced ahead of everything
+            # else. Without an ORDER BY the row order is arbitrary, so a run
+            # that hits the wall clock re-syncs the same head of the list
+            # every night and the tail is never reached at all -- which is how
+            # 166 of 291 active MR projects ended up never synced.
+            projects = q.order_by(
+                Project.last_sync_cursor.asc().nulls_first(),
+                Project.id.asc(),
             ).all()
 
         total = len(projects)
         for k, project in enumerate(projects, 1):
             elapsed = datetime.now(timezone.utc) - job_start
-            if elapsed > _MAX_SYNC_JOB_DURATION:
+            if elapsed > MAX_SYNC_JOB_DURATION:
                 logger.warning(
-                    f"Sync job {job.id} exceeded {_MAX_SYNC_JOB_DURATION} wall time "
+                    f"Sync job {job.id} exceeded {MAX_SYNC_JOB_DURATION} wall time "
                     f"after {k - 1}/{total} projects — aborting"
                 )
                 db.session.refresh(job)
