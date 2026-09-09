@@ -74,16 +74,18 @@ export default async function AuthenticatedLayout({
       <div style={{ minHeight: "100vh", backgroundColor: "var(--muted)" }}>
         <AuthGuard />
         <AprilFools />
-<Header displayName={displayName} />
+        <Header displayName={displayName} />
         <Sidebar />
         <main
           className="main-content"
           style={{
             paddingTop: 64,
-            paddingBottom: 120,
+            // Just enough to clear the corner toast; this used to be 120,
+            // which left ~144px of empty page below every table's paginator.
+            paddingBottom: 32,
           }}
         >
-<div style={{ padding: 24 }}>{children}</div>
+          <div style={{ padding: 24 }}>{children}</div>
         </main>
       </div>
     </RoleProvider>

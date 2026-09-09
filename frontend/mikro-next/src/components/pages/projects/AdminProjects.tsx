@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Button,
   Badge,
   ConfirmDialog,
@@ -57,6 +55,37 @@ import type {
   ProjectsPagedResponse,
   ProjectStatsResponse,
 } from "@/types";
+
+/**
+ * Compact summary tile for the four boxes above the projects filters.
+ *
+ * Card's own padding plus CardHeader/CardContent defaults made these ~136px
+ * tall, which pushed the table most of a screen down the page. Dropping the
+ * header and tightening the padding halves that; module-level so the four
+ * tiles are not remounted on every render of the page.
+ */
+function StatTile({
+  label,
+  valueClassName,
+  children,
+}: {
+  label: string;
+  valueClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="p-0">
+      <CardContent className="px-4 py-2.5">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <div
+          className={`text-xl font-bold leading-tight ${valueClassName ?? ""}`}
+        >
+          {children}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function AdminProjects() {
   const { mutate: fetchProjectsPage } = useOrgProjectsPaged();
@@ -448,7 +477,7 @@ export function AdminProjects() {
       <>
         <Table
           className="table-fixed min-w-[1500px]"
-          containerClassName="max-h-[calc(100vh-12rem)] overflow-y-auto"
+          containerClassName="max-h-[calc(100vh-10rem)] overflow-y-auto"
         >
           <TableHeader>
             <TableRow>
@@ -836,7 +865,7 @@ export function AdminProjects() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -860,69 +889,38 @@ export function AdminProjects() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Projects
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              <Val>{formatNumber(stats?.active_count ?? 0)}</Val>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Inactive Projects
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              <Val>{formatNumber(stats?.inactive_count ?? 0)}</Val>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              <Val>{formatNumber(stats?.total_tasks ?? 0)}</Val>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">By Platform</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-3">
-              <div>
-                <span className="text-2xl font-bold">
-                  <Val>{formatNumber(stats?.tm4_count ?? 0)}</Val>
-                </span>
-                <Badge variant="secondary" className="ml-1 text-[10px]">
-                  TM4
-                </Badge>
-              </div>
-              <div>
-                <span className="text-2xl font-bold">
-                  <Val>{formatNumber(stats?.mr_count ?? 0)}</Val>
-                </span>
-                <Badge
-                  variant="default"
-                  className="ml-1 text-[10px] bg-blue-500"
-                >
-                  MR
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-3 md:grid-cols-4">
+        <StatTile label="Active Projects" valueClassName="text-green-600">
+          <Val>{formatNumber(stats?.active_count ?? 0)}</Val>
+        </StatTile>
+        <StatTile label="Inactive Projects" valueClassName="text-yellow-600">
+          <Val>{formatNumber(stats?.inactive_count ?? 0)}</Val>
+        </StatTile>
+        <StatTile label="Total Tasks">
+          <Val>{formatNumber(stats?.total_tasks ?? 0)}</Val>
+        </StatTile>
+        <StatTile label="By Platform">
+          <div className="flex items-baseline gap-3">
+            <span>
+              <Val>{formatNumber(stats?.tm4_count ?? 0)}</Val>
+              <Badge
+                variant="default"
+                className="ml-1 align-middle text-[10px] bg-amber-500"
+              >
+                TM4
+              </Badge>
+            </span>
+            <span>
+              <Val>{formatNumber(stats?.mr_count ?? 0)}</Val>
+              <Badge
+                variant="default"
+                className="ml-1 align-middle text-[10px] bg-blue-500"
+              >
+                MR
+              </Badge>
+            </span>
+          </div>
+        </StatTile>
       </div>
 
       <ProjectFilters
