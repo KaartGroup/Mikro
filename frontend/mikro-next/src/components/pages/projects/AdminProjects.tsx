@@ -56,6 +56,51 @@ import type {
   ProjectStatsResponse,
 } from "@/types";
 
+/*
+ * Row-action icons. Inline SVG, matching how the rest of components/ui does
+ * it -- there is no icon package in this project. Each button carries a title
+ * and aria-label naming the project, so dropping the text labels costs
+ * nothing for screen readers or hover discovery. The destructive one sits
+ * behind the existing confirmation modal (which archives rather than hard
+ * deletes), so it is not a one-click irreversible action.
+ */
+const ICON = {
+  className: "h-4 w-4",
+  fill: "none" as const,
+  stroke: "currentColor" as const,
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  viewBox: "0 0 24 24",
+  "aria-hidden": true,
+};
+
+function SyncIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3" />
+      <path d="M21 3v5h-5M3 21v-5h5" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />
+    </svg>
+  );
+}
+
 /**
  * Compact summary tile for the four boxes above the projects filters.
  *
@@ -465,19 +510,19 @@ export function AdminProjects() {
   // horizontally instead of crushing Budget onto three lines and sliding the
   // Actions buttons over the Difficulty badges.
   //
-  // Actions is the binding constraint: Sync + Edit + Delete at Button
-  // size="sm" (h-9 px-3.5) measure 231px together, so anything under ~15%
-  // of the 1500px minimum spills leftward over Difficulty -- which is
-  // exactly what the old 13% did.
+  // Actions used to be the binding constraint: three text buttons measured
+  // 231px, and because the column is pinned to the right edge it covered
+  // Difficulty permanently. Icon-only buttons need ~120px, which is what
+  // lets the whole table fit ~1150px with Difficulty on screen.
   const projSortColumns = [
-    { key: "name", label: "Project", width: "w-[21%]" },
+    { key: "name", label: "Project", width: "w-[22%]" },
     { key: "total_tasks", label: "Tasks", width: "w-[5%]" },
     { key: "", label: "Progress", width: "w-[13%]" },
     { key: "", label: "Done", width: "w-[5%]" },
     { key: "", label: "Last synced", width: "w-[8%]" },
     { key: "mapping_rate", label: "Rates", width: "w-[9%]" },
-    { key: "budget", label: "Budget", width: "w-[9%]" },
-    { key: "difficulty", label: "Difficulty", width: "w-[13%]" },
+    { key: "budget", label: "Budget", width: "w-[10%]" },
+    { key: "difficulty", label: "Difficulty", width: "w-[16%]" },
   ];
 
   // Renders the current tab's server-fetched page. Reads `projects`, `total`,
@@ -489,7 +534,7 @@ export function AdminProjects() {
     return (
       <>
         <Table
-          className="table-fixed min-w-[1400px]"
+          className="table-fixed min-w-[1150px]"
           containerClassName="max-h-[calc(100vh-10rem)] overflow-y-auto"
         >
           <TableHeader>
@@ -525,7 +570,7 @@ export function AdminProjects() {
                 </TableHead>
               ))}
               <TableHead
-                className={`w-[17%] text-right ${STICKY_HEAD} ${STICKY_ACTIONS} z-30`}
+                className={`w-[12%] text-right ${STICKY_HEAD} ${STICKY_ACTIONS} z-30`}
               >
                 Actions
               </TableHead>
@@ -786,30 +831,39 @@ export function AdminProjects() {
                 <TableCell className={`text-right pr-2 ${STICKY_ACTIONS}`}>
                   <div className="flex justify-end gap-1 flex-nowrap">
                     <Button
+                      className="h-8 w-8 p-0"
                       size="sm"
                       variant="outline"
+                      title={`Sync ${project.name} from its source`}
+                      aria-label={`Sync ${project.name}`}
                       onClick={() =>
                         handleSyncProject(project.id, project.name)
                       }
                       isLoading={syncingProjectId === project.id}
                       disabled={syncingProjectId !== null}
                     >
-                      Sync
+                      {syncingProjectId === project.id ? null : <SyncIcon />}
                     </Button>
                     <Button
+                      className="h-8 w-8 p-0"
                       size="sm"
                       variant="outline"
+                      title={`Edit ${project.name}`}
+                      aria-label={`Edit ${project.name}`}
                       onClick={() => openEditModal(project)}
                     >
-                      Edit
+                      <EditIcon />
                     </Button>
                     {(canCreateOrEditOrDelete || project.can_delete) && (
                       <Button
+                        className="h-8 w-8 p-0"
                         size="sm"
                         variant="destructive"
+                        title={`Archive ${project.name}`}
+                        aria-label={`Archive ${project.name}`}
                         onClick={() => openDeleteModal(project)}
                       >
-                        Delete
+                        <ArchiveIcon />
                       </Button>
                     )}
                   </div>
@@ -931,8 +985,6 @@ export function AdminProjects() {
         withMyProjects
         withMissingAssignment
         withSource
-        mrCount={stats?.mr_count}
-        tm4Count={stats?.tm4_count}
       />
 
       {/* Projects Tabs — controlled so the active tab drives the server query.

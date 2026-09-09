@@ -1092,9 +1092,9 @@ class ProjectService:
 
         Status and source are intentionally excluded from ``filters`` here so
         the active/inactive counts and the TM4/MR split are both reported for
-        the same filtered universe. Keeping source out is what lets the
-        source toggle show a stable total next to each option instead of
-        zeroing the count of whichever source is not selected.
+        the same filtered universe. Keeping source out is what lets the "By
+        Platform" card keep showing both totals while a source filter is
+        active, rather than zeroing whichever source is not selected.
         """
         filters = dict(filters or {})
         filters.pop("status", None)

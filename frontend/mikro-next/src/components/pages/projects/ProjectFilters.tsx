@@ -107,15 +107,6 @@ interface ProjectFiltersProps {
   withCompletion?: boolean;
   withMissingAssignment?: boolean;
   withSource?: boolean;
-  /**
-   * Totals shown against the MapRoulette / Tasking Manager buttons.
-   *
-   * These come from the stats endpoint, which deliberately ignores the source
-   * filter, so both numbers stay put when a source is selected instead of one
-   * of them dropping to zero.
-   */
-  mrCount?: number;
-  tm4Count?: number;
 }
 
 export function ProjectFilters({
@@ -126,8 +117,6 @@ export function ProjectFilters({
   withCompletion,
   withMissingAssignment,
   withSource,
-  mrCount,
-  tm4Count,
 }: ProjectFiltersProps) {
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
 
@@ -137,18 +126,23 @@ export function ProjectFilters({
     onChange(next);
   };
 
-  const sourceCount = (value: SourceFilter | null) =>
-    value === "mr" ? mrCount : value === "tm4" ? tm4Count : undefined;
-
   return (
     /*
-     * One dense row. The stacked per-control labels are gone: each dropdown's
-     * "All …" option already names its dimension, and the wrapper's title
-     * keeps it discoverable on hover once a value is selected. That plus
-     * tighter widths took this block from two ~68px rows down to one 40px
-     * row, which is most of a screen back for the table below.
+     * One dense row that cannot wrap.
+     *
+     * The stacked per-control labels are gone: each dropdown's "All …" option
+     * already names its dimension, and the wrapper's title keeps it
+     * discoverable on hover once a value is selected.
+     *
+     * Fixed widths plus flex-wrap were the problem -- at ~1200px of content
+     * the last two controls dropped onto a second 40px row. The dropdowns now
+     * share the leftover space (flex-1 min-w-0) instead of claiming a fixed
+     * amount, so the row stays one line at any width and the controls shrink
+     * together. Select truncates its value, so shrinking clips to an ellipsis
+     * rather than spilling. Only the source group and the Mine toggle are
+     * fixed, since neither has anything to clip.
      */
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-2">
       {withSource && (
         <div
           role="group"
@@ -158,7 +152,6 @@ export function ProjectFilters({
         >
           {SOURCE_OPTIONS.map((option) => {
             const active = filters.sourceFilter === option.value;
-            const count = sourceCount(option.value);
             return (
               <button
                 key={option.label}
@@ -173,9 +166,6 @@ export function ProjectFilters({
                 }`}
               >
                 {option.label}
-                {count !== undefined && (
-                  <span className="ml-1 opacity-70">{count}</span>
-                )}
               </button>
             );
           })}
@@ -186,11 +176,11 @@ export function ProjectFilters({
         placeholder="Search projects..."
         title="Search"
         aria-label="Search projects"
-        className="h-10 w-40 shrink-0 rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+        className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
         value={filters.search}
         onChange={(e) => update({ search: e.target.value })}
       />
-      <div className="w-36 shrink-0" title="Region">
+      <div className="min-w-0 flex-1" title="Region">
         <StandaloneFilter
           hideLabel
           label="Region"
@@ -204,7 +194,7 @@ export function ProjectFilters({
           onChange={(v) => update({ regionId: v })}
         />
       </div>
-      <div className="w-36 shrink-0" title="Country">
+      <div className="min-w-0 flex-1" title="Country">
         <StandaloneFilter
           hideLabel
           label="Country"
@@ -218,7 +208,7 @@ export function ProjectFilters({
           onChange={(v) => update({ countryId: v })}
         />
       </div>
-      <div className="w-32 shrink-0" title="Type">
+      <div className="min-w-0 flex-1" title="Type">
         <StandaloneFilter
           hideLabel
           label="Type"
@@ -230,7 +220,7 @@ export function ProjectFilters({
           }
         />
       </div>
-      <div className="w-32 shrink-0" title="Priority">
+      <div className="min-w-0 flex-1" title="Priority">
         <StandaloneFilter
           hideLabel
           label="Priority"
@@ -243,7 +233,7 @@ export function ProjectFilters({
         />
       </div>
       {withCompletion && (
-        <div className="w-40 shrink-0" title="Completion">
+        <div className="min-w-0 flex-1" title="Completion">
           <StandaloneFilter
             hideLabel
             label="Completion"
@@ -257,7 +247,7 @@ export function ProjectFilters({
         </div>
       )}
       {withTeam && (
-        <div className="w-36 shrink-0" title="Team">
+        <div className="min-w-0 flex-1" title="Team">
           <StandaloneFilter
             hideLabel
             label="Team"
@@ -273,11 +263,11 @@ export function ProjectFilters({
         </div>
       )}
       {withMissingAssignment && (
-        <div className="w-40 shrink-0" title="Needs setup">
+        <div className="min-w-0 flex-1" title="Needs setup">
           <StandaloneFilter
             hideLabel
             label="Needs setup"
-            allLabel="Any setup state"
+            allLabel="Any setup"
             options={MISSING_ASSIGNMENT_OPTIONS}
             value={filters.missingAssignment}
             onChange={(v) =>
@@ -290,12 +280,13 @@ export function ProjectFilters({
       )}
       {withMyProjects && (
         <Button
-          className="ml-auto shrink-0"
+          className="shrink-0"
+          title="Only projects I created"
           variant={filters.showMyProjects ? "primary" : "outline"}
           size="sm"
           onClick={() => update({ showMyProjects: !filters.showMyProjects })}
         >
-          My Projects
+          Mine
         </Button>
       )}
     </div>
