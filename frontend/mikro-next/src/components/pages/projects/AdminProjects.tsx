@@ -398,16 +398,42 @@ export function AdminProjects() {
   const STICKY_HEAD =
     "sticky top-0 z-20 bg-card shadow-[inset_0_-1px_0_var(--border)]";
 
+  /**
+   * Source colour coding: MapRoulette blue, Tasking Manager amber.
+   *
+   * The two sources are read very differently -- MR rows show a status
+   * breakdown, TM4 rows show mapped/validated counts -- so scanning a mixed
+   * list is easier when the source is visible without reading the badge. The
+   * tint is an alpha wash so it composes over the card background in both
+   * light and dark themes, and stays under TableRow's hover:bg-muted.
+   */
+  const sourceTint = (source: string | undefined) =>
+    source === "mr" ? "bg-blue-500/[0.06]" : "bg-amber-500/[0.06]";
+
+  const sourceAccent = (source: string | undefined) =>
+    source === "mr"
+      ? "border-l-4 border-l-blue-500"
+      : "border-l-4 border-l-amber-500";
+
+  // Percentages of the table's min-width (see the Table below), so every
+  // column resolves to a usable pixel width and a narrow window scrolls
+  // horizontally instead of crushing Budget onto three lines and sliding the
+  // Actions buttons over the Difficulty badges.
+  //
+  // Actions is the binding constraint: Sync + Edit + Delete at Button
+  // size="sm" (h-9 px-3.5) measure 231px together, so anything under ~15%
+  // of the 1500px minimum spills leftward over Difficulty -- which is
+  // exactly what the old 13% did.
   const projSortColumns = [
-    { key: "name", label: "Project", width: "w-[20%]" },
-    { key: "source_id", label: "Source ID", width: "w-[8%]" },
-    { key: "total_tasks", label: "Tasks", width: "w-[6%]" },
-    { key: "", label: "Progress", width: "w-[13%]" },
-    { key: "", label: "Done", width: "w-[6%]" },
-    { key: "", label: "Last synced", width: "w-[9%]" },
+    { key: "name", label: "Project", width: "w-[19%]" },
+    { key: "source_id", label: "Source ID", width: "w-[6%]" },
+    { key: "total_tasks", label: "Tasks", width: "w-[5%]" },
+    { key: "", label: "Progress", width: "w-[12%]" },
+    { key: "", label: "Done", width: "w-[5%]" },
+    { key: "", label: "Last synced", width: "w-[7%]" },
     { key: "mapping_rate", label: "Rates", width: "w-[8%]" },
-    { key: "budget", label: "Budget", width: "w-[8%]" },
-    { key: "difficulty", label: "Difficulty", width: "w-[9%]" },
+    { key: "budget", label: "Budget", width: "w-[9%]" },
+    { key: "difficulty", label: "Difficulty", width: "w-[14%]" },
   ];
 
   // Renders the current tab's server-fetched page. Reads `projects`, `total`,
@@ -419,7 +445,7 @@ export function AdminProjects() {
     return (
       <>
         <Table
-          className="table-fixed"
+          className="table-fixed min-w-[1500px]"
           containerClassName="max-h-[calc(100vh-12rem)] overflow-y-auto"
         >
           <TableHeader>
@@ -454,15 +480,17 @@ export function AdminProjects() {
                   </span>
                 </TableHead>
               ))}
-              <TableHead className={`w-[13%] text-right ${STICKY_HEAD}`}>
+              <TableHead className={`w-[15%] text-right ${STICKY_HEAD}`}>
                 Actions
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedProjects.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell className="max-w-0">
+              <TableRow key={project.id} className={sourceTint(project.source)}>
+                <TableCell
+                  className={`max-w-0 ${sourceAccent(project.source)}`}
+                >
                   <div className="min-w-0">
                     <div className="font-medium truncate">
                       <Link
@@ -480,7 +508,10 @@ export function AdminProjects() {
                           MR
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="ml-2 text-[10px]">
+                        <Badge
+                          variant="default"
+                          className="ml-2 text-[10px] bg-amber-500"
+                        >
                           TM4
                         </Badge>
                       )}
@@ -634,7 +665,7 @@ export function AdminProjects() {
                   {project.payments_enabled === false ? (
                     <Badge variant="secondary">Stats Only</Badge>
                   ) : (
-                    <div className="text-sm">
+                    <div className="text-sm whitespace-nowrap">
                       <p>
                         Map:{" "}
                         <Val>
@@ -651,7 +682,7 @@ export function AdminProjects() {
                   )}
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm">
+                  <div className="text-sm whitespace-nowrap">
                     <p>
                       Max: <Val>{formatCurrency(project.max_payment)}</Val>
                     </p>
@@ -721,7 +752,7 @@ export function AdminProjects() {
                   </div>
                 </TableCell>
                 <TableCell className="text-right pr-2">
-                  <div className="flex justify-end gap-1">
+                  <div className="flex justify-end gap-1 flex-nowrap">
                     <Button
                       size="sm"
                       variant="outline"

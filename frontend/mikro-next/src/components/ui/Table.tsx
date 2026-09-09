@@ -20,9 +20,11 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
     <div className={cn("relative w-full overflow-x-auto", containerClassName)}>
       <table
         ref={ref}
-        className={cn("w-full caption-bottom text-sm", className)}
-        style={{ minWidth: 600 }}
         {...props}
+        /* min-w is a class rather than an inline style so a caller can raise
+           it -- an inline style would win over any className and leave wide
+           tables squeezing their columns instead of scrolling. */
+        className={cn("w-full caption-bottom text-sm min-w-[600px]", className)}
       />
     </div>
   ),
