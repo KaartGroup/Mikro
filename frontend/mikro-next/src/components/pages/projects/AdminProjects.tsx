@@ -129,6 +129,7 @@ export function AdminProjects() {
     if (filters.priorityFilter) body.priority = filters.priorityFilter;
     if (filters.missingAssignment)
       body.missing_assignment = filters.missingAssignment;
+    if (filters.sourceFilter) body.source = filters.sourceFilter;
     return body;
   }, [
     debouncedSearch,
@@ -139,6 +140,7 @@ export function AdminProjects() {
     filters.communityFilter,
     filters.priorityFilter,
     filters.missingAssignment,
+    filters.sourceFilter,
   ]);
 
   // Fetch one page of the active tab (status + sort + page). The Archived tab
@@ -929,6 +931,9 @@ export function AdminProjects() {
         withTeam
         withMyProjects
         withMissingAssignment
+        withSource
+        mrCount={stats?.mr_count}
+        tm4Count={stats?.tm4_count}
       />
 
       {/* Projects Tabs — controlled so the active tab drives the server query.

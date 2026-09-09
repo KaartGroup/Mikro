@@ -11,6 +11,9 @@ export type CompletionFilter =
   | "almost-done"
   | "complete";
 export type CommunityFilter = "community" | "internal";
+// Task source. "tm4" means "not MapRoulette" server-side, so projects whose
+// source column predates its server_default are still matched.
+export type SourceFilter = "mr" | "tm4";
 export type PriorityFilter = "High" | "Medium" | "Low";
 // Projects still missing a setup link: a location, a team, or either.
 export type MissingAssignmentFilter = "location" | "team" | "any";
@@ -25,6 +28,7 @@ export interface ProjectFiltersValue {
   communityFilter: CommunityFilter | null;
   priorityFilter: PriorityFilter | null;
   missingAssignment: MissingAssignmentFilter | null;
+  sourceFilter: SourceFilter | null;
 }
 
 export const DEFAULT_FILTERS: ProjectFiltersValue = {
@@ -37,7 +41,28 @@ export const DEFAULT_FILTERS: ProjectFiltersValue = {
   communityFilter: null,
   priorityFilter: null,
   missingAssignment: null,
+  sourceFilter: null,
 };
+
+// Colours match the row tint and source badge on the projects table, so the
+// selected button and the rows it produces read as the same thing.
+const SOURCE_OPTIONS: {
+  value: SourceFilter | null;
+  label: string;
+  activeClass: string;
+}[] = [
+  {
+    value: null,
+    label: "All",
+    activeClass: "bg-secondary text-secondary-foreground",
+  },
+  { value: "mr", label: "MapRoulette", activeClass: "bg-blue-500 text-white" },
+  {
+    value: "tm4",
+    label: "Tasking Manager",
+    activeClass: "bg-amber-500 text-white",
+  },
+];
 
 const PRIORITY_OPTIONS: { value: PriorityFilter; label: string }[] = [
   { value: "High", label: "High" },
@@ -73,6 +98,16 @@ interface ProjectFiltersProps {
   withMyProjects?: boolean;
   withCompletion?: boolean;
   withMissingAssignment?: boolean;
+  withSource?: boolean;
+  /**
+   * Totals shown against the MapRoulette / Tasking Manager buttons.
+   *
+   * These come from the stats endpoint, which deliberately ignores the source
+   * filter, so both numbers stay put when a source is selected instead of one
+   * of them dropping to zero.
+   */
+  mrCount?: number;
+  tm4Count?: number;
 }
 
 export function ProjectFilters({
@@ -82,6 +117,9 @@ export function ProjectFilters({
   withMyProjects,
   withCompletion,
   withMissingAssignment,
+  withSource,
+  mrCount,
+  tm4Count,
 }: ProjectFiltersProps) {
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
 
@@ -91,8 +129,46 @@ export function ProjectFilters({
     onChange(next);
   };
 
+  const sourceCount = (value: SourceFilter | null) =>
+    value === "mr" ? mrCount : value === "tm4" ? tm4Count : undefined;
+
   return (
     <div className="flex flex-wrap items-end gap-3">
+      {withSource && (
+        <div className="flex flex-col">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            Source
+          </label>
+          <div
+            role="group"
+            aria-label="Filter by task source"
+            className="flex h-10 items-center gap-1 rounded-lg border border-input bg-background p-1"
+          >
+            {SOURCE_OPTIONS.map((option) => {
+              const active = filters.sourceFilter === option.value;
+              const count = sourceCount(option.value);
+              return (
+                <button
+                  key={option.label}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => update({ sourceFilter: option.value })}
+                  className={`h-8 whitespace-nowrap rounded-md px-3 text-sm transition-colors ${
+                    active
+                      ? option.activeClass
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {option.label}
+                  {count !== undefined && (
+                    <span className="ml-1.5 opacity-70">{count}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <div className="flex flex-col">
         <label className="mb-1.5 block text-sm font-medium text-foreground">
           Search

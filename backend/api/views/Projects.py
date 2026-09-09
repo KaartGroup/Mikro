@@ -723,8 +723,13 @@ class ProjectAPI(MethodView):
         """Build the ProjectService filter dict shared by the paged + stats
         endpoints. ``status`` is passed explicitly (None to omit)."""
         community = req_body.get("community")
+        # Only the two known sources are honoured; anything else is ignored
+        # rather than passed through to the query.
+        source = req_body.get("source")
+        source = source if source in ("mr", "tm4") else None
         return {
             "status": status if isinstance(status, bool) else None,
+            "source": source,
             "search": req_body.get("search"),
             "community": community if isinstance(community, bool) else None,
             "priority": req_body.get("priority"),
