@@ -430,6 +430,20 @@ export function AdminProjects() {
     "sticky top-0 z-20 bg-card shadow-[inset_0_-1px_0_var(--border)]";
 
   /**
+   * Actions is pinned to the right edge of the table's horizontal scroll box,
+   * so Sync / Edit / Delete stay on screen at any window width instead of
+   * sitting past the right edge waiting to be scrolled to.
+   *
+   * The background has to be opaque -- rows scroll underneath it -- so the
+   * pinned column reads a shade flatter than the source tint on its row. The
+   * left-edge shadow makes that read as a pinned column rather than a
+   * mismatch. The header cell is sticky on both axes and needs the higher
+   * z-index to sit above both its own row and the column below it.
+   */
+  const STICKY_ACTIONS =
+    "sticky right-0 z-10 bg-card shadow-[inset_1px_0_0_var(--border)]";
+
+  /**
    * Source colour coding: MapRoulette blue, Tasking Manager amber.
    *
    * The two sources are read very differently -- MR rows show a status
@@ -456,15 +470,14 @@ export function AdminProjects() {
   // of the 1500px minimum spills leftward over Difficulty -- which is
   // exactly what the old 13% did.
   const projSortColumns = [
-    { key: "name", label: "Project", width: "w-[19%]" },
-    { key: "source_id", label: "Source ID", width: "w-[6%]" },
+    { key: "name", label: "Project", width: "w-[21%]" },
     { key: "total_tasks", label: "Tasks", width: "w-[5%]" },
-    { key: "", label: "Progress", width: "w-[12%]" },
+    { key: "", label: "Progress", width: "w-[13%]" },
     { key: "", label: "Done", width: "w-[5%]" },
-    { key: "", label: "Last synced", width: "w-[7%]" },
-    { key: "mapping_rate", label: "Rates", width: "w-[8%]" },
+    { key: "", label: "Last synced", width: "w-[8%]" },
+    { key: "mapping_rate", label: "Rates", width: "w-[9%]" },
     { key: "budget", label: "Budget", width: "w-[9%]" },
-    { key: "difficulty", label: "Difficulty", width: "w-[14%]" },
+    { key: "difficulty", label: "Difficulty", width: "w-[13%]" },
   ];
 
   // Renders the current tab's server-fetched page. Reads `projects`, `total`,
@@ -476,7 +489,7 @@ export function AdminProjects() {
     return (
       <>
         <Table
-          className="table-fixed min-w-[1500px]"
+          className="table-fixed min-w-[1400px]"
           containerClassName="max-h-[calc(100vh-10rem)] overflow-y-auto"
         >
           <TableHeader>
@@ -511,7 +524,9 @@ export function AdminProjects() {
                   </span>
                 </TableHead>
               ))}
-              <TableHead className={`w-[15%] text-right ${STICKY_HEAD}`}>
+              <TableHead
+                className={`w-[17%] text-right ${STICKY_HEAD} ${STICKY_ACTIONS} z-30`}
+              >
                 Actions
               </TableHead>
             </TableRow>
@@ -547,37 +562,23 @@ export function AdminProjects() {
                         </Badge>
                       )}
                     </div>
+                    {/* The id lived in its own column, whose only content
+                    was this same external link. Folding it in here keeps the
+                    source id visible without spending a column on it. */}
                     <a
                       href={getProjectExternalUrl(project.id, project.source)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-kaart-orange hover:underline"
+                      className="font-mono text-sm text-kaart-orange hover:underline"
                       title={
                         project.source === "mr"
-                          ? "Open in MapRoulette"
-                          : "Open in Tasking Manager"
+                          ? `Open challenge ${project.id} in MapRoulette`
+                          : `Open project ${project.id} in Tasking Manager`
                       }
                     >
-                      Open ↗
+                      {project.id} ↗
                     </a>
                   </div>
-                </TableCell>
-                <TableCell>
-                  {/* Source ID = upstream TM4/MR id, persisted as project.id PK.
-                  Monospace + small so the digits don't crowd the row. */}
-                  <a
-                    href={getProjectExternalUrl(project.id, project.source)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-sm text-kaart-orange hover:underline"
-                    title={
-                      project.source === "mr"
-                        ? "Open in MapRoulette"
-                        : "Open in Tasking Manager"
-                    }
-                  >
-                    {project.id}
-                  </a>
                 </TableCell>
                 <TableCell>
                   {project.total_tasks === 0 && !project.last_synced ? (
@@ -782,7 +783,7 @@ export function AdminProjects() {
                     ) : null}
                   </div>
                 </TableCell>
-                <TableCell className="text-right pr-2">
+                <TableCell className={`text-right pr-2 ${STICKY_ACTIONS}`}>
                   <div className="flex justify-end gap-1 flex-nowrap">
                     <Button
                       size="sm"
@@ -818,7 +819,7 @@ export function AdminProjects() {
             {total === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={10}
+                  colSpan={9}
                   className="text-center py-8 text-muted-foreground"
                 >
                   {listLoading ? "Loading…" : "No projects found"}
