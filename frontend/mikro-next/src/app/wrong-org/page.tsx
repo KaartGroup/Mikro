@@ -30,22 +30,22 @@ export default function WrongOrgPage() {
             marginBottom: 16,
           }}
         >
-          Mikro isn&apos;t available for your organization yet
+          Mikro isn&apos;t available for your organization
         </h1>
         <p style={{ color: "#4b5563", marginBottom: 16, lineHeight: 1.6 }}>
-          Mikro is currently a Kaart internal tool. We&apos;re working on
-          opening it up to other organizations as a paid platform.
+          Your organization isn&apos;t active in Mikro right now. That may be
+          because access hasn&apos;t been set up yet, or because it has been
+          disabled.
         </p>
         <p style={{ color: "#4b5563", marginBottom: 24, lineHeight: 1.6 }}>
-          If you&apos;re interested in Mikro for your organization, please reach
-          out to{" "}
+          Contact your administrator to have access restored, or reach out to{" "}
           <a
-            href="mailto:dev@kaart.com?subject=Mikro%20for%20our%20organization"
+            href="mailto:dev@kaart.com?subject=Mikro%20access%20for%20our%20organization"
             style={{ color: "#004e89", fontWeight: 600 }}
           >
             dev@kaart.com
-          </a>
-          .
+          </a>{" "}
+          if you think this is a mistake.
         </p>
         <p
           style={{

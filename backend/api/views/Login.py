@@ -9,6 +9,7 @@ Creates or retrieves user records based on Auth0 claims.
 from flask.views import MethodView
 from flask import g, jsonify, current_app, request
 
+from ..auth import org_id_source, resolve_request_org, resolved_org_id
 from ..database import User
 
 
@@ -73,8 +74,62 @@ class LoginAPI(MethodView):
         roles = auth0_payload.get(f"{namespace}/roles", ["user"])
         role = roles[0] if roles else "user"
 
-        # Get org_id from custom claim (mikro/org_id)
-        org_id = auth0_payload.get(f"{namespace}/org_id")
+        # Org identity comes from the ORG RESOLUTION chain in api/auth/auth.py
+        # (native `org_id` claim → `mikro/org_id` claim → the caller's own DB
+        # row), never from a claim read here — reading the claim directly is
+        # the bug that chain exists to prevent. `authenticate_request` already
+        # ran it for this request; re-run it when it produced nothing, because
+        # that upstream call is wrapped in a swallow-all except and login is
+        # the one endpoint that must not proceed on a half-resolved org.
+        if not resolved_org_id():
+            try:
+                resolve_request_org(auth0_payload, getattr(g, "user", None))
+            except Exception as resolve_e:
+                current_app.logger.warning(
+                    "[AUTH-TRACE] event=login_org_resolve_failed "
+                    f"sub={auth0_sub!r} err={resolve_e!r}"
+                )
+        org_id = resolved_org_id()
+        org_source = org_id_source()
+
+        # What the token actually carried — key NAMES only, never values, so
+        # "which claims did Auth0 send?" is answerable from the logs without
+        # leaking token contents. The resolution chain annotates the payload
+        # with its own bookkeeping keys; strip those so this describes the
+        # token rather than our own additions (`org_id` survives only when it
+        # arrived as the native claim — `org_source` reports the rest).
+        internal_keys = {"org_id_source", "org_id_from_local_row"}
+        if org_source != "native":
+            internal_keys.add("org_id")
+        claim_keys = sorted(k for k in auth0_payload if k not in internal_keys)
+
+        # ── Fail closed when no org resolves. This is safe precisely because
+        # tier 3 of the chain backfills from the caller's own users row: a
+        # genuine member still resolves when the Auth0 Action never wrote the
+        # claim. Reaching here with None means we cannot place this identity
+        # in ANY tenant, so refuse — the old gate below read
+        # `if org_id and org_id != kaart_org_id`, which failed OPEN on a
+        # missing claim and also created users with a NULL org_id. The
+        # frontend routes reason 'no_org' to /no-org.
+        if not org_id:
+            current_app.logger.warning(
+                "[AUTH-TRACE] event=login_no_org "
+                f"sub={auth0_sub!r} email={email!r} org_source={org_source!r} "
+                f"claim_keys={claim_keys!r}"
+            )
+            return (
+                jsonify(
+                    {
+                        "message": (
+                            "Your account isn't linked to an organization in "
+                            "Mikro yet. Ask an admin to invite you."
+                        ),
+                        "status": 403,
+                        "reason": "no_org",
+                    }
+                ),
+                403,
+            )
 
         # ── Org gating (Phase B): the Organization table is the single source
         # of truth for which orgs may log in — replacing the old frontend
@@ -82,10 +137,9 @@ class LoginAPI(MethodView):
         # allowed (it may predate the organizations table / its seed); any
         # OTHER org must exist and be 'active'. Disabled or unknown orgs are
         # rejected here, BEFORE a user row is created, with a distinct
-        # reason the frontend routes to /wrong-org. A None org_id is left to
-        # the frontend /no-org handling.
+        # reason the frontend routes to /wrong-org.
         kaart_org_id = current_app.config.get("AUTH0_ORG_ID")
-        if org_id and org_id != kaart_org_id:
+        if org_id != kaart_org_id:
             from ..database import Organization
 
             org_row = Organization.query.filter_by(id=org_id).first()
@@ -115,10 +169,35 @@ class LoginAPI(MethodView):
         current_app.logger.warning(
             "[AUTH-TRACE] event=login_start "
             f"sub={auth0_sub!r} email={email!r} org_id={org_id!r} "
+            f"org_source={org_source!r} claim_keys={claim_keys!r} "
             f"roles_from_token={roles!r} existing_user={user is not None}"
         )
 
         if not user:
+            # Never write a NULL org_id. The fail-closed 403 above makes this
+            # unreachable today; it stays so a future refactor that moves or
+            # loosens that gate cannot silently recreate org-less users, who
+            # are invisible to every org-scoped query in the app.
+            if not org_id:
+                current_app.logger.error(
+                    "[AUTH-TRACE] event=login_create_blocked_no_org "
+                    f"sub={auth0_sub!r} email={email!r} "
+                    f"org_source={org_source!r} claim_keys={claim_keys!r}"
+                )
+                return (
+                    jsonify(
+                        {
+                            "message": (
+                                "Your account isn't linked to an organization "
+                                "in Mikro yet. Ask an admin to invite you."
+                            ),
+                            "status": 403,
+                            "reason": "no_org",
+                        }
+                    ),
+                    403,
+                )
+
             # Create new user
             current_app.logger.info(f"Creating new user for {auth0_sub}")
             try:

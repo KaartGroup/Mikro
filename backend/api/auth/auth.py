@@ -7,6 +7,7 @@ Pattern adapted from Viewer application.
 
 import json
 import os
+import re
 import time as _time
 from urllib.request import urlopen
 
@@ -52,6 +53,155 @@ def _trace_auth(event: str, **kw):
         parts.append(f"{k}={v!r}")
     parts.append(f"ua={ua!r}")
     current_app.logger.warning("[AUTH-TRACE] " + " ".join(parts))
+
+
+# ───────────────────────── ORG RESOLUTION (SSOT) ─────────────────────────
+#
+# THE single place Mikro decides "which organization is this request in".
+# Everything downstream (Login.py, org gating, provisioning) must consume
+# `resolved_org_id()` and never re-read an org claim off the token itself.
+#
+# Why this exists: org identity used to be read straight off the
+# `mikro/org_id` custom claim in exactly one place (Login.py), which made the
+# whole system depend on an Auth0 Action that writes `app_metadata.org_id`.
+# When that claim went missing the org gate silently failed OPEN, and members
+# whose Mikro row held the correct org were still refused — because nothing
+# ever asked the database. Modelled on Maprizon's 3-tier chain
+# (server/flaskr/auth/auth.py in the viewer repo), which solved this already.
+#
+# Precedence, highest first:
+#   1. native `org_id`      — Auth0 emits this on an ORG-SCOPED login (i.e. an
+#                             `organization` param reached /authorize). Most
+#                             trustworthy: Auth0 itself verified membership.
+#   2. `mikro/org_id`       — namespaced custom claim from app_metadata, set by
+#                             the post-login Action. Needed for clients that
+#                             cannot send `organization=` at all.
+#   3. the caller's DB row  — last resort. Marked `org_id_from_local_row` so
+#                             privilege checks can refuse a backfilled org, and
+#                             skipped for soft-deleted users so an erased
+#                             identity's stale org is never reinstated.
+#
+# A tier-3 org is NOT proof of current Auth0 membership — it is the last known
+# good value. Treat it as sufficient for scoping, never for granting
+# privilege across tenants.
+#
+# WHY LOGIN CAN SAFELY FAIL CLOSED ON None (see Login.py). It looks like a
+# first-ever login must break — no DB row means no tier 3 — but people do not
+# join Mikro by visiting /auth/login. They arrive from an Auth0 invitation
+# email, which lands on /accept-invitation and forwards `organization=<org_id>`
+# to /authorize (see frontend/src/app/accept-invitation/route.ts). That makes
+# the login ORG-SCOPED, so Auth0 issues the native `org_id` claim — tier 1 —
+# and it does so itself, independently of the post-login Action and of
+# app_metadata. A new invitee therefore resolves on tier 1 with no DB row at
+# all, and the row that first login creates carries the right org, which then
+# feeds tier 3 for every subsequent bare login. The chain is self-healing:
+#
+#   invite  → tier 1 (native claim) → user row written with the correct org
+#   later   → tier 3 (that row)     → resolves forever after
+#
+# So an identity reaching here with no org has neither a row NOR an invitation
+# context — i.e. was never invited. Refusing it is correct, not collateral.
+
+ORG_ID_RE = re.compile(r"^org_[A-Za-z0-9]+$")
+
+
+def _valid_org_id(value):
+    """True if `value` looks like a real Auth0 organization id."""
+    return isinstance(value, str) and bool(ORG_ID_RE.match(value))
+
+
+def _normalize_org_claim(payload):
+    """
+    Resolve tiers 1 and 2 into `payload["org_id"]`.
+
+    Mutates `payload` in place and records provenance in
+    `payload["org_id_source"]` (``"native"`` | ``"namespaced"`` | ``None``).
+    A malformed value in either position is discarded rather than trusted.
+    """
+    if not isinstance(payload, dict):
+        return
+
+    native = payload.get("org_id")
+    if _valid_org_id(native):
+        payload["org_id_source"] = "native"
+        return
+
+    namespace = current_app.config.get("AUTH0_NAMESPACE", "mikro")
+    namespaced = payload.get(f"{namespace}/org_id")
+    if _valid_org_id(namespaced):
+        payload["org_id"] = namespaced
+        payload["org_id_source"] = "namespaced"
+        return
+
+    # Neither tier produced a usable value. Clear any malformed leftover so
+    # downstream truthiness checks cannot act on garbage.
+    payload.pop("org_id", None)
+    payload["org_id_source"] = None
+
+
+def _backfill_org_from_db_user(payload, user):
+    """
+    Tier 3: supply the org from the caller's own DB row when the token names
+    none. No-op if a claim already won, if there is no row, or if the row is
+    soft-deleted.
+    """
+    if not isinstance(payload, dict) or payload.get("org_id"):
+        return
+    if user is None or getattr(user, "deleted_date", None) is not None:
+        return
+
+    org_id = getattr(user, "org_id", None)
+    if _valid_org_id(org_id):
+        payload["org_id"] = org_id
+        payload["org_id_source"] = "local_row"
+        payload["org_id_from_local_row"] = True
+
+
+def resolve_request_org(payload, user):
+    """
+    Run the full chain for one request. Called by `authenticate_request`
+    immediately after `g.user` is loaded; not intended for direct use in views.
+    """
+    _normalize_org_claim(payload)
+    _backfill_org_from_db_user(payload, user)
+
+
+def resolved_org_id():
+    """
+    The organization for the current request, or None.
+
+    This is the accessor every caller should use. Reading an org claim off
+    `g.current_user` directly bypasses the chain and is the bug this module
+    exists to prevent.
+    """
+    payload = getattr(g, "current_user", None)
+    if not isinstance(payload, dict):
+        return None
+    return payload.get("org_id")
+
+
+def org_id_source():
+    """Which tier supplied the org: "native" | "namespaced" | "local_row" | None."""
+    payload = getattr(g, "current_user", None)
+    if not isinstance(payload, dict):
+        return None
+    return payload.get("org_id_source")
+
+
+def org_id_is_backfilled():
+    """
+    True when the org came from the DB row rather than a verified claim.
+
+    Callers granting cross-tenant privilege must refuse a backfilled org —
+    it is a last-known-good value, not proof of current Auth0 membership.
+    """
+    payload = getattr(g, "current_user", None)
+    if not isinstance(payload, dict):
+        return False
+    return bool(payload.get("org_id_from_local_row"))
+
+
+# ─────────────────────────────────────────────────────────────────────────
 
 
 def get_token_auth_header():
@@ -214,6 +364,17 @@ def authenticate_request():
                     current_app.logger.warning(f"Could not load user from DB: {e}")
                     _trace_auth("db_lookup_failed", err=str(e))
                     g.user = None
+
+                # Resolve the request's organization ONCE, here, for every
+                # request — not just /api/login. See the ORG RESOLUTION block
+                # above. Wrapped so a resolution bug can never 500 the whole
+                # API: the worst case is `resolved_org_id()` returning None,
+                # which callers already have to handle.
+                try:
+                    resolve_request_org(payload, getattr(g, "user", None))
+                except Exception as e:
+                    current_app.logger.warning(f"Org resolution failed: {e}")
+                    _trace_auth("org_resolution_failed", err=str(e))
 
                 return None
 

@@ -9,14 +9,17 @@ export default async function LandingPage() {
     return <LandingClient />;
   }
 
-  const orgId =
-    (session.user["mikro/org_id"] as string | undefined) ??
-    (session.user.org_id as string | undefined);
-  if (!orgId) {
-    redirect("/no-org");
-  }
-
-  // NO backend sync here, and NO getAccessToken() — deliberately.
+  // NO org gate here — deliberately.
+  //
+  // This page used to redirect to /no-org whenever the ID token carried no org
+  // claim. That refused confirmed org members whose Mikro row held the correct
+  // org_id (the "No Organization Found" bug of 2026-09-10): the claim is not
+  // the source of truth, the database is. The only authoritative check is the
+  // backend verdict from POST /api/login, and (authenticated)/layout.tsx makes
+  // it one request later — so this page's entire job is to send a logged-in
+  // user to /dashboard.
+  //
+  // NO backend sync here, and NO getAccessToken() — also deliberately.
   //
   // This page only ever redirects to /dashboard, whose layout
   // ((authenticated)/layout.tsx) already calls syncUserWithBackend() on the

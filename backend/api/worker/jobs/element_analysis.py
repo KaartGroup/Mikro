@@ -285,9 +285,15 @@ if __name__ == "__main__":
 
     app = create_app()
 
-    org_id = "org_9alzx7S32reIQ86s"
+    # Org id comes from argv[1], else the AUTH0_ORG_ID env var. Never defaulted —
+    # running this against the wrong tenant writes real rows.
+    org_id = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("AUTH0_ORG_ID")
     if not org_id:
-        print("ERROR: AUTH0_ORG_ID environment variable not set")
+        print(
+            "ERROR: no org id supplied.\n"
+            "Usage: python -m api.worker.jobs.element_analysis <org_id>\n"
+            "   or: AUTH0_ORG_ID=<org_id> python -m api.worker.jobs.element_analysis"
+        )
         sys.exit(1)
 
     # Minimal mock that satisfies the fields run_element_analysis_job reads/writes.

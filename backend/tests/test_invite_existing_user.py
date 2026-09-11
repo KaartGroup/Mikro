@@ -129,8 +129,13 @@ def test_invite_existing_user_adds_as_member_not_invitation(auth0_app):
     helper_posts = [c.args[0] for c in hreq.post.call_args_list]
     assert any(u.endswith("/members") for u in helper_posts)
     assert not any("/invitations" in u for u in helper_posts)
-    _get_url, get_kwargs = hreq.get.call_args
-    assert get_kwargs["params"]["email"] == "existing@viewer.test"
+    # Find the users-by-email lookup specifically rather than trusting call
+    # order. The member path now makes a SECOND GET after this one (reading
+    # app_metadata so org_id can be merged in), so `call_args` — which is the
+    # LAST call — no longer points at the lookup.
+    lookup_calls = [c for c in hreq.get.call_args_list if "users-by-email" in c.args[0]]
+    assert len(lookup_calls) == 1
+    assert lookup_calls[0].kwargs["params"]["email"] == "existing@viewer.test"
 
 
 def test_invite_new_user_still_sends_invitation(auth0_app):
