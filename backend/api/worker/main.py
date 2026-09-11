@@ -16,7 +16,7 @@ from .jobs.element_analysis import (
 )
 from .jobs.mr_backfill import run_mr_metadata_backfill
 from .jobs.watchlist_refresh import run_watchlist_refresh_job
-from ..database import db, SyncJob, User
+from ..database import db, SyncJob, User, Organization
 
 _STALE_JOB_TIMEOUT = timedelta(hours=1)
 _SHUTDOWN_MARKER = "/tmp/mikro_worker_clean_shutdown"
@@ -128,13 +128,107 @@ def _expire_stale_sync_job(db, job):
     return True
 
 
-def schedule_nightly_jobs(app):
-    """Queue task_sync and element_analysis for every org that doesn't already have one pending."""
-    with app.app_context():
-        orgs = (
-            db.session.query(User.org_id).filter(User.org_id != None).distinct().all()
+def _nightly_org_ids():
+    """Return the org_ids that should get nightly jobs: distinct non-null org_ids
+    on users that ALSO have an active row in the organizations table.
+
+    The organizations table is the source of truth for which tenants exist and
+    whether they are switched on. Filtering here stops a disabled org's leftover
+    user rows from scheduling task_sync / element_analysis / watchlist_refresh
+    forever, burning API quota and worker time for a tenant that is off.
+
+    FAIL-SAFE: if the organizations lookup raises for any reason (missing table
+    on an un-migrated DB, transient DB error, …) we do NOT return an empty list,
+    because that would silently stop nightly jobs for every tenant. Instead we
+    fall back to the previous behaviour — every distinct non-null org_id on
+    users, unfiltered — and log a loud warning so the drift is visible.
+    """
+    user_org_ids = [
+        row[0]
+        for row in db.session.query(User.org_id)
+        .filter(User.org_id != None)
+        .distinct()
+        .all()
+    ]
+
+    # A NULL org_id is a data defect elsewhere in the system, so surface it
+    # rather than letting the scheduler skip those users silently.
+    null_org_users = (
+        db.session.query(db.func.count(User.id)).filter(User.org_id == None).scalar()
+        or 0
+    )
+    if null_org_users:
+        logger.warning(
+            f"[NIGHTLY] {null_org_users} user(s) have a NULL org_id — not covered by "
+            f"any nightly job (data defect worth fixing)"
         )
-        for (org_id,) in orgs:
+
+    try:
+        org_status = {
+            org.id: org.status
+            for org in db.session.query(Organization.id, Organization.status).all()
+        }
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(
+            f"[NIGHTLY] Could not read organizations table ({e}) — running UNFILTERED "
+            f"over all {len(user_org_ids)} org_id(s) found on users. Disabled orgs may "
+            f"be scheduled this run."
+        )
+        return user_org_ids
+
+    active, skipped_disabled, skipped_missing = [], [], []
+    for org_id in user_org_ids:
+        status = org_status.get(org_id)
+        if status is None:
+            skipped_missing.append(org_id)
+        elif status == "active":
+            active.append(org_id)
+        else:
+            skipped_disabled.append(org_id)
+
+    if skipped_disabled:
+        logger.info(
+            f"[NIGHTLY] Skipped {len(skipped_disabled)} org(s) — reason=disabled: "
+            f"{skipped_disabled}"
+        )
+    if skipped_missing:
+        logger.warning(
+            f"[NIGHTLY] Skipped {len(skipped_missing)} org(s) — "
+            f"reason=not_in_organizations_table: {skipped_missing}"
+        )
+
+    # SECOND FAIL-SAFE: the try/except above only catches a RAISED error. A
+    # missing or unseeded `organizations` table returns cleanly with nothing
+    # matched, which would silently stop nightly jobs for EVERY tenant — the
+    # worst possible failure here, and invisible until someone notices stale
+    # task data days later.
+    #
+    # This is a real possibility, not a hypothetical: the organizations table
+    # is seeded from AUTH0_ORG_ID at migration time, so a database migrated
+    # while that env var was unset has no row for the home org at all.
+    #
+    # "users reference orgs, but not one of them is active" is far more likely
+    # a data/migration defect than a genuine all-tenants-disabled state, so
+    # treat it the same as the exception path: run unfiltered and shout.
+    if user_org_ids and not active:
+        logger.warning(
+            f"[NIGHTLY] {len(user_org_ids)} org(s) found on users but NONE are "
+            f"active in the organizations table — refusing to schedule nothing. "
+            f"Running UNFILTERED. Check `SELECT id, name, status FROM "
+            f"organizations;` — the home org row may be missing or disabled. "
+            f"missing={skipped_missing} disabled={skipped_disabled}"
+        )
+        return user_org_ids
+
+    logger.info(f"[NIGHTLY] Scheduling for {len(active)} active org(s): {active}")
+    return active
+
+
+def schedule_nightly_jobs(app):
+    """Queue task_sync and element_analysis for every active org that doesn't already have one pending."""
+    with app.app_context():
+        for org_id in _nightly_org_ids():
             for job_type in ("task_sync", "element_analysis", "watchlist_refresh"):
                 _, created = SyncJobQueue.enqueue(org_id, job_type)
                 if created:

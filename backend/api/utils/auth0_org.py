@@ -34,6 +34,94 @@ def get_db_connection_id(domain, headers):
     return None
 
 
+def _choose_tenant_identity(matches, email):
+    """Pick ONE Auth0 identity for ``email``, deterministically.
+
+    The tenant is shared across Mikro, Maprizon and the Tasking Manager, so one
+    email can carry several identities (database, Google, SAML). ``matches[0]``
+    is whatever order Auth0 happened to return — granting the org to the wrong
+    identity leaves the person locked out of the org they were just invited to,
+    and it can flip between calls. So prefer the
+    ``Username-Password-Authentication`` / ``auth0|`` database identity, which
+    is the connection invitations are issued against, and fall back to the
+    first match only when none qualifies.
+
+    Mirrors ``findTenantUserByEmail`` in the Maprizon client, which solved the
+    same ambiguity on the same tenant.
+    """
+    if not matches:
+        return None
+
+    def _is_db_identity(user):
+        identities = user.get("identities") or []
+        if any(
+            i.get("connection") == "Username-Password-Authentication"
+            for i in identities
+        ):
+            return True
+        return str(user.get("user_id") or "").startswith("auth0|")
+
+    chosen = next((u for u in matches if _is_db_identity(u)), None) or matches[0]
+
+    if len(matches) > 1:
+        current_app.logger.warning(
+            f"users-by-email returned {len(matches)} identities for {email!r}; "
+            f"chose {chosen.get('user_id')!r} from "
+            f"{[u.get('user_id') for u in matches]}"
+        )
+
+    return chosen.get("user_id")
+
+
+def _sync_app_metadata_org(domain, headers, user_id, org_id):
+    """Best-effort write of ``app_metadata.org_id`` for ``user_id``.
+
+    Org membership and the ``mikro/org_id`` claim are two different mechanisms:
+    membership is the Auth0 Organizations record, while the claim is derived by
+    the post-login Action from ``app_metadata.org_id``. Granting membership
+    without writing the metadata leaves the two silently divergent — the user
+    is a member, but their tokens carry no org. GETs the user first and merges
+    so unrelated app_metadata keys (roles, flags) survive.
+
+    Never fails the invite: a missed metadata write is recoverable (the
+    login-time org resolution chain falls back to the Mikro users row), a
+    failed invite is not. Returns True on success.
+    """
+    url = f"https://{domain}/api/v2/users/{user_id}"
+    try:
+        get_resp = requests.get(url, headers=headers)
+        if not get_resp.ok:
+            current_app.logger.warning(
+                f"app_metadata read failed for {user_id!r}: {get_resp.text}"
+            )
+            return False
+
+        app_meta = (get_resp.json() or {}).get("app_metadata") or {}
+        if app_meta.get("org_id") == org_id:
+            return True
+
+        app_meta["org_id"] = org_id
+        patch_resp = requests.patch(
+            url, json={"app_metadata": app_meta}, headers=headers
+        )
+        if not patch_resp.ok:
+            current_app.logger.warning(
+                f"app_metadata org_id write failed for {user_id!r}: "
+                f"{patch_resp.text}"
+            )
+            return False
+
+        current_app.logger.info(
+            f"app_metadata org_id={org_id!r} written for {user_id!r}"
+        )
+        return True
+    except Exception as e:
+        current_app.logger.warning(
+            f"app_metadata org_id write errored for {user_id!r}: {e}"
+        )
+        return False
+
+
 def add_or_invite_user_to_org(
     *,
     domain,
@@ -72,8 +160,7 @@ def add_or_invite_user_to_org(
         )
         if lookup.ok:
             matches = lookup.json() or []
-            if matches:
-                existing_user_id = matches[0].get("user_id")
+            existing_user_id = _choose_tenant_identity(matches, email_l)
     except Exception as e:
         current_app.logger.warning(f"users-by-email lookup failed for {email!r}: {e}")
 
@@ -109,6 +196,11 @@ def add_or_invite_user_to_org(
                 current_app.logger.warning(
                     f"Role assign failed for {email!r}: {role_resp.text}"
                 )
+
+        # Membership alone does not produce a `mikro/org_id` claim — the
+        # post-login Action reads it off app_metadata. Write it here so the
+        # two mechanisms cannot diverge. Best-effort by design.
+        _sync_app_metadata_org(domain, headers, existing_user_id, org_id)
 
         _send_login_email(domain, email, app_client_id, client_id)
         return {

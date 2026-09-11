@@ -33,9 +33,9 @@ export default function NoOrgPage() {
           No Organization Found
         </h1>
         <p style={{ color: "#4b5563", marginBottom: 24, lineHeight: 1.6 }}>
-          Your account isn&apos;t associated with an organization. This can
-          happen with a test account or an account that hasn&apos;t been invited
-          to an organization yet.
+          Your account isn&apos;t currently associated with an active
+          organization in Mikro. This can happen with a test account, or with an
+          account that hasn&apos;t been added to an organization yet.
         </p>
         <p
           style={{
@@ -45,8 +45,8 @@ export default function NoOrgPage() {
             lineHeight: 1.6,
           }}
         >
-          Log out and sign in with your organization account, or contact your
-          administrator for an invitation.
+          Contact your administrator to have your account added to your
+          organization. Signing in again won&apos;t change this on its own.
         </p>
         <a
           href={ROUTES.authLogout}

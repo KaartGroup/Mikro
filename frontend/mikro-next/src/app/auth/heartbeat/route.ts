@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth0 } from "@/lib/auth0";
+import { HEARTBEAT_REFRESH_BUFFER_S } from "@/lib/accessToken";
 
 // Pinged by useSessionHeartbeat every 15 minutes while the tab is visible.
 // auth0.getAccessToken() transparently uses the refresh token if the access
@@ -16,7 +17,14 @@ export async function GET() {
       );
     }
 
-    const { expiresAt } = await auth0.getAccessToken();
+    // Refresh EARLY, with a buffer longer than the heartbeat's own 15-minute
+    // interval. The heartbeat is the one request a browser never cancels, so
+    // it should be what renews the token — never a page navigation or an API
+    // call that can be abandoned mid-flight, leaving the refreshed cookie
+    // undelivered. See HEARTBEAT_REFRESH_BUFFER_S in lib/accessToken.ts.
+    const { expiresAt } = await auth0.getAccessToken({
+      refreshBuffer: HEARTBEAT_REFRESH_BUFFER_S,
+    });
     return NextResponse.json({ ok: true, expiresAt });
   } catch (error) {
     const message =

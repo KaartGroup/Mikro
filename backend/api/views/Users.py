@@ -8,15 +8,20 @@ Handles user management operations.
 import requests
 import secrets
 import string
+from urllib.parse import quote
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from flask.views import MethodView
 from flask import g, request, current_app
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from ..services.hourly_rate_history import HourlyRateHistoryService, OverlapError
 from ..services.payment_txn import PaymentTxnService
-from ..utils import requires_admin, requires_team_admin_or_above
+from ..utils import (
+    requires_admin,
+    requires_super_admin,
+    requires_team_admin_or_above,
+)
 from ..utils.changeset_fetcher import ChangesetFetcher, changesets_to_heatmap_points
 from ..utils.tz import parse_filter_datetime
 from ..time_tracking import TimeEntryQuery, AggregateQuery
@@ -976,13 +981,68 @@ class UserAPI(MethodView):
             current_app.logger.error(f"Error inviting user: {e}")
             return {"message": "Failed to invite user", "status": 500}
 
-    @requires_admin
+    @requires_super_admin
     def sync_org_ids(self):
+        """SINGLE-TENANT BOOTSTRAP / REPAIR TOOL — not a routine sync.
+
+        Assigns one organization to rows that do not have one yet. It exists
+        for the original single-tenant migration and for repairing org_id gaps
+        afterwards. There is no frontend caller.
+
+        Blast radius, stated plainly: it walks the WHOLE users table plus ~16
+        other org-scoped models (Project, Task, TimeEntry, Team, Training,
+        PayRequests, Payments, Region, Country, CustomTopic, HourlyPayment,
+        SyncJob, Punk, Friend, CommunityEntry, MonitoredChannel). Before it was
+        scoped it force-wrote AUTH0_ORG_ID over every row regardless of owner,
+        so now that Organizations.py provisions real external tenants a single
+        call would permanently merge every tenant into Kaart — unrecoverable
+        without a database restore. It is therefore:
+
+          * super_admin only;
+          * gated on an explicit ``confirm == "MERGE_ALL_ORGS"`` in the body;
+          * gated on an explicit ``target_org_id`` that must exist in the
+            Organization table — no silent AUTH0_ORG_ID default;
+          * scoped to rows whose org_id is NULL (or already the target). A row
+            owned by a DIFFERENT real org is counted, logged and left alone.
+
+        Body: ``{"confirm": "MERGE_ALL_ORGS", "target_org_id": "org_..."}``
         """
-        Sync org_id for all users. Fetches org membership from Auth0,
-        falls back to a default org_id derived from the Auth0 tenant.
-        Also updates app_metadata in Auth0 for users missing it.
-        """
+        from ..database import Organization
+
+        body = request.get_json(silent=True) or {}
+
+        if body.get("confirm") != "MERGE_ALL_ORGS":
+            return {
+                "message": (
+                    "Refused: no confirmation. This is a single-tenant "
+                    "bootstrap/repair tool — it assigns one org_id to every "
+                    "org-less user, project, task, team, payment and related "
+                    "row in the database, and patches Auth0 app_metadata for "
+                    'each user it touches. To proceed, POST {"confirm": '
+                    '"MERGE_ALL_ORGS", "target_org_id": "org_..."}.'
+                ),
+                "status": 400,
+            }, 400
+
+        target_org_id = body.get("target_org_id")
+        if not target_org_id:
+            return {
+                "message": (
+                    "target_org_id is required — this endpoint no longer "
+                    "assumes AUTH0_ORG_ID."
+                ),
+                "status": 400,
+            }, 400
+
+        if not Organization.query.filter_by(id=target_org_id).first():
+            return {
+                "message": (
+                    f"Unknown organization {target_org_id!r} — it must exist "
+                    "in the organizations table."
+                ),
+                "status": 400,
+            }, 400
+
         domain = current_app.config.get("AUTH0_DOMAIN")
         client_id = current_app.config.get("AUTH0_M2M_CLIENT_ID")
         client_secret = current_app.config.get("AUTH0_M2M_CLIENT_SECRET")
@@ -1007,33 +1067,50 @@ class UserAPI(MethodView):
             access_token = token_resp.json().get("access_token")
             headers = {"Authorization": f"Bearer {access_token}"}
 
-            # Use the real Auth0 Organization ID
-            default_org_id = current_app.config.get("AUTH0_ORG_ID")
-            if not default_org_id:
-                return {"message": "AUTH0_ORG_ID env var not configured", "status": 500}
+            # Scoped read: only users who have NO org yet, or who already
+            # belong to the target. A user owned by another real org is never
+            # loaded, so it can never be rewritten — that unscoped
+            # `User.query.all()` + force-write is exactly the tenant-merge
+            # footgun this endpoint used to be.
+            in_scope = or_(User.org_id.is_(None), User.org_id == target_org_id)
+            all_users = User.query.filter(in_scope).all()
+            users_other_org = User.query.filter(
+                User.org_id.isnot(None), User.org_id != target_org_id
+            ).count()
 
-            # Intentionally org-unscoped: this is the single-tenant bootstrap
-            # tool that *assigns* the default org to every user (including
-            # those with a NULL/stale org_id below), so it must see all users.
-            # Not a cross-org read in the UserScope sense — it's the migration
-            # that establishes org membership in the first place.
-            all_users = User.query.all()
+            current_app.logger.warning(
+                f"[ORG-SYNC] event=start actor={g.user.id!r} "
+                f"target_org_id={target_org_id!r} "
+                f"users_in_scope={len(all_users)} "
+                f"users_other_org_skipped={users_other_org}"
+            )
+
             updated = 0
             auth0_updated = 0
             errors = 0
 
             for user in all_users:
                 try:
-                    # Set org_id in Mikro DB (replace old/wrong values too)
-                    if user.org_id != default_org_id:
-                        user.org_id = default_org_id
+                    # Assign the target org where it is missing. Rows already
+                    # on the target are left as-is (nothing to write).
+                    if user.org_id != target_org_id:
+                        user.org_id = target_org_id
                         updated += 1
 
-                    # Also patch Auth0 app_metadata if user has an auth0_sub
-                    if user.auth0_sub and user.auth0_sub.startswith("auth0|"):
-                        auth0_user_url = (
-                            f"https://{domain}/api/v2/users/{user.auth0_sub}"
-                        )
+                    # Also patch Auth0 app_metadata for any identity, not just
+                    # `auth0|` database ones — the old prefix filter silently
+                    # skipped every federated/enterprise identity, which is
+                    # precisely the population whose claim goes missing.
+                    if user.auth0_sub:
+                        # URL-ENCODE the sub. Now that the `auth0|` prefix
+                        # filter is gone, federated subs reach this line, and
+                        # those contain characters that are not path-safe —
+                        # e.g. `samlp|conn|user@example.com`, or a `|` that
+                        # must be %7C. An unencoded sub silently 404s against
+                        # the Management API and the patch is skipped, which
+                        # is the exact silent failure this block exists to fix.
+                        encoded_sub = quote(user.auth0_sub, safe="")
+                        auth0_user_url = f"https://{domain}/api/v2/users/{encoded_sub}"
                         get_resp = requests.get(auth0_user_url, headers=headers)
                         if get_resp.ok:
                             auth0_data = get_resp.json()
@@ -1043,8 +1120,8 @@ class UserAPI(MethodView):
                             if not app_meta.get("roles"):
                                 app_meta["roles"] = [user.role or "user"]
                                 needs_update = True
-                            if app_meta.get("org_id") != default_org_id:
-                                app_meta["org_id"] = default_org_id
+                            if app_meta.get("org_id") != target_org_id:
+                                app_meta["org_id"] = target_org_id
                                 needs_update = True
 
                             if needs_update:
@@ -1068,7 +1145,9 @@ class UserAPI(MethodView):
 
             db.session.commit()
 
-            # Update org_id on ALL tables — replace old values AND nulls
+            # Fill in the org on org-less rows of every org-scoped model.
+            # Rows that already carry an org_id — the target's or another
+            # tenant's — are counted and left untouched.
             all_models = [
                 Project,
                 Task,
@@ -1087,16 +1166,43 @@ class UserAPI(MethodView):
                 CommunityEntry,
                 MonitoredChannel,
             ]
+            per_model = {}
             for model in all_models:
-                model.query.filter(model.org_id != default_org_id).update(
-                    {"org_id": default_org_id}, synchronize_session=False
+                orphan_rows = model.query.filter(model.org_id.is_(None)).count()
+                other_org_rows = model.query.filter(
+                    model.org_id.isnot(None), model.org_id != target_org_id
+                ).count()
+
+                if orphan_rows:
+                    model.query.filter(model.org_id.is_(None)).update(
+                        {"org_id": target_org_id}, synchronize_session=False
+                    )
+
+                per_model[model.__name__] = {
+                    "assigned": orphan_rows,
+                    "left_alone_other_org": other_org_rows,
+                }
+                current_app.logger.warning(
+                    f"[ORG-SYNC] model={model.__name__} "
+                    f"assigned={orphan_rows} "
+                    f"left_alone_other_org={other_org_rows}"
                 )
             db.session.commit()
 
+            current_app.logger.warning(
+                f"[ORG-SYNC] event=done actor={g.user.id!r} "
+                f"target_org_id={target_org_id!r} users_updated={updated} "
+                f"auth0_patched={auth0_updated} errors={errors} "
+                f"users_other_org_skipped={users_other_org}"
+            )
+
             return {
-                "message": f"Synced org_id '{default_org_id}' — {updated} users updated in DB, "
-                f"{auth0_updated} users patched in Auth0, {errors} errors",
-                "org_id": default_org_id,
+                "message": f"Assigned org_id '{target_org_id}' — {updated} users updated in DB, "
+                f"{auth0_updated} users patched in Auth0, {errors} errors. "
+                f"{users_other_org} users belonging to other orgs untouched.",
+                "org_id": target_org_id,
+                "users_other_org_skipped": users_other_org,
+                "models": per_model,
                 "status": 200,
             }
 
