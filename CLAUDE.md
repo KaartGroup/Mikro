@@ -99,6 +99,62 @@ Team scoping logic lives in `api/auth/team_scoping.py`. Team admins see only the
 - Public routes: `/auth/`, `/backend/` (proxy), `/api/authorize` (invite), `/unauthorized`, `/no-org`, `/wrong-org`.
 - `src/lib/syncUser.ts` is called on every layout mount to refresh role/permissions from the backend.
 
+## Deployment — READ BEFORE YOU PUSH
+
+**Four components deploy from this one repo, each from its OWN branch** on
+DigitalOcean App Platform (all `deploy_on_push`):
+
+| Component | DO component name | Branch | `source_dir` |
+|---|---|---|---|
+| Flask API | `mikro-backend` | `master` | `backend` |
+| Next.js frontend | `mikro-frontend` | `master` | `frontend/mikro-next` |
+| **Background worker** | **`mikro-backend2`** | **`worker-release`** | `backend` |
+| Comms service | `comms` | `comms-release` | `comms` |
+
+### ⚠️ Merging to `master` does NOT deploy the worker
+
+This catches people repeatedly, so be explicit about it:
+
+- Anything under `backend/api/worker/` — the nightly `task_sync`, `mr_sync`,
+  `element_analysis`, `watchlist_refresh` jobs and the scheduler — keeps
+  running its OLD code until **`worker-release`** is advanced. Landing worker
+  changes on `master` alone means they never execute, silently and with no
+  error anywhere.
+- This happened: worker commits sat unrun on `master` for weeks (June →
+  2026-09-10) while `worker-release` stayed on `4cab1d482`, because the work
+  went to `master` and nobody advanced the deploy branch.
+- **The worker shares `source_dir: backend` with the API**, so worker code
+  *and everything it imports* (models, `api/utils/`, `api/services/`) must be
+  present on `worker-release` too.
+- Before advancing it, diff `worker-release..master` and check what schema /
+  model drift means for the nightly jobs. A worker running old code against a
+  migrated database is the failure mode to watch for.
+
+```bash
+git push origin master           # → mikro-backend + mikro-frontend ONLY
+git push origin worker-release   # → mikro-backend2 (the worker)
+git push origin comms-release    # → comms
+```
+
+### ⚠️ `.do/app.yaml` is NOT applied and was actively wrong
+
+It is documentation only — the live DO spec is hand-managed in the dashboard
+and is the source of truth. Until 2026-09-10 the repo file named the worker
+`mikro-worker` on `branch: master`, which is how the confusion above started.
+Never `doctl apps update --spec` from it; that would overwrite dashboard-set
+secrets.
+
+### Comms is a separate product
+
+Never merge anything under `comms/` into `master` — it triggers a live Mikro
+redeploy and re-couples two products that were deliberately split. Go straight
+to `comms-release`.
+
+### Mikro is live during the workday
+
+Schema, migration, and auth-path changes need explicit approval and an
+off-hours deploy.
+
 ## Important Notes
 
 - The active frontend is `frontend/mikro-next/`. That is the current implementation.

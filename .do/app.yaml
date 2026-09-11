@@ -1,3 +1,20 @@
+# ┌───────────────────────────────────────────────────────────────────────────┐
+# │ THIS FILE IS NOT APPLIED. IT IS DOCUMENTATION ONLY.                       │
+# │                                                                           │
+# │ The live DigitalOcean spec is hand-managed in the dashboard and is the     │
+# │ source of truth. Nothing here is read on push.                            │
+# │                                                                           │
+# │ DO NOT run `doctl apps update --spec` from this file — it would overwrite  │
+# │ dashboard-set secrets.                                                    │
+# │                                                                           │
+# │ It was also WRONG until 2026-09-10: it named the worker `mikro-worker` on  │
+# │ `branch: master`. The real component is `mikro-backend2` and it deploys    │
+# │ from `worker-release`. Worker commits consequently sat on master unrun for │
+# │ weeks. Corrected below — but trust the dashboard, not this file.          │
+# │                                                                           │
+# │ See the Deployment section of CLAUDE.md.                                   │
+# └───────────────────────────────────────────────────────────────────────────┘
+
 name: mikro
 region: nyc
 
@@ -262,10 +279,13 @@ workers:
   # and long-audio transcription (Whisper). 2GB keeps the whisper model
   # (~500MB) plus audio-chunk buffers (~20MB each) plus Flask overhead
   # well clear of the OOM line even on hour-plus recordings.
-  - name: mikro-worker
+  # NOTE: the live component is named `mikro-backend2`, and it deploys from
+  # `worker-release` — NOT master. Merging worker changes to master alone means
+  # they never run. See CLAUDE.md → Deployment.
+  - name: mikro-backend2
     github:
       repo: KaartGroup/Mikro
-      branch: master
+      branch: worker-release
       deploy_on_push: true
     source_dir: backend
     environment_slug: python
