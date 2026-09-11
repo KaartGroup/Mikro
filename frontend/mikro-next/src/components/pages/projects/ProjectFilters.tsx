@@ -11,6 +11,9 @@ export type CompletionFilter =
   | "almost-done"
   | "complete";
 export type CommunityFilter = "community" | "internal";
+// Task source. "tm4" means "not MapRoulette" server-side, so projects whose
+// source column predates its server_default are still matched.
+export type SourceFilter = "mr" | "tm4";
 export type PriorityFilter = "High" | "Medium" | "Low";
 // Projects still missing a setup link: a location, a team, or either.
 export type MissingAssignmentFilter = "location" | "team" | "any";
@@ -25,6 +28,7 @@ export interface ProjectFiltersValue {
   communityFilter: CommunityFilter | null;
   priorityFilter: PriorityFilter | null;
   missingAssignment: MissingAssignmentFilter | null;
+  sourceFilter: SourceFilter | null;
 }
 
 export const DEFAULT_FILTERS: ProjectFiltersValue = {
@@ -37,7 +41,36 @@ export const DEFAULT_FILTERS: ProjectFiltersValue = {
   communityFilter: null,
   priorityFilter: null,
   missingAssignment: null,
+  sourceFilter: null,
 };
+
+// Colours match the row tint and source badge on the projects table, so the
+// selected button and the rows it produces read as the same thing.
+const SOURCE_OPTIONS: {
+  value: SourceFilter | null;
+  label: string;
+  title: string;
+  activeClass: string;
+}[] = [
+  {
+    value: null,
+    label: "All",
+    title: "All sources",
+    activeClass: "bg-secondary text-secondary-foreground",
+  },
+  {
+    value: "mr",
+    label: "MR",
+    title: "MapRoulette",
+    activeClass: "bg-blue-500 text-white",
+  },
+  {
+    value: "tm4",
+    label: "TM4",
+    title: "Tasking Manager",
+    activeClass: "bg-amber-500 text-white",
+  },
+];
 
 const PRIORITY_OPTIONS: { value: PriorityFilter; label: string }[] = [
   { value: "High", label: "High" },
@@ -73,6 +106,7 @@ interface ProjectFiltersProps {
   withMyProjects?: boolean;
   withCompletion?: boolean;
   withMissingAssignment?: boolean;
+  withSource?: boolean;
 }
 
 export function ProjectFilters({
@@ -82,6 +116,7 @@ export function ProjectFilters({
   withMyProjects,
   withCompletion,
   withMissingAssignment,
+  withSource,
 }: ProjectFiltersProps) {
   const [filters, setFilters] = useState<ProjectFiltersValue>(DEFAULT_FILTERS);
 
@@ -92,21 +127,62 @@ export function ProjectFilters({
   };
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="flex flex-col">
-        <label className="mb-1.5 block text-sm font-medium text-foreground">
-          Search
-        </label>
-        <input
-          type="text"
-          placeholder="Search projects..."
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring w-48"
-          value={filters.search}
-          onChange={(e) => update({ search: e.target.value })}
-        />
-      </div>
-      <div className="w-44">
+    /*
+     * One dense row that cannot wrap.
+     *
+     * The stacked per-control labels are gone: each dropdown's "All …" option
+     * already names its dimension, and the wrapper's title keeps it
+     * discoverable on hover once a value is selected.
+     *
+     * Fixed widths plus flex-wrap were the problem -- at ~1200px of content
+     * the last two controls dropped onto a second 40px row. The dropdowns now
+     * share the leftover space (flex-1 min-w-0) instead of claiming a fixed
+     * amount, so the row stays one line at any width and the controls shrink
+     * together. Select truncates its value, so shrinking clips to an ellipsis
+     * rather than spilling. Only the source group and the Mine toggle are
+     * fixed, since neither has anything to clip.
+     */
+    <div className="flex items-center gap-2">
+      {withSource && (
+        <div
+          role="group"
+          aria-label="Filter by task source"
+          title="Task source"
+          className="flex h-10 shrink-0 items-center gap-1 rounded-lg border border-input bg-background p-1"
+        >
+          {SOURCE_OPTIONS.map((option) => {
+            const active = filters.sourceFilter === option.value;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                aria-pressed={active}
+                title={option.title}
+                onClick={() => update({ sourceFilter: option.value })}
+                className={`h-8 whitespace-nowrap rounded-md px-2.5 text-sm transition-colors ${
+                  active
+                    ? option.activeClass
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <input
+        type="text"
+        placeholder="Search projects..."
+        title="Search"
+        aria-label="Search projects"
+        className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+        value={filters.search}
+        onChange={(e) => update({ search: e.target.value })}
+      />
+      <div className="min-w-0 flex-1" title="Region">
         <StandaloneFilter
+          hideLabel
           label="Region"
           allLabel="All regions"
           options={(filterOptions?.dimensions?.region ?? []).map((v) =>
@@ -118,8 +194,9 @@ export function ProjectFilters({
           onChange={(v) => update({ regionId: v })}
         />
       </div>
-      <div className="w-44">
+      <div className="min-w-0 flex-1" title="Country">
         <StandaloneFilter
+          hideLabel
           label="Country"
           allLabel="All countries"
           options={(filterOptions?.dimensions?.country ?? []).map((v) =>
@@ -131,8 +208,9 @@ export function ProjectFilters({
           onChange={(v) => update({ countryId: v })}
         />
       </div>
-      <div className="w-40">
+      <div className="min-w-0 flex-1" title="Type">
         <StandaloneFilter
+          hideLabel
           label="Type"
           allLabel="All types"
           options={COMMUNITY_OPTIONS}
@@ -142,8 +220,9 @@ export function ProjectFilters({
           }
         />
       </div>
-      <div className="w-36">
+      <div className="min-w-0 flex-1" title="Priority">
         <StandaloneFilter
+          hideLabel
           label="Priority"
           allLabel="All priorities"
           options={PRIORITY_OPTIONS}
@@ -154,8 +233,9 @@ export function ProjectFilters({
         />
       </div>
       {withCompletion && (
-        <div className="w-48">
+        <div className="min-w-0 flex-1" title="Completion">
           <StandaloneFilter
+            hideLabel
             label="Completion"
             allLabel="All completions"
             options={COMPLETION_OPTIONS}
@@ -167,8 +247,9 @@ export function ProjectFilters({
         </div>
       )}
       {withTeam && (
-        <div className="w-44">
+        <div className="min-w-0 flex-1" title="Team">
           <StandaloneFilter
+            hideLabel
             label="Team"
             allLabel="All teams"
             options={(filterOptions?.dimensions?.team ?? []).map((v) =>
@@ -182,10 +263,11 @@ export function ProjectFilters({
         </div>
       )}
       {withMissingAssignment && (
-        <div className="w-52">
+        <div className="min-w-0 flex-1" title="Needs setup">
           <StandaloneFilter
+            hideLabel
             label="Needs setup"
-            allLabel="All projects"
+            allLabel="Any setup"
             options={MISSING_ASSIGNMENT_OPTIONS}
             value={filters.missingAssignment}
             onChange={(v) =>
@@ -197,15 +279,15 @@ export function ProjectFilters({
         </div>
       )}
       {withMyProjects && (
-        <div className="ml-auto">
-          <Button
-            variant={filters.showMyProjects ? "primary" : "outline"}
-            size="sm"
-            onClick={() => update({ showMyProjects: !filters.showMyProjects })}
-          >
-            My Projects
-          </Button>
-        </div>
+        <Button
+          className="shrink-0"
+          title="Only projects I created"
+          variant={filters.showMyProjects ? "primary" : "outline"}
+          size="sm"
+          onClick={() => update({ showMyProjects: !filters.showMyProjects })}
+        >
+          Mine
+        </Button>
       )}
     </div>
   );

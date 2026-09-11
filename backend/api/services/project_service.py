@@ -779,6 +779,20 @@ class ProjectService:
             return query.filter(Project.priority == priority)
         return query
 
+    @staticmethod
+    def get_project_by_source(query, source: str):
+        """Narrow to one task source: "mr" (MapRoulette) or "tm4".
+
+        "tm4" matches anything that is not MR rather than source == "tm4",
+        because the column carries a server_default of "tm4" but older rows
+        predate it -- an equality test would silently drop them.
+        """
+        if source == "mr":
+            return query.filter(Project.source == "mr")
+        if source == "tm4":
+            return query.filter(Project.source != "mr")
+        return query
+
     # Maps UI sort keys → an ORDER BY expression. ``name`` collates on the
     # displayed label (short_name falling back to name); ``difficulty`` uses
     # an explicit Easy<Medium<Hard ordering with unknowns last. Every sort
@@ -1032,6 +1046,9 @@ class ProjectService:
         if filters.get("priority"):
             query = self.get_project_by_priority(query, filters["priority"])
 
+        if filters.get("source"):
+            query = self.get_project_by_source(query, filters["source"])
+
         return query
 
     def get(self, org_id: str, user, filters: dict | None = None) -> list:
@@ -1073,11 +1090,15 @@ class ProjectService:
     def get_status_counts(self, org_id: str, user, filters: dict | None = None) -> dict:
         """Aggregate counts for the stat cards over the filtered set.
 
-        Status is intentionally excluded from ``filters`` here so the active
-        and inactive counts are both reported for the same filtered universe.
+        Status and source are intentionally excluded from ``filters`` here so
+        the active/inactive counts and the TM4/MR split are both reported for
+        the same filtered universe. Keeping source out is what lets the "By
+        Platform" card keep showing both totals while a source filter is
+        active, rather than zeroing whichever source is not selected.
         """
         filters = dict(filters or {})
         filters.pop("status", None)
+        filters.pop("source", None)
         query = self._build_query(org_id, user, filters).order_by(None)
 
         active_count = query.filter(Project.status == True).count()  # noqa: E712

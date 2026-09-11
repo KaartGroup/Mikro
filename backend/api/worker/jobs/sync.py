@@ -1,90 +1,58 @@
 import logging
 from datetime import datetime, timezone, timedelta
-from ...database import db, User, ProjectUser, ProjectTeam, TeamUser, Task
+from ...database import db
 from ... import users_repo
 from ...views.Tasks import TaskAPI
 from ...views.MapRoulette import MapRouletteSync
 
 logger = logging.getLogger(__name__)
 
-_MAX_SYNC_JOB_DURATION = timedelta(hours=2)
+# This job's own wall-clock budget. Must stay BELOW the worker poller's
+# _STALE_JOB_TIMEOUT (derived from this value in worker/main.py) so that a
+# long run aborts itself with an informative "completed k/N projects"
+# error instead of being killed mid-flight by the stale-job check.
+MAX_SYNC_JOB_DURATION = timedelta(hours=2)
 
 
-def sync_project(project, org_id, target_user_id=None):
+def sync_project(project, target_user_id=None):
     """
     Sync a single project.
 
-    MR: fetches all challenge tasks in one pass — the API fetch is the
-    expensive part, so per-user filtering is not worth extra calls.
+    Both sources now cost one pass per project. MR fetches a single extract
+    CSV; TM4 fetches its project-wide contributions once and only narrows the
+    per-task invalidation check by user.
 
-    TM4: resolves the project's users (direct assignments, team members,
-    and historical contributors) then syncs per user. Pass target_user_id
-    to restrict to a single user (on-demand / user-triggered syncs).
+    Pass ``target_user_id`` to scope a TM4 sync to one user's tasks
+    (on-demand / user-triggered syncs). Without it, every linked task in the
+    project is checked -- a superset of what the old per-user loop covered.
     """
 
     if project.source == "mr":
         MapRouletteSync().sync_challenge_tasks(project)
         return
 
-    # TM4: resolve users for this project
+    # TM4. The user set exists only to scope the invalidation check; the
+    # project-wide fetch and parse happen once either way. Resolving every
+    # assigned user, team member and historical contributor -- as this used
+    # to, purely to drive a per-user loop over the same payload -- bought
+    # nothing but a multiplier on the work.
+    user_ids = None
     if target_user_id:
         user = users_repo.by_id(target_user_id)
-        users = [user] if user else []
-    else:
-        direct_ids = set(
-            pu.user_id
-            for pu in ProjectUser.query.filter_by(project_id=project.id).all()
-        )
-
-        team_ids = [
-            pt.team_id
-            for pt in ProjectTeam.query.filter_by(project_id=project.id).all()
-        ]
-        team_user_ids = set()
-        if team_ids:
-            team_user_ids = set(
-                tu.user_id
-                for tu in TeamUser.query.filter(TeamUser.team_id.in_(team_ids)).all()
+        user_ids = [user.id] if user else []
+        if not user_ids:
+            logger.warning(
+                f"TM4 sync: target user {target_user_id} not found — "
+                f"skipping project {project.id}"
             )
+            return
 
-        contributor_osm_names = set()
-        for row in (
-            db.session.query(Task.mapped_by)
-            .filter(Task.project_id == project.id, Task.mapped_by != None)
-            .distinct()
-            .all()
-        ):
-            if row[0]:
-                contributor_osm_names.add(row[0])
-        for row in (
-            db.session.query(Task.validated_by)
-            .filter(Task.project_id == project.id, Task.validated_by != None)
-            .distinct()
-            .all()
-        ):
-            if row[0]:
-                contributor_osm_names.add(row[0])
-
-        contributor_user_ids = set()
-        if contributor_osm_names:
-            contributor_user_ids = set(
-                u.id
-                for u in User.query.filter(
-                    User.osm_username.in_(contributor_osm_names),
-                    User.org_id == org_id,
-                ).all()
-            )
-
-        all_user_ids = direct_ids | team_user_ids | contributor_user_ids
-        users = users_repo.by_ids(all_user_ids)
-
-    task_api = TaskAPI()
-    for user in users:
-        try:
-            task_api.TM4_payment_call(project.id, user)
-        except Exception as e:
-            logger.error(f"TM4 sync error — project {project.id}, user {user.id}: {e}")
-            db.session.rollback()
+    try:
+        TaskAPI().sync_tm4_project(project.id, user_ids=user_ids)
+    except Exception as e:
+        logger.error(f"TM4 sync error — project {project.id}: {e}")
+        db.session.rollback()
+        return
 
     project.last_sync_cursor = datetime.now(timezone.utc)
     db.session.commit()
@@ -94,9 +62,15 @@ def run_sync_job(job):
     """
     Execute a queued sync job.
 
-    Handles both full-org syncs (job_type="task_sync") and single-project
-    syncs (job_type="project_sync"). MR challenges are fetched once each;
-    TM4 projects are synced per resolved user.
+    Handles full-org syncs (job_type="task_sync"), MapRoulette-only syncs
+    (job_type="mr_sync") and single-project syncs (job_type="project_sync").
+    MR challenges are fetched once each; TM4 projects are synced per resolved
+    user.
+
+    "mr_sync" exists because the two sources have wildly different costs: an
+    MR challenge is one extract request (~340ms), while a TM4 project fans out
+    to one request per assigned user. Sharing a single job meant the cheap MR
+    work sat behind hours of TM4 calls and never ran.
 
     For project_sync jobs, encode an optional user scope as
     job.progress="user:<user_id>" before queuing.
@@ -131,17 +105,28 @@ def run_sync_job(job):
                 return
             projects = [project]
         else:
-            projects = Project.query.filter(
+            q = Project.query.filter(
                 Project.org_id == job.org_id,
                 Project.status == True,
+            )
+            if job.job_type == "mr_sync":
+                q = q.filter(Project.source == "mr")
+            # Least-recently-synced first, never-synced ahead of everything
+            # else. Without an ORDER BY the row order is arbitrary, so a run
+            # that hits the wall clock re-syncs the same head of the list
+            # every night and the tail is never reached at all -- which is how
+            # 166 of 291 active MR projects ended up never synced.
+            projects = q.order_by(
+                Project.last_sync_cursor.asc().nulls_first(),
+                Project.id.asc(),
             ).all()
 
         total = len(projects)
         for k, project in enumerate(projects, 1):
             elapsed = datetime.now(timezone.utc) - job_start
-            if elapsed > _MAX_SYNC_JOB_DURATION:
+            if elapsed > MAX_SYNC_JOB_DURATION:
                 logger.warning(
-                    f"Sync job {job.id} exceeded {_MAX_SYNC_JOB_DURATION} wall time "
+                    f"Sync job {job.id} exceeded {MAX_SYNC_JOB_DURATION} wall time "
                     f"after {k - 1}/{total} projects — aborting"
                 )
                 db.session.refresh(job)
@@ -154,7 +139,7 @@ def run_sync_job(job):
 
             job.progress = f"Project {k}/{total}: {project.name}"
             db.session.commit()
-            sync_project(project, job.org_id, target_user_id)
+            sync_project(project, target_user_id)
 
         # Re-fetch to guard against the stale-timeout having already marked this failed
         # while it was running in a background thread.

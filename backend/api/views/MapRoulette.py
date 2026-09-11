@@ -133,6 +133,36 @@ MR_REVIEW_LABEL_TO_CODE = {
 _UNKNOWN_REVIEW = object()
 
 
+def _parse_mr_timestamp(raw):
+    """
+    Parse an extract CSV timestamp into a naive UTC datetime, or None.
+
+    The extract emits MappedOn / ReviewedAt as ISO-8601, sometimes a bare date
+    ("2024-01-01") and sometimes a full instant with a Z suffix
+    ("2026-08-25T19:11:17.727Z"). Anything blank or unparseable returns None so
+    the caller can fall back to the sync time rather than guess.
+
+    Naive UTC is deliberate: Task.date_mapped / date_validated are TIMESTAMP
+    WITHOUT TIME ZONE, and the func.now() default these values replace wrote
+    the database's own UTC clock -- storing an aware value would mix two
+    conventions in one column.
+    """
+    if not raw:
+        return None
+    value = raw.strip()
+    if not value:
+        return None
+    if value[-1] in ("Z", "z"):
+        value = value[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
 class MapRouletteSync:
     """
     Syncs MapRoulette challenge tasks into Mikro's task tracking system.
@@ -289,7 +319,8 @@ class MapRouletteSync:
         Convert an extract CSV row into normalized fields, or None if the row
         is unusable (missing/unknown task id or status).
 
-        Returns dict: task_id, status, mapper, reviewer, review_status.
+        Returns dict: task_id, status, mapper, reviewer, review_status,
+        mapped_on, reviewed_at.
         """
         raw_id = (row.get("TaskID") or "").strip()
         if not raw_id:
@@ -323,6 +354,11 @@ class MapRouletteSync:
             "mapper": (row.get("Mapper") or "").strip() or None,
             "reviewer": (row.get("Reviewer") or "").strip() or None,
             "review_status": review_status,
+            # When the work actually happened, per MapRoulette. These were
+            # previously discarded in favour of func.now(), which dated every
+            # historical task to whenever the sync first reached it.
+            "mapped_on": _parse_mr_timestamp(row.get("MappedOn")),
+            "reviewed_at": _parse_mr_timestamp(row.get("ReviewedAt")),
         }
 
     # ------------------------------------------------------------------
@@ -361,7 +397,7 @@ class MapRouletteSync:
                 mapped_by=mapper_username or "unknown",
                 validated_by="",
                 validated=False,
-                date_mapped=func.now(),
+                date_mapped=parsed["mapped_on"] or func.now(),
             )
             db.session.add(task_record)
             existing_tasks[task_id] = task_record
@@ -382,6 +418,40 @@ class MapRouletteSync:
             )
 
         else:
+            # Repair a date_mapped that predates this fix. Rows created while
+            # the sync stamped func.now() carry the date the sync first
+            # reached them, not the date the work happened; the extract is
+            # authoritative for MR, so adopt its value whenever it differs.
+            # Without this the update path would never repair itself -- the
+            # same trap that left mr_status permanently unset on older rows.
+            mapped_on = parsed["mapped_on"]
+            if mapped_on and task_record.date_mapped != mapped_on:
+                if task_record.date_mapped is not None:
+                    stats.setdefault("dates_corrected", 0)
+                    stats["dates_corrected"] += 1
+                task_record.date_mapped = mapped_on
+
+            # Adopt the current MR status. Previously mr_status was written
+            # only on creation, so a task that changed status afterwards
+            # (Skipped -> Fixed, say) kept its original value forever -- and
+            # since the Progress and Done columns are computed purely from
+            # mr_status, they drifted away from MapRoulette with no way back.
+            #
+            # NOTE: mapping_rate / validation_rate are deliberately NOT
+            # touched here. They are zeroed at creation for a Skipped task,
+            # so a Skipped -> Fixed transition leaves a task displaying as
+            # Fixed while still carrying a zero rate. Re-rating a task
+            # changes what a mapper is owed, so that is a payments decision
+            # rather than a display fix -- see the rate-drift follow-up.
+            if task_record.mr_status != status:
+                current_app.logger.info(
+                    f"MR task {task_id} status changed: "
+                    f"{task_record.mr_status} -> {status}"
+                )
+                task_record.mr_status = status
+                stats.setdefault("statuses_updated", 0)
+                stats["statuses_updated"] += 1
+
             if mapper_username and task_record.mapped_by in (None, "", "unknown"):
                 task_record.mapped_by = mapper_username
                 mapper = users_by_osm.get(mapper_username)
@@ -504,6 +574,8 @@ class MapRouletteSync:
             f"created={stats['tasks_created']}, "
             f"validated={stats['tasks_validated']}, "
             f"invalidated={stats['tasks_invalidated']}, "
+            f"dates_corrected={stats.get('dates_corrected', 0)}, "
+            f"statuses_updated={stats.get('statuses_updated', 0)}, "
             f"errors={stats['errors']}"
         )
         return {"message": "sync complete", **stats}
@@ -526,6 +598,14 @@ class MapRouletteSync:
 
         if review_status in MR_REVIEW_VALIDATES:
             if task_record.validated:
+                # Nothing to re-apply, but the stored date may still be a
+                # func.now() stamp from before dates were read off the
+                # extract -- correct it on the way out.
+                reviewed_at = parsed["reviewed_at"]
+                if reviewed_at and task_record.date_validated != reviewed_at:
+                    task_record.date_validated = reviewed_at
+                    stats.setdefault("dates_corrected", 0)
+                    stats["dates_corrected"] += 1
                 return
 
             is_self_validated = bool(
@@ -539,7 +619,7 @@ class MapRouletteSync:
             task_record.validated = True
             task_record.invalidated = False
             task_record.self_validated = is_self_validated
-            task_record.date_validated = func.now()
+            task_record.date_validated = parsed["reviewed_at"] or func.now()
 
             validator = (
                 users_by_osm.get(reviewer_username) if reviewer_username else None
@@ -561,12 +641,17 @@ class MapRouletteSync:
 
         elif review_status in MR_REVIEW_INVALIDATES:
             if task_record.invalidated:
+                reviewed_at = parsed["reviewed_at"]
+                if reviewed_at and task_record.date_validated != reviewed_at:
+                    task_record.date_validated = reviewed_at
+                    stats.setdefault("dates_corrected", 0)
+                    stats["dates_corrected"] += 1
                 return
 
             task_record.validated_by = reviewer_username or ""
             task_record.invalidated = True
             task_record.validated = False
-            task_record.date_validated = func.now()
+            task_record.date_validated = parsed["reviewed_at"] or func.now()
 
             stats["tasks_invalidated"] += 1
             current_app.logger.info(

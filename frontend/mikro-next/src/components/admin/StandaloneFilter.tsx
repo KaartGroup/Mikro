@@ -20,6 +20,12 @@ interface StandaloneFilterProps {
   allLabel?: string;
   /** Disable while parent is loading data. */
   disabled?: boolean;
+  /**
+   * Drop the stacked label, for toolbars packing many filters into one row.
+   * The "All …" option already names the dimension, and callers are expected
+   * to put the label on a wrapper's title so it stays discoverable on hover.
+   */
+  hideLabel?: boolean;
   className?: string;
 }
 
@@ -41,6 +47,7 @@ export function StandaloneFilter({
   onChange,
   allLabel = "All",
   disabled = false,
+  hideLabel = false,
   className,
 }: StandaloneFilterProps) {
   const selectOptions = useMemo(() => {
@@ -54,7 +61,7 @@ export function StandaloneFilter({
 
   return (
     <Select
-      label={label}
+      label={hideLabel ? undefined : label}
       options={selectOptions}
       value={selected}
       onChange={(v) => onChange(v === ALL_VALUE ? null : v)}

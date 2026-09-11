@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Button,
   Badge,
   ConfirmDialog,
@@ -47,6 +45,7 @@ import Link from "next/link";
 import {
   formatNumber,
   formatCurrency,
+  formatDateTime,
   getProjectExternalUrl,
 } from "@/lib/utils";
 import { Val } from "@/components/ui";
@@ -56,6 +55,82 @@ import type {
   ProjectsPagedResponse,
   ProjectStatsResponse,
 } from "@/types";
+
+/*
+ * Row-action icons. Inline SVG, matching how the rest of components/ui does
+ * it -- there is no icon package in this project. Each button carries a title
+ * and aria-label naming the project, so dropping the text labels costs
+ * nothing for screen readers or hover discovery. The destructive one sits
+ * behind the existing confirmation modal (which archives rather than hard
+ * deletes), so it is not a one-click irreversible action.
+ */
+const ICON = {
+  className: "h-4 w-4",
+  fill: "none" as const,
+  stroke: "currentColor" as const,
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  viewBox: "0 0 24 24",
+  "aria-hidden": true,
+};
+
+function SyncIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3" />
+      <path d="M21 3v5h-5M3 21v-5h5" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />
+    </svg>
+  );
+}
+
+/**
+ * Compact summary tile for the four boxes above the projects filters.
+ *
+ * Card's own padding plus CardHeader/CardContent defaults made these ~136px
+ * tall, which pushed the table most of a screen down the page. Dropping the
+ * header and tightening the padding halves that; module-level so the four
+ * tiles are not remounted on every render of the page.
+ */
+function StatTile({
+  label,
+  valueClassName,
+  children,
+}: {
+  label: string;
+  valueClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="p-0">
+      <CardContent className="px-4 py-2.5">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <div
+          className={`text-xl font-bold leading-tight ${valueClassName ?? ""}`}
+        >
+          {children}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function AdminProjects() {
   const { mutate: fetchProjectsPage } = useOrgProjectsPaged();
@@ -128,6 +203,7 @@ export function AdminProjects() {
     if (filters.priorityFilter) body.priority = filters.priorityFilter;
     if (filters.missingAssignment)
       body.missing_assignment = filters.missingAssignment;
+    if (filters.sourceFilter) body.source = filters.sourceFilter;
     return body;
   }, [
     debouncedSearch,
@@ -138,6 +214,7 @@ export function AdminProjects() {
     filters.communityFilter,
     filters.priorityFilter,
     filters.missingAssignment,
+    filters.sourceFilter,
   ]);
 
   // Fetch one page of the active tab (status + sort + page). The Archived tab
@@ -340,6 +417,46 @@ export function AdminProjects() {
     }
   };
 
+  /**
+   * Label + colour for a project's last sync.
+   *
+   * `null` means the project has NEVER been synced from its source, which is
+   * visually identical to "synced, but nothing has been completed yet" in the
+   * Progress and Done columns -- both render zeros. Surfacing it here is the
+   * only way to tell an honest 0% from a project the sync has never reached.
+   */
+  const syncAge = (
+    iso: string | null | undefined,
+  ): { label: string; className: string; title: string } => {
+    if (!iso) {
+      return {
+        label: "Never",
+        className: "text-red-500 font-medium",
+        title: "This project has never been synced from its source",
+      };
+    }
+    const then = new Date(iso).getTime();
+    if (Number.isNaN(then)) {
+      return { label: "—", className: "text-muted-foreground", title: "" };
+    }
+    const days = (Date.now() - then) / 86400000;
+    return {
+      label:
+        days < 1
+          ? "Today"
+          : days < 2
+            ? "Yesterday"
+            : `${Math.floor(days)}d ago`,
+      className:
+        days < 2
+          ? "text-green-600"
+          : days < 8
+            ? "text-muted-foreground"
+            : "text-orange-500",
+      title: formatDateTime(iso),
+    };
+  };
+
   /** Return a Tailwind text color class based on completion percentage. */
   const completionColor = (pct: number): string => {
     if (pct >= 80) return "text-green-600";
@@ -349,15 +466,63 @@ export function AdminProjects() {
     return "text-red-500";
   };
 
+  // Header cells stick to the top of the table's own scroll container (see
+  // Table's containerClassName note -- the wrapper is the scroll ancestor, not
+  // the viewport). bg-card stops rows showing through, and the inset shadow
+  // stands in for the border-b that a collapsed-border table drops from a
+  // sticky cell.
+  const STICKY_HEAD =
+    "sticky top-0 z-20 bg-card shadow-[inset_0_-1px_0_var(--border)]";
+
+  /**
+   * Actions is pinned to the right edge of the table's horizontal scroll box,
+   * so Sync / Edit / Delete stay on screen at any window width instead of
+   * sitting past the right edge waiting to be scrolled to.
+   *
+   * The background has to be opaque -- rows scroll underneath it -- so the
+   * pinned column reads a shade flatter than the source tint on its row. The
+   * left-edge shadow makes that read as a pinned column rather than a
+   * mismatch. The header cell is sticky on both axes and needs the higher
+   * z-index to sit above both its own row and the column below it.
+   */
+  const STICKY_ACTIONS =
+    "sticky right-0 z-10 bg-card shadow-[inset_1px_0_0_var(--border)]";
+
+  /**
+   * Source colour coding: MapRoulette blue, Tasking Manager amber.
+   *
+   * The two sources are read very differently -- MR rows show a status
+   * breakdown, TM4 rows show mapped/validated counts -- so scanning a mixed
+   * list is easier when the source is visible without reading the badge. The
+   * tint is an alpha wash so it composes over the card background in both
+   * light and dark themes, and stays under TableRow's hover:bg-muted.
+   */
+  const sourceTint = (source: string | undefined) =>
+    source === "mr" ? "bg-blue-500/[0.06]" : "bg-amber-500/[0.06]";
+
+  const sourceAccent = (source: string | undefined) =>
+    source === "mr"
+      ? "border-l-4 border-l-blue-500"
+      : "border-l-4 border-l-amber-500";
+
+  // Percentages of the table's min-width (see the Table below), so every
+  // column resolves to a usable pixel width and a narrow window scrolls
+  // horizontally instead of crushing Budget onto three lines and sliding the
+  // Actions buttons over the Difficulty badges.
+  //
+  // Actions used to be the binding constraint: three text buttons measured
+  // 231px, and because the column is pinned to the right edge it covered
+  // Difficulty permanently. Icon-only buttons need ~120px, which is what
+  // lets the whole table fit ~1150px with Difficulty on screen.
   const projSortColumns = [
     { key: "name", label: "Project", width: "w-[22%]" },
-    { key: "source_id", label: "Source ID", width: "w-[8%]" },
-    { key: "total_tasks", label: "Tasks", width: "w-[6%]" },
-    { key: "", label: "Progress", width: "w-[14%]" },
-    { key: "", label: "Done", width: "w-[6%]" },
+    { key: "total_tasks", label: "Tasks", width: "w-[5%]" },
+    { key: "", label: "Progress", width: "w-[13%]" },
+    { key: "", label: "Done", width: "w-[5%]" },
+    { key: "", label: "Last synced", width: "w-[8%]" },
     { key: "mapping_rate", label: "Rates", width: "w-[9%]" },
-    { key: "budget", label: "Budget", width: "w-[9%]" },
-    { key: "difficulty", label: "Difficulty", width: "w-[10%]" },
+    { key: "budget", label: "Budget", width: "w-[10%]" },
+    { key: "difficulty", label: "Difficulty", width: "w-[16%]" },
   ];
 
   // Renders the current tab's server-fetched page. Reads `projects`, `total`,
@@ -368,13 +533,16 @@ export function AdminProjects() {
 
     return (
       <>
-        <Table className="table-fixed">
+        <Table
+          className="table-fixed min-w-[1150px]"
+          containerClassName="max-h-[calc(100vh-10rem)] overflow-y-auto"
+        >
           <TableHeader>
             <TableRow>
               {projSortColumns.map((col) => (
                 <TableHead
                   key={col.label}
-                  className={`${col.width} ${col.key ? "cursor-pointer select-none hover:text-foreground transition-colors" : ""}`}
+                  className={`${col.width} ${STICKY_HEAD} ${col.key ? "cursor-pointer select-none hover:text-foreground transition-colors" : ""}`}
                   onClick={col.key ? () => handleProjSort(col.key) : undefined}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -401,13 +569,19 @@ export function AdminProjects() {
                   </span>
                 </TableHead>
               ))}
-              <TableHead className="w-[16%] text-right">Actions</TableHead>
+              <TableHead
+                className={`w-[12%] text-right ${STICKY_HEAD} ${STICKY_ACTIONS} z-30`}
+              >
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedProjects.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell className="max-w-0">
+              <TableRow key={project.id} className={sourceTint(project.source)}>
+                <TableCell
+                  className={`max-w-0 ${sourceAccent(project.source)}`}
+                >
                   <div className="min-w-0">
                     <div className="font-medium truncate">
                       <Link
@@ -425,42 +599,31 @@ export function AdminProjects() {
                           MR
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="ml-2 text-[10px]">
+                        <Badge
+                          variant="default"
+                          className="ml-2 text-[10px] bg-amber-500"
+                        >
                           TM4
                         </Badge>
                       )}
                     </div>
+                    {/* The id lived in its own column, whose only content
+                    was this same external link. Folding it in here keeps the
+                    source id visible without spending a column on it. */}
                     <a
                       href={getProjectExternalUrl(project.id, project.source)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-kaart-orange hover:underline"
+                      className="font-mono text-sm text-kaart-orange hover:underline"
                       title={
                         project.source === "mr"
-                          ? "Open in MapRoulette"
-                          : "Open in Tasking Manager"
+                          ? `Open challenge ${project.id} in MapRoulette`
+                          : `Open project ${project.id} in Tasking Manager`
                       }
                     >
-                      Open ↗
+                      {project.id} ↗
                     </a>
                   </div>
-                </TableCell>
-                <TableCell>
-                  {/* Source ID = upstream TM4/MR id, persisted as project.id PK.
-                  Monospace + small so the digits don't crowd the row. */}
-                  <a
-                    href={getProjectExternalUrl(project.id, project.source)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-sm text-kaart-orange hover:underline"
-                    title={
-                      project.source === "mr"
-                        ? "Open in MapRoulette"
-                        : "Open in Tasking Manager"
-                    }
-                  >
-                    {project.id}
-                  </a>
                 </TableCell>
                 <TableCell>
                   {project.total_tasks === 0 && !project.last_synced ? (
@@ -480,8 +643,14 @@ export function AdminProjects() {
                       —
                     </span>
                   ) : project.source === "mr" ? (
-                    <div className="text-sm space-y-0.5">
-                      <p className="text-green-600">
+                    /* font-semibold plus a light/dark pair per colour.
+                    The old 500- and 600-level shades measured 2.5-3.3:1
+                    against white -- below WCAG AA (4.5) for 14px text -- and
+                    blue-600/red-600 measured 2.8-3.0:1 on the dark theme's
+                    card, which is a straight fail. 700 in light and 400 in
+                    dark puts every line at 5.0:1 or better in both themes. */
+                    <div className="text-sm font-semibold space-y-0.5">
+                      <p className="text-green-700 dark:text-green-400">
                         <Val>
                           {formatNumber(
                             project.mr_status_breakdown?.["1"] ?? 0,
@@ -489,7 +658,7 @@ export function AdminProjects() {
                         </Val>{" "}
                         Fixed
                       </p>
-                      <p className="text-emerald-500">
+                      <p className="text-emerald-700 dark:text-emerald-400">
                         <Val>
                           {formatNumber(
                             project.mr_status_breakdown?.["5"] ?? 0,
@@ -497,7 +666,7 @@ export function AdminProjects() {
                         </Val>{" "}
                         Already Fixed
                       </p>
-                      <p className="text-amber-600">
+                      <p className="text-amber-700 dark:text-amber-400">
                         <Val>
                           {formatNumber(
                             project.mr_status_breakdown?.["2"] ?? 0,
@@ -505,7 +674,7 @@ export function AdminProjects() {
                         </Val>{" "}
                         Not an Issue
                       </p>
-                      <p className="text-orange-500">
+                      <p className="text-orange-700 dark:text-orange-400">
                         <Val>
                           {formatNumber(
                             project.mr_status_breakdown?.["6"] ?? 0,
@@ -513,7 +682,7 @@ export function AdminProjects() {
                         </Val>{" "}
                         Can&apos;t Complete
                       </p>
-                      <p className="text-gray-400">
+                      <p className="text-gray-600 dark:text-gray-400">
                         <Val>
                           {formatNumber(
                             project.mr_status_breakdown?.["3"] ?? 0,
@@ -523,15 +692,15 @@ export function AdminProjects() {
                       </p>
                     </div>
                   ) : (
-                    <div className="text-sm">
-                      <p className="text-green-600">
+                    <div className="text-sm font-semibold">
+                      <p className="text-green-700 dark:text-green-400">
                         <Val>{formatNumber(project.total_mapped)}</Val> mapped
                       </p>
-                      <p className="text-blue-600">
+                      <p className="text-blue-700 dark:text-blue-400">
                         <Val>{formatNumber(project.total_validated)}</Val>{" "}
                         validated
                       </p>
-                      <p className="text-red-600">
+                      <p className="text-red-700 dark:text-red-400">
                         <Val>{formatNumber(project.total_invalidated)}</Val>{" "}
                         invalidated
                       </p>
@@ -563,10 +732,23 @@ export function AdminProjects() {
                   })()}
                 </TableCell>
                 <TableCell>
+                  {(() => {
+                    const s = syncAge(project.last_synced);
+                    return (
+                      <span
+                        className={`text-sm ${s.className}`}
+                        title={s.title}
+                      >
+                        {s.label}
+                      </span>
+                    );
+                  })()}
+                </TableCell>
+                <TableCell>
                   {project.payments_enabled === false ? (
                     <Badge variant="secondary">Stats Only</Badge>
                   ) : (
-                    <div className="text-sm">
+                    <div className="text-sm whitespace-nowrap">
                       <p>
                         Map:{" "}
                         <Val>
@@ -583,7 +765,7 @@ export function AdminProjects() {
                   )}
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm">
+                  <div className="text-sm whitespace-nowrap">
                     <p>
                       Max: <Val>{formatCurrency(project.max_payment)}</Val>
                     </p>
@@ -652,33 +834,42 @@ export function AdminProjects() {
                     ) : null}
                   </div>
                 </TableCell>
-                <TableCell className="text-right pr-2">
-                  <div className="flex justify-end gap-1">
+                <TableCell className={`text-right pr-2 ${STICKY_ACTIONS}`}>
+                  <div className="flex justify-end gap-1 flex-nowrap">
                     <Button
+                      className="h-8 w-8 p-0"
                       size="sm"
                       variant="outline"
+                      title={`Sync ${project.name} from its source`}
+                      aria-label={`Sync ${project.name}`}
                       onClick={() =>
                         handleSyncProject(project.id, project.name)
                       }
                       isLoading={syncingProjectId === project.id}
                       disabled={syncingProjectId !== null}
                     >
-                      Sync
+                      {syncingProjectId === project.id ? null : <SyncIcon />}
                     </Button>
                     <Button
+                      className="h-8 w-8 p-0"
                       size="sm"
                       variant="outline"
+                      title={`Edit ${project.name}`}
+                      aria-label={`Edit ${project.name}`}
                       onClick={() => openEditModal(project)}
                     >
-                      Edit
+                      <EditIcon />
                     </Button>
                     {(canCreateOrEditOrDelete || project.can_delete) && (
                       <Button
+                        className="h-8 w-8 p-0"
                         size="sm"
                         variant="destructive"
+                        title={`Archive ${project.name}`}
+                        aria-label={`Archive ${project.name}`}
                         onClick={() => openDeleteModal(project)}
                       >
-                        Delete
+                        <ArchiveIcon />
                       </Button>
                     )}
                   </div>
@@ -735,7 +926,7 @@ export function AdminProjects() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -759,69 +950,38 @@ export function AdminProjects() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Projects
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              <Val>{formatNumber(stats?.active_count ?? 0)}</Val>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Inactive Projects
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              <Val>{formatNumber(stats?.inactive_count ?? 0)}</Val>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              <Val>{formatNumber(stats?.total_tasks ?? 0)}</Val>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">By Platform</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-3">
-              <div>
-                <span className="text-2xl font-bold">
-                  <Val>{formatNumber(stats?.tm4_count ?? 0)}</Val>
-                </span>
-                <Badge variant="secondary" className="ml-1 text-[10px]">
-                  TM4
-                </Badge>
-              </div>
-              <div>
-                <span className="text-2xl font-bold">
-                  <Val>{formatNumber(stats?.mr_count ?? 0)}</Val>
-                </span>
-                <Badge
-                  variant="default"
-                  className="ml-1 text-[10px] bg-blue-500"
-                >
-                  MR
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-3 md:grid-cols-4">
+        <StatTile label="Active Projects" valueClassName="text-green-600">
+          <Val>{formatNumber(stats?.active_count ?? 0)}</Val>
+        </StatTile>
+        <StatTile label="Inactive Projects" valueClassName="text-yellow-600">
+          <Val>{formatNumber(stats?.inactive_count ?? 0)}</Val>
+        </StatTile>
+        <StatTile label="Total Tasks">
+          <Val>{formatNumber(stats?.total_tasks ?? 0)}</Val>
+        </StatTile>
+        <StatTile label="By Platform">
+          <div className="flex items-baseline gap-3">
+            <span>
+              <Val>{formatNumber(stats?.tm4_count ?? 0)}</Val>
+              <Badge
+                variant="default"
+                className="ml-1 align-middle text-[10px] bg-amber-500"
+              >
+                TM4
+              </Badge>
+            </span>
+            <span>
+              <Val>{formatNumber(stats?.mr_count ?? 0)}</Val>
+              <Badge
+                variant="default"
+                className="ml-1 align-middle text-[10px] bg-blue-500"
+              >
+                MR
+              </Badge>
+            </span>
+          </div>
+        </StatTile>
       </div>
 
       <ProjectFilters
@@ -830,6 +990,7 @@ export function AdminProjects() {
         withTeam
         withMyProjects
         withMissingAssignment
+        withSource
       />
 
       {/* Projects Tabs — controlled so the active tab drives the server query.

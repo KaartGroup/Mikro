@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
 
-from .jobs.sync import run_sync_job
+from .jobs.sync import run_sync_job, MAX_SYNC_JOB_DURATION
 from .sync_queue import SyncJobQueue
 from .jobs.element_analysis import (
     run_element_analysis_job,
@@ -18,7 +18,12 @@ from .jobs.mr_backfill import run_mr_metadata_backfill
 from .jobs.watchlist_refresh import run_watchlist_refresh_job
 from ..database import db, SyncJob, User, Organization
 
-_STALE_JOB_TIMEOUT = timedelta(hours=1)
+# Backstop for a genuinely wedged job. Deliberately LONGER than a sync
+# job's own budget (MAX_SYNC_JOB_DURATION) so the job aborts itself first
+# and records how far it got. When this was the shorter of the two, every
+# nightly task_sync was killed here at the 1h mark and reported only
+# "Timed out (stale after 1 hour)" -- 14 consecutive nights of it.
+_STALE_JOB_TIMEOUT = MAX_SYNC_JOB_DURATION + timedelta(minutes=30)
 _SHUTDOWN_MARKER = "/tmp/mikro_worker_clean_shutdown"
 
 # Tracks threads actively running sync jobs so orphan detection works after restart.
@@ -226,10 +231,21 @@ def _nightly_org_ids():
 
 
 def schedule_nightly_jobs(app):
-    """Queue task_sync and element_analysis for every active org that doesn't already have one pending."""
+    """Queue the nightly job set for every ACTIVE org that doesn't already have
+    one pending. Org selection is _nightly_org_ids() — do not inline a plain
+    `SELECT DISTINCT org_id FROM users` here again: that scheduled work forever
+    for disabled tenants and is the thing that helper exists to stop."""
     with app.app_context():
         for org_id in _nightly_org_ids():
-            for job_type in ("task_sync", "element_analysis", "watchlist_refresh"):
+            # mr_sync is queued FIRST and dispatched in id order, so the
+            # minutes-long MapRoulette pass always completes before the
+            # hours-long task_sync starts competing for the org's job slot.
+            for job_type in (
+                "mr_sync",
+                "task_sync",
+                "element_analysis",
+                "watchlist_refresh",
+            ):
                 _, created = SyncJobQueue.enqueue(org_id, job_type)
                 if created:
                     logger.info(f"Auto-scheduled nightly {job_type} for org {org_id}")
@@ -260,8 +276,17 @@ def _dispatch_sync_job(app, job):
                         run_mr_metadata_backfill(app, j)
                     elif job_type == "watchlist_refresh":
                         run_watchlist_refresh_job(j)
-                    else:
+                    elif job_type in ("task_sync", "mr_sync", "project_sync"):
                         run_sync_job(j)
+                    else:
+                        logger.error(
+                            f"Job {job_id} has unknown job_type {job_type!r} - "
+                            f"refusing to run it as a full sync"
+                        )
+                        j.status = "failed"
+                        j.error = f"Unknown job_type {job_type!r}"
+                        j.completed_at = datetime.now(timezone.utc)
+                        db.session.commit()
                 except Exception as e:
                     logger.error(
                         f"Job {job_id} thread fatal error: {e}\n{traceback.format_exc()}"
@@ -365,9 +390,7 @@ def main():
     signal.signal(signal.SIGINT, shutdown_handler)
 
     logger.info("Worker running — polling for jobs every 5 seconds")
-    logger.info(
-        "Nightly task sync + element analysis scheduled at midnight MST (07:00 UTC)"
-    )
+    logger.info("Nightly mr_sync + task sync + element analysis scheduled at 07:00 UTC")
 
     for label, poll_fn in [
         ("SYNC-THREAD", lambda: poll_for_jobs(app)),
