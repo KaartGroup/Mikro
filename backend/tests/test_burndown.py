@@ -101,14 +101,49 @@ def test_calculated_rate_is_scoped_by_project_priority(db_session):
     assert svc.compute_calculated_rate(ORG, "Low", ADMIN) is not None
 
 
+# ── remaining_task_count ────────────────────────────────────────────────────
+
+
+def test_remaining_counts_untouched_tasks_that_have_no_local_task_row(db_session):
+    """Regression: a sync only creates a local Task row once someone has
+    worked it (see sync_tm4_project / sync_challenge_tasks) — an untouched
+    task never gets one. Remaining must come from Project.total_tasks, not
+    from counting incomplete local Task rows (which would undercount to 0)."""
+    db_session.add(_project(20, total_tasks=1000, tasks_overlap=40))
+    db_session.flush()
+
+    now = datetime.utcnow()
+    # Only 860 completions have local rows; the other ~100 untouched tasks
+    # never got one at all.
+    db_session.add_all(
+        [_task(800 + i, 20, mapped=True, completed_at=now) for i in range(860)]
+    )
+    db_session.flush()
+
+    # effective_total = 1000 - 40 = 960; remaining = 960 - 860 = 100.
+    assert svc.remaining_task_count(ORG, "High", ADMIN) == 100
+
+
+def test_remaining_is_zero_not_negative_when_completed_exceeds_total(db_session):
+    db_session.add(_project(21, total_tasks=5))
+    db_session.flush()
+
+    now = datetime.utcnow()
+    db_session.add_all(
+        [_task(900 + i, 21, mapped=True, completed_at=now) for i in range(8)]
+    )
+    db_session.flush()
+
+    assert svc.remaining_task_count(ORG, "High", ADMIN) == 0
+
+
 # ── get_or_create_config ───────────────────────────────────────────────────
 
 
 def test_get_or_create_config_uses_the_300_default_when_data_is_insufficient(
     db_session,
 ):
-    db_session.add(_project(5))
-    db_session.add_all([_task(300 + i, 5, mapped=False) for i in range(12)])
+    db_session.add(_project(5, total_tasks=12))
     db_session.flush()
 
     cfg = svc.get_or_create_config(ORG, "High", ADMIN)
@@ -153,8 +188,7 @@ def test_get_or_create_config_is_idempotent(db_session):
 
 
 def test_planned_series_follows_the_max_zero_formula(db_session):
-    db_session.add(_project(7))
-    db_session.add_all([_task(400 + i, 7, mapped=False) for i in range(100)])
+    db_session.add(_project(7, total_tasks=100))
     db_session.flush()
 
     cfg = svc.get_or_create_config(ORG, "High", ADMIN)
@@ -171,8 +205,7 @@ def test_planned_series_follows_the_max_zero_formula(db_session):
 
 
 def test_actual_series_never_changes_when_the_rate_changes(db_session):
-    db_session.add(_project(8))
-    db_session.add_all([_task(500 + i, 8, mapped=False) for i in range(10)])
+    db_session.add(_project(8, total_tasks=10))
     db_session.flush()
 
     cfg = svc.get_or_create_config(ORG, "High", ADMIN)

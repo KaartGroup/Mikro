@@ -44,23 +44,45 @@ def _week_start(dt):
     return func.date_trunc("week", dt + timedelta(days=1)) - timedelta(days=1)
 
 
+def _priority_projects(org_id, priority, viewer):
+    """Project rows at this priority, scoped to what `viewer` may see."""
+    query = ProjectService.role_scope_projects_query(Project.query, viewer)
+    return query.filter(Project.org_id == org_id, Project.priority == priority).all()
+
+
 def _priority_project_ids(org_id, priority, viewer):
     """Project ids at this priority, scoped to what `viewer` may see."""
-    query = ProjectService.role_scope_projects_query(Project.query, viewer)
-    rows = query.filter(
-        Project.org_id == org_id, Project.priority == priority
-    ).with_entities(Project.id)
-    return [r[0] for r in rows]
+    return [p.id for p in _priority_projects(org_id, priority, viewer)]
 
 
 def remaining_task_count(org_id, priority, viewer):
-    """Live count of not-yet-completed tasks for projects at this priority."""
-    project_ids = _priority_project_ids(org_id, priority, viewer)
-    if not project_ids:
+    """Live count of not-yet-completed tasks for projects at this priority.
+
+    A sync only ever creates a local ``Task`` row once a mapper/validator has
+    touched it (see ``sync_tm4_project`` in views/Tasks.py and
+    ``sync_challenge_tasks`` in views/MapRoulette.py) — an untouched task has
+    no local row at all. So remaining can't be "count incomplete Task rows";
+    it has to be the project's real remote total minus what's completed,
+    same as the percent-complete math in reports/editing_stats.py.
+    """
+    projects = _priority_projects(org_id, priority, viewer)
+    if not projects:
         return 0
-    return Task.query.filter(
-        Task.project_id.in_(project_ids), ~_completed_filter()
-    ).count()
+
+    project_ids = [p.id for p in projects]
+    completed_by_project = dict(
+        db.session.query(Task.project_id, func.count(func.distinct(Task.id)))
+        .filter(Task.project_id.in_(project_ids), _completed_filter())
+        .group_by(Task.project_id)
+        .all()
+    )
+
+    remaining = 0
+    for p in projects:
+        effective_total = (p.total_tasks or 0) - (p.tasks_overlap or 0)
+        completed = completed_by_project.get(p.id, 0)
+        remaining += max(0, effective_total - completed)
+    return remaining
 
 
 def compute_calculated_rate(org_id, priority, viewer):
