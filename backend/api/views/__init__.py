@@ -27,6 +27,7 @@ from .ProjectProposals import ProjectProposalsAPI
 from .Layers import LayersAPI
 from .ReportLayouts import ReportLayoutsAPI
 from .Availability import AvailabilityAPI
+from .Burndown import BurndownAPI
 
 __all__ = {
     "UserAPI",
@@ -56,4 +57,5 @@ __all__ = {
     "LayersAPI",
     "ReportLayoutsAPI",
     "AvailabilityAPI",
+    "BurndownAPI",
 }

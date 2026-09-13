@@ -5,6 +5,7 @@ import { useReportsDataContext } from "../ReportsDataContext";
 import { TaskHoursByCategoryCard } from "../../_components/TaskHoursByCategoryCard";
 import { TeamActivityCard } from "../../_components/TeamActivityCard";
 import { CommunityOutreachCard } from "../../_components/CommunityOutreachCard";
+import { BurndownChart } from "../../_components/BurndownChart";
 
 /**
  * Reports v2 block registry.
@@ -27,7 +28,9 @@ function BlockEmpty({ label }: { label: string }) {
 function TaskHoursBlock() {
   const { timekeeping, granularity } = useReportsDataContext();
   if (!timekeeping) return <BlockEmpty label="Task Hours by Category" />;
-  return <TaskHoursByCategoryCard data={timekeeping} granularity={granularity} />;
+  return (
+    <TaskHoursByCategoryCard data={timekeeping} granularity={granularity} />
+  );
 }
 
 function TeamActivityBlock() {
@@ -48,6 +51,9 @@ export type ReportsBlockProps = {
   TaskHoursByCategory: Record<string, never>;
   TeamActivity: Record<string, never>;
   CommunityOutreach: Record<string, never>;
+  HighPriorityBurndown: Record<string, never>;
+  MediumPriorityBurndown: Record<string, never>;
+  LowPriorityBurndown: Record<string, never>;
 };
 
 export const reportsConfig: Config<ReportsBlockProps> = {
@@ -96,6 +102,18 @@ export const reportsConfig: Config<ReportsBlockProps> = {
       label: "Community Outreach",
       render: () => <CommunityOutreachBlock />,
     },
+    HighPriorityBurndown: {
+      label: "High Priority Burndown",
+      render: () => <BurndownChart priority="High" />,
+    },
+    MediumPriorityBurndown: {
+      label: "Medium Priority Burndown",
+      render: () => <BurndownChart priority="Medium" />,
+    },
+    LowPriorityBurndown: {
+      label: "Low Priority Burndown",
+      render: () => <BurndownChart priority="Low" />,
+    },
   },
 };
 
@@ -103,9 +121,19 @@ export const reportsConfig: Config<ReportsBlockProps> = {
 export const defaultReportsLayout: Data = {
   root: { props: {} },
   content: [
-    { type: "Heading", props: { id: "h-intro", text: "Team Report", level: "h2" } },
+    {
+      type: "Heading",
+      props: { id: "h-intro", text: "Team Report", level: "h2" },
+    },
     { type: "TaskHoursByCategory", props: { id: "blk-task-hours" } },
     { type: "TeamActivity", props: { id: "blk-team-activity" } },
     { type: "CommunityOutreach", props: { id: "blk-community" } },
+    {
+      type: "Heading",
+      props: { id: "h-burndown", text: "Burndown", level: "h2" },
+    },
+    { type: "HighPriorityBurndown", props: { id: "blk-burndown-high" } },
+    { type: "MediumPriorityBurndown", props: { id: "blk-burndown-medium" } },
+    { type: "LowPriorityBurndown", props: { id: "blk-burndown-low" } },
   ],
 };

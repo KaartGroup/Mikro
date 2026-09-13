@@ -140,6 +140,7 @@ def _register_views(app):
         LayersAPI,
         ReportLayoutsAPI,
         AvailabilityAPI,
+        BurndownAPI,
     )
 
     # Authentication
@@ -202,6 +203,12 @@ def _register_views(app):
     app.add_url_rule(
         "/api/report_layouts/<path>",
         view_func=ReportLayoutsAPI.as_view("report_layouts"),
+    )
+
+    # Reports v2 burndown-chart rate configuration
+    app.add_url_rule(
+        "/api/burndown/<path>",
+        view_func=BurndownAPI.as_view("burndown"),
     )
 
     # Regions & Countries

@@ -1196,6 +1196,44 @@ class ReportLayout(CRUDMixin, db.Model):
         )
 
 
+class BurndownConfig(CRUDMixin, db.Model):
+    """Rate configuration for a priority-level burndown chart.
+
+    One row per (org_id, priority). ``calculated_rate`` is the trailing-month
+    historical average and is only ever written by a recalculate action;
+    ``manual_rate`` is a user-entered override. Neither is derived from the
+    other, and which one is active is tracked separately via
+    ``applied_rate_source`` rather than by overwriting either value.
+    """
+
+    __tablename__ = "burndown_configs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    org_id = Column(String(255), nullable=False, index=True)
+    priority = Column(String(20), nullable=False)  # "High" | "Medium" | "Low"
+
+    burndown_start_date = Column(db.Date, nullable=False)
+    starting_task_count = Column(Integer, nullable=False)
+
+    calculated_rate = Column(Float, nullable=True)  # None = "not available"
+    manual_rate = Column(Float, nullable=True)
+    # "historical_average" | "manual" | "default"
+    applied_rate_source = Column(String(20), nullable=False, default="default")
+
+    last_recalculated_at = Column(DateTime, nullable=True)
+    created_by = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_by = Column(String(255), nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        db.UniqueConstraint("org_id", "priority", name="uq_burndown_org_priority"),
+    )
+
+    def __repr__(self):
+        return f"<BurndownConfig org={self.org_id} priority={self.priority}>"
+
+
 class Punk(ModelWithSoftDeleteAndCRUD, SurrogatePK):
     """Watchlist entry for a problematic OSM editor."""
 

@@ -1128,6 +1128,52 @@ export function useSaveReportLayout() {
   );
 }
 
+// ─── Reports v2 burndown charts ─────────────────────────────
+
+export type BurndownPriority = "High" | "Medium" | "Low";
+export type BurndownRateSource = "historical_average" | "manual" | "default";
+
+export interface BurndownSeriesPoint {
+  date: string;
+  remaining: number;
+}
+
+export interface BurndownChartData {
+  priority: BurndownPriority;
+  burndownStartDate: string;
+  startingTaskCount: number;
+  calculatedRate: number | null;
+  manualRate: number | null;
+  appliedRate: number;
+  appliedRateSource: BurndownRateSource;
+  lastRecalculatedAt: string | null;
+  plannedSeries: BurndownSeriesPoint[];
+  actualSeries: BurndownSeriesPoint[];
+  projectedCompletionDate: string | null;
+}
+
+export interface FetchBurndownResponse {
+  status: number;
+  charts: BurndownChartData[];
+}
+
+export interface BurndownChartResponse {
+  status: number;
+  chart: BurndownChartData;
+}
+
+export function useFetchBurndown() {
+  return useApiMutation<FetchBurndownResponse>("/burndown/fetch_burndown");
+}
+
+export function useRecalculateBurndownRate() {
+  return useApiMutation<BurndownChartResponse>("/burndown/recalculate_rate");
+}
+
+export function useApplyBurndownRate() {
+  return useApiMutation<BurndownChartResponse>("/burndown/apply_rate");
+}
+
 // ─── Region & Filter hooks ──────────────────────────────────
 
 export function useFetchFilterOptions() {
