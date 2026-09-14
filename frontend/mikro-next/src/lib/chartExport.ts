@@ -33,3 +33,30 @@ export function todayIso(): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+export type ChartImageFormat = "png" | "jpeg";
+
+/**
+ * Rasterize a DOM element (e.g. a chart card) to PNG or JPEG and trigger a
+ * download. Uses html-to-image (already a dependency, same library
+ * reportExport.ts uses to capture [data-chart-export] cards for the Word
+ * export) rather than a from-scratch SVG serializer, since a chart card is
+ * HTML + SVG together, not just the recharts <svg>.
+ */
+export async function exportElementAsImage(
+  el: HTMLElement,
+  format: ChartImageFormat,
+  filename: string,
+): Promise<void> {
+  const { toPng, toJpeg } = await import("html-to-image");
+  const dataUrl =
+    format === "jpeg"
+      ? await toJpeg(el, {
+          pixelRatio: 2,
+          backgroundColor: "#ffffff",
+          quality: 0.95,
+        })
+      : await toPng(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+  const blob = await (await fetch(dataUrl)).blob();
+  triggerDownload(blob, filename);
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -19,6 +19,11 @@ import {
   Input,
 } from "@/components/ui";
 import { formatNumber } from "@/lib/utils";
+import {
+  exportElementAsImage,
+  todayIso,
+  type ChartImageFormat,
+} from "@/lib/chartExport";
 import {
   useFetchBurndown,
   useRecalculateBurndownRate,
@@ -75,9 +80,13 @@ export function BurndownChart({ priority }: BurndownChartProps) {
     useRecalculateBurndownRate();
   const { mutate: applyRate, loading: applying } = useApplyBurndownRate();
 
+  const cardRef = useRef<HTMLDivElement>(null);
+
   const [chart, setChart] = useState<BurndownChartData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<ChartImageFormat | null>(null);
 
   const [manualRateInput, setManualRateInput] = useState("");
   const [pendingSource, setPendingSource] =
@@ -156,6 +165,26 @@ export function BurndownChart({ priority }: BurndownChartProps) {
     }
   };
 
+  const handleDownload = async (format: ChartImageFormat) => {
+    if (!cardRef.current) return;
+    setExportError(null);
+    setExporting(format);
+    try {
+      const ext = format === "jpeg" ? "jpg" : "png";
+      await exportElementAsImage(
+        cardRef.current,
+        format,
+        `${priority.toLowerCase()}-priority-burndown-${todayIso()}.${ext}`,
+      );
+    } catch (err) {
+      setExportError(
+        err instanceof Error ? err.message : "Failed to export chart image",
+      );
+    } finally {
+      setExporting(null);
+    }
+  };
+
   if (loadError) {
     return (
       <Card data-chart-export={`${priority} Priority Burndown`}>
@@ -167,9 +196,33 @@ export function BurndownChart({ priority }: BurndownChartProps) {
   }
 
   return (
-    <Card data-chart-export={`${priority} Priority Burndown`}>
-      <CardHeader>
+    <Card ref={cardRef} data-chart-export={`${priority} Priority Burndown`}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle>{priority} Priority Burndown</CardTitle>
+        {chart && (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleDownload("png")}
+              isLoading={exporting === "png"}
+              disabled={exporting !== null}
+            >
+              Download PNG
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleDownload("jpeg")}
+              isLoading={exporting === "jpeg"}
+              disabled={exporting !== null}
+            >
+              Download JPEG
+            </Button>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {!chart ? (
@@ -178,7 +231,19 @@ export function BurndownChart({ priority }: BurndownChartProps) {
           </div>
         ) : (
           <>
-            <div style={{ width: "100%", height: 220 }}>
+            {exportError && (
+              <p className="text-sm text-red-600">{exportError}</p>
+            )}
+            <div
+              className="resize-y overflow-hidden rounded-md border border-dashed border-border"
+              style={{
+                width: "100%",
+                height: 220,
+                minHeight: 160,
+                maxHeight: 640,
+              }}
+              title="Drag the bottom-right corner to resize"
+            >
               <ResponsiveContainer>
                 <LineChart
                   data={data}
