@@ -12,7 +12,9 @@ Viewer-aware reads (anything gated by the requesting user's role / team
 scope) belong in ``api.auth.UserScope`` instead — not here.
 """
 
-from .database import User
+from sqlalchemy import or_, select
+
+from .database import User, db
 
 
 def by_id(user_id):
@@ -54,3 +56,19 @@ def by_org(org_id, *, active_only=False):
     if active_only:
         q = q.filter(User.is_active.is_(True))
     return q.all()
+
+
+def exists_by_auth0_sub(sub):
+    """True if ANY user row carries this Auth0 sub — deactivated and
+    soft-deleted rows included (``User.query`` hides soft-deleted rows, so
+    this deliberately goes through ``select`` instead).
+
+    Matches ``id`` as well as ``auth0_sub``: ``id`` IS the sub for every row
+    Login/invite creates, but an older row may carry it only in one column.
+    Used by the Kaart user lookup that Maprizon's account deletion calls,
+    which treats "exists" as "this shared Auth0 login is still in use here".
+    """
+    if not sub:
+        return False
+    stmt = select(User.id).where(or_(User.id == sub, User.auth0_sub == sub)).limit(1)
+    return db.session.execute(stmt).first() is not None

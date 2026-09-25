@@ -97,6 +97,11 @@ services:
         type: SECRET
         value: ${COMMS_WEBHOOK_SECRET}
 
+      # Kaart user lookup (POST /api/internal/kaart-user-lookup). Same value
+      # on Maprizon + Tasking Manager. Unset -> the endpoint returns 503.
+      - key: KAART_USER_LOOKUP_SECRET
+        type: SECRET
+
   # Frontend - Next.js
   - name: mikro-frontend
     github:

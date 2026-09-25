@@ -246,6 +246,8 @@ In `api/auth/auth.py::authenticate_request`:
 - `/api/osm/callback` — OSM redirects here, no bearer token exists yet
 - `/api/webhook/*` — uses **HMAC** signature verification instead
   (`MIKRO_WEBHOOK_SECRET`)
+- `/api/internal/kaart-user-lookup` (exact path) — shared-secret header
+  `X-Kaart-Lookup-Secret` (`KAART_USER_LOOKUP_SECRET`) instead; see §8.1
 - anything not under `/api/`
 
 Custom Auth0 claims use the `mikro/` namespace (`mikro/org_id`, `mikro/roles`),
@@ -435,6 +437,15 @@ nightly window matters, this is worth moving to an explicit tz-aware schedule.
 skips JWT. Handles `mapped`, `validated`, `invalidated`, and `split` events from
 TM4. This is the low-latency path; the nightly `task_sync` is the reconciliation
 path.
+
+`POST /api/internal/kaart-user-lookup` — called by **Maprizon's account
+deletion** to ask whether a person's shared Auth0 login is also a Mikro user
+(if so, Maprizon keeps the Auth0 identity). Header `X-Kaart-Lookup-Secret`
+must equal `KAART_USER_LOOKUP_SECRET` (constant-time compare; the same value is
+set on Maprizon and Tasking Manager), skips JWT. Body `{"auth0_sub": "..."}` →
+`200 {"exists": bool}`; `exists` is true for ANY user row with that sub in `id`
+or `auth0_sub`, deactivated and soft-deleted rows included. `401` bad/missing
+secret, `400` no `auth0_sub`, `503` secret unset. The raw sub is never logged.
 
 ---
 
@@ -678,6 +689,7 @@ Confirm you have all of these before you need them urgently:
 - [ ] Anthropic API key
 - [ ] `MIKRO_WEBHOOK_SECRET` and `COMMS_WEBHOOK_SECRET` (the latter must match
       across *every* app that emits to comms)
+- [ ] `KAART_USER_LOOKUP_SECRET` (must match Maprizon and Tasking Manager)
 - [ ] Gmail app password for comms SMTP
 - [ ] **Supabase project** access (see risk #3)
 - [ ] Trello board

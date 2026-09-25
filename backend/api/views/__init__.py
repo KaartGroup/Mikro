@@ -28,6 +28,7 @@ from .Layers import LayersAPI
 from .ReportLayouts import ReportLayoutsAPI
 from .Availability import AvailabilityAPI
 from .Burndown import BurndownAPI
+from .Internal import InternalAPI
 
 __all__ = {
     "UserAPI",
@@ -58,4 +59,5 @@ __all__ = {
     "ReportLayoutsAPI",
     "AvailabilityAPI",
     "BurndownAPI",
+    "InternalAPI",
 }

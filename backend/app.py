@@ -141,6 +141,7 @@ def _register_views(app):
         ReportLayoutsAPI,
         AvailabilityAPI,
         BurndownAPI,
+        InternalAPI,
     )
 
     # Authentication
@@ -222,6 +223,13 @@ def _register_views(app):
 
     # Webhooks (HMAC-authenticated, not JWT)
     app.add_url_rule("/api/webhook/<path>", view_func=WebhookAPI.as_view("webhook"))
+
+    # Server-to-server lookups (shared-secret header, not JWT)
+    app.add_url_rule(
+        "/api/internal/<path>",
+        view_func=InternalAPI.as_view("internal"),
+        methods=["POST"],
+    )
 
     # Punks watchlist
     app.add_url_rule("/api/punk/<path>", view_func=PunkAPI.as_view("punk"))
