@@ -112,6 +112,11 @@ class BaseConfig:
     # Webhook Integration
     MIKRO_WEBHOOK_SECRET = os.environ.get("MIKRO_WEBHOOK_SECRET")
 
+    # Shared secret for POST /api/internal/kaart-user-lookup (Maprizon's account
+    # deletion asks whether a shared Auth0 login is also a Mikro user). Same
+    # value on Maprizon, Tasking Manager and Mikro. Unset -> endpoint returns 503.
+    KAART_USER_LOOKUP_SECRET = os.environ.get("KAART_USER_LOOKUP_SECRET")
+
     # Comms service (standalone notification service)
     COMMS_URL = os.environ.get("COMMS_URL")
     COMMS_WEBHOOK_SECRET = os.environ.get("COMMS_WEBHOOK_SECRET")

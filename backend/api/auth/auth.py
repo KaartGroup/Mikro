@@ -281,6 +281,11 @@ def authenticate_request():
     if request.path.startswith("/api/webhook/"):
         return None
 
+    # Skip JWT auth for the server-to-server Kaart user lookup — it checks a
+    # shared secret header instead (api/views/Internal.py)
+    if request.path == "/api/internal/kaart-user-lookup":
+        return None
+
     # Only authenticate /api/* routes - let other routes pass through
     if not request.path.startswith("/api/"):
         return None

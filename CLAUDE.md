@@ -77,7 +77,7 @@ The frontend proxies all `/api/*` calls through a Next.js route handler at `src/
 
 ### API View Pattern
 
-All backend routes use Flask `MethodView`. Routes are registered via `app.add_url_rule(...)` in `app.py`. Each view class handles GET/POST/PUT/DELETE; within a method, sub-paths are dispatched internally (e.g. `"fetch_user_role"` → `_fetch_user_role()`). Webhook routes at `/api/webhook/*` skip JWT auth and validate an HMAC signature (`MIKRO_WEBHOOK_SECRET`) instead.
+All backend routes use Flask `MethodView`. Routes are registered via `app.add_url_rule(...)` in `app.py`. Each view class handles GET/POST/PUT/DELETE; within a method, sub-paths are dispatched internally (e.g. `"fetch_user_role"` → `_fetch_user_role()`). Webhook routes at `/api/webhook/*` skip JWT auth and validate an HMAC signature (`MIKRO_WEBHOOK_SECRET`) instead. `POST /api/internal/kaart-user-lookup` (`api/views/Internal.py`) also skips JWT: Maprizon's account deletion calls it server-to-server with the `X-Kaart-Lookup-Secret` header (`KAART_USER_LOOKUP_SECRET`) to ask whether an Auth0 sub is a Mikro user; it answers `{"exists": bool}`, counting deactivated and soft-deleted rows.
 
 ### Role & Team Scoping
 
